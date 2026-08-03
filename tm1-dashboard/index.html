@@ -221,6 +221,7 @@ tr.total td.c-dim{background:var(--grey-2)}
   <!-- ================= SIDEBAR ================= -->
   <aside>
     <div class="side-h">Data source</div>
+    <button class="chipbtn" id="clearCacheBtn" style="display:none;margin-bottom:8px">✕ Forget cached file</button>
     <div class="dropzone card" id="dropzone">
       <div class="big">⬆️</div>
       <div><strong>Drop</strong> your TM1 export here</div>
@@ -378,9 +379,69 @@ window.addEventListener("error",e=>{
   setStatus("Error: "+(e.message||"unknown")+" — please report this with your file layout.",true);
 });
 
+/* ---------- local cache (IndexedDB): file survives page reloads ---------- */
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const rq=indexedDB.open("gps-driller-cache",1);
+    rq.onupgradeneeded=()=>rq.result.createObjectStore("files");
+    rq.onsuccess=()=>res(rq.result);
+    rq.onerror=()=>rej(rq.error);
+  });
+}
+async function cachePut(name,buf){
+  try{
+    const db=await idbOpen();
+    await new Promise((res,rej)=>{
+      const tx=db.transaction("files","readwrite");
+      tx.objectStore("files").put({name,ts:Date.now(),buf},"last");
+      tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+    });
+    showCacheBtn(name);
+  }catch(e){ /* private mode / policy-blocked storage: caching just doesn't happen */ }
+}
+async function cacheGet(){
+  try{
+    const db=await idbOpen();
+    return await new Promise((res,rej)=>{
+      const rq=db.transaction("files").objectStore("files").get("last");
+      rq.onsuccess=()=>res(rq.result||null);
+      rq.onerror=()=>rej(rq.error);
+    });
+  }catch(e){ return null; }
+}
+async function cacheClear(){
+  try{
+    const db=await idbOpen();
+    await new Promise((res,rej)=>{
+      const tx=db.transaction("files","readwrite");
+      tx.objectStore("files").delete("last");
+      tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+    });
+  }catch(e){}
+  try{ localStorage.removeItem("gpsdriller.prefs"); }catch(e){}
+}
+function showCacheBtn(name){
+  const b=document.getElementById("clearCacheBtn");
+  b.style.display="inline-block";
+  b.title=`Forget the locally cached copy of ${name}`;
+}
+
+/* view preferences persisted alongside the cached file */
+function savePrefs(){
+  try{
+    localStorage.setItem("gpsdriller.prefs",JSON.stringify({
+      levels:state.levels, valueCols:state.valueCols, colDim:state.colDim,
+      scale:state.scale, includeCalc:state.includeCalc, sheetName:state.sheetName
+    }));
+  }catch(e){}
+}
+function loadPrefs(){
+  try{ return JSON.parse(localStorage.getItem("gpsdriller.prefs")||"null"); }
+  catch(e){ return null; }
+}
+
 /* ---------- workbook loading ---------- */
 function readFile(file){
-  document.getElementById("fileName").textContent=file.name;
   if(typeof XLSX==="undefined"){
     setStatus("Excel engine not loaded — this HTML file may be corrupted. Re-download the full dashboard file.",true);
     return;
@@ -388,31 +449,35 @@ function readFile(file){
   setStatus(`Reading ${file.name} (${(file.size/1048576).toFixed(1)} MB)…`);
   const rd=new FileReader();
   rd.onerror=()=>setStatus("Could not read the file (browser blocked it or it is open with a lock). Close it in Excel and retry.",true);
-  rd.onload=e=>{
-    // setTimeout lets the status paint before parsing blocks the UI thread
-    setTimeout(()=>{
-      try{
-        setStatus("Parsing workbook…");
-        const data=new Uint8Array(e.target.result);
-        state.workbook=XLSX.read(data,{type:"array"});
-        if(!state.workbook.SheetNames.length) throw new Error("No worksheets found in the file.");
-        const sel=document.getElementById("sheetSel");
-        sel.innerHTML="";
-        state.workbook.SheetNames.forEach(n=>{
-          const o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o);
-        });
-        // prefer a sheet that looks like the data sheet
-        const pref=state.workbook.SheetNames.find(n=>/data|gps/i.test(n))||state.workbook.SheetNames[0];
-        sel.value=pref;
-        document.getElementById("sheetLabel").style.display="block";
-        sel.style.display="block";
-        loadSheet(pref);
-      }catch(err){
-        setStatus("Could not parse this file: "+err.message,true);
-      }
-    },30);
-  };
+  rd.onload=e=>{ setTimeout(()=>parseWorkbook(e.target.result,file.name,true),30); };
   rd.readAsArrayBuffer(file);
+}
+
+function parseWorkbook(arrbuf,name,saveToCache){
+  // setTimeout in callers lets the status paint before parsing blocks the UI thread
+  try{
+    document.getElementById("fileName").textContent=name;
+    setStatus("Parsing workbook…");
+    const data=new Uint8Array(arrbuf);
+    state.workbook=XLSX.read(data,{type:"array"});
+    if(!state.workbook.SheetNames.length) throw new Error("No worksheets found in the file.");
+    const sel=document.getElementById("sheetSel");
+    sel.innerHTML="";
+    state.workbook.SheetNames.forEach(n=>{
+      const o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o);
+    });
+    // prefer the previously used sheet, else one that looks like the data sheet
+    const prefs=loadPrefs();
+    const pref=(prefs&&state.workbook.SheetNames.includes(prefs.sheetName)&&prefs.sheetName)
+      ||state.workbook.SheetNames.find(n=>/data|gps/i.test(n))||state.workbook.SheetNames[0];
+    sel.value=pref;
+    document.getElementById("sheetLabel").style.display="block";
+    sel.style.display="block";
+    loadSheet(pref);
+    if(saveToCache) cachePut(name,arrbuf);   // only cache what parsed successfully
+  }catch(err){
+    setStatus("Could not parse this file: "+err.message,true);
+  }
 }
 
 function loadSheet(name){
@@ -469,6 +534,26 @@ function loadSheet(name){
   applyCalcFilter();
 
   initDefaults();
+  // restore the previous view setup where it still fits this file
+  const pv=loadPrefs();
+  if(pv){
+    if(Array.isArray(pv.levels)){
+      const l=pv.levels.filter(d=>state.dims.includes(d));
+      if(l.length) state.levels=l;
+    }
+    if(Array.isArray(pv.valueCols)){
+      const v=pv.valueCols.filter(m=>state.measures.includes(m));
+      if(v.length) state.valueCols=v;
+    }
+    if(pv.colDim&&state.dims.includes(pv.colDim)) state.colDim=pv.colDim;
+    if(pv.scale===1||pv.scale===1e3||pv.scale===1e6){
+      state.scale=pv.scale;
+      document.getElementById("scaleSel").value=String(pv.scale);
+    }
+    if(typeof pv.includeCalc==="boolean"&&pv.includeCalc!==state.includeCalc){
+      state.includeCalc=pv.includeCalc; applyCalcFilter();
+    }
+  }
   buildSidebar();
   recompute();
   document.getElementById("emptyState").style.display="none";
@@ -580,7 +665,7 @@ function buildSidebar(){
   const cds=document.getElementById("colDimSel");
   cds.innerHTML=`<option value="">Columns: periods</option>`+
     state.dims.map(d=>`<option value="${esc(d)}" ${state.colDim===d?"selected":""}>Columns: ${esc(d)}</option>`).join("");
-  cds.onchange=e=>{ state.colDim=e.target.value; renderTable(); };
+  cds.onchange=e=>{ state.colDim=e.target.value; renderTable(); savePrefs(); };
 }
 
 function renderLevels(){
@@ -707,6 +792,7 @@ function recompute(){
   // default-expand depth 0 the first time
   if(state.expanded.size===0) state.tree.forEach(n=>state.expanded.add(n.id));
   renderKpis(); renderTable();
+  if(state.workbook) savePrefs();
 }
 
 /* ---------- number formatting ---------- */
@@ -916,7 +1002,24 @@ varBtn.onclick=()=>{state.showVariance=!state.showVariance; varBtn.classList.tog
 document.getElementById("scaleSel").onchange=e=>{
   state.scale=+e.target.value;
   renderKpis(); renderTable();   // display-only: no re-aggregation needed
+  if(state.workbook) savePrefs();
 };
+document.getElementById("clearCacheBtn").onclick=async()=>{
+  await cacheClear();
+  document.getElementById("clearCacheBtn").style.display="none";
+  setStatus("Cached file forgotten — the dashboard will ask for an upload next time it opens.");
+  setTimeout(()=>setStatus(""),5000);
+};
+
+// restore the cached file from the last session, if any
+(async()=>{
+  const c=await cacheGet();
+  if(c&&c.buf&&typeof XLSX!=="undefined"){
+    showCacheBtn(c.name);
+    setStatus(`Restoring cached ${c.name} (loaded ${new Date(c.ts).toLocaleString()})…`);
+    setTimeout(()=>parseWorkbook(c.buf,c.name,false),50);
+  }
+})();
 document.getElementById("themeBtn").onclick=()=>{
   const r=document.documentElement;
   r.setAttribute("data-theme", r.getAttribute("data-theme")==="dark"?"light":"dark");

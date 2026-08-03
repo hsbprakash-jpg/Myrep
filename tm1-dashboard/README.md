@@ -42,6 +42,12 @@ browser, drop your Excel file on it, and drill.
   plus presets: *Latest FY vs PY* and *Current-year months*.
 - **Variance** — one click adds `Δ Var` and `Δ %` between the first two
   selected periods (e.g. FY'26 vs FY'25).
+- **Session cache** — after a successful load the file's bytes are stored in
+  the browser's IndexedDB and the view setup (drill levels, ticked periods,
+  crosstab column, scale, calculated-rows toggle, worksheet) in localStorage.
+  Reopening the page restores everything automatically — no re-upload. Data
+  stays on the local machine only; the “✕ Forget cached file” button in the
+  sidebar clears it. Re-uploading a newer export simply replaces the cache.
 - **Crosstab mode** — the `Columns:` selector switches the table from
   periods-across to a dimension-across layout: pick `Columns: Ac Line` and one
   period, and every row splits into NII / Non-NII / … plus a Total column —
