@@ -274,6 +274,11 @@ tr.total td.c-dim{background:var(--grey-2)}
         <button class="chipbtn" id="expandAll">⤢ Expand all</button>
         <button class="chipbtn" id="collapseAll">⤡ Collapse all</button>
         <button class="chipbtn" id="varBtn" title="Show variance between first two value columns">Δ Variance</button>
+        <select id="scaleSel" class="chipbtn" title="Display scale — values are divided for display only">
+          <option value="1">Units</option>
+          <option value="1000">Thousands (k)</option>
+          <option value="1000000">Millions (m)</option>
+        </select>
         <span class="badge" id="rowStat"></span>
       </div>
       <div class="tablewrap">
@@ -306,7 +311,8 @@ const state = {
   valueCols:[],                   // selected period headers (in detected order)
   expanded:new Set(),             // node ids that are open
   tree:null, grand:null,
-  showVariance:false, search:""
+  showVariance:false, search:"",
+  scale:1                         // display divisor: 1, 1e3 (thousands), 1e6 (millions)
 };
 
 /* ---------- column classification (the semantic layer) ---------- */
@@ -665,11 +671,13 @@ function recompute(){
 
 /* ---------- number formatting ---------- */
 const nf=new Intl.NumberFormat("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+function scaleSuffix(){ return state.scale===1e6?"m":state.scale===1e3?"k":""; }
 function fmt(v){
   if(v===null||v===undefined) return {t:"–",cls:"zero"};
   if(v===0) return {t:"0.00",cls:"zero"};
-  const neg=v<0;
-  const t=nf.format(Math.abs(v));
+  const s=v/state.scale;
+  const neg=s<0;
+  const t=nf.format(Math.abs(s));
   return {t: neg?`(${t})`:t, cls: neg?"neg":""};
 }
 
@@ -682,7 +690,7 @@ function renderKpis(){
     const el=document.createElement("div"); el.className="kpi card";
     el.innerHTML=`<div class="k-label" title="${esc(c)}">${esc(M[c].label)}</div>`+
       `<div class="k-val ${f.cls}">${f.t}</div>`+
-      `<div class="k-sub">${esc(M[c].gran)} · ${M[c].scenario} · grand total</div>`;
+      `<div class="k-sub">${esc(M[c].gran)} · ${M[c].scenario} · grand total${scaleSuffix()?" · in "+(state.scale===1e6?"millions":"thousands"):""}</div>`;
     box.appendChild(el);
   });
   if(!state.valueCols.length){
@@ -696,7 +704,8 @@ function renderTable(){
   const M=state.measureMeta;
   const thead=document.getElementById("thead");
   let th=`<th class="h-dim">Hierarchy</th>`;
-  state.valueCols.forEach(c=>{ th+=`<th title="${esc(c)}">${esc(M[c].label)}</th>`; });
+  const sfx=scaleSuffix()?` <span class="tiny muted">(${scaleSuffix()})</span>`:"";
+  state.valueCols.forEach(c=>{ th+=`<th title="${esc(c)}">${esc(M[c].label)}${sfx}</th>`; });
   if(state.showVariance&&state.valueCols.length>=2){
     th+=`<th class="varh" title="${esc(state.valueCols[0])} − ${esc(state.valueCols[1])}">Δ Var</th>`;
     th+=`<th class="varh">Δ %</th>`;
@@ -734,7 +743,9 @@ function renderTable(){
   document.getElementById("rowStat").textContent=
     `${shown} row${shown===1?"":"s"} shown`;
   document.getElementById("tableNote").textContent=
-    `Drill path: ${state.levels.join("  ›  ")||"(none)"} · values summed from ${state.records.length} leaf records · figures as in source file.`;
+    `Drill path: ${state.levels.join("  ›  ")||"(none)"} · values summed from ${state.records.length} leaf records · `+
+    (state.scale===1?"figures as in source file.":
+     `figures in ${state.scale===1e6?"millions":"thousands"} (source ÷ ${state.scale.toLocaleString()}).`);
 }
 
 function rowHtml(n,depth,hasKids,open){
@@ -799,6 +810,10 @@ document.getElementById("expandAll").onclick=()=>{const s=new Set(); collectIds(
 document.getElementById("collapseAll").onclick=()=>{state.expanded=new Set(); renderTable();};
 const varBtn=document.getElementById("varBtn");
 varBtn.onclick=()=>{state.showVariance=!state.showVariance; varBtn.classList.toggle("on",state.showVariance); renderTable();};
+document.getElementById("scaleSel").onchange=e=>{
+  state.scale=+e.target.value;
+  renderKpis(); renderTable();   // display-only: no re-aggregation needed
+};
 document.getElementById("themeBtn").onclick=()=>{
   const r=document.documentElement;
   r.setAttribute("data-theme", r.getAttribute("data-theme")==="dark"?"light":"dark");

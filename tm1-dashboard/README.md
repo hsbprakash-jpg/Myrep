@@ -37,6 +37,10 @@ browser, drop your Excel file on it, and drill.
   plus presets: *Latest FY vs PY* and *Current-year months*.
 - **Variance** — one click adds `Δ Var` and `Δ %` between the first two
   selected periods (e.g. FY'26 vs FY'25).
+- **Display scale** — show figures in units, thousands (k) or millions (m).
+  Display-only division: aggregation always runs on source values, column
+  headers gain a `(k)`/`(m)` suffix, and the footnote states the divisor.
+  `Δ %` is unaffected by scale.
 - **Search** — filters the tree, keeping ancestors of matches and forcing the
   matched paths open.
 - **KPI cards** — grand totals for the selected periods.
