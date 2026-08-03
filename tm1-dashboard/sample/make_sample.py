@@ -127,6 +127,17 @@ for ac_line, prds in HIER.items():
             vals = [gen_value(base) for _ in PERIOD_HEADERS]
             ws.append(dims + vals)
 
+# derived subtotal rows, as real extracts contain: marked "Calculate(d)" in a
+# dimension column; their values duplicate the leaves and must NOT be summed
+for ac_line in HIER:
+    dims = [f"{AC_TYPE}-Calculate-{ENTITY}-{SEG}", f"{AC_TYPE}-Calculate-{ENTITY}-{SEG}",
+            AC_TYPE, SEG, MARKET, ENTITY,
+            "Calculated", "Calculated", ac_line, ac_line, ENTITY,
+            "MP10101000000 - NII - Net Interest Income",
+            "RTN16559", "CG3000000", f"Calculate - {ac_line} Total"]
+    vals = [round(random.uniform(500, 2000), 2) for _ in PERIOD_HEADERS]
+    ws.append(dims + vals)
+
 out = "GPS_Driller_sample.xlsx"
 wb.save(out)
 print(f"wrote {out}: {ws.max_row-1} rows x {ws.max_column} cols "

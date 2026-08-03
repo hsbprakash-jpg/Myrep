@@ -312,7 +312,9 @@ const state = {
   expanded:new Set(),             // node ids that are open
   tree:null, grand:null,
   showVariance:false, search:"",
-  scale:1                         // display divisor: 1, 1e3 (thousands), 1e6 (millions)
+  scale:1,                        // display divisor: 1, 1e3 (thousands), 1e6 (millions)
+  allRecords:[], calcCount:0,     // rows flagged as "calculated" subtotals
+  includeCalc:false               // they are excluded from totals unless re-included
 };
 
 /* ---------- column classification (the semantic layer) ---------- */
@@ -442,7 +444,7 @@ function loadSheet(name){
     headers.forEach((h,ci)=>{ rec[h]=r[ci]===undefined?null:r[ci]; });
     records.push(rec);
   }
-  state.headers=headers; state.records=records;
+  state.headers=headers;
   const cls=classifyColumns(headers);
   state.dims=cls.dims; state.measures=cls.measures; state.measureMeta=cls.meta;
 
@@ -450,15 +452,29 @@ function loadSheet(name){
   if(!state.measures.length)
     throw new Error(`No period columns recognised. Headers must look like Jan'26-Act, Q1'26-Act, FY'26-Tar, YTD Apr'26-Act… (found ${headers.length} columns; first few: ${headers.slice(0,5).join(", ")}).`);
 
+  // flag derived subtotal rows: any dimension cell containing "calculate(d)"
+  // — these are already consolidations of other rows, so summing them
+  // alongside the leaves would double-count
+  records.forEach(r=>{ r.__calc = state.dims.some(d=>/calculat/i.test(String(r[d]??""))); });
+  state.allRecords=records;
+  state.calcCount=records.filter(r=>r.__calc).length;
+  applyCalcFilter();
+
   initDefaults();
   buildSidebar();
   recompute();
   document.getElementById("emptyState").style.display="none";
   document.getElementById("dash").style.display="block";
   document.getElementById("configArea").style.display="block";
-  setStatus(`Loaded ${records.length.toLocaleString()} rows · ${state.dims.length} dimensions · ${state.measures.length} periods (header row ${headerIdx+1}).`);
-  setTimeout(()=>setStatus(""),6000);
+  setStatus(`Loaded ${records.length.toLocaleString()} rows · ${state.dims.length} dimensions · ${state.measures.length} periods (header row ${headerIdx+1})`+
+    (state.calcCount?` · ${state.calcCount} “calculated” subtotal row${state.calcCount===1?"":"s"} excluded from totals.`:"."));
+  setTimeout(()=>setStatus(""),8000);
  }catch(err){ setStatus("Could not load sheet: "+err.message,true); }
+}
+
+function applyCalcFilter(){
+  state.records = state.includeCalc ? state.allRecords
+                                    : state.allRecords.filter(r=>!r.__calc);
 }
 
 /* ---------- defaults for levels + values ---------- */
@@ -540,7 +556,17 @@ function buildSidebar(){
     `Years: ${years.join(", ")||"—"}<br>`+
     `Scenarios: ${scens.join(", ")||"—"}<br>`+
     `Granularities: ${grans.join(", ")||"—"}<br>`+
-    `<b>${state.records.length}</b> leaf rows loaded`;
+    `<b>${state.records.length}</b> leaf rows in totals`+
+    (state.calcCount
+      ? `<br><label style="cursor:pointer;display:inline-flex;gap:6px;align-items:center;margin-top:4px">`+
+        `<input type="checkbox" id="calcToggle" ${state.includeCalc?"checked":""}>`+
+        `include <b>${state.calcCount}</b> “calculated” row${state.calcCount===1?"":"s"}</label>`
+      : "");
+  const ct=document.getElementById("calcToggle");
+  if(ct) ct.onchange=e=>{
+    state.includeCalc=e.target.checked;
+    applyCalcFilter(); buildSidebar(); recompute();
+  };
 }
 
 function renderLevels(){
@@ -743,7 +769,10 @@ function renderTable(){
   document.getElementById("rowStat").textContent=
     `${shown} row${shown===1?"":"s"} shown`;
   document.getElementById("tableNote").textContent=
-    `Drill path: ${state.levels.join("  ›  ")||"(none)"} · values summed from ${state.records.length} leaf records · `+
+    `Drill path: ${state.levels.join("  ›  ")||"(none)"} · values summed from ${state.records.length} leaf records`+
+    (state.calcCount&&!state.includeCalc?` (${state.calcCount} “calculated” subtotal rows excluded)`:
+     state.calcCount&&state.includeCalc?` (includes ${state.calcCount} “calculated” rows — totals may double-count)`:"")+
+    ` · `+
     (state.scale===1?"figures as in source file.":
      `figures in ${state.scale===1e6?"millions":"thousands"} (source ÷ ${state.scale.toLocaleString()}).`);
 }

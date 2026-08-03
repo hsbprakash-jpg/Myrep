@@ -19,6 +19,11 @@ browser, drop your Excel file on it, and drill.
 - **Robust value parsing** — numeric cells, text numbers with thousands
   separators (`1,234.50`), accounting negatives (`(2.26)`), and TM1 blank
   markers (`-`) are all handled.
+- **Calculated-subtotal exclusion** — rows whose dimension cells contain
+  “calculate”/“calculated” are treated as derived consolidations and left
+  out of all totals (they would double-count the leaves). The load banner
+  and footnote report how many were excluded; a sidebar checkbox re-includes
+  them for reconciliation.
 - **Semantic layer (auto-detected)** — every column is classified on load:
   - *Period measures*: headers matching TM1 period patterns —
     `Jan'26-Act`, `Q1'25-Act`, `H1'26-Act`, `FY'25-Act`, `YTD Apr'26-Act` —
