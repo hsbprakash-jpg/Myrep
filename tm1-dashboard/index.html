@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GPS Driller — TM1 Hierarchy Dashboard</title>
+<script src="./vendor/xlsx.full.min.js"></script>
+<style>
+:root{
+  --hsbc-red:#db0011; --hsbc-red-dark:#a2000c; --hsbc-black:#111;
+  --grey-1:#f6f6f7; --grey-2:#ececee; --grey-3:#d9d9dd; --grey-4:#b6b6bd;
+  --grey-5:#767681; --ink:#1c1c22; --ink-soft:#54545e;
+  --bg:#ffffff; --panel:#ffffff; --panel-2:#f6f6f7; --line:#e2e2e6;
+  --pos:#0b7a68; --neg:#db0011;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --radius:10px;
+}
+:root[data-theme="dark"]{
+  --grey-1:#1a1a1f; --grey-2:#222229; --grey-3:#2e2e37; --grey-4:#3a3a45;
+  --grey-5:#9a9aa6; --ink:#ececf1; --ink-soft:#b6b6c2;
+  --bg:#0f0f13; --panel:#16161b; --panel-2:#1c1c22; --line:#2a2a33;
+  --pos:#2bbfa6; --neg:#ff5a6a;
+  --shadow:0 1px 3px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:13px; line-height:1.4;
+}
+button{font-family:inherit}
+/* ---------- top bar ---------- */
+header.appbar{
+  display:flex; align-items:center; gap:14px;
+  background:var(--hsbc-red); color:#fff;
+  padding:0 18px; height:56px; position:sticky; top:0; z-index:30;
+  box-shadow:0 2px 8px rgba(0,0,0,.18);
+}
+.logo{display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.2px}
+.logo svg{display:block}
+.logo .brand{font-size:15px}
+.logo .sub{font-weight:400; opacity:.9; font-size:12px; border-left:1px solid rgba(255,255,255,.4); padding-left:10px; margin-left:2px}
+.appbar .spacer{flex:1}
+.appbar .file-name{font-size:12px; opacity:.95; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.iconbtn{
+  background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.25);
+  border-radius:8px; height:34px; padding:0 12px; cursor:pointer; font-size:12px; font-weight:600;
+  display:inline-flex; align-items:center; gap:7px;
+}
+.iconbtn:hover{background:rgba(255,255,255,.24)}
+.iconbtn.solid{background:#fff; color:var(--hsbc-red); border-color:#fff}
+.iconbtn.solid:hover{background:#ffe9eb}
+/* ---------- layout ---------- */
+.layout{display:grid; grid-template-columns:300px 1fr; min-height:calc(100vh - 56px)}
+aside{
+  background:var(--panel-2); border-right:1px solid var(--line);
+  padding:16px; overflow-y:auto; max-height:calc(100vh - 56px); position:sticky; top:56px;
+}
+main{padding:18px 20px; overflow-x:auto}
+.side-h{font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--grey-5); font-weight:700; margin:18px 0 8px}
+.side-h:first-child{margin-top:0}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
+/* dropzone */
+.dropzone{
+  border:2px dashed var(--grey-4); border-radius:var(--radius); padding:18px 12px; text-align:center;
+  color:var(--ink-soft); cursor:pointer; transition:.15s; background:var(--panel);
+}
+.dropzone:hover,.dropzone.drag{border-color:var(--hsbc-red); background:rgba(219,0,17,.04); color:var(--ink)}
+.dropzone strong{color:var(--hsbc-red)}
+.dropzone .big{font-size:22px; margin-bottom:6px}
+.muted{color:var(--ink-soft)}
+.tiny{font-size:11px}
+select,input[type=text]{
+  width:100%; background:var(--panel); color:var(--ink); border:1px solid var(--grey-3);
+  border-radius:8px; padding:7px 9px; font-size:12px;
+}
+select:focus,input:focus{outline:2px solid rgba(219,0,17,.35); border-color:var(--hsbc-red)}
+label.fld{display:block; font-size:11px; color:var(--ink-soft); margin:10px 0 4px; font-weight:600}
+/* levels list */
+.levels{display:flex; flex-direction:column; gap:6px; margin-top:6px}
+.level-row{
+  display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--line);
+  border-radius:8px; padding:5px 6px 5px 9px; font-size:12px;
+}
+.level-row .grip{color:var(--grey-4)}
+.level-row .name{flex:1; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.level-row .depth{font-size:10px; color:#fff; background:var(--hsbc-red); border-radius:20px; padding:1px 7px; font-weight:700}
+.mini{border:1px solid var(--grey-3); background:var(--panel); color:var(--ink-soft); border-radius:6px;
+  width:22px; height:22px; cursor:pointer; font-size:12px; line-height:1; display:inline-flex; align-items:center; justify-content:center}
+.mini:hover{border-color:var(--hsbc-red); color:var(--hsbc-red)}
+.mini:disabled{opacity:.35; cursor:default}
+/* value groups */
+.vgroup{margin-top:8px}
+.vgroup summary{cursor:pointer; font-weight:700; font-size:12px; padding:4px 2px; list-style:none; display:flex; align-items:center; gap:6px}
+.vgroup summary::-webkit-details-marker{display:none}
+.vgroup summary .yr{color:var(--hsbc-red)}
+.chk{display:flex; align-items:center; gap:7px; padding:3px 2px 3px 16px; font-size:12px; cursor:pointer}
+.chk input{accent-color:var(--hsbc-red); width:14px; height:14px}
+.checkall{font-size:11px; color:var(--hsbc-red); cursor:pointer; text-decoration:underline; margin-left:auto; font-weight:600}
+/* KPI */
+.kpis{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:16px}
+.kpi{padding:13px 15px; border-top:3px solid var(--hsbc-red)}
+.kpi .k-label{font-size:11px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:.04em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.kpi .k-val{font-size:23px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums}
+.kpi .k-sub{font-size:11px; color:var(--ink-soft); margin-top:2px}
+/* toolbar above table */
+.tbar{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap}
+.tbar .grow{flex:1; min-width:160px}
+.search{position:relative}
+.search input{padding-left:30px}
+.search svg{position:absolute; left:8px; top:50%; transform:translateY(-50%); color:var(--grey-5)}
+.chipbtn{background:var(--panel); border:1px solid var(--grey-3); color:var(--ink); border-radius:8px; padding:7px 11px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:6px}
+.chipbtn:hover{border-color:var(--hsbc-red); color:var(--hsbc-red)}
+.chipbtn.on{background:var(--hsbc-red); color:#fff; border-color:var(--hsbc-red)}
+/* pivot table */
+.tablewrap{overflow:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); box-shadow:var(--shadow)}
+table.pivot{border-collapse:separate; border-spacing:0; width:100%; font-size:12.5px}
+table.pivot thead th{
+  position:sticky; top:0; z-index:5; background:var(--hsbc-black); color:#fff; text-align:right;
+  padding:9px 12px; font-weight:600; white-space:nowrap; border-bottom:2px solid var(--hsbc-red);
+}
+:root[data-theme="dark"] table.pivot thead th{background:#000}
+table.pivot thead th.h-dim{text-align:left; position:sticky; left:0; z-index:6; min-width:280px}
+table.pivot tbody td{padding:6px 12px; border-bottom:1px solid var(--line); white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right}
+table.pivot tbody td.c-dim{
+  text-align:left; position:sticky; left:0; background:var(--panel); z-index:2;
+  border-right:1px solid var(--line); font-variant-numeric:normal;
+}
+table.pivot tbody tr:hover td{background:var(--grey-1)}
+table.pivot tbody tr:hover td.c-dim{background:var(--grey-2)}
+.node-label{display:inline-flex; align-items:center; gap:7px; cursor:default}
+.caret{
+  width:16px; height:16px; border:none; background:transparent; cursor:pointer; color:var(--grey-5);
+  display:inline-flex; align-items:center; justify-content:center; flex:0 0 16px; transition:transform .12s;
+}
+.caret.open{transform:rotate(90deg)}
+.caret.leaf{visibility:hidden}
+.node-label .txt{overflow:hidden; text-overflow:ellipsis; max-width:520px}
+.lvl-tag{font-size:10px; color:var(--grey-5); background:var(--grey-2); border-radius:4px; padding:0 5px; font-weight:600}
+tr.depth-0 td.c-dim .txt{font-weight:700}
+tr.depth-0 td{font-weight:700}
+tr.total td{background:var(--grey-2); font-weight:800; border-top:2px solid var(--hsbc-red); border-bottom:none; position:sticky; bottom:0; z-index:3}
+tr.total td.c-dim{background:var(--grey-2)}
+.neg{color:var(--neg)}
+.zero{color:var(--grey-4)}
+.varh{color:#ffd7db !important}
+.pct{font-size:11px; color:var(--ink-soft)}
+/* empty state */
+.empty{display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+  padding:70px 20px; color:var(--ink-soft)}
+.empty .hex{margin-bottom:14px}
+.empty h2{color:var(--ink); margin:0 0 6px; font-size:18px}
+.badge{display:inline-block; font-size:11px; background:var(--grey-2); color:var(--ink-soft); border-radius:20px; padding:2px 9px; font-weight:600}
+.footnote{margin-top:12px; font-size:11px; color:var(--grey-5)}
+.count-pill{background:var(--grey-2); color:var(--ink-soft); border-radius:20px; padding:1px 8px; font-size:11px; font-weight:600; margin-left:6px}
+</style>
+</head>
+<body>
+<header class="appbar">
+  <div class="logo">
+    <!-- HSBC-style hexagon mark -->
+    <svg width="30" height="30" viewBox="0 0 40 40" aria-hidden="true">
+      <rect width="40" height="40" fill="#fff"/>
+      <polygon points="20,0 40,20 20,40 0,20" fill="#fff"/>
+      <polygon points="20,0 26,14 20,20" fill="#db0011"/>
+      <polygon points="20,40 26,26 20,20" fill="#db0011"/>
+      <polygon points="0,20 14,14 20,20" fill="#db0011"/>
+      <polygon points="40,20 26,26 20,20" fill="#db0011"/>
+    </svg>
+    <span class="brand">GPS&nbsp;Driller</span>
+    <span class="sub">TM1 Hierarchy Dashboard</span>
+  </div>
+  <div class="spacer"></div>
+  <span class="file-name" id="fileName"></span>
+  <button class="iconbtn" id="themeBtn" title="Toggle light / dark">🌓 Theme</button>
+  <button class="iconbtn solid" id="loadBtn">📂 Load Excel</button>
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,.csv" style="display:none" />
+</header>
+
+<div class="layout">
+  <!-- ================= SIDEBAR ================= -->
+  <aside>
+    <div class="side-h">Data source</div>
+    <div class="dropzone card" id="dropzone">
+      <div class="big">⬆️</div>
+      <div><strong>Drop</strong> your TM1 export here</div>
+      <div class="tiny muted">or click to browse &middot; .xlsx / .csv</div>
+    </div>
+    <label class="fld" id="sheetLabel" style="display:none">Worksheet</label>
+    <select id="sheetSel" style="display:none"></select>
+
+    <div id="configArea" style="display:none">
+      <div class="side-h">Row hierarchy (drill order)</div>
+      <div class="levels" id="levels"></div>
+      <label class="fld">Add level</label>
+      <select id="addLevel"><option value="">＋ add a dimension…</option></select>
+
+      <div class="side-h">Values (periods)
+        <span class="count-pill" id="valCount">0</span>
+      </div>
+      <div class="tbar-presets" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px">
+        <button class="chipbtn" data-preset="latestFY">Latest FY vs PY</button>
+        <button class="chipbtn" data-preset="months">Curr. months</button>
+        <button class="chipbtn" data-preset="clear">Clear</button>
+      </div>
+      <div id="valueGroups"></div>
+
+      <div class="side-h">Semantic layer</div>
+      <div class="tiny muted" id="semantic"></div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main>
+    <div id="emptyState" class="empty">
+      <svg class="hex" width="64" height="64" viewBox="0 0 40 40">
+        <polygon points="20,1 39,20 20,39 1,20" fill="none" stroke="#db0011" stroke-width="2"/>
+        <polygon points="20,7 26,15 20,20" fill="#db0011" opacity=".9"/>
+        <polygon points="20,33 26,25 20,20" fill="#db0011" opacity=".55"/>
+        <polygon points="7,20 15,15 20,20" fill="#db0011" opacity=".75"/>
+        <polygon points="33,20 25,25 20,20" fill="#db0011" opacity=".4"/>
+      </svg>
+      <h2>Load your TM1 hierarchy file to begin</h2>
+      <p class="muted" style="max-width:460px">
+        The dashboard auto-detects dimension columns and period measures, builds a
+        semantic layer, and renders a collapsible drill-down pivot in HSBC colours.
+      </p>
+      <div class="footnote">Everything runs locally in your browser — your data never leaves this page.</div>
+    </div>
+
+    <div id="dash" style="display:none">
+      <div class="kpis" id="kpis"></div>
+      <div class="tbar">
+        <div class="grow search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="search" placeholder="Search hierarchy…" />
+        </div>
+        <button class="chipbtn" id="expandAll">⤢ Expand all</button>
+        <button class="chipbtn" id="collapseAll">⤡ Collapse all</button>
+        <button class="chipbtn" id="varBtn" title="Show variance between first two value columns">Δ Variance</button>
+        <span class="badge" id="rowStat"></span>
+      </div>
+      <div class="tablewrap">
+        <table class="pivot">
+          <thead><tr id="thead"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="footnote" id="tableNote"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   GPS Driller — TM1 hierarchy dashboard
+   Semantic layer + collapsible drill-down pivot, 100% client-side.
+   ============================================================ */
+const MONTHS = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+const SCEN = {Act:"Actual",Bud:"Budget",Fcst:"Forecast",FC:"Forecast",Pln:"Plan",Plan:"Plan",Fct:"Forecast"};
+
+const state = {
+  workbook:null, sheetName:null,
+  headers:[], records:[],
+  dims:[], measures:[],           // classified columns
+  measureMeta:{},                 // header -> {year,gran,scenario,order,label,group}
+  levels:[],                      // ordered dimension headers used as rows
+  valueCols:[],                   // selected period headers (in detected order)
+  expanded:new Set(),             // node ids that are open
+  tree:null, grand:null,
+  showVariance:false, search:""
+};
+
+/* ---------- column classification (the semantic layer) ---------- */
+function classifyPeriod(h){
+  if(typeof h!=="string") return null;
+  const s=h.trim();
+  let m;
+  // Month:  Jan'26-Act
+  if(m=s.match(/^([A-Z][a-z]{2})'(\d{2})-?(\w+)?$/)){
+    if(MONTHS[m[1]]) return meta(m[2],"Month",MONTHS[m[1]],m[3],`${m[1]} ${yr(m[2])}`);
+  }
+  // Quarter: Q1'26-Act
+  if(m=s.match(/^Q([1-4])'(\d{2})-?(\w+)?$/))
+    return meta(m[2],"Quarter",20+ +m[1],m[3],`Q${m[1]} ${yr(m[2])}`);
+  // Half:    H1'26-Act
+  if(m=s.match(/^H([12])'(\d{2})-?(\w+)?$/))
+    return meta(m[2],"Half",40+ +m[1],m[3],`H${m[1]} ${yr(m[2])}`);
+  // Full year: FY'26-Act
+  if(m=s.match(/^FY'(\d{2})-?(\w+)?$/))
+    return meta(m[1],"Full Year",60,m[2],`FY ${yr(m[1])}`);
+  // YTD:     YTD Apr'26-Act  |  YTD Dec'19-Act
+  if(m=s.match(/^YTD\s+([A-Za-z]{3})'(\d{2})-?(\w+)?$/))
+    return meta(m[2],"YTD",70+(MONTHS[m[1]]||0),m[3],`YTD ${m[1]} ${yr(m[2])}`);
+  return null;
+  function meta(yy,gran,ord,sc,label){
+    const scen=SCEN[sc]||(sc?sc:"Actual");
+    return {year:2000+ +yy, gran, order:ord, scenario:scen,
+            label:label+(scen!=="Actual"?` (${scen})`:""),
+            group:`${2000+ +yy}`};
+  }
+  function yr(yy){return "'"+yy;}
+}
+
+function classifyColumns(headers){
+  const dims=[], measures=[], meta={};
+  headers.forEach(h=>{
+    const p=classifyPeriod(h);
+    if(p){measures.push(h); meta[h]=p;}
+    else if(h!==null && h!==undefined && String(h).trim()!=="") dims.push(h);
+  });
+  return {dims,measures,meta};
+}
+
+/* ---------- workbook loading ---------- */
+function readFile(file){
+  document.getElementById("fileName").textContent=file.name;
+  const rd=new FileReader();
+  rd.onload=e=>{
+    const data=new Uint8Array(e.target.result);
+    state.workbook=XLSX.read(data,{type:"array"});
+    const sel=document.getElementById("sheetSel");
+    sel.innerHTML="";
+    state.workbook.SheetNames.forEach(n=>{
+      const o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o);
+    });
+    // prefer a sheet that looks like the data sheet
+    const pref=state.workbook.SheetNames.find(n=>/data|gps/i.test(n))||state.workbook.SheetNames[0];
+    sel.value=pref;
+    document.getElementById("sheetLabel").style.display="block";
+    sel.style.display="block";
+    loadSheet(pref);
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+function loadSheet(name){
+  state.sheetName=name;
+  const ws=state.workbook.Sheets[name];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:null});
+  // find header row: the row with the most "recognisable" cells in first 10 rows
+  let headerIdx=0, best=-1;
+  const scan=Math.min(rows.length,10);
+  for(let i=0;i<scan;i++){
+    const r=rows[i]||[]; let score=0;
+    r.forEach(c=>{
+      if(c===null||c===undefined||String(c).trim()==="") return;
+      if(classifyPeriod(c)) score+=2;
+      else if(/unique ref|ac line|ac type|account|prd|product|entity|seg|market|cntry|code|rtn/i.test(String(c))) score+=2;
+      else score+=0.2;
+    });
+    if(score>best){best=score; headerIdx=i;}
+  }
+  let headers=(rows[headerIdx]||[]).map(h=>h===null||h===undefined?"":String(h).trim());
+  // de-duplicate / fill blanks
+  const seen={};
+  headers=headers.map((h,i)=>{
+    let name=h||`Column ${i+1}`;
+    if(seen[name]!=null){seen[name]++; name=`${name} (${seen[name]})`;} else seen[name]=0;
+    return name;
+  });
+  const records=[];
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const r=rows[i]; if(!r) continue;
+    if(r.every(c=>c===null||c===undefined||String(c).trim()==="")) continue;
+    const rec={};
+    headers.forEach((h,ci)=>{ rec[h]=r[ci]===undefined?null:r[ci]; });
+    records.push(rec);
+  }
+  state.headers=headers; state.records=records;
+  const cls=classifyColumns(headers);
+  state.dims=cls.dims; state.measures=cls.measures; state.measureMeta=cls.meta;
+
+  initDefaults();
+  buildSidebar();
+  recompute();
+  document.getElementById("emptyState").style.display="none";
+  document.getElementById("dash").style.display="block";
+  document.getElementById("configArea").style.display="block";
+}
+
+/* ---------- defaults for levels + values ---------- */
+function initDefaults(){
+  const preferOrder=["Ac Type","Ac Line","Ac Line1","Prd","Prd1","Product 1","Account"];
+  const chosen=[];
+  preferOrder.forEach(p=>{ if(state.dims.includes(p) && !dupOf(chosen,p)) chosen.push(p); });
+  // avoid using both a rollup and its "1" partner as adjacent duplicates
+  const filtered=[];
+  chosen.forEach(c=>{
+    const base=c.replace(/1$/,"");
+    if(filtered.some(f=>f.replace(/1$/,"")===base)) return;
+    filtered.push(c);
+  });
+  state.levels = filtered.length?filtered.slice(0,4):state.dims.slice(0,3);
+
+  // default values: latest FY + prior FY, else last 2 measures
+  state.valueCols = presetValues("latestFY");
+  if(!state.valueCols.length) state.valueCols=state.measures.slice(-2);
+  function dupOf(arr,p){return arr.includes(p);}
+}
+
+function presetValues(kind){
+  const M=state.measureMeta, all=state.measures;
+  if(kind==="clear") return [];
+  const years=[...new Set(all.map(h=>M[h].year))].sort((a,b)=>b-a);
+  if(kind==="latestFY"){
+    const fys=all.filter(h=>M[h].gran==="Full Year").sort((a,b)=>M[b].year-M[a].year);
+    if(fys.length>=2) return [fys[0],fys[1]];
+    if(fys.length===1) return [fys[0]];
+    return all.slice(-2);
+  }
+  if(kind==="months"){
+    const y=years[0];
+    return all.filter(h=>M[h].gran==="Month"&&M[h].year===y)
+              .sort((a,b)=>M[a].order-M[b].order);
+  }
+  return [];
+}
+
+/* ---------- sidebar rendering ---------- */
+function buildSidebar(){
+  renderLevels();
+  // add-level dropdown
+  const add=document.getElementById("addLevel");
+  add.innerHTML='<option value="">＋ add a dimension…</option>';
+  state.dims.filter(d=>!state.levels.includes(d)).forEach(d=>{
+    const o=document.createElement("option"); o.value=d; o.textContent=d; add.appendChild(o);
+  });
+  // value groups by year
+  renderValueGroups();
+  // semantic summary
+  const M=state.measureMeta;
+  const grans=[...new Set(state.measures.map(h=>M[h].gran))];
+  const years=[...new Set(state.measures.map(h=>M[h].year))].sort();
+  document.getElementById("semantic").innerHTML=
+    `<b>${state.dims.length}</b> dimensions · <b>${state.measures.length}</b> period measures<br>`+
+    `Years: ${years.join(", ")||"—"}<br>`+
+    `Granularities: ${grans.join(", ")||"—"}<br>`+
+    `<b>${state.records.length}</b> leaf rows loaded`;
+}
+
+function renderLevels(){
+  const box=document.getElementById("levels"); box.innerHTML="";
+  state.levels.forEach((lv,i)=>{
+    const row=document.createElement("div"); row.className="level-row";
+    row.innerHTML=
+      `<span class="depth">${i+1}</span>`+
+      `<span class="name" title="${esc(lv)}">${esc(lv)}</span>`+
+      `<button class="mini" data-act="up" ${i===0?"disabled":""}>▲</button>`+
+      `<button class="mini" data-act="down" ${i===state.levels.length-1?"disabled":""}>▼</button>`+
+      `<button class="mini" data-act="rm" title="remove">✕</button>`;
+    row.querySelector('[data-act=up]').onclick=()=>{swap(i,i-1);};
+    row.querySelector('[data-act=down]').onclick=()=>{swap(i,i+1);};
+    row.querySelector('[data-act=rm]').onclick=()=>{state.levels.splice(i,1); buildSidebar(); recompute();};
+    box.appendChild(row);
+  });
+  function swap(a,b){const t=state.levels[a]; state.levels[a]=state.levels[b]; state.levels[b]=t; buildSidebar(); recompute();}
+}
+
+function renderValueGroups(){
+  const M=state.measureMeta;
+  const wrap=document.getElementById("valueGroups"); wrap.innerHTML="";
+  const byYear={};
+  state.measures.forEach(h=>{ (byYear[M[h].year]=byYear[M[h].year]||[]).push(h); });
+  Object.keys(byYear).sort((a,b)=>b-a).forEach(yr=>{
+    const list=byYear[yr].sort((a,b)=>M[a].order-M[b].order);
+    const det=document.createElement("details"); det.className="vgroup";
+    const anySel=list.some(h=>state.valueCols.includes(h));
+    det.open=anySel;
+    const sum=document.createElement("summary");
+    sum.innerHTML=`<span>▸</span><span class="yr">${yr}</span> <span class="muted tiny">(${list.length})</span>`;
+    const all=document.createElement("span"); all.className="checkall"; all.textContent="toggle all";
+    all.onclick=(e)=>{e.preventDefault(); e.stopPropagation();
+      const on=!list.every(h=>state.valueCols.includes(h));
+      list.forEach(h=>setVal(h,on)); syncAfterVal();};
+    sum.appendChild(all); det.appendChild(sum);
+    list.forEach(h=>{
+      const lab=document.createElement("label"); lab.className="chk";
+      const cb=document.createElement("input"); cb.type="checkbox"; cb.checked=state.valueCols.includes(h);
+      cb.onchange=()=>{setVal(h,cb.checked); syncAfterVal();};
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(` ${M[h].label} · ${M[h].gran}`));
+      det.appendChild(lab);
+    });
+    wrap.appendChild(det);
+  });
+  document.getElementById("valCount").textContent=state.valueCols.length;
+}
+function setVal(h,on){
+  const has=state.valueCols.includes(h);
+  if(on&&!has) state.valueCols.push(h);
+  if(!on&&has) state.valueCols=state.valueCols.filter(x=>x!==h);
+  // keep in detected order
+  state.valueCols.sort((a,b)=>state.measures.indexOf(a)-state.measures.indexOf(b));
+}
+function syncAfterVal(){document.getElementById("valCount").textContent=state.valueCols.length; recompute();}
+
+/* ---------- pivot build ---------- */
+function num(v){ return (typeof v==="number"&&isFinite(v))?v:null; }
+function aggregate(recs,col){
+  let s=0,n=0;
+  for(const r of recs){const v=num(r[col]); if(v!==null){s+=v; n++;}}
+  return n?s:null;
+}
+function buildTree(recs,levels,depth){
+  if(depth>=levels.length) return [];
+  const field=levels[depth], map=new Map();
+  for(const r of recs){
+    const key=(r[field]===null||r[field]===undefined||String(r[field]).trim()==="")?"(blank)":String(r[field]);
+    if(!map.has(key)) map.set(key,[]);
+    map.get(key).push(r);
+  }
+  const nodes=[];
+  for(const [label,sub] of map){
+    const node={label, field, depth, recs:sub, leafCount:sub.length, values:{},
+                children: depth+1<levels.length?buildTree(sub,levels,depth+1):[]};
+    state.valueCols.forEach(c=>node.values[c]=aggregate(sub,c));
+    node.id=(depth===0?"":"") + label + "¦" + depth + "¦" + Math.random().toString(36).slice(2,7);
+    nodes.push(node);
+  }
+  // stable id based on path instead of random, so expand-state survives
+  nodes.forEach(n=>{n.id=field+"="+n.label+"@"+depth;});
+  nodes.sort((a,b)=>{
+    const s=state.valueCols[0];
+    if(s){const av=a.values[s]??-Infinity, bv=b.values[s]??-Infinity; if(av!==bv) return bv-av;}
+    return String(a.label).localeCompare(String(b.label));
+  });
+  // make ids unique within siblings by prefixing parent handled at flatten via path
+  return nodes;
+}
+function assignIds(nodes,prefix){
+  nodes.forEach(n=>{ n.id=prefix+"/"+n.field+":"+n.label;
+    if(n.children.length) assignIds(n.children,n.id); });
+}
+
+function recompute(){
+  if(!state.levels.length){ state.tree=[]; }
+  else state.tree=buildTree(state.records,state.levels,0);
+  assignIds(state.tree,"");
+  state.grand={};
+  state.valueCols.forEach(c=>state.grand[c]=aggregate(state.records,c));
+  // default-expand depth 0 the first time
+  if(state.expanded.size===0) state.tree.forEach(n=>state.expanded.add(n.id));
+  renderKpis(); renderTable();
+}
+
+/* ---------- number formatting ---------- */
+const nf=new Intl.NumberFormat("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+function fmt(v){
+  if(v===null||v===undefined) return {t:"–",cls:"zero"};
+  if(v===0) return {t:"0.00",cls:"zero"};
+  const neg=v<0;
+  const t=nf.format(Math.abs(v));
+  return {t: neg?`(${t})`:t, cls: neg?"neg":""};
+}
+
+/* ---------- KPI cards ---------- */
+function renderKpis(){
+  const box=document.getElementById("kpis"); box.innerHTML="";
+  const M=state.measureMeta;
+  state.valueCols.slice(0,5).forEach(c=>{
+    const f=fmt(state.grand[c]);
+    const el=document.createElement("div"); el.className="kpi card";
+    el.innerHTML=`<div class="k-label" title="${esc(c)}">${esc(M[c].label)}</div>`+
+      `<div class="k-val ${f.cls}">${f.t}</div>`+
+      `<div class="k-sub">${esc(M[c].gran)} · ${M[c].scenario} · grand total</div>`;
+    box.appendChild(el);
+  });
+  if(!state.valueCols.length){
+    box.innerHTML=`<div class="kpi card"><div class="k-label">No period selected</div>`+
+      `<div class="k-val">–</div><div class="k-sub">pick values in the sidebar</div></div>`;
+  }
+}
+
+/* ---------- table ---------- */
+function renderTable(){
+  const M=state.measureMeta;
+  const thead=document.getElementById("thead");
+  let th=`<th class="h-dim">Hierarchy</th>`;
+  state.valueCols.forEach(c=>{ th+=`<th title="${esc(c)}">${esc(M[c].label)}</th>`; });
+  if(state.showVariance&&state.valueCols.length>=2){
+    th+=`<th class="varh" title="${esc(state.valueCols[0])} − ${esc(state.valueCols[1])}">Δ Var</th>`;
+    th+=`<th class="varh">Δ %</th>`;
+  }
+  thead.innerHTML=th;
+
+  const q=state.search.trim().toLowerCase();
+  const rows=[];
+  const matchFn=q?(n=>subtreeMatches(n,q)):null;
+
+  function walk(nodes,depth){
+    for(const n of nodes){
+      if(matchFn && !matchFn(n)) continue;
+      const hasKids=n.children.length>0;
+      const open=q? true : state.expanded.has(n.id);   // search forces open
+      rows.push(rowHtml(n,depth,hasKids,open));
+      if(hasKids && open) walk(n.children,depth+1);
+    }
+  }
+  walk(state.tree,0);
+
+  // grand total
+  let tot=`<tr class="total"><td class="c-dim"><span class="node-label" style="padding-left:6px"><span class="txt">▣ Grand total</span> <span class="lvl-tag">${state.records.length} rows</span></span></td>`;
+  state.valueCols.forEach(c=>{const f=fmt(state.grand[c]); tot+=`<td class="${f.cls}">${f.t}</td>`;});
+  if(state.showVariance&&state.valueCols.length>=2){
+    const d=diff(state.grand[state.valueCols[0]],state.grand[state.valueCols[1]]);
+    tot+=`<td class="${d.cls}">${d.t}</td><td class="pct">${d.p}</td>`;
+  }
+  tot+=`</tr>`;
+
+  document.getElementById("tbody").innerHTML=rows.join("")+tot;
+  bindCarets();
+
+  const shown=rows.length;
+  document.getElementById("rowStat").textContent=
+    `${shown} row${shown===1?"":"s"} shown`;
+  document.getElementById("tableNote").textContent=
+    `Drill path: ${state.levels.join("  ›  ")||"(none)"} · values summed from ${state.records.length} leaf records · figures as in source file.`;
+}
+
+function rowHtml(n,depth,hasKids,open){
+  const pad=6+depth*20;
+  const caret=hasKids?`<button class="caret ${open?"open":""}" data-id="${esc(n.id)}">▶</button>`
+                     :`<span class="caret leaf">▶</span>`;
+  const tag = depth<state.levels.length ? `<span class="lvl-tag">${esc(shortField(n.field))}</span>`:"";
+  const kids = hasKids?`<span class="count-pill">${n.children.length}</span>`:"";
+  let tds=`<td class="c-dim"><span class="node-label" style="padding-left:${pad}px">${caret}<span class="txt" title="${esc(n.label)}">${esc(n.label)}</span> ${tag}${kids}</span></td>`;
+  state.valueCols.forEach(c=>{const f=fmt(n.values[c]); tds+=`<td class="${f.cls}">${f.t}</td>`;});
+  if(state.showVariance&&state.valueCols.length>=2){
+    const d=diff(n.values[state.valueCols[0]],n.values[state.valueCols[1]]);
+    tds+=`<td class="${d.cls}">${d.t}</td><td class="pct">${d.p}</td>`;
+  }
+  return `<tr class="depth-${depth}">${tds}</tr>`;
+}
+function diff(a,b){
+  if(a===null&&b===null) return {t:"–",cls:"zero",p:""};
+  const av=a||0, bv=b||0, d=av-bv;
+  const f=fmt(d);
+  let p="";
+  if(b&&isFinite(b)) { const pct=(d/Math.abs(b))*100; p=(pct>=0?"+":"")+pct.toFixed(1)+"%"; }
+  return {t:f.t,cls:f.cls,p};
+}
+function shortField(f){return f.length>14?f.slice(0,13)+"…":f;}
+function subtreeMatches(n,q){
+  if(String(n.label).toLowerCase().includes(q)) return true;
+  return n.children.some(c=>subtreeMatches(c,q));
+}
+function bindCarets(){
+  document.querySelectorAll(".caret[data-id]").forEach(btn=>{
+    btn.onclick=()=>{
+      const id=btn.getAttribute("data-id");
+      if(state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id);
+      renderTable();
+    };
+  });
+}
+function collectIds(nodes,acc){nodes.forEach(n=>{if(n.children.length){acc.add(n.id); collectIds(n.children,acc);}});}
+
+/* ---------- misc ---------- */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ---------- wire up UI ---------- */
+const fileInput=document.getElementById("fileInput");
+document.getElementById("loadBtn").onclick=()=>fileInput.click();
+const dz=document.getElementById("dropzone");
+dz.onclick=()=>fileInput.click();
+fileInput.onchange=e=>{ if(e.target.files[0]) readFile(e.target.files[0]); };
+["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault(); dz.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault(); dz.classList.remove("drag");}));
+dz.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f) readFile(f); });
+document.getElementById("sheetSel").onchange=e=>{state.expanded.clear(); loadSheet(e.target.value);};
+document.getElementById("addLevel").onchange=e=>{
+  if(e.target.value){ state.levels.push(e.target.value); buildSidebar(); recompute(); }
+};
+document.querySelectorAll("[data-preset]").forEach(b=>{
+  b.onclick=()=>{ state.valueCols=presetValues(b.getAttribute("data-preset")); renderValueGroups(); recompute(); };
+});
+document.getElementById("search").oninput=e=>{state.search=e.target.value; renderTable();};
+document.getElementById("expandAll").onclick=()=>{const s=new Set(); collectIds(state.tree,s); state.expanded=s; renderTable();};
+document.getElementById("collapseAll").onclick=()=>{state.expanded=new Set(); renderTable();};
+const varBtn=document.getElementById("varBtn");
+varBtn.onclick=()=>{state.showVariance=!state.showVariance; varBtn.classList.toggle("on",state.showVariance); renderTable();};
+document.getElementById("themeBtn").onclick=()=>{
+  const r=document.documentElement;
+  r.setAttribute("data-theme", r.getAttribute("data-theme")==="dark"?"light":"dark");
+};
+</script>
+</body>
+</html>
