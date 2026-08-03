@@ -85,6 +85,12 @@ main{padding:18px 20px; overflow-x:auto}
 .side-h{font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--grey-5); font-weight:700; margin:18px 0 8px}
 .side-h:first-child{margin-top:0}
 .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
+/* table hint row */
+tr.hint td{
+  padding:18px 14px; text-align:center; font-size:13px; color:var(--ink-soft);
+  font-style:italic; background:rgba(219,0,17,.03);
+}
+
 /* status banner */
 .statusbar{
   margin:0 0 14px; padding:10px 14px; border-radius:8px; font-size:13px;
@@ -795,6 +801,17 @@ function renderTable(){
     }
   }
   walk(state.tree,0);
+
+  // helpful hint instead of a bare grand total when there is nothing to drill
+  if(!rows.length){
+    const span=1+(XT?XT.vals.length+1
+                    :state.valueCols.length+(state.showVariance&&state.valueCols.length>=2?2:0));
+    const msg=!state.levels.length
+      ? "No row hierarchy — use “+ add a dimension…” in the sidebar (e.g. Markets, then Prd) to break the totals down into drillable rows."
+      : (q ? `No rows match “${state.search.trim()}”.`
+           : "No rows to show for the current selection.");
+    rows.push(`<tr class="hint"><td colspan="${span}">${esc(msg)}</td></tr>`);
+  }
 
   // grand total
   let tot=`<tr class="total"><td class="c-dim"><span class="node-label" style="padding-left:6px"><span class="txt">▣ Grand total</span> <span class="lvl-tag">${state.records.length} rows</span></span></td>`;
