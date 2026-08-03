@@ -201,6 +201,7 @@ tr.total td.c-dim{background:var(--grey-2)}
       </div>
       <div class="tbar-presets" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px">
         <button class="chipbtn" data-preset="latestFY">Latest FY vs PY</button>
+        <button class="chipbtn" data-preset="actVsTar">Act vs Target</button>
         <button class="chipbtn" data-preset="months">Curr. months</button>
         <button class="chipbtn" data-preset="clear">Clear</button>
       </div>
@@ -259,7 +260,8 @@ tr.total td.c-dim{background:var(--grey-2)}
    Semantic layer + collapsible drill-down pivot, 100% client-side.
    ============================================================ */
 const MONTHS = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
-const SCEN = {Act:"Actual",Bud:"Budget",Fcst:"Forecast",FC:"Forecast",Pln:"Plan",Plan:"Plan",Fct:"Forecast"};
+const SCEN = {Act:"Actual",Bud:"Budget",Fcst:"Forecast",FC:"Forecast",Pln:"Plan",Plan:"Plan",Fct:"Forecast",
+              Tar:"Target",Tgt:"Target",Target:"Target",Plan0:"Plan"};
 
 const state = {
   workbook:null, sheetName:null,
@@ -276,7 +278,7 @@ const state = {
 /* ---------- column classification (the semantic layer) ---------- */
 function classifyPeriod(h){
   if(typeof h!=="string") return null;
-  const s=h.trim();
+  const s=h.trim().replace(/\s\(\d+\)$/,"");   // ignore " (n)" dedupe suffix
   let m;
   // Month:  Jan'26-Act
   if(m=s.match(/^([A-Z][a-z]{2})'(\d{2})-?(\w+)?$/)){
@@ -404,16 +406,36 @@ function initDefaults(){
 function presetValues(kind){
   const M=state.measureMeta, all=state.measures;
   if(kind==="clear") return [];
-  const years=[...new Set(all.map(h=>M[h].year))].sort((a,b)=>b-a);
   if(kind==="latestFY"){
-    const fys=all.filter(h=>M[h].gran==="Full Year").sort((a,b)=>M[b].year-M[a].year);
+    // Actual FYs first (so multi-year Target columns don't hijack "latest")
+    let fys=all.filter(h=>M[h].gran==="Full Year"&&M[h].scenario==="Actual");
+    if(!fys.length) fys=all.filter(h=>M[h].gran==="Full Year");
+    fys.sort((a,b)=>M[b].year-M[a].year);
     if(fys.length>=2) return [fys[0],fys[1]];
     if(fys.length===1) return [fys[0]];
     return all.slice(-2);
   }
+  if(kind==="actVsTar"){
+    // latest year that has a Full-Year Actual AND a Full-Year Target
+    const acts=all.filter(h=>M[h].gran==="Full Year"&&M[h].scenario==="Actual");
+    const tars=all.filter(h=>M[h].gran==="Full Year"&&M[h].scenario==="Target");
+    const yrs=[...new Set(acts.map(h=>M[h].year))].filter(y=>tars.some(t=>M[t].year===y)).sort((a,b)=>b-a);
+    if(yrs.length){
+      const y=yrs[0];
+      return [acts.find(h=>M[h].year===y), tars.find(h=>M[h].year===y)];
+    }
+    // fall back: latest Actual FY + earliest Target FY
+    if(acts.length&&tars.length){
+      acts.sort((a,b)=>M[b].year-M[a].year); tars.sort((a,b)=>M[a].year-M[b].year);
+      return [acts[0],tars[0]];
+    }
+    return presetValues("latestFY");
+  }
   if(kind==="months"){
-    const y=years[0];
-    return all.filter(h=>M[h].gran==="Month"&&M[h].year===y)
+    const scen=all.some(h=>M[h].scenario==="Actual")?"Actual":M[all[0]].scenario;
+    const yrs=[...new Set(all.filter(h=>M[h].gran==="Month"&&M[h].scenario===scen).map(h=>M[h].year))].sort((a,b)=>b-a);
+    const y=yrs[0];
+    return all.filter(h=>M[h].gran==="Month"&&M[h].year===y&&M[h].scenario===scen)
               .sort((a,b)=>M[a].order-M[b].order);
   }
   return [];
@@ -434,9 +456,11 @@ function buildSidebar(){
   const M=state.measureMeta;
   const grans=[...new Set(state.measures.map(h=>M[h].gran))];
   const years=[...new Set(state.measures.map(h=>M[h].year))].sort();
+  const scens=[...new Set(state.measures.map(h=>M[h].scenario))];
   document.getElementById("semantic").innerHTML=
     `<b>${state.dims.length}</b> dimensions · <b>${state.measures.length}</b> period measures<br>`+
     `Years: ${years.join(", ")||"—"}<br>`+
+    `Scenarios: ${scens.join(", ")||"—"}<br>`+
     `Granularities: ${grans.join(", ")||"—"}<br>`+
     `<b>${state.records.length}</b> leaf rows loaded`;
 }
@@ -462,15 +486,24 @@ function renderLevels(){
 function renderValueGroups(){
   const M=state.measureMeta;
   const wrap=document.getElementById("valueGroups"); wrap.innerHTML="";
-  const byYear={};
-  state.measures.forEach(h=>{ (byYear[M[h].year]=byYear[M[h].year]||[]).push(h); });
-  Object.keys(byYear).sort((a,b)=>b-a).forEach(yr=>{
-    const list=byYear[yr].sort((a,b)=>M[a].order-M[b].order);
+  const SCENRANK={Actual:0,Target:1,Budget:2,Plan:3,Forecast:4};
+  const byGrp={};
+  state.measures.forEach(h=>{
+    const k=`${M[h].year}¦${M[h].scenario}`;
+    (byGrp[k]=byGrp[k]||[]).push(h);
+  });
+  Object.keys(byGrp).sort((a,b)=>{
+    const [ya,sa]=a.split("¦"), [yb,sb]=b.split("¦");
+    if(ya!==yb) return yb-ya;
+    return (SCENRANK[sa]??9)-(SCENRANK[sb]??9);
+  }).forEach(k=>{
+    const [yr,scen]=k.split("¦");
+    const list=byGrp[k].sort((a,b)=>M[a].order-M[b].order);
     const det=document.createElement("details"); det.className="vgroup";
     const anySel=list.some(h=>state.valueCols.includes(h));
     det.open=anySel;
     const sum=document.createElement("summary");
-    sum.innerHTML=`<span>▸</span><span class="yr">${yr}</span> <span class="muted tiny">(${list.length})</span>`;
+    sum.innerHTML=`<span>▸</span><span class="yr">${yr}</span> <span>${esc(scen)}</span> <span class="muted tiny">(${list.length})</span>`;
     const all=document.createElement("span"); all.className="checkall"; all.textContent="toggle all";
     all.onclick=(e)=>{e.preventDefault(); e.stopPropagation();
       const on=!list.every(h=>state.valueCols.includes(h));

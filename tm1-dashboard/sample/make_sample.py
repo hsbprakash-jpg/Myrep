@@ -29,8 +29,16 @@ def period_headers(yy):
     return cols
 
 
+TARGET_HEADERS = (
+    ["Apr'26-Tar"] +
+    [f"Q{q}'26-Tar" for q in range(1, 5)] +
+    ["H1'26-Tar", "H2'26-Tar", "FY'26-Tar", "YTD Apr'26-Tar"] +
+    [f"FY'{y}-Tar" for y in ("27", "28", "29", "30")]
+)
+FC_HEADERS = [f"{m}'26-FC" for m in ("Apr", "May", "Jun")]
+
 PERIOD_HEADERS = period_headers("26") + period_headers("25") + \
-    ["YTD Dec'19-Act", "YTD Dec'20-Act"]
+    ["YTD Dec'19-Act", "YTD Dec'20-Act"] + TARGET_HEADERS + FC_HEADERS
 
 # Semantic hierarchy: Ac Line -> Prd (product rollup) -> Product 1 (leaves)
 HIER = {
