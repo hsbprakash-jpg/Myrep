@@ -274,6 +274,7 @@ tr.total td.c-dim{background:var(--grey-2)}
         <button class="chipbtn" id="expandAll">⤢ Expand all</button>
         <button class="chipbtn" id="collapseAll">⤡ Collapse all</button>
         <button class="chipbtn" id="varBtn" title="Show variance between first two value columns">Δ Variance</button>
+        <select id="colDimSel" class="chipbtn" title="What runs across the columns: the selected periods, or the values of one dimension for a single period"></select>
         <select id="scaleSel" class="chipbtn" title="Display scale — values are divided for display only">
           <option value="1">Units</option>
           <option value="1000">Thousands (k)</option>
@@ -314,7 +315,8 @@ const state = {
   showVariance:false, search:"",
   scale:1,                        // display divisor: 1, 1e3 (thousands), 1e6 (millions)
   allRecords:[], calcCount:0,     // rows flagged as "calculated" subtotals
-  includeCalc:false               // they are excluded from totals unless re-included
+  includeCalc:false,              // they are excluded from totals unless re-included
+  colDim:""                       // "" = periods across; else a dimension crosstab
 };
 
 /* ---------- column classification (the semantic layer) ---------- */
@@ -567,6 +569,12 @@ function buildSidebar(){
     state.includeCalc=e.target.checked;
     applyCalcFilter(); buildSidebar(); recompute();
   };
+
+  // columns-across selector: periods (default) or a dimension crosstab
+  const cds=document.getElementById("colDimSel");
+  cds.innerHTML=`<option value="">Columns: periods</option>`+
+    state.dims.map(d=>`<option value="${esc(d)}" ${state.colDim===d?"selected":""}>Columns: ${esc(d)}</option>`).join("");
+  cds.onchange=e=>{ state.colDim=e.target.value; renderTable(); };
 }
 
 function renderLevels(){
@@ -725,16 +733,51 @@ function renderKpis(){
   }
 }
 
+/* ---------- crosstab helpers ---------- */
+function xKey(v){ return (v===null||v===undefined||String(v).trim()==="")?"(blank)":String(v); }
+function crossSpec(){
+  // column layout when a dimension runs across: its distinct values ordered by
+  // grand-total magnitude for the active period (first selected, else first measure)
+  if(!state.colDim||!state.dims.includes(state.colDim)) return null;
+  const per=state.valueCols[0]||state.measures[0];
+  if(!per) return null;
+  const totals=new Map();
+  for(const r of state.records){
+    const k=xKey(r[state.colDim]);
+    const v=num(r[per]);
+    if(!totals.has(k)) totals.set(k,{s:0,n:0});
+    if(v!==null){ const t=totals.get(k); t.s+=v; t.n++; }
+  }
+  const vals=[...totals.keys()].sort((a,b)=>Math.abs(totals.get(b).s)-Math.abs(totals.get(a).s));
+  return {per, vals};
+}
+function crossSums(recs,XT){
+  const map=new Map(); let s=0,n=0;
+  for(const r of recs){
+    const v=num(r[XT.per]); if(v===null) continue;
+    const k=xKey(r[state.colDim]);
+    map.set(k,(map.get(k)||0)+v);
+    s+=v; n++;
+  }
+  return {map, total:n?s:null};
+}
+
 /* ---------- table ---------- */
 function renderTable(){
   const M=state.measureMeta;
   const thead=document.getElementById("thead");
+  const XT=crossSpec();
   let th=`<th class="h-dim">Hierarchy</th>`;
   const sfx=scaleSuffix()?` <span class="tiny muted">(${scaleSuffix()})</span>`:"";
-  state.valueCols.forEach(c=>{ th+=`<th title="${esc(c)}">${esc(M[c].label)}${sfx}</th>`; });
-  if(state.showVariance&&state.valueCols.length>=2){
-    th+=`<th class="varh" title="${esc(state.valueCols[0])} − ${esc(state.valueCols[1])}">Δ Var</th>`;
-    th+=`<th class="varh">Δ %</th>`;
+  if(XT){
+    XT.vals.forEach(v=>{ th+=`<th title="${esc(state.colDim)} = ${esc(v)}">${esc(v)}${sfx}</th>`; });
+    th+=`<th title="Row total for ${esc(XT.per)}">Total${sfx}</th>`;
+  }else{
+    state.valueCols.forEach(c=>{ th+=`<th title="${esc(c)}">${esc(M[c].label)}${sfx}</th>`; });
+    if(state.showVariance&&state.valueCols.length>=2){
+      th+=`<th class="varh" title="${esc(state.valueCols[0])} − ${esc(state.valueCols[1])}">Δ Var</th>`;
+      th+=`<th class="varh">Δ %</th>`;
+    }
   }
   thead.innerHTML=th;
 
@@ -747,7 +790,7 @@ function renderTable(){
       if(matchFn && !matchFn(n)) continue;
       const hasKids=n.children.length>0;
       const open=q? true : state.expanded.has(n.id);   // search forces open
-      rows.push(rowHtml(n,depth,hasKids,open));
+      rows.push(rowHtml(n,depth,hasKids,open,XT));
       if(hasKids && open) walk(n.children,depth+1);
     }
   }
@@ -755,10 +798,16 @@ function renderTable(){
 
   // grand total
   let tot=`<tr class="total"><td class="c-dim"><span class="node-label" style="padding-left:6px"><span class="txt">▣ Grand total</span> <span class="lvl-tag">${state.records.length} rows</span></span></td>`;
-  state.valueCols.forEach(c=>{const f=fmt(state.grand[c]); tot+=`<td class="${f.cls}">${f.t}</td>`;});
-  if(state.showVariance&&state.valueCols.length>=2){
-    const d=diff(state.grand[state.valueCols[0]],state.grand[state.valueCols[1]]);
-    tot+=`<td class="${d.cls}">${d.t}</td><td class="pct">${d.p}</td>`;
+  if(XT){
+    const gs=crossSums(state.records,XT);
+    XT.vals.forEach(v=>{const f=fmt(gs.map.has(v)?gs.map.get(v):null); tot+=`<td class="${f.cls}">${f.t}</td>`;});
+    const f=fmt(gs.total); tot+=`<td class="${f.cls}">${f.t}</td>`;
+  }else{
+    state.valueCols.forEach(c=>{const f=fmt(state.grand[c]); tot+=`<td class="${f.cls}">${f.t}</td>`;});
+    if(state.showVariance&&state.valueCols.length>=2){
+      const d=diff(state.grand[state.valueCols[0]],state.grand[state.valueCols[1]]);
+      tot+=`<td class="${d.cls}">${d.t}</td><td class="pct">${d.p}</td>`;
+    }
   }
   tot+=`</tr>`;
 
@@ -769,7 +818,9 @@ function renderTable(){
   document.getElementById("rowStat").textContent=
     `${shown} row${shown===1?"":"s"} shown`;
   document.getElementById("tableNote").textContent=
-    `Drill path: ${state.levels.join("  ›  ")||"(none)"} · values summed from ${state.records.length} leaf records`+
+    `Drill path: ${state.levels.join("  ›  ")||"(none)"}`+
+    (XT?` · columns: ${state.colDim} · every cell = ${state.measureMeta[XT.per]?state.measureMeta[XT.per].label:XT.per}`:"")+
+    ` · values summed from ${state.records.length} leaf records`+
     (state.calcCount&&!state.includeCalc?` (${state.calcCount} “calculated” subtotal rows excluded)`:
      state.calcCount&&state.includeCalc?` (includes ${state.calcCount} “calculated” rows — totals may double-count)`:"")+
     ` · `+
@@ -777,17 +828,23 @@ function renderTable(){
      `figures in ${state.scale===1e6?"millions":"thousands"} (source ÷ ${state.scale.toLocaleString()}).`);
 }
 
-function rowHtml(n,depth,hasKids,open){
+function rowHtml(n,depth,hasKids,open,XT){
   const pad=6+depth*20;
   const caret=hasKids?`<button class="caret ${open?"open":""}" data-id="${esc(n.id)}">▶</button>`
                      :`<span class="caret leaf">▶</span>`;
   const tag = depth<state.levels.length ? `<span class="lvl-tag">${esc(shortField(n.field))}</span>`:"";
   const kids = hasKids?`<span class="count-pill">${n.children.length}</span>`:"";
   let tds=`<td class="c-dim"><span class="node-label" style="padding-left:${pad}px">${caret}<span class="txt" title="${esc(n.label)}">${esc(n.label)}</span> ${tag}${kids}</span></td>`;
-  state.valueCols.forEach(c=>{const f=fmt(n.values[c]); tds+=`<td class="${f.cls}">${f.t}</td>`;});
-  if(state.showVariance&&state.valueCols.length>=2){
-    const d=diff(n.values[state.valueCols[0]],n.values[state.valueCols[1]]);
-    tds+=`<td class="${d.cls}">${d.t}</td><td class="pct">${d.p}</td>`;
+  if(XT){
+    const cs=crossSums(n.recs,XT);
+    XT.vals.forEach(v=>{const f=fmt(cs.map.has(v)?cs.map.get(v):null); tds+=`<td class="${f.cls}">${f.t}</td>`;});
+    const f=fmt(cs.total); tds+=`<td class="${f.cls}">${f.t}</td>`;
+  }else{
+    state.valueCols.forEach(c=>{const f=fmt(n.values[c]); tds+=`<td class="${f.cls}">${f.t}</td>`;});
+    if(state.showVariance&&state.valueCols.length>=2){
+      const d=diff(n.values[state.valueCols[0]],n.values[state.valueCols[1]]);
+      tds+=`<td class="${d.cls}">${d.t}</td><td class="pct">${d.p}</td>`;
+    }
   }
   return `<tr class="depth-${depth}">${tds}</tr>`;
 }

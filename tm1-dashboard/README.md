@@ -42,6 +42,12 @@ browser, drop your Excel file on it, and drill.
   plus presets: *Latest FY vs PY* and *Current-year months*.
 - **Variance** — one click adds `Δ Var` and `Δ %` between the first two
   selected periods (e.g. FY'26 vs FY'25).
+- **Crosstab mode** — the `Columns:` selector switches the table from
+  periods-across to a dimension-across layout: pick `Columns: Ac Line` and one
+  period, and every row splits into NII / Non-NII / … plus a Total column —
+  the "Revenue Analysis" style summary (rows × dimension for a single
+  period). Columns are ordered by grand-total magnitude; the footnote states
+  which period fills the cells.
 - **Display scale** — show figures in units, thousands (k) or millions (m).
   Display-only division: aggregation always runs on source values, column
   headers gain a `(k)`/`(m)` suffix, and the footnote states the divisor.
