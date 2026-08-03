@@ -11,9 +11,14 @@ browser, drop your Excel file on it, and drill.
 
 - **Excel loader** — drag & drop or browse for `.xlsx` / `.xls` / `.xlsm` /
   `.csv`; pick the worksheet if there are several (defaults to the one that
-  looks like `GPS Data`). Parsing is done in-browser by a vendored copy of
-  [SheetJS](https://sheetjs.com/) (`vendor/xlsx.full.min.js`) so the page works
-  offline.
+  looks like `GPS Data`). Parsing is done in-browser by
+  [SheetJS](https://sheetjs.com/) (0.18.5), embedded **inside** `index.html` —
+  the dashboard is one self-contained file you can copy or email anywhere, and
+  it works fully offline. A status banner reports progress, row counts, and
+  any load errors (bad file, empty sheet, unrecognised headers).
+- **Robust value parsing** — numeric cells, text numbers with thousands
+  separators (`1,234.50`), accounting negatives (`(2.26)`), and TM1 blank
+  markers (`-`) are all handled.
 - **Semantic layer (auto-detected)** — every column is classified on load:
   - *Period measures*: headers matching TM1 period patterns —
     `Jan'26-Act`, `Q1'25-Act`, `H1'26-Act`, `FY'25-Act`, `YTD Apr'26-Act` —
@@ -58,8 +63,7 @@ be row 1; the loader scans the first 10 rows and picks the most plausible one.
 
 | Path | Purpose |
 |---|---|
-| `index.html` | The entire dashboard (UI + semantic layer + pivot engine) |
-| `vendor/xlsx.full.min.js` | SheetJS 0.18.5, vendored for offline use |
+| `index.html` | The entire dashboard, self-contained (UI + semantic layer + pivot engine + embedded SheetJS) |
 | `sample/make_sample.py` | Generates a synthetic extract with the same structure |
 | `sample/GPS_Driller_sample.xlsx` | Output of the generator, for demo/testing |
 

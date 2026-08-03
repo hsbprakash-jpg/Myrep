@@ -92,11 +92,18 @@ def prd_group(prd):
 
 
 def gen_value(base):
-    if random.random() < 0.12:
-        return None  # sparse, like the '-' cells in the source
+    r = random.random()
+    if r < 0.08:
+        return None  # truly empty
+    if r < 0.12:
+        return "-"   # TM1-style blank marker (text)
     v = round(random.gauss(base, base * 0.35), 2)
     if random.random() < 0.08:
-        v = -abs(round(v * 0.3, 2))  # occasional negatives -> parentheses
+        v = -abs(round(v * 0.3, 2))  # occasional negatives
+    # some cells come through as formatted text in real extracts
+    r2 = random.random()
+    if r2 < 0.06:
+        return f"({abs(v):,.2f})" if v < 0 else f"{v:,.2f}"
     return v
 
 
