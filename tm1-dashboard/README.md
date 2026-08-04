@@ -42,12 +42,16 @@ browser, drop your Excel file on it, and drill.
   plus presets: *Latest FY vs PY* and *Current-year months*.
 - **Variance** — one click adds `Δ Var` and `Δ %` between the first two
   selected periods (e.g. FY'26 vs FY'25).
-- **Category panes (Ac Type)** — rows are partitioned by `Ac Type` so P&L,
-  Avg Bal, RWA and metric rows are never summed together. A pane bar above
-  the KPIs shows each category's own total; clicking a pane filters the
-  whole dashboard (tree, grand total, KPIs, crosstab) to that category.
-  P&L is the default pane; the grand-total row and footnote are labelled
-  with the active pane.
+- **Category panes** — rows are partitioned so P&L, Avg Bal, RWA and metric
+  rows are never summed together. Detection is two-stage: if the `Ac Type`
+  column carries several values, those are the panes; otherwise each row is
+  classified by keywords in its marker columns (`Ac Type`, `Ac Line`,
+  `Account`, `Prd`, `Unique Ref`) — `RWA`, average-balance wording, or
+  metric/margin/NIM wording — with everything unmatched staying P&L. A pane
+  bar above the KPIs shows each category's own total; clicking a pane
+  filters the whole dashboard (tree, grand total, KPIs, crosstab) to that
+  category. P&L is the default pane; the grand-total row and footnote are
+  labelled with the active pane.
 - **Session cache** — after a successful load the file's bytes are stored in
   the browser's IndexedDB and the view setup (drill levels, ticked periods,
   crosstab column, scale, calculated-rows toggle, worksheet) in localStorage.

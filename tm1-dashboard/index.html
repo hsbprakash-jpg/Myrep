@@ -595,24 +595,43 @@ function applyCalcFilter(){
   buildCategories();
 }
 
-/* partition rows by Ac Type so P&L, Avg Bal, RWA, metrics never sum together */
+/* partition rows into panes so P&L, Avg Bal, RWA, metrics never sum together.
+   Two-stage detection:
+   1. if the Ac Type column itself carries several values, those ARE the panes;
+   2. otherwise rows are classified by keywords found in the marker columns
+      (Ac Type, Ac Line, Account, Prd, Unique Ref) — RWA / average-balance /
+      metric wording — and everything unmatched stays P&L. */
 function catRank(v){
-  return /p\s*.?\s*&?\s*l|pnl/i.test(v)?0 : /avg.*bal|average.*bal/i.test(v)?1
-       : /rwa/i.test(v)?2 : /metric|ratio|margin/i.test(v)?3 : 4;
+  return /^p\s*[&n]?\s*l\b/i.test(v)?0 : /avg.*bal|average.*bal/i.test(v)?1
+       : /\brwa\b/i.test(v)?2 : /metric|ratio|margin|\bnim\b/i.test(v)?3 : 4;
+}
+const CAT_RULES=[
+  ["RWA",     /\brwa\b/i],
+  ["Avg Bal", /(avg|average)[\s_.–-]*((int(erest)?|ib|nib)[\s_.–-]*)?(earning[\s_.–-]*)?(bal(ance)?s?|assets?)/i],
+  ["Metrics", /\bnim\b|margin|\bratio\b|metric|\bbps\b/i],
+];
+function keywordCat(r,cols){
+  const txt=cols.map(c=>String(r[c]??"")).join(" ¦ ");
+  for(const [name,re] of CAT_RULES) if(re.test(txt)) return name;
+  return "P&L";
 }
 function buildCategories(){
-  state.catDim = state.dims.find(d=>/^ac\s*type$/i.test(d)) || "";
-  if(!state.catDim){
-    state.categories=[]; state.activeCat="";
-    state.records=state.baseRecords;
-    return;
+  const cd=state.dims.find(d=>/^ac\s*type$/i.test(d))||"";
+  state.catDim=cd;
+  const acTypeVals=cd?new Set(state.baseRecords.map(r=>xKey(r[cd]))):new Set();
+  if(acTypeVals.size>1){
+    state.baseRecords.forEach(r=>{ r.__cat=xKey(r[cd]); });
+  }else{
+    const scanCols=state.dims.filter(d=>/ac\s*type|ac\s*line|account|^prd1?$|unique/i.test(d));
+    state.baseRecords.forEach(r=>{ r.__cat=keywordCat(r,scanCols); });
   }
-  const seen=new Set();
-  state.baseRecords.forEach(r=>seen.add(xKey(r[state.catDim])));
+  const seen=new Set(state.baseRecords.map(r=>r.__cat));
   state.categories=[...seen].sort((a,b)=>catRank(a)-catRank(b)||a.localeCompare(b));
   if(!state.categories.includes(state.activeCat))
     state.activeCat=state.categories[0];          // ranked: P&L first when present
-  state.records=state.baseRecords.filter(r=>xKey(r[state.catDim])===state.activeCat);
+  state.records=(state.categories.length>1)
+    ? state.baseRecords.filter(r=>r.__cat===state.activeCat)
+    : state.baseRecords;
 }
 
 /* ---------- defaults for levels + values ---------- */
@@ -845,12 +864,12 @@ function recompute(){
 /* ---------- category panes ---------- */
 function renderCatBar(){
   const bar=document.getElementById("catBar");
-  if(!state.catDim||state.categories.length<2){ bar.style.display="none"; return; }
+  if(state.categories.length<2){ bar.style.display="none"; return; }
   bar.style.display="flex";
   const per=state.valueCols[0]||state.measures[0];
   const lbl=per&&state.measureMeta[per]?state.measureMeta[per].label:per||"";
   bar.innerHTML=state.categories.map(c=>{
-    const recs=state.baseRecords.filter(r=>xKey(r[state.catDim])===c);
+    const recs=state.baseRecords.filter(r=>r.__cat===c);
     let s=0,n=0;
     if(per) recs.forEach(r=>{const v=num(r[per]); if(v!==null){s+=v;n++;}});
     const f=fmt(n?s:null);
