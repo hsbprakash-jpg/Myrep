@@ -1511,19 +1511,32 @@ function buildChartEl(cfg){
   if(gArr(cfg.splitBy).length && !SPLIT_TYPES.has(cfg.type)) notes.push('Split by applies to column and horizontal bar charts only — ignored here.');
   let html='';
   const t=cfg.type;
-  // long category names get rotated axis labels instead of hard truncation
-  const maxLbl=Math.max(...cats.map(c=>c.name.length));
-  const rot=maxLbl>9;
-  const P=rot?84:0;   // extra left padding for the rotated labels' overhang
-  const xLabel=(cx,yBase)=>(c)=>{
-    if(rot){
-      // keep the tail — with grouped fields the leading parts repeat, the tail distinguishes
-      const lbl=c.name.length>26?'…'+c.name.slice(-25):c.name;
-      return `<text x="${cx.toFixed(1)}" y="${yBase}" transform="rotate(-38 ${cx.toFixed(1)} ${yBase})"
-        text-anchor="end" font-size="9.5" fill="var(--text-secondary)"><title>${esc(c.name)}</title>${esc(lbl)}</text>`;
+  // horizontal labels, wrapped to up to 3 lines; slots widen so full text fits.
+  // wrap greedily, then keep the LAST 3 lines — with grouped fields the leading
+  // parts repeat and the tail is what distinguishes the categories
+  const wrapLbl=name=>{
+    const words=String(name).split(/\s+/);
+    const lines=[]; let cur='';
+    for(const w of words){
+      const cand=cur? cur+' '+w : w;
+      if(cand.length<=16||!cur) cur=cand;
+      else { lines.push(cur); cur=w; }
     }
-    const lbl=c.name.length>11?c.name.slice(0,10)+'…':c.name;
-    return `<text x="${cx.toFixed(1)}" y="${yBase}" text-anchor="middle" font-size="10" fill="var(--text-secondary)"><title>${esc(c.name)}</title>${esc(lbl)}</text>`;
+    if(cur) lines.push(cur);
+    if(lines.length>3){ const kept=lines.slice(-3); kept[0]='…'+kept[0]; return kept; }
+    return lines;
+  };
+  const labLines=new Map(cats.map(c=>[c.name, wrapLbl(c.name)]));
+  const maxLines=Math.max(1,...[...labLines.values()].map(l=>l.length));
+  const maxLineLen=Math.max(4,...[...labLines.values()].flat().map(l=>l.length));
+  const BOT=26+maxLines*11;
+  const slotW=Math.max(72, Math.min(122, Math.round(maxLineLen*6.4)+12));
+  const P=0;
+  const xLabel=(cx,yBase)=>(c)=>{
+    const lines=labLines.get(c.name)||[String(c.name)];
+    return `<text x="${cx.toFixed(1)}" y="${yBase}" text-anchor="middle" font-size="9.5" fill="var(--text-secondary)">`+
+      `<title>${esc(c.name)}</title>`+
+      lines.map((ln,i)=>`<tspan x="${cx.toFixed(1)}" dy="${i?11:0}">${esc(ln)}</tspan>`).join('')+`</text>`;
   };
 
   if(t==='pie'||t==='donut'){
@@ -1581,7 +1594,7 @@ function buildChartEl(cfg){
     }).join('')+'</div>'+segLegend(segNames);
 
   } else if(t==='line'||t==='area'){
-    const BOT=rot?88:44, W=Math.max(430, cats.length*72+70), H=250+(rot?32:0), L=52, T=14;
+    const W=Math.max(430, cats.length*slotW+70), L=52, T=14, H=206+BOT;
     const vals=cats.map(c=>c.val);
     const min=Math.min(0,...vals), max=Math.max(0,...vals), span=(max-min)||1;
     const y=v=>T+(H-T-BOT)-(v-min)*(H-T-BOT)/span;
@@ -1606,7 +1619,7 @@ function buildChartEl(cfg){
     html=`<div class="scroll-x"><svg width="${W+P}" height="${H}" viewBox="${-P} 0 ${W+P} ${H}" role="img" aria-label="${t} chart">${svg}</svg></div>`;
 
   } else if(t==='waterfall'){
-    const BOT=rot?90:46, W=Math.max(470, (cats.length+1)*76+70), H=260+(rot?32:0), L=56, T=16;
+    const W=Math.max(470, (cats.length+1)*slotW+70), L=56, T=16, H=214+BOT;
     let acc=0; const steps=cats.map(c=>{const s={name:c.name,val:c.val,from:acc,to:acc+c.val}; acc+=c.val; return s;});
     const total=acc;
     const lo=Math.min(0,...steps.map(s=>Math.min(s.from,s.to)),total), hi=Math.max(0,...steps.map(s=>Math.max(s.from,s.to)),total);
@@ -1636,7 +1649,7 @@ function buildChartEl(cfg){
     const items=cats.map(c=>({name:c.name, val:Math.abs(c.val)})).filter(c=>c.val>0);
     if(!items.length){ wrap.innerHTML='<p class="note">No non-zero values for a Pareto view.</p>'; return wrap; }
     const total=items.reduce((s,c)=>s+c.val,0);
-    const BOT=rot?88:44, W=Math.max(430, items.length*72+70), H=260+(rot?32:0), L=52, T=18;
+    const W=Math.max(430, items.length*slotW+70), L=52, T=18, H=216+BOT;
     const max=items[0].val;
     const y=v=>T+(H-T-BOT)-v*(H-T-BOT)/max;
     const yPct=f=>T+(H-T-BOT)*(1-f);
@@ -1715,7 +1728,7 @@ function buildChartEl(cfg){
       <p class="note">Points above the dashed line grew versus prior year; below it declined. Measure dropdown does not apply here.</p>`;
 
   } else { /* column */
-    const BOT=rot?88:44, W=Math.max(430, cats.length*72+70), H=250+(rot?32:0), L=52, T=14;
+    const W=Math.max(430, cats.length*slotW+70), L=52, T=14, H=206+BOT;
     const vals=cats.map(c=>segNames?c.segTotal:c.val);
     const min=Math.min(0,...vals), max=Math.max(0,...vals), span=(max-min)||1;
     const y=v=>T+(H-T-BOT)-(v-min)*(H-T-BOT)/span;
