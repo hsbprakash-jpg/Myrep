@@ -138,6 +138,35 @@ for ac_line in HIER:
     vals = [round(random.uniform(500, 2000), 2) for _ in PERIOD_HEADERS]
     ws.append(dims + vals)
 
+# non-P&L panes: Avg Bal, RWA and Metrics rows share the same layout but a
+# different Ac Type — they must never be summed together with P&L
+OTHER_CATS = {
+    "Avg Bal": [
+        ("IBCA-Current Accounts", "PR05010000 - Current Accounts - Other", 60000),
+        ("IBCA-Savings", "PR05040100 - Savings Accounts - Other", 45000),
+        ("NIBCA-Current Accounts", "PR05020000 - Money Market Call Deposits", 30000),
+        ("IBCA-TD", "PR05040200 - Time Deposits Other", 25000),
+    ],
+    "RWA": [
+        ("IBCA-Current Accounts", "PR05010000 - Current Accounts - Other", 8000),
+        ("IBCA-TD", "PR05040200 - Time Deposits Other", 5000),
+    ],
+    "Metrics": [
+        ("IBCA-Current Accounts", "PR05010000 - Current Accounts - Other", 2),
+        ("IBCA-Savings", "PR05040100 - Savings Accounts - Other", 1),
+    ],
+}
+for cat, rows_ in OTHER_CATS.items():
+    for prd, product1, base in rows_:
+        prd1, _ = prd_group(prd)
+        dims = [f"{cat}-{prd}-{ENTITY}-{SEG}", f"{cat}-{prd1}-{ENTITY}-{SEG}",
+                cat, SEG, MARKET, ENTITY,
+                prd, prd1, "NII", "NII", ENTITY,
+                f"MB20101000000 - {cat}",
+                "RTN16559", "CG3000000", product1]
+        vals = [gen_value(base) for _ in PERIOD_HEADERS]
+        ws.append(dims + vals)
+
 out = "GPS_Driller_sample.xlsx"
 wb.save(out)
 print(f"wrote {out}: {ws.max_row-1} rows x {ws.max_column} cols "

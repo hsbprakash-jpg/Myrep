@@ -85,6 +85,22 @@ main{padding:18px 20px; overflow-x:auto}
 .side-h{font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--grey-5); font-weight:700; margin:18px 0 8px}
 .side-h:first-child{margin-top:0}
 .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
+/* category panes (Ac Type switcher) */
+.cats{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px}
+.catcard{
+  display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+  padding:10px 16px; border-radius:10px; cursor:pointer; font:inherit;
+  border:1.5px solid var(--line); background:var(--card); color:var(--ink);
+  min-width:130px; text-align:left;
+}
+.catcard:hover{border-color:var(--hsbc-red)}
+.catcard.active{border-color:var(--hsbc-red); border-top:3px solid var(--hsbc-red);
+  background:var(--card); box-shadow:0 2px 8px rgba(219,0,17,.12)}
+.catcard .cname{font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--hsbc-red)}
+.catcard .cval{font-size:18px; font-weight:700}
+.catcard .cval.neg{color:var(--hsbc-red)}
+.catcard .csub{font-size:10px; color:var(--ink-soft)}
+
 /* table hint row */
 tr.hint td{
   padding:18px 14px; text-align:center; font-size:13px; color:var(--ink-soft);
@@ -272,6 +288,7 @@ tr.total td.c-dim{background:var(--grey-2)}
     </div>
 
     <div id="dash" style="display:none">
+      <div class="cats" id="catBar" style="display:none"></div>
       <div class="kpis" id="kpis"></div>
       <div class="tbar">
         <div class="grow search">
@@ -323,7 +340,10 @@ const state = {
   scale:1,                        // display divisor: 1, 1e3 (thousands), 1e6 (millions)
   allRecords:[], calcCount:0,     // rows flagged as "calculated" subtotals
   includeCalc:false,              // they are excluded from totals unless re-included
-  colDim:""                       // "" = periods across; else a dimension crosstab
+  colDim:"",                      // "" = periods across; else a dimension crosstab
+  baseRecords:[],                 // post-calc-filter rows, all categories
+  catDim:"", categories:[],       // Ac Type partition: P&L / Avg Bal / RWA / …
+  activeCat:""                    // pane currently shown; totals never mix panes
 };
 
 /* ---------- column classification (the semantic layer) ---------- */
@@ -431,7 +451,8 @@ function savePrefs(){
   try{
     localStorage.setItem("gpsdriller.prefs",JSON.stringify({
       levels:state.levels, valueCols:state.valueCols, colDim:state.colDim,
-      scale:state.scale, includeCalc:state.includeCalc, sheetName:state.sheetName
+      scale:state.scale, includeCalc:state.includeCalc, sheetName:state.sheetName,
+      activeCat:state.activeCat
     }));
   }catch(e){}
 }
@@ -553,6 +574,9 @@ function loadSheet(name){
     if(typeof pv.includeCalc==="boolean"&&pv.includeCalc!==state.includeCalc){
       state.includeCalc=pv.includeCalc; applyCalcFilter();
     }
+    if(pv.activeCat&&state.categories.includes(pv.activeCat)){
+      state.activeCat=pv.activeCat; buildCategories();
+    }
   }
   buildSidebar();
   recompute();
@@ -566,8 +590,29 @@ function loadSheet(name){
 }
 
 function applyCalcFilter(){
-  state.records = state.includeCalc ? state.allRecords
-                                    : state.allRecords.filter(r=>!r.__calc);
+  state.baseRecords = state.includeCalc ? state.allRecords
+                                        : state.allRecords.filter(r=>!r.__calc);
+  buildCategories();
+}
+
+/* partition rows by Ac Type so P&L, Avg Bal, RWA, metrics never sum together */
+function catRank(v){
+  return /p\s*.?\s*&?\s*l|pnl/i.test(v)?0 : /avg.*bal|average.*bal/i.test(v)?1
+       : /rwa/i.test(v)?2 : /metric|ratio|margin/i.test(v)?3 : 4;
+}
+function buildCategories(){
+  state.catDim = state.dims.find(d=>/^ac\s*type$/i.test(d)) || "";
+  if(!state.catDim){
+    state.categories=[]; state.activeCat="";
+    state.records=state.baseRecords;
+    return;
+  }
+  const seen=new Set();
+  state.baseRecords.forEach(r=>seen.add(xKey(r[state.catDim])));
+  state.categories=[...seen].sort((a,b)=>catRank(a)-catRank(b)||a.localeCompare(b));
+  if(!state.categories.includes(state.activeCat))
+    state.activeCat=state.categories[0];          // ranked: P&L first when present
+  state.records=state.baseRecords.filter(r=>xKey(r[state.catDim])===state.activeCat);
 }
 
 /* ---------- defaults for levels + values ---------- */
@@ -582,7 +627,9 @@ function initDefaults(){
     if(filtered.some(f=>f.replace(/1$/,"")===base)) return;
     filtered.push(c);
   });
-  state.levels = filtered.length?filtered.slice(0,4):state.dims.slice(0,3);
+  // Ac Type is the pane switcher when partitioned — redundant as a row level
+  const usable=(state.categories.length>1)?filtered.filter(f=>f!==state.catDim):filtered;
+  state.levels = usable.length?usable.slice(0,4):state.dims.filter(d=>d!==state.catDim).slice(0,3);
 
   // default values: latest FY + prior FY, else last 2 measures
   state.valueCols = presetValues("latestFY");
@@ -791,8 +838,32 @@ function recompute(){
   state.valueCols.forEach(c=>state.grand[c]=aggregate(state.records,c));
   // default-expand depth 0 the first time
   if(state.expanded.size===0) state.tree.forEach(n=>state.expanded.add(n.id));
-  renderKpis(); renderTable();
+  renderCatBar(); renderKpis(); renderTable();
   if(state.workbook) savePrefs();
+}
+
+/* ---------- category panes ---------- */
+function renderCatBar(){
+  const bar=document.getElementById("catBar");
+  if(!state.catDim||state.categories.length<2){ bar.style.display="none"; return; }
+  bar.style.display="flex";
+  const per=state.valueCols[0]||state.measures[0];
+  const lbl=per&&state.measureMeta[per]?state.measureMeta[per].label:per||"";
+  bar.innerHTML=state.categories.map(c=>{
+    const recs=state.baseRecords.filter(r=>xKey(r[state.catDim])===c);
+    let s=0,n=0;
+    if(per) recs.forEach(r=>{const v=num(r[per]); if(v!==null){s+=v;n++;}});
+    const f=fmt(n?s:null);
+    return `<button class="catcard ${c===state.activeCat?"active":""}" data-cat="${esc(c)}" `+
+      `title="Show only ${esc(c)} rows in the table and KPIs">`+
+      `<span class="cname">${esc(c)}</span>`+
+      `<span class="cval ${f.cls}">${f.t}</span>`+
+      `<span class="csub">${esc(lbl)} · ${recs.length} rows</span></button>`;
+  }).join("");
+  bar.querySelectorAll(".catcard").forEach(b=>b.onclick=()=>{
+    state.activeCat=b.getAttribute("data-cat");
+    buildCategories(); state.expanded=new Set(); recompute();
+  });
 }
 
 /* ---------- number formatting ---------- */
@@ -816,7 +887,7 @@ function renderKpis(){
     const el=document.createElement("div"); el.className="kpi card";
     el.innerHTML=`<div class="k-label" title="${esc(c)}">${esc(M[c].label)}</div>`+
       `<div class="k-val ${f.cls}">${f.t}</div>`+
-      `<div class="k-sub">${esc(M[c].gran)} · ${M[c].scenario} · grand total${scaleSuffix()?" · in "+(state.scale===1e6?"millions":"thousands"):""}</div>`;
+      `<div class="k-sub">${esc(M[c].gran)} · ${M[c].scenario} · ${esc(state.activeCat||"grand")} total${scaleSuffix()?" · in "+(state.scale===1e6?"millions":"thousands"):""}</div>`;
     box.appendChild(el);
   });
   if(!state.valueCols.length){
@@ -900,7 +971,7 @@ function renderTable(){
   }
 
   // grand total
-  let tot=`<tr class="total"><td class="c-dim"><span class="node-label" style="padding-left:6px"><span class="txt">▣ Grand total</span> <span class="lvl-tag">${state.records.length} rows</span></span></td>`;
+  let tot=`<tr class="total"><td class="c-dim"><span class="node-label" style="padding-left:6px"><span class="txt">▣ ${esc(state.activeCat||"Grand")} total</span> <span class="lvl-tag">${state.records.length} rows</span></span></td>`;
   if(XT){
     const gs=crossSums(state.records,XT);
     XT.vals.forEach(v=>{const f=fmt(gs.map.has(v)?gs.map.get(v):null); tot+=`<td class="${f.cls}">${f.t}</td>`;});
@@ -921,6 +992,7 @@ function renderTable(){
   document.getElementById("rowStat").textContent=
     `${shown} row${shown===1?"":"s"} shown`;
   document.getElementById("tableNote").textContent=
+    (state.activeCat?`Pane: ${state.activeCat} · `:"")+
     `Drill path: ${state.levels.join("  ›  ")||"(none)"}`+
     (XT?` · columns: ${state.colDim} · every cell = ${state.measureMeta[XT.per]?state.measureMeta[XT.per].label:XT.per}`:"")+
     ` · values summed from ${state.records.length} leaf records`+
