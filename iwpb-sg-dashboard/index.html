@@ -63,7 +63,44 @@ header .spacer{flex:1}
 header button{background:transparent;border:1px solid rgba(255,255,255,.6);color:#fff;
   border-radius:4px;padding:5px 12px;font-size:12.5px;cursor:pointer}
 header button:hover{background:rgba(255,255,255,.12)}
-main{max-width:1240px;margin:0 auto;padding:20px}
+#layout{display:flex;min-height:calc(100vh - 56px)}
+aside{width:258px;flex:none;background:var(--surface-1);border-right:1px solid var(--border);
+  padding:8px 0 12px;display:flex;flex-direction:column}
+aside .sect{font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;
+  color:var(--text-muted);padding:16px 18px 6px}
+aside nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
+  padding:9px 18px 9px 15px;font:inherit;font-size:13.5px;color:var(--text-secondary);cursor:pointer;
+  border-left:3px solid transparent;text-align:left}
+aside nav button:hover{background:color-mix(in srgb, var(--text-primary) 5%, transparent);color:var(--text-primary)}
+aside nav button.active{color:var(--hsbc-red);border-left-color:var(--hsbc-red);font-weight:700;
+  background:color-mix(in srgb, var(--hsbc-red) 6%, transparent)}
+aside nav button svg{flex:none;opacity:.85}
+#kpiNav{display:flex;flex-direction:column}
+#kpiNav button{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;
+  border-left:3px solid transparent;padding:7px 18px 7px 15px;font:inherit;font-size:12.5px;
+  color:var(--text-secondary);cursor:pointer;text-align:left}
+#kpiNav button:hover{color:var(--text-primary);background:color-mix(in srgb, var(--text-primary) 5%, transparent)}
+#kpiNav button.active{color:var(--text-primary);font-weight:700;border-left-color:var(--hsbc-red);
+  background:color-mix(in srgb, var(--hsbc-red) 6%, transparent)}
+#kpiNav .dot{width:8px;height:8px;border-radius:50%;flex:none}
+#kpiNav .dot.g{background:var(--status-good)}
+#kpiNav .dot.a{background:var(--status-warning)}
+#kpiNav .dot.r{background:var(--status-critical)}
+#kpiNav .dot.n{background:var(--text-muted)}
+#kpiNav .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#kpiNav .v{font-variant-numeric:tabular-nums;color:var(--text-muted);font-size:11.5px}
+#sideFilters{padding:2px 18px 0;display:flex;flex-direction:column;gap:10px}
+#sideFilters label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--text-secondary);font-weight:600}
+#sideFilters select{width:100%;padding:5px 8px;border:1px solid var(--border-strong);border-radius:4px;
+  background:var(--surface-2);color:var(--text-primary);font-size:12.5px}
+#sideFilters .chk{flex-direction:row;align-items:center;gap:6px;font-weight:400;font-size:12px;color:var(--text-primary)}
+aside .foot{margin-top:auto;padding:12px 18px 2px;border-top:1px solid var(--border)}
+main{flex:1;min-width:0;padding:20px 26px;max-width:1150px}
+@media (max-width:840px){
+  #layout{flex-direction:column}
+  aside{width:100%;border-right:none;border-bottom:1px solid var(--border)}
+  main{padding:16px}
+}
 
 /* ---------- upload ---------- */
 #uploadView .panel{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;
@@ -87,22 +124,6 @@ main{max-width:1240px;margin:0 auto;padding:20px}
 .btn-quiet{background:none;border:1px solid var(--border-strong);color:var(--text-primary);
   border-radius:4px;padding:5px 12px;font-size:12.5px;cursor:pointer}
 .btn-quiet:hover{border-color:var(--text-secondary)}
-
-/* ---------- filter bar ---------- */
-#filterBar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;background:var(--surface-1);
-  border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;box-shadow:var(--shadow)}
-#filterBar label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--text-secondary);font-weight:600}
-#filterBar select{min-width:130px;max-width:230px;padding:5px 8px;border:1px solid var(--border-strong);
-  border-radius:4px;background:var(--surface-2);color:var(--text-primary);font-size:13px}
-#filterBar .chk{flex-direction:row;align-items:center;gap:6px;padding-bottom:7px;font-weight:400;font-size:12.5px;color:var(--text-primary)}
-#filterBar .end{margin-left:auto;display:flex;gap:8px;align-items:center;padding-bottom:2px}
-
-/* ---------- tabs ---------- */
-.tabs{display:flex;gap:2px;margin-bottom:14px;border-bottom:2px solid var(--border)}
-.tabs button{background:none;border:none;padding:8px 16px;font-size:13.5px;color:var(--text-secondary);
-  cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:600}
-.tabs button.active{color:var(--hsbc-red);border-bottom-color:var(--hsbc-red)}
-.tabs button:hover:not(.active){color:var(--text-primary)}
 
 /* ---------- KPI summary ---------- */
 .hero{background:var(--surface-1);border:1px solid var(--border);border-left:4px solid var(--hsbc-red);
@@ -189,6 +210,37 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div class="spacer"></div>
   <button id="btnNewFile" hidden>Load new file</button>
 </header>
+<div id="layout">
+<aside id="sideNav" hidden>
+  <div class="sect">Views</div>
+  <nav>
+    <button id="navSummary" class="active">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1.2" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="6" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="9" y="9" width="6" height="6" rx="1.2" fill="currentColor"/></svg>
+      KPI summary</button>
+    <button id="navDrill">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 2h13L10 8v5.5L6 11V8L1.5 2z" fill="currentColor"/></svg>
+      Drill-down</button>
+    <button id="navTable">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="2" width="14" height="2.4" rx="1" fill="currentColor"/><rect x="1" y="6.8" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="11.6" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/></svg>
+      Data</button>
+  </nav>
+  <div class="sect">KPIs · MICA Level 2</div>
+  <div id="kpiNav"></div>
+  <div class="sect">Filters</div>
+  <div id="sideFilters">
+    <label>Entity <select id="fEntity"></select></label>
+    <label>Segment (CG Level 2) <select id="fSeg"></select></label>
+    <label>Function (Level 2) <select id="fFunc"></select></label>
+    <label>YTD through <select id="fMonth"></select></label>
+    <label class="chk"><input type="checkbox" id="fFC"> Include forecast month</label>
+    <label>RAG tolerance <select id="fThresh">
+      <option value="0.03">±3% vs prior year</option>
+      <option value="0.05" selected>±5% vs prior year</option>
+      <option value="0.10">±10% vs prior year</option>
+    </select></label>
+  </div>
+  <div class="foot"><span id="rowCount" class="note"></span></div>
+</aside>
 <main>
 
 <section id="uploadView">
@@ -206,26 +258,6 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 </section>
 
 <section id="dashView" hidden>
-  <div id="filterBar">
-    <label>Entity <select id="fEntity"></select></label>
-    <label>Segment (CG Level 2) <select id="fSeg"></select></label>
-    <label>Function (Level 2) <select id="fFunc"></select></label>
-    <label>YTD through <select id="fMonth"></select></label>
-    <label class="chk"><input type="checkbox" id="fFC"> Include forecast month</label>
-    <label>RAG tolerance <select id="fThresh">
-      <option value="0.03">±3% vs prior year</option>
-      <option value="0.05" selected>±5% vs prior year</option>
-      <option value="0.10">±10% vs prior year</option>
-    </select></label>
-    <div class="end"><span id="rowCount" class="note"></span></div>
-  </div>
-
-  <div class="tabs">
-    <button id="tabSummary" class="active">KPI summary</button>
-    <button id="tabDrill">Drill-down</button>
-    <button id="tabTable">Data</button>
-  </div>
-
   <div id="summaryView">
     <div id="heroWrap"></div>
     <div class="cards" id="cardGrid"></div>
@@ -256,6 +288,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 </section>
 
 </main>
+</div>
 <footer>Processed locally in the browser · RAG rating compares YTD actuals with the same prior-year period</footer>
 
 <script>
@@ -734,16 +767,33 @@ function setView(v){
   $('summaryView').hidden = v!=='summary';
   $('drillView').hidden   = v!=='drill';
   $('tableView').hidden   = v!=='table';
-  $('tabSummary').classList.toggle('active',v==='summary');
-  $('tabDrill').classList.toggle('active',v==='drill');
-  $('tabTable').classList.toggle('active',v==='table');
+  $('navSummary').classList.toggle('active',v==='summary');
+  $('navDrill').classList.toggle('active',v==='drill');
+  $('navTable').classList.toggle('active',v==='table');
   render();
+}
+function renderKpiNav(){
+  const m=S.model; if(!m) return;
+  const byL2=groupBy(filteredRows(),'micaL2');
+  const items=[...byL2.entries()].map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  $('kpiNav').innerHTML=items.map(it=>{
+    const rg=rag(it.k.varPct,S.thresh);
+    const act=S.view==='drill'&&S.drillL2===it.l2;
+    return `<button class="${act?'active':''}" data-l2="${esc(it.l2)}"
+      title="${esc(it.l2)} — ${rg.label}" aria-label="${esc(it.l2)}, ${rg.label}">
+      <span class="dot ${rg.cls}" aria-hidden="true"></span>
+      <span class="nm">${esc(it.l2)}</span><span class="v">${fmt(it.k.cy)}</span></button>`;
+  }).join('');
+  $('kpiNav').querySelectorAll('button').forEach(b=>
+    b.addEventListener('click',()=>{ S.drillL2=b.dataset.l2; S.drillL3=null; setView('drill'); }));
 }
 function render(){
   if(!S.model) return;
   if(S.view==='summary') renderSummary();
   else if(S.view==='drill') renderDrill();
   else renderTable();
+  renderKpiNav();
   const rows=filteredRows();
   $('rowCount').textContent=`${rows.length.toLocaleString()} rows in scope`;
 }
@@ -783,6 +833,7 @@ function handleFile(file){
       $('uploadView').hidden=true;
       $('dashView').hidden=false;
       $('btnNewFile').hidden=false;
+      $('sideNav').hidden=false;
       fillFilters();
       setView('summary');
     },700);
@@ -800,7 +851,7 @@ function init(){
   ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
   dz.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
   $('btnNewFile').addEventListener('click',()=>{
-    $('dashView').hidden=true; $('btnNewFile').hidden=true;
+    $('dashView').hidden=true; $('btnNewFile').hidden=true; $('sideNav').hidden=true;
     $('uploadView').hidden=false; $('ingestReport').innerHTML=''; fi.value='';
   });
   $('fEntity').addEventListener('change',e=>{S.entity=e.target.value;render();});
@@ -809,9 +860,9 @@ function init(){
   $('fMonth').addEventListener('change',e=>{S.ytdM=+e.target.value;render();});
   $('fFC').addEventListener('change',e=>{S.includeFC=e.target.checked;render();});
   $('fThresh').addEventListener('change',e=>{S.thresh=+e.target.value;render();});
-  $('tabSummary').addEventListener('click',()=>setView('summary'));
-  $('tabDrill').addEventListener('click',()=>setView('drill'));
-  $('tabTable').addEventListener('click',()=>setView('table'));
+  $('navSummary').addEventListener('click',()=>setView('summary'));
+  $('navDrill').addEventListener('click',()=>setView('drill'));
+  $('navTable').addEventListener('click',()=>setView('table'));
   $('btnTrendTable').addEventListener('click',()=>{
     const t=$('trendTable'); t.hidden=!t.hidden;
     $('btnTrendTable').textContent=t.hidden?'View as table':'Hide table';

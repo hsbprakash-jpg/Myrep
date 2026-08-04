@@ -41,8 +41,10 @@ A single header row with:
   Level 3 products.
 - **Data** — the filtered source rows.
 
-Filters (entity, segment, function, YTD-through month, include-forecast, RAG
-tolerance) apply to every view. RAG compares YTD actuals with the same
+A left navigation pane hosts the three views, a KPI shortcut list (each MICA
+Level 2 line with its RAG dot and YTD value — click to jump straight into its
+drill-down) and the filters. Filters (entity, segment, function, YTD-through
+month, include-forecast, RAG tolerance) apply to every view. RAG compares YTD actuals with the same
 prior-year months: green at or above prior year, amber within the selected
 tolerance below, red beyond it.
 
