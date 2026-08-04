@@ -444,7 +444,7 @@ async function cacheClear(){
       tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
     });
   }catch(e){}
-  try{ localStorage.removeItem("gpsdriller.prefs"); }catch(e){}
+  try{ localStorage.removeItem("gpsdriller.prefs.v2"); }catch(e){}
 }
 function showCacheBtn(name){
   const b=document.getElementById("clearCacheBtn");
@@ -455,7 +455,7 @@ function showCacheBtn(name){
 /* view preferences persisted alongside the cached file */
 function savePrefs(){
   try{
-    localStorage.setItem("gpsdriller.prefs",JSON.stringify({
+    localStorage.setItem("gpsdriller.prefs.v2",JSON.stringify({
       levels:state.levels, valueCols:state.valueCols, colDim:state.colDim,
       scale:state.scale, includeCalc:state.includeCalc, sheetName:state.sheetName,
       activeCat:state.activeCat, filters:state.filters
@@ -463,7 +463,7 @@ function savePrefs(){
   }catch(e){}
 }
 function loadPrefs(){
-  try{ return JSON.parse(localStorage.getItem("gpsdriller.prefs")||"null"); }
+  try{ return JSON.parse(localStorage.getItem("gpsdriller.prefs.v2")||"null"); }
   catch(e){ return null; }
 }
 
