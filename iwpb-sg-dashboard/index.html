@@ -927,7 +927,7 @@ function renderMix(){
   $('mxMeasure').innerHTML=`<option value="cy"${MX.measure==='cy'?' selected':''}>${esc(measureLabel('cy'))}</option>
     <option value="py"${MX.measure==='py'?' selected':''}>${esc(measureLabel('py'))}</option>
     <option value="var"${MX.measure==='var'?' selected':''}>${esc(measureLabel('var'))}</option>`;
-  $('mxType').value=MX.type;
+  $('mxType').innerHTML=typeOptions(MX.type);
   $('mixTitle').textContent=chartTitle(MX);
   $('mixSub').textContent=`YTD ${ytdLabel()} · change the view with the dropdowns — it follows the filters on the right`;
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
@@ -993,6 +993,9 @@ function chartAOA(cfg){
   if(segNames){
     aoa.push([dim,...segNames,'Total']);
     for(const c of cats) aoa.push([c.name,...segNames.map(sn=>c.segs[sn]||0),c.segTotal]);
+  } else if(cfg.type==='scatter'){
+    aoa.push([dim, `YTD ${S.model.yearCY}`, `YTD ${S.model.yearPY}`]);
+    for(const c of cats) aoa.push([c.name, c.cy, c.py]);
   } else {
     aoa.push([dim, measureLabel(cfg.measure)]);
     for(const c of cats) aoa.push([c.name, c.val]);
@@ -1135,20 +1138,33 @@ function chartTitle(cfg){
   return `${cfg.l2||'Total'} · ${measureLabel(cfg.measure)} by ${FIELD_LABELS[cfg.groupBy]||cfg.groupBy}`+
     (cfg.splitBy?` / ${FIELD_LABELS[cfg.splitBy]||cfg.splitBy}`:'');
 }
+const CHART_TYPES=[['column','Column'],['hbar','Horizontal bar'],['lollipop','Lollipop'],
+  ['line','Line'],['area','Area'],['pie','Pie'],['donut','Donut'],['waterfall','Waterfall'],
+  ['pareto','Pareto'],['treemap','Treemap'],['scatter','Scatter CY vs PY']];
+function typeOptions(cur){
+  return CHART_TYPES.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('');
+}
+const SPLIT_TYPES=new Set(['column','hbar']);
 function chartData(cfg){
   const m=S.model;
   let rows=filteredRows();
   if(cfg.l2) rows=rows.filter(r=>r.d.micaL2===cfg.l2);
   const mfn=rs=>{const k=kpi(rs,m,S.ytdM,S.includeFC);
     return (cfg.measure==='py'?k.py:cfg.measure==='var'?k.varAbs:k.cy)||0;};
-  let groups=[...groupBy(rows,cfg.groupBy).entries()].map(([name,rs])=>({name,rows:rs,val:mfn(rs)}));
+  let groups=[...groupBy(rows,cfg.groupBy).entries()].map(([name,rs])=>{
+    const k=kpi(rs,m,S.ytdM,S.includeFC);
+    return {name, rows:rs, cy:k.cy||0, py:k.py||0,
+      val:(cfg.measure==='py'?k.py:cfg.measure==='var'?k.varAbs:k.cy)||0};
+  });
   groups.sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
-  const TOP=cfg.type==='donut'?6:8;
+  const TOP=(cfg.type==='donut'||cfg.type==='pie')?6 : cfg.type==='treemap'?12 : cfg.type==='scatter'?10 : 8;
   let cats=groups.slice(0,TOP);
   const rest=groups.slice(TOP);
-  if(rest.length) cats.push({name:'Other', rows:rest.flatMap(g=>g.rows), val:rest.reduce((s,g)=>s+g.val,0)});
+  if(rest.length) cats.push({name:'Other', rows:rest.flatMap(g=>g.rows),
+    cy:rest.reduce((s,g)=>s+g.cy,0), py:rest.reduce((s,g)=>s+g.py,0),
+    val:rest.reduce((s,g)=>s+g.val,0)});
   let segNames=null, clamped=false;
-  if(cfg.splitBy && cfg.type!=='donut'){
+  if(cfg.splitBy && SPLIT_TYPES.has(cfg.type)){
     const totals=new Map();
     for(const c of cats) for(const [sn,rs] of groupBy(c.rows,cfg.splitBy))
       totals.set(sn,(totals.get(sn)||0)+Math.abs(mfn(rs)));
@@ -1176,41 +1192,58 @@ function segLegend(segNames){
 }
 function buildChartEl(cfg){
   const wrap=document.createElement('div');
+  const m=S.model;
   const {cats, segNames, clamped}=chartData(cfg);
   if(!cats.length){ wrap.innerHTML='<p class="note">No rows for this selection under the current filters.</p>'; return wrap; }
+  const notes=[];
+  if(clamped) notes.push('Negative components are excluded from stacked segments — switch off Split by to see net values.');
+  if(cfg.splitBy && !SPLIT_TYPES.has(cfg.type)) notes.push('Split by applies to column and horizontal bar charts only — ignored here.');
   let html='';
-  if(cfg.type==='donut'){
+  const t=cfg.type;
+
+  if(t==='pie'||t==='donut'){
     const pos=cats.filter(c=>c.val>0);
-    if(!pos.length){ wrap.innerHTML='<p class="note">Donut needs positive values — switch chart type for this selection.</p>'; return wrap; }
+    if(!pos.length){ wrap.innerHTML='<p class="note">This chart needs positive values — switch chart type for this selection.</p>'; return wrap; }
     const total=pos.reduce((s,c)=>s+c.val,0);
-    const R=74, r=46, CX=100, CY=100;
+    const R=74, r=t==='donut'?46:0, CX=100, CY=100;
     let a0=-Math.PI/2, arcs='';
     pos.forEach((c,i)=>{
       const a1=a0+(c.val/total)*2*Math.PI;
       const large=(a1-a0)>Math.PI?1:0;
       const x0=CX+R*Math.cos(a0), y0=CY+R*Math.sin(a0), x1=CX+R*Math.cos(a1), y1=CY+R*Math.sin(a1);
-      const xi0=CX+r*Math.cos(a1), yi0=CY+r*Math.sin(a1), xi1=CX+r*Math.cos(a0), yi1=CY+r*Math.sin(a0);
-      arcs+=`<path d="M${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} L${xi0.toFixed(1)} ${yi0.toFixed(1)} A${r} ${r} 0 ${large} 0 ${xi1.toFixed(1)} ${yi1.toFixed(1)} Z"
-        fill="${CAT_COLORS[i%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="2"><title>${esc(c.name)}: ${fmtFull(c.val)} · ${(c.val/total*100).toFixed(1)}%</title></path>`;
+      let d;
+      if(r>0){
+        const xi0=CX+r*Math.cos(a1), yi0=CY+r*Math.sin(a1), xi1=CX+r*Math.cos(a0), yi1=CY+r*Math.sin(a0);
+        d=`M${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} L${xi0.toFixed(1)} ${yi0.toFixed(1)} A${r} ${r} 0 ${large} 0 ${xi1.toFixed(1)} ${yi1.toFixed(1)} Z`;
+      } else {
+        d=`M${CX} ${CY} L${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z`;
+      }
+      arcs+=`<path d="${d}" fill="${CAT_COLORS[i%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="2"><title>${esc(c.name)}: ${fmtFull(c.val)} · ${(c.val/total*100).toFixed(1)}%</title></path>`;
       a0=a1;
     });
+    const center=t==='donut'?`<text x="100" y="96" text-anchor="middle" font-size="19" font-weight="750" fill="var(--text-primary)">${fmt(total)}</text>
+        <text x="100" y="113" text-anchor="middle" font-size="9.5" fill="var(--text-secondary)">TOTAL</text>`:'';
     const legend=pos.map((c,i)=>`<div style="display:flex;align-items:center;gap:7px;font-size:12px;margin:3px 0">
       <span style="width:10px;height:10px;border-radius:2px;background:${CAT_COLORS[i%CAT_COLORS.length]};flex:none"></span>
       <span class="namecell" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span>
       <span style="color:var(--text-muted)">— ${fmt(c.val)} · ${(c.val/total*100).toFixed(1)}%</span></div>`).join('');
     html=`<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
-      <svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="Donut chart">${arcs}
-        <text x="100" y="96" text-anchor="middle" font-size="19" font-weight="750" fill="var(--text-primary)">${fmt(total)}</text>
-        <text x="100" y="113" text-anchor="middle" font-size="9.5" fill="var(--text-secondary)">TOTAL</text></svg>
+      <svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="${t} chart">${arcs}${center}</svg>
       <div>${legend}</div></div>`;
-    if(cats.some(c=>c.val<0)) html+='<p class="note">Negative categories are excluded from the donut.</p>';
-  } else if(cfg.type==='hbar'){
+    if(cats.some(c=>c.val<0)) notes.push('Negative categories are excluded from this chart.');
+
+  } else if(t==='hbar'||t==='lollipop'){
     const maxAbs=Math.max(...cats.map(c=>Math.abs(segNames?c.segTotal:c.val)),1);
     html='<div>'+cats.map(c=>{
       let bar;
       if(segNames){
         bar=Object.entries(c.segs).sort((a,b)=>b[1]-a[1]).map(([sn,v])=>
           `<span style="display:inline-block;height:14px;width:${Math.max(1,Math.round(v/maxAbs*420))}px;background:${CAT_COLORS[segNames.indexOf(sn)%CAT_COLORS.length]};margin-right:2px" title="${esc(sn)}: ${fmtFull(v)}"></span>`).join('');
+      } else if(t==='lollipop'){
+        const w=Math.max(2,Math.round(Math.abs(c.val)/maxAbs*408));
+        bar=`<span style="display:inline-flex;align-items:center" title="${esc(c.name)}: ${fmtFull(c.val)}">
+          <span style="display:inline-block;height:2.5px;width:${w}px;background:${c.val<0?'var(--cat2)':'var(--cat1)'}"></span>
+          <span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${c.val<0?'var(--cat2)':'var(--cat1)'};margin-left:-2px"></span></span>`;
       } else {
         const w=Math.max(2,Math.round(Math.abs(c.val)/maxAbs*420));
         bar=`<span class="mbar${c.val<0?' neg':''}" style="width:${w}px;height:14px" title="${esc(c.name)}: ${fmtFull(c.val)}"></span>`;
@@ -1221,6 +1254,144 @@ function buildChartEl(cfg){
         <span style="flex:1;min-width:0">${bar}</span>
         <span style="font-size:12px;font-variant-numeric:tabular-nums;flex:none">${v<0?`<span class="negnum">${fmt(v)}</span>`:fmt(v)}</span></div>`;
     }).join('')+'</div>'+segLegend(segNames);
+
+  } else if(t==='line'||t==='area'){
+    const W=Math.max(430, cats.length*72+70), H=250, L=52, T=14, BOT=44;
+    const vals=cats.map(c=>c.val);
+    const min=Math.min(0,...vals), max=Math.max(0,...vals), span=(max-min)||1;
+    const y=v=>T+(H-T-BOT)-(v-min)*(H-T-BOT)/span;
+    const x=i=>L+30+i*((W-L-50)/Math.max(1,cats.length-1));
+    let svg='';
+    for(let i=0;i<=3;i++){ const v=min+span*i/3, yy=y(v);
+      svg+=`<line x1="${L}" x2="${W-8}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`+
+        `<text x="${L-7}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-secondary)">${fmt(v)}</text>`; }
+    const pts=cats.map((c,i)=>[x(i),y(c.val)]);
+    const path=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    if(t==='area'){
+      const y0=y(Math.max(0,min)>0?min:0);
+      svg+=`<path d="${path} L${pts[pts.length-1][0].toFixed(1)} ${y(0).toFixed(1)} L${pts[0][0].toFixed(1)} ${y(0).toFixed(1)} Z" fill="var(--cat1)" opacity="0.14"/>`;
+    }
+    svg+=`<path d="${path}" fill="none" stroke="var(--cat1)" stroke-width="2" stroke-linejoin="round"/>`;
+    cats.forEach((c,i)=>{
+      svg+=`<circle cx="${x(i).toFixed(1)}" cy="${y(c.val).toFixed(1)}" r="3.5" fill="var(--cat1)"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></circle>`;
+      if(cats.length<=9) svg+=`<text x="${x(i).toFixed(1)}" y="${(y(c.val)-8).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${c.val<0?'var(--status-critical)':'var(--text-primary)'}">${fmt(c.val)}</text>`;
+      const lbl=c.name.length>11?c.name.slice(0,10)+'…':c.name;
+      svg+=`<text x="${x(i).toFixed(1)}" y="${H-26}" text-anchor="middle" font-size="10" fill="var(--text-secondary)"><title>${esc(c.name)}</title>${esc(lbl)}</text>`;
+    });
+    if(min<0&&max>0) svg+=`<line x1="${L}" x2="${W-8}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--border-strong)"/>`;
+    html=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t} chart">${svg}</svg></div>`;
+
+  } else if(t==='waterfall'){
+    const W=Math.max(470, (cats.length+1)*76+70), H=260, L=56, T=16, BOT=46;
+    let acc=0; const steps=cats.map(c=>{const s={name:c.name,val:c.val,from:acc,to:acc+c.val}; acc+=c.val; return s;});
+    const total=acc;
+    const lo=Math.min(0,...steps.map(s=>Math.min(s.from,s.to)),total), hi=Math.max(0,...steps.map(s=>Math.max(s.from,s.to)),total);
+    const span=(hi-lo)||1;
+    const y=v=>T+(H-T-BOT)-(v-lo)*(H-T-BOT)/span;
+    const bw=40, step=(W-L-30)/(cats.length+1);
+    let svg='';
+    for(let i=0;i<=3;i++){ const v=lo+span*i/3, yy=y(v);
+      svg+=`<line x1="${L}" x2="${W-8}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`+
+        `<text x="${L-7}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-secondary)">${fmt(v)}</text>`; }
+    steps.forEach((s,i)=>{
+      const cx=L+14+i*step;
+      const y1=y(Math.max(s.from,s.to)), y2=y(Math.min(s.from,s.to));
+      svg+=`<rect x="${cx.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw}" height="${Math.max(2,y2-y1).toFixed(1)}" rx="2" fill="${s.val<0?'var(--cat2)':'var(--cat1)'}"><title>${esc(s.name)}: ${fmtFull(s.val)}</title></rect>`;
+      svg+=`<line x1="${(cx+bw).toFixed(1)}" x2="${(cx+step).toFixed(1)}" y1="${y(s.to).toFixed(1)}" y2="${y(s.to).toFixed(1)}" stroke="var(--border-strong)" stroke-dasharray="3 3"/>`;
+      if(cats.length<=9) svg+=`<text x="${(cx+bw/2).toFixed(1)}" y="${(y1-5).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${s.val<0?'var(--status-critical)':'var(--text-primary)'}">${fmt(s.val)}</text>`;
+      const lbl=s.name.length>10?s.name.slice(0,9)+'…':s.name;
+      svg+=`<text x="${(cx+bw/2).toFixed(1)}" y="${H-28}" text-anchor="middle" font-size="9.5" fill="var(--text-secondary)"><title>${esc(s.name)}</title>${esc(lbl)}</text>`;
+    });
+    const cxT=L+14+cats.length*step;
+    svg+=`<rect x="${cxT.toFixed(1)}" y="${y(Math.max(0,total)).toFixed(1)}" width="${bw}" height="${Math.max(2,Math.abs(y(total)-y(0))).toFixed(1)}" rx="2" fill="var(--cat4)"><title>Total: ${fmtFull(total)}</title></rect>`;
+    svg+=`<text x="${(cxT+bw/2).toFixed(1)}" y="${(y(Math.max(0,total))-5).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="750" fill="var(--text-primary)">${fmt(total)}</text>`;
+    svg+=`<text x="${(cxT+bw/2).toFixed(1)}" y="${H-28}" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text-secondary)">Total</text>`;
+    if(lo<0&&hi>0) svg+=`<line x1="${L}" x2="${W-8}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--border-strong)"/>`;
+    html=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Waterfall chart">${svg}</svg></div>`;
+
+  } else if(t==='pareto'){
+    const items=cats.map(c=>({name:c.name, val:Math.abs(c.val)})).filter(c=>c.val>0);
+    if(!items.length){ wrap.innerHTML='<p class="note">No non-zero values for a Pareto view.</p>'; return wrap; }
+    const total=items.reduce((s,c)=>s+c.val,0);
+    const W=Math.max(430, items.length*72+70), H=260, L=52, T=18, BOT=44;
+    const max=items[0].val;
+    const y=v=>T+(H-T-BOT)-v*(H-T-BOT)/max;
+    const yPct=f=>T+(H-T-BOT)*(1-f);
+    const bw=34, step=(W-L-26)/items.length;
+    let svg='';
+    for(let i=0;i<=3;i++){ const v=max*i/3, yy=y(v);
+      svg+=`<line x1="${L}" x2="${W-8}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`+
+        `<text x="${L-7}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-secondary)">${fmt(v)}</text>`; }
+    let cum=0; const pts=[];
+    items.forEach((c,i)=>{
+      const cx=L+14+i*step;
+      svg+=`<rect x="${cx.toFixed(1)}" y="${y(c.val).toFixed(1)}" width="${bw}" height="${Math.max(2,(H-T-BOT)-(y(c.val)-T)).toFixed(1)}" rx="2" fill="var(--cat1)"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></rect>`;
+      cum+=c.val;
+      pts.push([cx+bw/2, yPct(cum/total), cum/total]);
+      const lbl=c.name.length>10?c.name.slice(0,9)+'…':c.name;
+      svg+=`<text x="${(cx+bw/2).toFixed(1)}" y="${H-26}" text-anchor="middle" font-size="9.5" fill="var(--text-secondary)"><title>${esc(c.name)}</title>${esc(lbl)}</text>`;
+    });
+    svg+=`<path d="${pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')}" fill="none" stroke="var(--cat4)" stroke-width="2"/>`;
+    pts.forEach(p=>{ svg+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="var(--cat4)"/>`+
+      `<text x="${p[0].toFixed(1)}" y="${(p[1]-7).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text-secondary)">${Math.round(p[2]*100)}%</text>`; });
+    html=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Pareto chart">${svg}</svg></div>
+      <div class="legend"><span><span class="sw" style="background:var(--cat1);height:9px;width:9px"></span>Value (absolute)</span>
+      <span><span class="sw" style="background:var(--cat4)"></span>Cumulative share</span></div>`;
+    if(cats.some(c=>c.val<0)) notes.push('Pareto uses absolute values.');
+
+  } else if(t==='treemap'){
+    const items=cats.filter(c=>c.val>0).map((c,i)=>({name:c.name,val:c.val}));
+    if(!items.length){ wrap.innerHTML='<p class="note">Treemap needs positive values — switch chart type for this selection.</p>'; return wrap; }
+    const W=680, H=300, rects=[];
+    (function tile(list,x,y,w,h){
+      if(!list.length) return;
+      if(list.length===1){ rects.push({...list[0],x,y,w,h}); return; }
+      const total=list.reduce((s,c)=>s+c.val,0);
+      let acc=0,i=0;
+      for(;i<list.length-1;i++){ acc+=list[i].val; if(acc>=total/2) break; }
+      const a=list.slice(0,i+1), b=list.slice(i+1), fa=acc/total||0.5;
+      if(w>=h){ tile(a,x,y,w*fa,h); tile(b,x+w*fa,y,w*(1-fa),h); }
+      else { tile(a,x,y,w,h*fa); tile(b,x,y+h*fa,w,h*(1-fa)); }
+    })(items,0,0,W,H);
+    const total=items.reduce((s,c)=>s+c.val,0);
+    let svg='';
+    rects.forEach((r,i)=>{
+      svg+=`<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${Math.max(1,r.w-2).toFixed(1)}" height="${Math.max(1,r.h-2).toFixed(1)}" rx="2" fill="${CAT_COLORS[i%CAT_COLORS.length]}"><title>${esc(r.name)}: ${fmtFull(r.val)} · ${(r.val/total*100).toFixed(1)}%</title></rect>`;
+      if(r.w>84&&r.h>40){
+        const light=i%CAT_COLORS.length===2||i%CAT_COLORS.length===4||i%CAT_COLORS.length===6;
+        const ink=light?'#1a1a19':'#ffffff';
+        const nm=r.name.length>Math.floor(r.w/7.5)?r.name.slice(0,Math.floor(r.w/7.5)-1)+'…':r.name;
+        svg+=`<text x="${(r.x+7).toFixed(1)}" y="${(r.y+17).toFixed(1)}" font-size="11" font-weight="700" fill="${ink}">${esc(nm)}</text>`+
+          `<text x="${(r.x+7).toFixed(1)}" y="${(r.y+31).toFixed(1)}" font-size="10" fill="${ink}" opacity="0.85">${fmt(r.val)} · ${(r.val/total*100).toFixed(0)}%</text>`;
+      }
+    });
+    html=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Treemap">${svg}</svg></div>
+      <p class="note">Hover a tile for the full name and value.</p>`;
+    if(cats.some(c=>c.val<0)) notes.push('Negative categories are excluded from the treemap.');
+
+  } else if(t==='scatter'){
+    const W=560, H=320, L=64, T=16, BOT=46;
+    const xs=cats.map(c=>c.py), ys=cats.map(c=>c.cy);
+    const lo=Math.min(0,...xs,...ys), hi=Math.max(0,...xs,...ys), span=(hi-lo)||1;
+    const x=v=>L+(v-lo)*(W-L-20)/span;
+    const y=v=>T+(H-T-BOT)-(v-lo)*(H-T-BOT)/span;
+    let svg='';
+    for(let i=0;i<=3;i++){
+      const v=lo+span*i/3;
+      svg+=`<line x1="${L}" x2="${W-8}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--grid)"/>`+
+        `<text x="${L-7}" y="${(y(v)+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-secondary)">${fmt(v)}</text>`+
+        `<text x="${x(v).toFixed(1)}" y="${H-30}" text-anchor="middle" font-size="10" fill="var(--text-secondary)">${fmt(v)}</text>`;
+    }
+    svg+=`<line x1="${x(lo).toFixed(1)}" y1="${y(lo).toFixed(1)}" x2="${x(hi).toFixed(1)}" y2="${y(hi).toFixed(1)}" stroke="var(--border-strong)" stroke-dasharray="4 4"/>`;
+    cats.forEach((c,i)=>{
+      svg+=`<circle cx="${x(c.py).toFixed(1)}" cy="${y(c.cy).toFixed(1)}" r="5.5" fill="var(--cat1)" fill-opacity="0.85" stroke="var(--surface-1)" stroke-width="1.5"><title>${esc(c.name)} — ${m.yearCY}: ${fmtFull(c.cy)} · ${m.yearPY}: ${fmtFull(c.py)}</title></circle>`;
+      if(i<5) svg+=`<text x="${(x(c.py)+8).toFixed(1)}" y="${(y(c.cy)+3.5).toFixed(1)}" font-size="10" fill="var(--text-primary)">${esc(c.name.length>14?c.name.slice(0,13)+'…':c.name)}</text>`;
+    });
+    svg+=`<text x="${((L+W-8)/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-secondary)">YTD ${esc(m.yearPY)}</text>`;
+    svg+=`<text x="14" y="${((T+H-BOT)/2).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-secondary)" transform="rotate(-90 14 ${((T+H-BOT)/2).toFixed(1)})">YTD ${esc(m.yearCY)}</text>`;
+    html=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Scatter chart">${svg}</svg></div>
+      <p class="note">Points above the dashed line grew versus prior year; below it declined. Measure dropdown does not apply here.</p>`;
+
   } else { /* column */
     const W=Math.max(430, cats.length*72+70), H=250, L=52, T=14, BOT=44;
     const vals=cats.map(c=>segNames?c.segTotal:c.val);
@@ -1255,8 +1426,8 @@ function buildChartEl(cfg){
     if(min<0&&max>0) svg+=`<line x1="${L}" x2="${W-8}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--border-strong)"/>`;
     html=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Column chart">${svg}</svg></div>`+segLegend(segNames);
   }
-  if(clamped) html+='<p class="note">Negative components are excluded from stacked segments — switch off Split by to see net values.</p>';
-  wrap.innerHTML=html;
+
+  wrap.innerHTML=html+notes.map(n=>`<p class="note">${esc(n)}</p>`).join('');
   return wrap;
 }
 
@@ -1299,7 +1470,8 @@ function renderBuilder(){
   sc.value=[...sc.options].some(o=>o.value===B.l2)?B.l2:'';
   $('bMeasure').innerHTML=`<option value="cy">${esc(measureLabel('cy'))}</option>
     <option value="py">${esc(measureLabel('py'))}</option><option value="var">${esc(measureLabel('var'))}</option>`;
-  $('bMeasure').value=B.measure; $('bType').value=B.type;
+  $('bMeasure').value=B.measure;
+  $('bType').innerHTML=typeOptions(B.type);
   // preview
   const pv=$('bPreview'); pv.innerHTML='';
   if(!B.groupBy){
@@ -1440,10 +1612,7 @@ function renderCustom(){
     const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
       Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
         `<option value="${k}"${w.cfg.groupBy===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('')
-      }</select><select class="wtype" aria-label="Chart type">
-      <option value="column"${w.cfg.type==='column'?' selected':''}>Column</option>
-      <option value="hbar"${w.cfg.type==='hbar'?' selected':''}>Horizontal bar</option>
-      <option value="donut"${w.cfg.type==='donut'?' selected':''}>Donut</option></select>`:'';
+      }</select><select class="wtype" aria-label="Chart type">${typeOptions(w.cfg.type)}</select>`:'';
     let head=`<div class="whead" draggable="true" title="Drag to rearrange">
       <span class="grip" aria-hidden="true">⠿</span><h5>${esc(widgetTitle(w))}</h5>${typeSel}
       <button class="wexport" title="Export data to Excel" aria-label="Export data to Excel">⤓</button>

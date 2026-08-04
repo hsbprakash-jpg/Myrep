@@ -87,9 +87,15 @@ The **Drag & drop charts** page is a field-based chart builder. Drag any
 dimension chip (MICA levels, Product levels/code, Segment, Function, Entity)
 into the **Group by** well — or click a chip to assign it — and optionally a
 second field into **Split by** for stacked segments. Pick the KPI scope, the
-measure (YTD current year, YTD prior year, or variance) and the chart type
-(column, horizontal bar, donut); the preview renders live and respects the
-right-pane filters. **Pin to My dashboard** saves the chart as a widget you
+measure (YTD current year, YTD prior year, or variance) and the chart type;
+the preview renders live and respects the right-pane filters.
+
+Eleven chart types are available everywhere a chart-type dropdown appears
+(Mix analysis, the builder, and every pinned chart widget): Column,
+Horizontal bar, Lollipop, Line, Area, Pie, Donut, Waterfall (category
+build-up to total), Pareto (ranked bars + cumulative share), Treemap, and
+Scatter CY vs PY (points above the diagonal grew year-on-year). Split by
+adds stacked variants of column and horizontal bar. **Pin to My dashboard** saves the chart as a widget you
 can drag to rearrange, and each pinned chart keeps its own chart-type
 dropdown in its header. Top 8 categories are shown (6 for donuts) with the
 rest folded into Other.
