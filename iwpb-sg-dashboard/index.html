@@ -36,10 +36,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   --surface-0:#f4f4f2; --surface-1:#fcfcfb; --surface-2:#ffffff;
   --border:#e2e1dd; --border-strong:#c8c7c2;
   --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#79776f;
-  --series-1:#2a78d6; --series-2:#eb6834;
-  --seq-300:#6da7ec; --seq-450:#2a78d6;
+  --series-1:#db0011; --series-2:#8c8c8c;
+  --seq-300:#f0888f; --seq-450:#db0011;
   --status-good:#0ca30c; --status-warning:#fab219; --status-critical:#d03b3b;
-  --grid:#ececea; --shadow:0 1px 3px rgba(0,0,0,.08);
+  --grid:#ececea; --shadow:0 1px 2px rgba(0,0,0,.05);
 }
 @media (prefers-color-scheme: dark){
   :root{
@@ -47,51 +47,62 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     --surface-0:#111110; --surface-1:#1a1a19; --surface-2:#222220;
     --border:#33332f; --border-strong:#4a4944;
     --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#8f8d84;
-    --series-1:#3987e5; --series-2:#d95926;
-    --seq-300:#5598e7; --seq-450:#3987e5;
+    --series-1:#f0424d; --series-2:#9a9a9a;
+    --seq-300:#f0888f; --seq-450:#f0424d;
     --grid:#2a2a28; --shadow:0 1px 3px rgba(0,0,0,.4);
   }
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;
   background:var(--surface-0);color:var(--text-primary);font-size:14px;line-height:1.45}
-header{background:var(--hsbc-red);color:#fff;padding:0 20px;display:flex;align-items:center;gap:14px;height:56px}
-header .mark{width:30px;height:19px;flex:none}
-header h1{font-size:16px;font-weight:600;margin:0;letter-spacing:.2px}
-header .sub{font-size:12px;opacity:.85;margin-left:2px}
-header .spacer{flex:1}
-header button{background:transparent;border:1px solid rgba(255,255,255,.6);color:#fff;
-  border-radius:4px;padding:5px 12px;font-size:12.5px;cursor:pointer}
-header button:hover{background:rgba(255,255,255,.12)}
+.brand{display:flex;gap:11px;align-items:center;padding:16px 18px 14px;border-bottom:1px solid var(--border)}
+.brand .mark{width:34px;height:34px;background:var(--hsbc-red);color:#fff;display:flex;align-items:center;
+  justify-content:center;font-weight:800;font-size:12.5px;border-radius:2px;flex:none;letter-spacing:.5px}
+.brand h1{font-size:13.5px;margin:0;font-weight:700;line-height:1.25}
+.brand .sub{font-size:10.5px;color:var(--text-muted)}
+.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:2px 0 18px;flex-wrap:wrap}
+.pagehead .eyebrow{color:var(--hsbc-red);font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase}
+.pagehead h2{margin:3px 0 3px;font-size:23px;font-weight:650;letter-spacing:.4px;text-transform:uppercase}
+.pagehead .lede2{color:var(--text-secondary);font-size:12.5px;margin:0;max-width:640px}
 #layout{display:flex;min-height:calc(100vh - 56px)}
-/* left pane — HSBC standard dark charcoal with red accents, same in both themes */
-aside.side{width:256px;flex:none;background:#141414;border-right:1px solid #2b2b2b;
-  padding:8px 0 12px;display:flex;flex-direction:column}
-aside.side .sect{font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
-  color:#8d8d8d;padding:16px 18px 6px}
+/* left pane — light, red accents, pink active highlight */
+aside.side{width:256px;flex:none;background:var(--surface-1);border-right:1px solid var(--border);
+  padding:0 0 12px;display:flex;flex-direction:column}
+aside.side .sect{font-size:10px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--text-muted);padding:18px 18px 6px}
 aside.side nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
-  padding:9px 18px 9px 15px;font:inherit;font-size:13.5px;color:#cfcfcf;cursor:pointer;
+  padding:8px 18px 8px 15px;font:inherit;font-size:13px;color:var(--text-secondary);cursor:pointer;
   border-left:3px solid transparent;text-align:left}
-aside.side nav button:hover{background:rgba(255,255,255,.07);color:#fff}
-aside.side nav button.active{color:#fff;border-left-color:var(--hsbc-red);font-weight:700;
-  background:rgba(219,0,17,.22)}
-aside.side nav button svg{flex:none;opacity:.85}
+aside.side nav button:hover{background:color-mix(in srgb, var(--text-primary) 4%, transparent);color:var(--text-primary)}
+aside.side nav button.active{color:var(--hsbc-red);border-left-color:var(--hsbc-red);font-weight:700;
+  background:color-mix(in srgb, var(--hsbc-red) 8%, transparent)}
+aside.side nav button svg{flex:none;opacity:.9}
 #kpiNav{display:flex;flex-direction:column}
 #kpiNav button{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;
   border-left:3px solid transparent;padding:7px 18px 7px 15px;font:inherit;font-size:12.5px;
-  color:#cfcfcf;cursor:grab;text-align:left}
-#kpiNav button:hover{color:#fff;background:rgba(255,255,255,.07)}
-#kpiNav button.active{color:#fff;font-weight:700;border-left-color:var(--hsbc-red);background:rgba(219,0,17,.22)}
+  color:var(--text-secondary);cursor:grab;text-align:left}
+#kpiNav button:hover{color:var(--text-primary);background:color-mix(in srgb, var(--text-primary) 4%, transparent)}
+#kpiNav button.active{color:var(--hsbc-red);font-weight:700;border-left-color:var(--hsbc-red);
+  background:color-mix(in srgb, var(--hsbc-red) 8%, transparent)}
 #kpiNav .dot{width:8px;height:8px;border-radius:50%;flex:none}
 #kpiNav .dot.g{background:var(--status-good)}
 #kpiNav .dot.a{background:var(--status-warning)}
 #kpiNav .dot.r{background:var(--status-critical)}
-#kpiNav .dot.n{background:#8d8d8d}
+#kpiNav .dot.n{background:var(--text-muted)}
 #kpiNav .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#kpiNav .v{font-variant-numeric:tabular-nums;color:#8d8d8d;font-size:11.5px}
-aside.side .foot{margin-top:auto;padding:12px 18px 2px;border-top:1px solid #2b2b2b}
-aside.side .foot .note{color:#8d8d8d}
-aside.side .hint{font-size:10.5px;color:#6f6f6f;padding:4px 18px 0}
+#kpiNav .v{font-variant-numeric:tabular-nums;color:var(--text-muted);font-size:11.5px}
+aside.side .foot{margin-top:auto;padding:12px 18px 2px;border-top:1px solid var(--border)}
+aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
+/* stat tiles */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat{position:relative;overflow:hidden;background:var(--surface-1);border:1px solid var(--border);
+  border-radius:6px;padding:14px 16px 12px}
+.stat::before{content:'';position:absolute;top:-20px;right:-20px;width:58px;height:58px;border-radius:50%;
+  background:color-mix(in srgb, var(--hsbc-red) 9%, transparent)}
+.stat .lbl{font-size:9.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--text-secondary)}
+.stat .num{font-size:27px;font-weight:750;margin-top:6px;font-variant-numeric:tabular-nums;line-height:1.15}
+.stat .cap{font-size:10.5px;color:var(--text-muted);margin-top:5px}
+.negnum{color:var(--status-critical)}
 /* right pane — filters */
 #rightPane{width:230px;flex:none;background:var(--surface-1);border-left:1px solid var(--border);
   padding:8px 0 12px;display:flex;flex-direction:column}
@@ -156,13 +167,6 @@ main{flex:1;min-width:0;padding:20px 26px}
 .btn-quiet:hover{border-color:var(--text-secondary)}
 
 /* ---------- KPI summary ---------- */
-.hero{background:var(--surface-1);border:1px solid var(--border);border-left:4px solid var(--hsbc-red);
-  border-radius:8px;padding:18px 22px;margin-bottom:16px;box-shadow:var(--shadow);
-  display:flex;gap:32px;align-items:center;flex-wrap:wrap}
-.hero .name{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-secondary)}
-.hero .val{font-size:34px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
-.hero .cmp{font-size:12.5px;color:var(--text-secondary);margin-top:4px}
-.hero svg{flex:none}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}
 .card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:16px 18px 12px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
@@ -215,7 +219,7 @@ table.grid tr.clickable:hover td{background:color-mix(in srgb, var(--series-1) 6
 table.grid tr.total td{font-weight:700;border-top:2px solid var(--border-strong)}
 table.grid .namecell{max-width:330px;overflow:hidden;text-overflow:ellipsis}
 .mbar{display:inline-block;height:12px;border-radius:0 4px 4px 0;background:var(--seq-450);vertical-align:middle;min-width:2px}
-.mbar.neg{background:var(--status-critical);border-radius:4px 0 0 4px}
+.mbar.neg{background:var(--text-muted);border-radius:4px 0 0 4px}
 .toggle-l3{background:none;border:none;color:var(--series-1);cursor:pointer;font:inherit;padding:0}
 tr.subrow td:first-child{padding-left:34px;color:var(--text-secondary)}
 .scroll-x{overflow-x:auto}
@@ -225,23 +229,15 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 </style>
 </head>
 <body>
-<header>
-  <svg class="mark" viewBox="0 0 60 38" aria-hidden="true">
-    <rect x="15" y="0" width="30" height="38" fill="#fff"/>
-    <path d="M15 0 L30 19 L15 38 Z" fill="#DB0011"/>
-    <path d="M45 0 L30 19 L45 38 Z" fill="#DB0011"/>
-    <path d="M15 0 L0 19 L15 38 Z" fill="#fff"/>
-    <path d="M45 0 L60 19 L45 38 Z" fill="#fff"/>
-  </svg>
-  <div>
-    <h1>IWPB Singapore Driller</h1>
-    <div class="sub">MICA Level 2 KPI summary &amp; drill-down</div>
-  </div>
-  <div class="spacer"></div>
-  <button id="btnNewFile" hidden>Load new file</button>
-</header>
 <div id="layout">
 <aside id="sideNav" class="side" hidden>
+  <div class="brand">
+    <div class="mark">SG</div>
+    <div>
+      <h1>IWPB Singapore Driller</h1>
+      <div class="sub">Management reporting · KPI insights</div>
+    </div>
+  </div>
   <div class="sect">KPI Dashboards</div>
   <nav>
     <button id="navSummary" class="active">
@@ -260,13 +256,22 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div class="sect">KPIs · MICA Level 2</div>
   <div id="kpiNav"></div>
   <div class="hint">Click a KPI to drill into it · drag one onto My dashboard to add a card</div>
-  <div class="foot"><span id="rowCount" class="note"></span></div>
+  <div class="foot">
+    <span id="rowCount" class="note"></span><br>
+    <button class="btn-quiet" id="btnNewFile" hidden style="margin-top:8px">Load new file</button>
+  </div>
 </aside>
 <main>
 
 <section id="uploadView">
-  <div class="panel">
-    <h2>Ingest driller file</h2>
+  <div style="max-width:640px;margin:34px auto 0">
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2>Ingest Driller File</h2>
+      <p class="lede2">Upload the monthly extract to power the KPI dashboards.</p>
+    </div></div>
+  </div>
+  <div class="panel" style="max-width:640px;margin:0 auto;padding:32px">
     <p class="lede">Upload the IWPB Singapore driller extract (.xlsx or .csv). The file is processed
       entirely in your browser — nothing is sent to any server.</p>
     <div id="dropZone" tabindex="0" role="button" aria-label="Upload driller file">
@@ -280,11 +285,21 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 
 <section id="dashView" hidden>
   <div id="summaryView">
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2>KPI Insights</h2>
+      <p class="lede2">RAG-rated summary by MICA Level 2 — year-to-date actuals against the same prior-year period.</p>
+    </div></div>
     <div id="heroWrap"></div>
     <div class="cards" id="cardGrid"></div>
   </div>
 
   <div id="drillView" hidden>
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2>Drill-Down Analysis</h2>
+      <p class="lede2">Monthly trend, MICA Level 3 components and product mix for the selected KPI.</p>
+    </div></div>
     <nav id="crumb" aria-label="Drill path"></nav>
     <div class="panel">
       <div class="panel-head">
@@ -300,6 +315,11 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   </div>
 
   <div id="customView" hidden>
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2>Dynamic Dashboard</h2>
+      <p class="lede2">Compose your own layout — add KPI cards, trends and breakdowns, then drag to rearrange.</p>
+    </div></div>
     <div id="dashToolbar">
       <select id="wType" aria-label="Widget type">
         <option value="card">KPI card</option>
@@ -316,6 +336,11 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   </div>
 
   <div id="tableView" hidden>
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2>Source Data</h2>
+      <p class="lede2">The underlying driller rows in scope of the current filters.</p>
+    </div></div>
     <div class="panel">
       <h4>Filtered source rows</h4>
       <p class="subtitle" id="tableSub"></p>
@@ -503,6 +528,7 @@ function fmtFull(v){
   const s=Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:0});
   return v<0? '('+s+')' : s;
 }
+function fmtCell(v){ return `<span${v!=null&&v<0?' class="negnum"':''}>${fmtFull(v)}</span>`; }
 function fmtPct(v){
   if(v==null) return '–';
   const s=(Math.abs(v)*100).toFixed(1)+'%';
@@ -661,14 +687,22 @@ function renderSummary(){
   for(const [l1,rs] of [...byL1.entries()].sort((a,b)=>Math.abs(kpiTotal(b[1]))-Math.abs(kpiTotal(a[1])))){
     const k=kpi(rs,m,S.ytdM,S.includeFC);
     const rg=rag(k.varPct,S.thresh);
-    hero+=`<div class="hero">
-      <div>
-        <div class="name">${esc(l1)} · YTD ${ytdLabel()}</div>
-        <div class="val">${fmt(k.cy)}</div>
-        <div class="cmp">vs ${esc(m.yearPY)} same period ${fmtFull(k.py)} · <span class="delta">${fmtPct(k.varPct)} (${fmt(k.varAbs)})</span></div>
-      </div>
-      <div>${ragPill(rg)}</div>
-      ${sparkline(k.cySeries,180,48)}
+    hero+=`<div class="stats">
+      <div class="stat"><div class="lbl">${esc(l1)} · YTD ${esc(ytdLabel())}</div>
+        <div class="num${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</div>
+        <div class="cap">${esc(m.yearCY)} actuals in scope</div></div>
+      <div class="stat"><div class="lbl">Prior year same period</div>
+        <div class="num${(k.py||0)<0?' negnum':''}">${fmt(k.py)}</div>
+        <div class="cap">${esc(m.yearPY)} actuals</div></div>
+      <div class="stat"><div class="lbl">Variance</div>
+        <div class="num${(k.varAbs||0)<0?' negnum':''}">${fmt(k.varAbs)}</div>
+        <div class="cap">vs ${esc(m.yearPY)} same period</div></div>
+      <div class="stat"><div class="lbl">Variance %</div>
+        <div class="num${(k.varPct||0)<0?' negnum':''}">${fmtPct(k.varPct)}</div>
+        <div class="cap" style="margin-top:7px">${ragPill(rg)}</div></div>
+      <div class="stat"><div class="lbl">Monthly trend</div>
+        <div style="margin-top:10px">${sparkline(k.cySeries,150,44)}</div>
+        <div class="cap">${esc(m.yearCY)} actuals by month</div></div>
     </div>`;
   }
   $('heroWrap').innerHTML=hero||'<p class="note">No rows match the current filters.</p>';
@@ -684,7 +718,7 @@ function renderSummary(){
     return `<button class="card" data-l2="${esc(c.l2)}">
       <div class="l1tag">${esc(c.l1||'')}</div>
       <h3>${esc(c.l2)}</h3>
-      <div class="val">${fmt(c.k.cy)}</div>
+      <div class="val${(c.k.cy||0)<0?' negnum':''}">${fmt(c.k.cy)}</div>
       <div class="row">
         <span class="delta">${fmtPct(c.k.varPct)} vs ${esc(m.yearPY)} (${fmt(c.k.varAbs)})</span>
         ${ragPill(rg)}
@@ -710,8 +744,9 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
     return `<tr class="${cls}" ${attr||''}>
       <td class="namecell">${esc(g.name)}</td>
       <td>${bar}</td>
-      <td>${fmtFull(g.k.cy)}</td><td>${fmtFull(g.k.py)}</td>
-      <td>${fmtFull(g.k.varAbs)}</td><td>${fmtPct(g.k.varPct)}</td>
+      <td>${fmtCell(g.k.cy)}</td><td>${fmtCell(g.k.py)}</td>
+      <td>${fmtCell(g.k.varAbs)}</td>
+      <td><span${(g.k.varPct||0)<0?' class="negnum"':''}>${fmtPct(g.k.varPct)}</span></td>
       <td style="text-align:left">${ragPill(rg)}</td></tr>`;
   };
   let body='';
@@ -763,7 +798,7 @@ function renderDrill(){
     MON_LBL.map((lbl,mi)=>{
       const c=k.cySeries.find(p=>p.m===mi), p=k.pySeries.find(p=>p.m===mi);
       if(!c&&!p) return '';
-      return `<tr><td>${lbl}${c&&c.fc?' (FC)':''}</td><td>${fmtFull(c?c.val:null)}</td><td>${fmtFull(p?p.val:null)}</td></tr>`;
+      return `<tr><td>${lbl}${c&&c.fc?' (FC)':''}</td><td>${fmtCell(c?c.val:null)}</td><td>${fmtCell(p?p.val:null)}</td></tr>`;
     }).join('')+`</tbody></table></div>`;
 
   // MICA Level 3 breakdown (only at L2 scope)
@@ -921,7 +956,7 @@ function renderCustom(){
     if(!rows.length){
       body='<p class="note">No rows for this KPI under the current filters.</p>';
     } else if(w.type==='card'){
-      body=`<div class="val">${fmt(k.cy)}</div>
+      body=`<div class="val${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</div>
         <div class="row" style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
           <span class="delta">${fmtPct(k.varPct)} vs ${esc(m.yearPY)} (${fmt(k.varAbs)})</span>${ragPill(rg)}</div>
         <div style="margin-top:8px">${sparkline(k.cySeries,250,42)}</div>`;

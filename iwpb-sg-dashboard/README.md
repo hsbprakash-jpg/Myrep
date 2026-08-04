@@ -47,7 +47,11 @@ A single header row with:
   left pane onto the canvas to add it as a card, and remove widgets with ✕.
   The layout persists in the browser (localStorage) across sessions.
 
-A dark HSBC-styled left pane hosts the dashboards navigation and a KPI
+The design follows HSBC management-reporting conventions: a light left pane
+with a red brand block, section headers and pink-highlighted active items; a
+red uppercase eyebrow over large page titles; flat white stat tiles with big
+numbers (negatives in red brackets); and red monochrome charts with a grey
+prior-year series. The left pane hosts the dashboards navigation and a KPI
 shortcut list (each MICA Level 2 line with its RAG dot and YTD value — click
 to jump straight into its drill-down, drag onto My dashboard to add it).
 Filters (entity, segment, function, YTD-through month, include-forecast, RAG
