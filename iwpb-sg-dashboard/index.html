@@ -213,29 +213,33 @@ aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
 .linklike{background:none;border:none;color:var(--series-1);cursor:pointer;font-size:11px;padding:0;font-weight:600;text-transform:none;letter-spacing:0}
 .linklike:hover{text-decoration:underline}
 #rightPane .hint2{font-size:10.5px;color:var(--text-muted);margin:2px 18px 6px}
-.fltgrp{border-bottom:1px solid var(--border);margin:0 12px}
-.fltgrp summary{cursor:pointer;font-size:12px;font-weight:600;padding:8px 6px;display:flex;
+/* filter pane — query-builder card treatment */
+.fltgrp{margin:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);overflow:hidden}
+.fltgrp summary{cursor:pointer;font-size:12px;font-weight:600;padding:8px 11px;display:flex;
   justify-content:space-between;gap:8px;align-items:baseline;list-style:none}
 .fltgrp summary::-webkit-details-marker{display:none}
 .fltgrp summary::after{content:'▾';color:var(--text-muted);font-size:10px}
 .fltgrp[open] summary::after{content:'▴'}
+.fltgrp[open] summary{border-bottom:1px solid var(--border)}
 .fltgrp .cnt{font-size:10.5px;color:var(--text-muted);font-weight:400;margin-left:auto}
 .fltgrp .cnt.on{color:var(--hsbc-red);font-weight:700}
-.fltbody{padding:0 6px 10px}
-.fltactions{display:flex;gap:10px;margin-bottom:5px}
-.fltsearch{width:100%;padding:4px 7px;border:1px solid var(--border-strong);border-radius:4px;
-  background:var(--surface-2);color:var(--text-primary);font-size:11.5px;margin-bottom:6px}
-.fltlist{max-height:184px;overflow:auto;display:flex;flex-direction:column;gap:1px}
+.fltbody{padding:8px 11px 10px}
+.fltactions{display:flex;gap:12px;margin-bottom:6px}
+.fltsearch{width:100%;padding:5px 8px;border:1px solid var(--border-strong);border-radius:4px;
+  background:var(--surface-1);color:var(--text-primary);font-size:11.5px;margin-bottom:7px}
+.fltlist{max-height:172px;overflow:auto;display:flex;flex-direction:column;gap:1px}
 .fltlist label,#outFields label{display:flex;gap:7px;align-items:center;font-size:11.5px;color:var(--text-primary);
-  padding:2.5px 2px;cursor:pointer;border-radius:3px}
-.fltlist label:hover,#outFields label:hover{background:color-mix(in srgb, var(--text-primary) 4%, transparent)}
+  padding:3.5px 4px;cursor:pointer;border-radius:4px}
+.fltlist label:hover,#outFields label:hover{background:color-mix(in srgb, var(--text-primary) 5%, transparent)}
 .fltlist label span,#outFields label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#outFields{padding:0 18px}
-#outFields .ofh{font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--text-muted);margin:8px 0 3px}
+#sideFilters{margin:4px 14px 0;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface-2);padding:11px 12px}
+#outFields{margin:4px 14px 0;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface-2);padding:8px 12px 11px}
+#outFields .ofh{font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--text-muted);margin:7px 0 4px}
+#outFields .ofh:first-child{margin-top:0}
 /* neat checkbox treatment across the pane */
 #rightPane input[type=checkbox],#queryView input[type=checkbox]{accent-color:var(--hsbc-red);width:13px;height:13px;flex:none}
-.fltgrp{margin:0 14px}
-.fltgrp summary{padding:8px 4px;border-radius:4px}
 .fltgrp summary:hover{background:color-mix(in srgb, var(--text-primary) 4%, transparent)}
 .fltgrp summary .selsum{display:block;font-size:10px;font-weight:400;color:var(--text-muted);
   max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
