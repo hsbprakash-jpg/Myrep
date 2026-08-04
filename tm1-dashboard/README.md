@@ -76,14 +76,16 @@ browser, drop your Excel file on it, and drill.
   period). Columns are ordered by grand-total magnitude; the footnote states
   which period fills the cells.
 - **Waterfall summary view** — the 📊 Summary toolbar button swaps the table
-  for Revenue-Walk-style waterfall charts: for the anchor (first ticked)
-  period it auto-builds Actual vs Prior Year, vs Target and vs Forecast
-  (whichever columns exist at the same granularity), each walking the gap
-  through the members of a chosen dimension (default `Ac Line`). Grey
-  endpoint totals, green/red delta bars with connectors, Δ in the header;
-  respects the active pane, filters and display scale. Top-12 members are
-  shown, the tail collapses into “Other”, and every walk reconciles:
-  start + Σ deltas = end.
+  for a Revenue-Walk-style waterfall chart between **any two period
+  columns**: pick From and To freely (any month/quarter/half/FY/YTD, any
+  scenario, any year), walk the gap through the members of a chosen
+  dimension (default `Ac Line`). Quick chips jump to the classic pairs —
+  vs Prior Year, vs Target, vs Forecast — relative to the anchor (first
+  ticked) period, greyed out when the file lacks the matching column.
+  Grey endpoint totals, green/red delta bars with connectors, Δ in the
+  header; respects the active pane, filters and display scale. Top-12
+  members shown, tail collapses into “Other”; every walk reconciles:
+  start + Σ deltas = end. Endpoints persist with the session.
 - **Display scale** — show figures in units, thousands (k) or millions (m).
   Display-only division: aggregation always runs on source values, column
   headers gain a `(k)`/`(m)` suffix, and the footnote states the divisor.

@@ -102,6 +102,9 @@ main{padding:18px 20px; overflow-x:auto}
 .catcard .csub{font-size:10px; color:var(--ink-soft)}
 
 /* waterfall summary */
+.wfctl{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px}
+.wfctl .fld{margin:0}
+.wfsep{flex-basis:8px}
 .wfcard{margin-bottom:16px; padding:14px 16px}
 .wfcard h3{font-size:13px; margin:0 0 8px; color:var(--ink); font-weight:700}
 .wfsvg{width:100%; height:auto; display:block}
@@ -331,9 +334,15 @@ tr.total td.c-dim{background:var(--grey-2)}
       </div>
       <div class="footnote" id="tableNote"></div>
       <div id="summaryArea" style="display:none">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-          <label class="fld" style="margin:0">Walk by</label>
-          <select id="walkDim" class="chipbtn"></select>
+        <div class="wfctl">
+          <label class="fld">From</label><select id="walkFrom" class="chipbtn"></select>
+          <span class="muted">→</span>
+          <label class="fld">To</label><select id="walkTo" class="chipbtn"></select>
+          <label class="fld">Walk by</label><select id="walkDim" class="chipbtn"></select>
+          <span class="wfsep"></span>
+          <button class="chipbtn" data-wchip="py">vs Prior Year</button>
+          <button class="chipbtn" data-wchip="tar">vs Target</button>
+          <button class="chipbtn" data-wchip="fc">vs Forecast</button>
         </div>
         <div id="wfCards"></div>
       </div>
@@ -366,6 +375,7 @@ const state = {
   includeCalc:false,              // they are excluded from totals unless re-included
   colDim:"",                      // "" = periods across; else a dimension crosstab
   view:"table", walkDim:"",       // summary view: waterfall walks by this dimension
+  walkFrom:"", walkTo:"",         // walk endpoints: any period column to any other
   baseRecords:[],                 // post-calc-filter, post-slicer rows, all categories
   calcFiltered:[],                // post-calc-filter rows before slicers
   filters:{},                     // dimension slicers: {dim: [allowed values]}
@@ -480,7 +490,8 @@ function savePrefs(){
       levels:state.levels, valueCols:state.valueCols, colDim:state.colDim,
       scale:state.scale, includeCalc:state.includeCalc, sheetName:state.sheetName,
       activeCat:state.activeCat, filters:state.filters,
-      view:state.view, walkDim:state.walkDim
+      view:state.view, walkDim:state.walkDim,
+      walkFrom:state.walkFrom, walkTo:state.walkTo
     }));
   }catch(e){}
 }
@@ -647,6 +658,8 @@ function loadSheet(name){
       state.activeCat=pv.activeCat; buildCategories();
     }
     if(pv.walkDim&&state.dims.includes(pv.walkDim)) state.walkDim=pv.walkDim;
+    if(pv.walkFrom&&state.measures.includes(pv.walkFrom)) state.walkFrom=pv.walkFrom;
+    if(pv.walkTo&&state.measures.includes(pv.walkTo)) state.walkTo=pv.walkTo;
     if(pv.view==="summary"||pv.view==="table") state.view=pv.view;
   }
   buildSidebar();
@@ -1072,26 +1085,21 @@ function renderKpis(){
 }
 
 /* ---------- waterfall summary ---------- */
-function summaryPairs(){
-  // classic comparison set for the anchor (first ticked) period, from whatever
-  // scenario columns the file actually has. Chart runs start -> end.
+function walkChipTargets(){
+  // quick-preset endpoints relative to the anchor (first ticked) period
   const M=state.measureMeta, anchor=state.valueCols[0];
-  if(!anchor) return [];
+  if(!anchor) return {};
   const a=M[anchor];
   const find=f=>state.measures.find(h=>f(M[h]));
   const same=(m,scen,yr)=>m.gran===a.gran&&m.order===a.order&&m.scenario===scen&&m.year===yr;
-  const pairs=[];
   const py=find(m=>same(m,a.scenario,a.year-1));
-  if(py) pairs.push({title:`${a.scenario} vs Prior Year`, start:py, end:anchor});
-  if(a.scenario!=="Target"){
-    const tar=find(m=>same(m,"Target",a.year));
-    if(tar) pairs.push({title:`${a.scenario} vs Target`, start:anchor, end:tar});
-  }
-  if(a.scenario!=="Forecast"){
-    const fc=find(m=>same(m,"Forecast",a.year));
-    if(fc) pairs.push({title:`${a.scenario} vs Forecast`, start:anchor, end:fc});
-  }
-  return pairs;
+  const tar=a.scenario!=="Target"?find(m=>same(m,"Target",a.year)):null;
+  const fc=a.scenario!=="Forecast"?find(m=>same(m,"Forecast",a.year)):null;
+  return {
+    py:  py ?{from:py,     to:anchor}:null,
+    tar: tar?{from:anchor, to:tar}   :null,
+    fc:  fc ?{from:anchor, to:fc}    :null,
+  };
 }
 function walkData(start,end,dim){
   const map=new Map();
@@ -1147,30 +1155,72 @@ function waterfallSVG(d,labStart,labEnd){
   });
   return svg+"</svg>";
 }
+function periodSelectHTML(current){
+  // grouped like the sidebar: year desc, then scenario rank
+  const M=state.measureMeta;
+  const SCENRANK={Actual:0,Target:1,Budget:2,Plan:3,Forecast:4};
+  const groups={};
+  state.measures.forEach(h=>{
+    const k=`${M[h].year}¦${M[h].scenario}`;
+    (groups[k]=groups[k]||[]).push(h);
+  });
+  return Object.keys(groups).sort((a,b)=>{
+    const [ya,sa]=a.split("¦"), [yb,sb]=b.split("¦");
+    if(ya!==yb) return yb-ya;
+    return (SCENRANK[sa]??9)-(SCENRANK[sb]??9);
+  }).map(k=>{
+    const [yr,scen]=k.split("¦");
+    const opts=groups[k].sort((a,b)=>M[a].order-M[b].order)
+      .map(h=>`<option value="${esc(h)}" ${h===current?"selected":""}>${esc(M[h].label)}</option>`).join("");
+    return `<optgroup label="${yr} ${esc(scen)}">${opts}</optgroup>`;
+  }).join("");
+}
 function renderSummary(){
   const M=state.measureMeta;
-  const sel=document.getElementById("walkDim");
+  const dimSel=document.getElementById("walkDim");
   if(!state.walkDim||!state.dims.includes(state.walkDim))
     state.walkDim=state.dims.find(d=>/^ac\s*line$/i.test(d))||state.levels[0]||state.dims[0]||"";
-  sel.innerHTML=state.dims.filter(d=>d!==state.catDim)
+  dimSel.innerHTML=state.dims.filter(d=>d!==state.catDim)
     .map(d=>`<option ${d===state.walkDim?"selected":""}>${esc(d)}</option>`).join("");
-  sel.onchange=e=>{ state.walkDim=e.target.value; renderSummary(); savePrefs(); };
+  dimSel.onchange=e=>{ state.walkDim=e.target.value; renderSummary(); savePrefs(); };
+
   const area=document.getElementById("wfCards");
-  const anchor=state.valueCols[0];
-  if(!anchor){ area.innerHTML=`<div class="card wfcard">Tick at least one period in the sidebar to anchor the summary.</div>`; return; }
-  const pairs=summaryPairs();
-  if(!pairs.length){
-    area.innerHTML=`<div class="card wfcard">No comparable columns found for <b>${esc(M[anchor].label)}</b> — a walk needs a matching Prior-Year, Target or Forecast column of the same granularity.</div>`;
+  if(!state.measures.length){ area.innerHTML=""; return; }
+  // endpoint defaults: To = anchor period, From = its prior year twin
+  if(!state.walkTo||!state.measures.includes(state.walkTo))
+    state.walkTo=state.valueCols[0]||state.measures[state.measures.length-1];
+  if(!state.walkFrom||!state.measures.includes(state.walkFrom)){
+    const t=M[state.walkTo];
+    state.walkFrom=state.measures.find(h=>{
+      const m=M[h]; return m.year===t.year-1&&m.gran===t.gran&&m.order===t.order&&m.scenario===t.scenario;
+    })||state.valueCols[1]||state.measures[0];
+  }
+  const fromSel=document.getElementById("walkFrom"), toSel=document.getElementById("walkTo");
+  fromSel.innerHTML=periodSelectHTML(state.walkFrom);
+  toSel.innerHTML=periodSelectHTML(state.walkTo);
+  fromSel.onchange=e=>{ state.walkFrom=e.target.value; renderSummary(); savePrefs(); };
+  toSel.onchange=e=>{ state.walkTo=e.target.value; renderSummary(); savePrefs(); };
+
+  // quick-preset chips relative to the anchor period
+  const chips=walkChipTargets();
+  document.querySelectorAll("[data-wchip]").forEach(b=>{
+    const t=chips[b.getAttribute("data-wchip")];
+    b.disabled=!t;
+    b.style.opacity=t?"1":".4";
+    b.onclick=t?()=>{ state.walkFrom=t.from; state.walkTo=t.to; renderSummary(); savePrefs(); }:null;
+  });
+
+  const from=state.walkFrom, to=state.walkTo;
+  if(from===to){
+    area.innerHTML=`<div class="card wfcard">From and To are the same period — pick two different periods to walk between.</div>`;
     return;
   }
-  area.innerHTML=pairs.map(p=>{
-    const d=walkData(p.start,p.end,state.walkDim);
-    const diffF=fmt(d.totE-d.totS);
-    return `<div class="card wfcard">`+
-      `<h3>${esc(p.title)} — ${esc(M[p.start].label)} → ${esc(M[p.end].label)} · walked by ${esc(state.walkDim)} · Δ <span class="${diffF.cls}">${diffF.t}</span>`+
-      `${state.activeCat?` · ${esc(state.activeCat)} pane`:""}${scaleSuffix()?` · (${scaleSuffix()})`:""}</h3>`+
-      waterfallSVG(d,M[p.start].label,M[p.end].label)+`</div>`;
-  }).join("");
+  const d=walkData(from,to,state.walkDim);
+  const diffF=fmt(d.totE-d.totS);
+  area.innerHTML=`<div class="card wfcard">`+
+    `<h3>Walk — ${esc(M[from].label)} → ${esc(M[to].label)} · by ${esc(state.walkDim)} · Δ <span class="${diffF.cls}">${diffF.t}</span>`+
+    `${state.activeCat?` · ${esc(state.activeCat)} pane`:""}${scaleSuffix()?` · (${scaleSuffix()})`:""}</h3>`+
+    waterfallSVG(d,M[from].label,M[to].label)+`</div>`;
 }
 function applyView(){
   const summary=state.view==="summary";
