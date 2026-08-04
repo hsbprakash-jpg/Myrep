@@ -41,10 +41,17 @@ A single header row with:
   Level 3 products.
 - **Data** — the filtered source rows.
 
-A left navigation pane hosts the three views, a KPI shortcut list (each MICA
-Level 2 line with its RAG dot and YTD value — click to jump straight into its
-drill-down) and the filters. Filters (entity, segment, function, YTD-through
-month, include-forecast, RAG tolerance) apply to every view. RAG compares YTD actuals with the same
+- **My dashboard** — a personal, drag-and-drop dashboard. Add widgets (KPI
+  card, monthly trend, MICA L3 breakdown, product breakdown) for any KPI or
+  the total, drag widgets by their header to rearrange, drag a KPI from the
+  left pane onto the canvas to add it as a card, and remove widgets with ✕.
+  The layout persists in the browser (localStorage) across sessions.
+
+A dark HSBC-styled left pane hosts the dashboards navigation and a KPI
+shortcut list (each MICA Level 2 line with its RAG dot and YTD value — click
+to jump straight into its drill-down, drag onto My dashboard to add it).
+Filters (entity, segment, function, YTD-through month, include-forecast, RAG
+tolerance) live in a right-side panel and apply to every view. RAG compares YTD actuals with the same
 prior-year months: green at or above prior year, amber within the selected
 tolerance below, red beyond it.
 
