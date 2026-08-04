@@ -1142,15 +1142,32 @@ function styleSheet(ws, aoa){
   // header row = first row with 2+ populated cells (title/filter note rows have 1)
   const hr=aoa.findIndex(r=>r&&r.filter(x=>x!=null&&x!=='').length>=2);
   if(hr>=0){
+    const pctCols=new Set();
     for(let c=0;c<(aoa[hr]||[]).length;c++){
+      if(/%/.test(String(aoa[hr][c]||''))) pctCols.add(c);
       const addr=XLSX.utils.encode_cell({r:hr,c});
       if(ws[addr]) ws[addr].s=XL_HEAD_STYLE;
     }
     ws['!rows']=ws['!rows']||[]; ws['!rows'][hr]={hpt:20};
+    // thousands separators + red bracket negatives on every numeric cell
+    for(let r=hr+1;r<aoa.length;r++){
+      for(let c=0;c<(aoa[r]||[]).length;c++){
+        if(typeof aoa[r][c]!=='number') continue;
+        const addr=XLSX.utils.encode_cell({r,c});
+        if(ws[addr]) ws[addr].z=pctCols.has(c)?'#,##0.0"%";[Red](#,##0.0"%")':'#,##0;[Red](#,##0)';
+      }
+    }
+    // filter dropdowns on larger tables
+    if(aoa.length-hr>8){
+      ws['!autofilter']={ref:XLSX.utils.encode_range(
+        {s:{r:hr,c:0}, e:{r:aoa.length-1, c:(aoa[hr].length||1)-1}})};
+    }
   }
   if(hr>0 && aoa[0] && aoa[0].length){
     const a=XLSX.utils.encode_cell({r:0,c:0});
     if(ws[a]) ws[a].s={font:{bold:true, sz:13, color:{rgb:'1A1A19'}}};
+    const b=XLSX.utils.encode_cell({r:1,c:0});
+    if(ws[b]) ws[b].s={font:{italic:true, sz:9, color:{rgb:'8A8880'}}};
   }
 }
 function exportWB(sheets, name){
