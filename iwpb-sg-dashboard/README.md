@@ -41,11 +41,18 @@ A single header row with:
   Level 3 products.
 - **Data** — the filtered source rows.
 
+The KPI summary also ends with a **Mix analysis** panel: a flexible chart
+driven entirely by dropdowns — KPI scope, view-by dimension, measure and
+chart type (donut / column / horizontal bar) — that follows the global
+filters and remembers its last configuration.
+
 - **My dashboard** — a personal, drag-and-drop dashboard. Add widgets (KPI
   card, monthly trend, MICA L3 breakdown, product breakdown) for any KPI or
   the total, drag widgets by their header to rearrange, drag a KPI from the
   left pane onto the canvas to add it as a card, and remove widgets with ✕.
-  The layout persists in the browser (localStorage) across sessions.
+  The layout persists in the browser (localStorage) across sessions. Pinned
+  charts carry two dropdowns in their header — view-by dimension and chart
+  type — so any chart can be reshaped in place without rebuilding it.
 
 The design follows HSBC management-reporting conventions: a light left pane
 with a red brand block, section headers and pink-highlighted active items; a

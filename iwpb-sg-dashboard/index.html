@@ -117,8 +117,9 @@ aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
 .well .wslot .fchip button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0}
 .well .wslot .fchip button:hover{color:var(--hsbc-red)}
 #builderOpts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
-#builderOpts select{padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
+#builderOpts select,#mixCtl select{padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
   background:var(--surface-2);color:var(--text-primary);font-size:12.5px;max-width:220px}
+#mixCtl{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .whead select{font:inherit;font-size:11.5px;padding:2px 4px;border:1px solid var(--border-strong);
   border-radius:4px;background:var(--surface-2);color:var(--text-primary)}
 :root{--cat1:#db0011;--cat2:#8c8c8c;--cat3:#ef9198;--cat4:#4a4a4a;--cat5:#cfcfcf;--cat6:#8f1f27;--cat7:#b0b0b0}
@@ -317,6 +318,22 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     </div></div>
     <div id="heroWrap"></div>
     <div class="cards" id="cardGrid"></div>
+    <div class="panel" id="mixPanel" style="margin-top:16px">
+      <div class="panel-head">
+        <div><h4 id="mixTitle">Mix analysis</h4><p class="subtitle" id="mixSub"></p></div>
+        <div id="mixCtl">
+          <select id="mxScope" aria-label="KPI scope"></select>
+          <select id="mxDim" aria-label="View by"></select>
+          <select id="mxMeasure" aria-label="Measure"></select>
+          <select id="mxType" aria-label="Chart type">
+            <option value="donut">Donut</option>
+            <option value="column">Column</option>
+            <option value="hbar">Horizontal bar</option>
+          </select>
+        </div>
+      </div>
+      <div id="mixChart" class="chart-wrap"></div>
+    </div>
   </div>
 
   <div id="drillView" hidden>
@@ -786,8 +803,32 @@ function renderSummary(){
   $('cardGrid').querySelectorAll('.card').forEach(el=>
     el.addEventListener('click',()=>{ S.drillL2=el.dataset.l2; S.drillL3=null; setView('drill'); }));
 
+  renderMix();
+
   function kpiTotal(rs){ const k=kpi(rs,m,S.ytdM,S.includeFC); return k.cy||0; }
 }
+
+/* flexible dropdown-driven chart on the summary page */
+const MX=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_mix')||'null');
+  if(v&&v.groupBy) return v; }catch(e){}
+  return {groupBy:'prodL2', splitBy:null, measure:'cy', type:'donut', l2:''}; })();
+function renderMix(){
+  const m=S.model;
+  if(!(MX.groupBy in m.dimCols)) MX.groupBy=Object.keys(FIELD_LABELS).find(k=>k in m.dimCols);
+  const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
+  const l2s=[...new Set(m.rows.map(r=>r.d.micaL2).filter(Boolean))].sort();
+  $('mxScope').innerHTML=`<option value="">Total (all KPIs)</option>`+
+    l2s.map(l2=>`<option value="${esc(l2)}"${MX.l2===l2?' selected':''}>${esc(l2)}</option>`).join('');
+  $('mxDim').innerHTML=dims.map(k=>`<option value="${k}"${MX.groupBy===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('');
+  $('mxMeasure').innerHTML=`<option value="cy"${MX.measure==='cy'?' selected':''}>${esc(measureLabel('cy'))}</option>
+    <option value="py"${MX.measure==='py'?' selected':''}>${esc(measureLabel('py'))}</option>
+    <option value="var"${MX.measure==='var'?' selected':''}>${esc(measureLabel('var'))}</option>`;
+  $('mxType').value=MX.type;
+  $('mixTitle').textContent=chartTitle(MX);
+  $('mixSub').textContent=`YTD ${ytdLabel()} · change the view with the dropdowns — it follows the filters on the right`;
+  const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
+}
+function saveMix(){ try{ localStorage.setItem('iwpbsg_mix',JSON.stringify(MX)); }catch(e){} }
 
 function breakdownTable(el, title, subtitle, groups, clickAttr){
   // groups: [{name, k, sub?:[{name,k}]}]
@@ -1171,6 +1212,8 @@ function defaultWidgets(){
   const l2s=[...new Set(S.model.rows.map(r=>r.d.micaL2).filter(Boolean))];
   const w=[{id:newWidgetId(), type:'trend', l2:null}];
   l2s.slice(0,4).forEach(l2=>w.push({id:newWidgetId(), type:'card', l2}));
+  if('prodL2' in S.model.dimCols)
+    w.push({id:newWidgetId(), type:'chart', cfg:{groupBy:'prodL2', splitBy:null, measure:'cy', type:'donut', l2:''}});
   return w;
 }
 function widgetRows(l2){
@@ -1204,7 +1247,10 @@ function renderCustom(){
     const rows=widgetRows(w.l2);
     const k=kpi(rows,m,S.ytdM,S.includeFC);
     const rg=rag(k.varPct,S.thresh);
-    const typeSel=w.type==='chart'?`<select class="wtype" aria-label="Chart type">
+    const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
+      Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
+        `<option value="${k}"${w.cfg.groupBy===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('')
+      }</select><select class="wtype" aria-label="Chart type">
       <option value="column"${w.cfg.type==='column'?' selected':''}>Column</option>
       <option value="hbar"${w.cfg.type==='hbar'?' selected':''}>Horizontal bar</option>
       <option value="donut"${w.cfg.type==='donut'?' selected':''}>Donut</option></select>`:'';
@@ -1229,11 +1275,14 @@ function renderCustom(){
     div.innerHTML=head+`<div class="wbody">${body}</div>`;
     if(w.type==='chart'){
       div.querySelector('.wchartbody').appendChild(buildChartEl(w.cfg));
-      const sel=div.querySelector('.wtype'), headEl0=div.querySelector('.whead');
-      sel.addEventListener('pointerdown',()=>headEl0.setAttribute('draggable','false'));
-      sel.addEventListener('pointerup',()=>headEl0.setAttribute('draggable','true'));
-      sel.addEventListener('mouseleave',()=>headEl0.setAttribute('draggable','true'));
-      sel.addEventListener('change',()=>{ w.cfg.type=sel.value; saveWidgets(); renderCustom(); });
+      const headEl0=div.querySelector('.whead');
+      for(const [cls,key] of [['wtype','type'],['wdim','groupBy']]){
+        const sel=div.querySelector('.'+cls);
+        sel.addEventListener('pointerdown',()=>headEl0.setAttribute('draggable','false'));
+        sel.addEventListener('pointerup',()=>headEl0.setAttribute('draggable','true'));
+        sel.addEventListener('mouseleave',()=>headEl0.setAttribute('draggable','true'));
+        sel.addEventListener('change',()=>{ w.cfg[key]=sel.value; saveWidgets(); renderCustom(); });
+      }
     }
     if(rows.length && w.type==='trend')
       lineChart(div.querySelector('.wchart'), k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY);
@@ -1352,6 +1401,10 @@ function init(){
   });
   $('navDrill').addEventListener('click',()=>setView('drill'));
   $('navTable').addEventListener('click',()=>setView('table'));
+  $('mxScope').addEventListener('change',e=>{ MX.l2=e.target.value; saveMix(); renderMix(); });
+  $('mxDim').addEventListener('change',e=>{ MX.groupBy=e.target.value; saveMix(); renderMix(); });
+  $('mxMeasure').addEventListener('change',e=>{ MX.measure=e.target.value; saveMix(); renderMix(); });
+  $('mxType').addEventListener('change',e=>{ MX.type=e.target.value; saveMix(); renderMix(); });
   $('btnAddWidget').addEventListener('click',()=>{
     S.widgets.push({id:newWidgetId(), type:$('wType').value, l2:$('wKpi').value||null});
     saveWidgets(); renderCustom();
