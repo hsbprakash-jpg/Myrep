@@ -100,6 +100,21 @@ can drag to rearrange, and each pinned chart keeps its own chart-type
 dropdown in its header. Top 8 categories are shown (6 for donuts) with the
 rest folded into Other.
 
+## Query Builder
+
+The **Query builder** page reviews fields and data directly, in the
+management-reporting drag-and-drop pattern: a searchable Available Fields
+panel (grouped MICA / Product / Segment / Function / Entity plus every
+period column) with +F / +O / +S shortcuts, a **Filters** well with
+per-field operators (contains / equals / not equals / blank for text; > <
+= etc. for period columns) and value suggestions, an ordered **Output
+Columns** well (drag entries to change the result column sequence) and a
+**Sort By** well with direction toggles. Queries can be saved, loaded and
+deleted by name. Run Query renders the result grid (first 500 rows) and
+exports the full result set to styled Excel. The chart builder's wells
+also accept **multiple Group by and multiple Split by fields** — values
+concatenate into hierarchical categories.
+
 ## Excel export
 
 Everything exports back to Excel, generated locally in the browser:
@@ -116,4 +131,15 @@ Everything exports back to Excel, generated locally in the browser:
   400 shown), with the original column headers.
 
 Exports honour the active filters, and each file is stamped with the filter
-context and date.
+context and date. Workbooks are formatted: header rows carry the HSBC red
+fill with bold white text, titles are bold, and column widths auto-fit the
+content.
+
+## PowerPoint export
+
+Every chart exports to a widescreen .pptx deck (generated locally):
+**⤓ PPT** buttons on the Mix analysis panel, the chart builder preview and
+the drill-down trend export one slide each, and **⤓ PPT deck** on My
+dashboard exports every widget — charts as high-resolution images, KPI
+cards and breakdowns as styled tables — with titles, the red accent rule
+and the filter context in the footer.
