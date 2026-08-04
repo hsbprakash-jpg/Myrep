@@ -154,6 +154,11 @@ OTHER_CATS = {
     "Metrics": [
         ("IBCA-Current Accounts", "PR05010000 - Current Accounts - Other", 2),
         ("IBCA-Savings", "PR05040100 - Savings Accounts - Other", 1),
+        # FTE rows: must land in their own panes, never summed into Metrics
+        ("FTE", "FTE - Headcount - Permanent Staff", 120),
+        ("FTE", "FTE - Headcount - Fixed Term", 30),
+        ("FTE", "FTE - Contractor - Onshore", 25),
+        ("FTE", "FTE - Contractor - Offshore", 40),
     ],
 }
 for cat, rows_ in OTHER_CATS.items():

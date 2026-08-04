@@ -47,7 +47,11 @@ browser, drop your Excel file on it, and drill.
   column carries several values, those are the panes; otherwise each row is
   classified by keywords in its marker columns (`Ac Type`, `Ac Line`,
   `Account`, `Prd`, `Unique Ref`) — `RWA`, average-balance wording, or
-  metric/margin/NIM wording — with everything unmatched staying P&L. A pane
+  metric/margin/NIM wording — with everything unmatched staying P&L. FTE
+  rows inside a Metrics-family pane are further split into **FTE Headcount**
+  and **FTE Contractor** panes (contractor wording wins over headcount/FTE
+  wording), so staff counts are never blended into metric ratios or into
+  each other. A pane
   bar above the KPIs shows each category's own total; clicking a pane
   filters the whole dashboard (tree, grand total, KPIs, crosstab) to that
   category. P&L is the default pane; the grand-total row and footnote are

@@ -671,7 +671,8 @@ function distinctVals(dim){
       metric wording — and everything unmatched stays P&L. */
 function catRank(v){
   return /^p\s*[&n]?\s*l\b/i.test(v)?0 : /avg.*bal|average.*bal/i.test(v)?1
-       : /\brwa\b/i.test(v)?2 : /metric|ratio|margin|\bnim\b/i.test(v)?3 : 4;
+       : /\brwa\b/i.test(v)?2 : /metric|ratio|margin|\bnim\b/i.test(v)?3
+       : /\bfte\b|head\s*count|contractor/i.test(v)?4 : 5;
 }
 const CAT_RULES=[
   ["RWA",     /\brwa\b/i],
@@ -693,6 +694,15 @@ function buildCategories(){
     const scanCols=state.dims.filter(d=>/ac\s*type|ac\s*line|account|^prd1?$|unique/i.test(d));
     state.baseRecords.forEach(r=>{ r.__cat=keywordCat(r,scanCols); });
   }
+  // FTE rows must not be blended into Metrics — split headcount vs contractor
+  const fteCols=state.dims.filter(d=>/ac\s*type|ac\s*line|account|^prd1?$|product|unique/i.test(d));
+  state.baseRecords.forEach(r=>{
+    if(catRank(r.__cat)!==3) return;              // only rows in a Metrics-family pane
+    const txt=fteCols.map(c=>String(r[c]??"")).join(" ¦ ");
+    if(/contractor/i.test(txt))                    r.__cat="FTE Contractor";
+    else if(/head\s*count|\bfte\b/i.test(txt))     r.__cat="FTE Headcount";
+  });
+
   const seen=new Set(state.baseRecords.map(r=>r.__cat));
   state.categories=[...seen].sort((a,b)=>catRank(a)-catRank(b)||a.localeCompare(b));
   if(!state.categories.includes(state.activeCat))
