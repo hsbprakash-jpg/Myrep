@@ -395,6 +395,15 @@ table.grid .namecell{max-width:330px;overflow:hidden;text-overflow:ellipsis}
 .toggle-l3{background:none;border:none;color:var(--series-1);cursor:pointer;font:inherit;padding:0}
 tr.subrow td:first-child{padding-left:34px;color:var(--text-secondary)}
 .scroll-x{overflow-x:auto}
+/* review grids — contained, sticky header, zebra rows */
+.rvwwrap{max-height:600px;overflow:auto;border:1px solid var(--border);border-radius:6px}
+table.review thead th{position:sticky;top:0;background:var(--surface-2);z-index:2;
+  box-shadow:inset 0 -2px var(--border-strong)}
+table.review tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--text-primary) 2.5%, transparent)}
+table.review tbody tr:hover td{background:color-mix(in srgb, var(--series-1) 7%, transparent)}
+table.review td{border-bottom:1px solid var(--grid)}
+.rvwsearch{padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;
+  background:var(--surface-2);color:var(--text-primary);font-size:12.5px;min-width:220px}
 #tableView .panel{padding-bottom:8px}
 .note{font-size:11.5px;color:var(--text-muted);margin-top:8px}
 footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
@@ -615,7 +624,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <div><h4>Results</h4><p class="subtitle" id="qResSub"></p></div>
         <button class="btn-quiet" id="btnQExport">⤓ Export to Excel</button>
       </div>
-      <div class="scroll-x" id="qResTable"></div>
+      <div class="rvwwrap" id="qResTable"></div>
     </div>
     <datalist id="qDatalists" hidden></datalist>
     <div id="qDlHost" hidden></div>
@@ -630,9 +639,12 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="panel">
       <div class="panel-head">
         <div><h4>Filtered source rows</h4><p class="subtitle" id="tableSub"></p></div>
-        <button class="btn-quiet" id="btnExportData">⤓ Export all rows to Excel</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input class="rvwsearch" id="dataSearch" placeholder="Search rows…" aria-label="Search rows">
+          <button class="btn-quiet" id="btnExportData">⤓ Export all rows to Excel</button>
+        </div>
       </div>
-      <div class="scroll-x" id="rawTable"></div>
+      <div class="rvwwrap" id="rawTable"></div>
     </div>
   </div>
 </section>
@@ -2007,7 +2019,7 @@ function runQuery(){
   const CAP=500;
   $('qResults').hidden=false;
   $('qResSub').textContent=`${rows.length.toLocaleString()} rows match the query`+(rows.length>CAP?` — showing first ${CAP}`:'');
-  let html='<table class="grid"><thead><tr>'+flds.map(f=>`<th>${esc(f.label)}</th>`).join('')+'</tr></thead><tbody>';
+  let html='<table class="grid review"><thead><tr>'+flds.map(f=>`<th>${esc(f.label)}</th>`).join('')+'</tr></thead><tbody>';
   aoa.slice(1,CAP+1).forEach(r=>{
     html+='<tr>'+r.map((v,ci)=>flds[ci].kind==='per'?`<td>${fmtCell(v)}</td>`
       :`<td class="namecell" style="text-align:left">${esc(v==null?'':v)}</td>`).join('')+'</tr>';
@@ -2016,13 +2028,16 @@ function runQuery(){
 }
 
 function renderTable(){
-  const m=S.model, rows=filteredRows();
-  const CAP=400;
-  $('tableSub').textContent=`${rows.length.toLocaleString()} rows match the filters`+(rows.length>CAP?` — showing first ${CAP}`:'')+
-    ' · columns follow the Output fields selection';
+  const m=S.model;
+  let rows=filteredRows();
   const dimKeys=outDimKeys();
+  const q=(S.dataQ||'').trim().toLowerCase();
+  if(q) rows=rows.filter(r=>dimKeys.some(k=>String(r.d[k]||'').toLowerCase().includes(q)));
+  const CAP=400;
+  $('tableSub').textContent=`${rows.length.toLocaleString()} rows`+(q?` match “${S.dataQ}”`:' match the filters')+
+    (rows.length>CAP?` — showing first ${CAP}`:'')+' · columns follow the Output fields selection';
   const perCols=outPeriodCols();
-  let html='<table class="grid"><thead><tr>'+dimKeys.map(k=>`<th>${esc(ALL_DIM_LABELS[k]||k)}</th>`).join('')+
+  let html='<table class="grid review"><thead><tr>'+dimKeys.map(k=>`<th>${esc(ALL_DIM_LABELS[k]||k)}</th>`).join('')+
     perCols.map(p=>`<th>${esc(String(m.header[p.col]))}</th>`).join('')+'</tr></thead><tbody>';
   rows.slice(0,CAP).forEach(r=>{
     html+='<tr>'+dimKeys.map(k=>`<td class="namecell" style="text-align:left">${esc(r.d[k])}</td>`).join('')+
@@ -2353,6 +2368,7 @@ function init(){
     if(B.groupBy.length) exportWB([{name:'Chart data', aoa:chartAOA({...B})}],'IWPB_SG_chart');
   });
   $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA()}],'IWPB_SG_data'));
+  $('dataSearch').addEventListener('input',e=>{ S.dataQ=e.target.value; renderTable(); });
   $('btnPptMix').addEventListener('click',()=>exportPPT([{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX})}],'IWPB_SG_mix'));
   $('btnPptChart').addEventListener('click',()=>{
     if(B.groupBy.length)
