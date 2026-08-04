@@ -948,14 +948,20 @@ function ytdLabel(){
 
 function fillFilters(){
   const m=S.model;
-  // YTD month options = CY months present
+  // YTD month options: CY actual months capped at the last month that has data,
+  // then any later forecast months selectable as "(FC)"
   const mSel=$('fMonth');
-  mSel.innerHTML=m.cyMonths.filter(p=>!p.fc).map(p=>`<option value="${p.m}">${MON_LBL[p.m]}</option>`).join('');
-  // default: latest actual CY month that has any data
-  let def=0;
-  for(const p of m.cyMonths){ if(p.fc) continue;
-    if(m.rows.some(r=>r.v[p.col]!=null && r.v[p.col]!==0)) def=Math.max(def,p.m); }
-  S.ytdM=def; mSel.value=String(def);
+  const hasData=p=>m.rows.some(r=>r.v[p.col]!=null && r.v[p.col]!==0);
+  const actuals=m.cyMonths.filter(p=>!p.fc);
+  let lastData=-1;
+  for(const p of actuals) if(hasData(p)) lastData=Math.max(lastData,p.m);
+  if(lastData<0) lastData=actuals.length? actuals[actuals.length-1].m : 11;
+  S.lastActualM=lastData;
+  const opts=actuals.filter(p=>p.m<=lastData).map(p=>`<option value="${p.m}">${MON_LBL[p.m]}</option>`);
+  for(const p of m.cyMonths) if(p.fc && p.m>lastData)
+    opts.push(`<option value="fc${p.m}">${MON_LBL[p.m]} (FC)</option>`);
+  mSel.innerHTML=opts.join('');
+  S.ytdM=lastData; mSel.value=String(lastData);
   const hasFC=m.cyMonths.some(p=>p.fc);
   $('fFC').parentElement.style.display=hasFC?'':'none';
 
@@ -2234,8 +2240,20 @@ function init(){
     document.querySelectorAll('#dimFilters .cnt').forEach(c=>{ c.textContent='All'; c.classList.remove('on'); });
     render();
   });
-  $('fMonth').addEventListener('change',e=>{S.ytdM=+e.target.value;render();});
-  $('fFC').addEventListener('change',e=>{S.includeFC=e.target.checked;render();});
+  $('fMonth').addEventListener('change',e=>{
+    const v=e.target.value;
+    if(v.startsWith('fc')){ S.ytdM=+v.slice(2); S.includeFC=true; $('fFC').checked=true; }
+    else S.ytdM=+v;
+    render();
+  });
+  $('fFC').addEventListener('change',e=>{
+    S.includeFC=e.target.checked;
+    // unticking FC while an FC month is selected falls back to the last actual month
+    if(!S.includeFC && $('fMonth').value.startsWith('fc')){
+      S.ytdM=S.lastActualM; $('fMonth').value=String(S.lastActualM);
+    }
+    render();
+  });
   $('fThresh').addEventListener('change',e=>{S.thresh=+e.target.value;render();});
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navCustom').addEventListener('click',()=>setView('custom'));
