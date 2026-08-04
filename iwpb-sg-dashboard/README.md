@@ -61,8 +61,13 @@ numbers (negatives in red brackets); and red monochrome charts with a grey
 prior-year series. The left pane hosts the dashboards navigation and a KPI
 shortcut list (each MICA Level 2 line with its RAG dot and YTD value — click
 to jump straight into its drill-down, drag onto My dashboard to add it).
-Filters (entity, segment, function, YTD-through month, include-forecast, RAG
-tolerance) live in a right-side panel and apply to every view. RAG compares YTD actuals with the same
+The right-side panel holds the controls: period settings (YTD-through
+month, include-forecast, RAG tolerance), then a checkbox filter for EVERY
+dimension column in the file — each column expands to its distinct values
+with All/None shortcuts and a search box for long lists, and any
+combination applies to every view, chart and export. Below that, an
+Output fields section with checkboxes chooses which dimension columns and
+period column groups appear in the Data view and in Excel exports. RAG compares YTD actuals with the same
 prior-year months: green at or above prior year, amber within the selected
 tolerance below, red beyond it.
 
