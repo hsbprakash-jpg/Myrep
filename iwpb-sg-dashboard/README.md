@@ -88,3 +88,21 @@ right-pane filters. **Pin to My dashboard** saves the chart as a widget you
 can drag to rearrange, and each pinned chart keeps its own chart-type
 dropdown in its header. Top 8 categories are shown (6 for donuts) with the
 rest folded into Other.
+
+## Excel export
+
+Everything exports back to Excel, generated locally in the browser:
+
+- **KPI summary → ⤓ Export to Excel** — one workbook with the KPI summary
+  (values, variance, RAG), the Mix analysis chart data and all filtered
+  source rows.
+- **Drill-down → ⤓ Excel** — the current KPI's monthly trend, MICA Level 3
+  breakdown and product breakdown as separate sheets.
+- **Mix analysis / chart builder → ⤓ Excel** — the displayed chart's data.
+- **My dashboard** — every widget has a ⤓ button exporting that widget's
+  data (KPI figures, monthly series, breakdown or chart categories).
+- **Data → ⤓ Export all rows** — every filtered source row (not just the
+  400 shown), with the original column headers.
+
+Exports honour the active filters, and each file is stamped with the filter
+context and date.

@@ -315,7 +315,8 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
       <h2>KPI Insights</h2>
       <p class="lede2">RAG-rated summary by MICA Level 2 — year-to-date actuals against the same prior-year period.</p>
-    </div></div>
+    </div>
+    <div><button class="btn-quiet" id="btnExportAll">⤓ Export to Excel</button></div></div>
     <div id="heroWrap"></div>
     <div class="cards" id="cardGrid"></div>
     <div class="panel" id="mixPanel" style="margin-top:16px">
@@ -330,6 +331,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
             <option value="column">Column</option>
             <option value="hbar">Horizontal bar</option>
           </select>
+          <button class="btn-quiet" id="btnExportMix">⤓ Excel</button>
         </div>
       </div>
       <div id="mixChart" class="chart-wrap"></div>
@@ -346,7 +348,10 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="panel">
       <div class="panel-head">
         <div><h4 id="trendTitle"></h4><p class="subtitle" id="trendSub"></p></div>
-        <button class="btn-quiet" id="btnTrendTable">View as table</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn-quiet" id="btnExportDrill">⤓ Excel</button>
+          <button class="btn-quiet" id="btnTrendTable">View as table</button>
+        </div>
       </div>
       <div class="legend" id="trendLegend"></div>
       <div class="chart-wrap" id="trendChart"></div>
@@ -400,6 +405,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
           <option value="donut">Donut</option>
         </select>
         <button class="btn-primary" id="btnPin" style="padding:6px 16px;font-size:13px">Pin to My dashboard</button>
+        <button class="btn-quiet" id="btnExportChart">⤓ Excel</button>
       </div>
     </div>
     <div class="panel">
@@ -415,8 +421,10 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <p class="lede2">The underlying driller rows in scope of the current filters.</p>
     </div></div>
     <div class="panel">
-      <h4>Filtered source rows</h4>
-      <p class="subtitle" id="tableSub"></p>
+      <div class="panel-head">
+        <div><h4>Filtered source rows</h4><p class="subtitle" id="tableSub"></p></div>
+        <button class="btn-quiet" id="btnExportData">⤓ Export all rows to Excel</button>
+      </div>
       <div class="scroll-x" id="rawTable"></div>
     </div>
   </div>
@@ -829,6 +837,87 @@ function renderMix(){
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
 }
 function saveMix(){ try{ localStorage.setItem('iwpbsg_mix',JSON.stringify(MX)); }catch(e){} }
+
+/* ================= Excel export ================= */
+function pct(v){ return v==null? null : Math.round(v*1000)/10; }   // fraction -> % number
+function exportWB(sheets, name){
+  const wb=XLSX.utils.book_new();
+  for(const s of sheets){
+    const nm=String(s.name).replace(/[\[\]:*?\/\\]/g,' ').slice(0,31)||'Sheet';
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s.aoa), nm);
+  }
+  XLSX.writeFile(wb, name+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+function filterNote(){
+  return `Filters: entity=${S.entity||'All'} · segment=${S.seg||'All'} · function=${S.func||'All'} · YTD ${ytdLabel()}`;
+}
+function kpiSummaryAOA(){
+  const m=S.model, rows=filteredRows();
+  const aoa=[['IWPB Singapore Driller — KPI summary'],[filterNote()],[],
+    ['KPI (MICA Level 2)','MICA Level 1',`YTD ${m.yearCY}`,`YTD ${m.yearPY}`,'Variance','Variance %','RAG']];
+  const byL2=[...groupBy(rows,'micaL2').entries()]
+    .map(([l2,rs])=>({l2, l1:rs[0].d.micaL1, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  for(const c of byL2) aoa.push([c.l2,c.l1,c.k.cy,c.k.py,c.k.varAbs,pct(c.k.varPct),rag(c.k.varPct,S.thresh).label]);
+  const kT=kpi(rows,m,S.ytdM,S.includeFC);
+  aoa.push(['Total','',kT.cy,kT.py,kT.varAbs,pct(kT.varPct),rag(kT.varPct,S.thresh).label]);
+  return aoa;
+}
+function trendAOA(rows, label){
+  const m=S.model, k=kpi(rows,m,S.ytdM,S.includeFC);
+  const aoa=[[label||'Monthly trend'],[filterNote()],[],['Month',`${m.yearCY} actual`,`${m.yearPY} actual`]];
+  for(let mi=0;mi<12;mi++){
+    const c=k.cySeries.find(p=>p.m===mi), p=k.pySeries.find(p=>p.m===mi);
+    if(!c&&!p) continue;
+    aoa.push([MON_LBL[mi]+(c&&c.fc?' (FC)':''), c?c.val:null, p?p.val:null]);
+  }
+  return aoa;
+}
+function breakdownAOA(rows, key, label){
+  const m=S.model;
+  const gs=[...groupBy(rows,key).entries()]
+    .map(([name,rs])=>({name, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  const aoa=[[label],[filterNote()],[],
+    ['Line',`YTD ${m.yearCY}`,`YTD ${m.yearPY}`,'Variance','Variance %','RAG']];
+  for(const g of gs) aoa.push([g.name,g.k.cy,g.k.py,g.k.varAbs,pct(g.k.varPct),rag(g.k.varPct,S.thresh).label]);
+  const kT=kpi(rows,m,S.ytdM,S.includeFC);
+  aoa.push(['Total',kT.cy,kT.py,kT.varAbs,pct(kT.varPct),rag(kT.varPct,S.thresh).label]);
+  return aoa;
+}
+function chartAOA(cfg){
+  const {cats, segNames}=chartData(cfg);
+  const dim=FIELD_LABELS[cfg.groupBy]||cfg.groupBy;
+  const aoa=[[chartTitle(cfg)],[filterNote()],[]];
+  if(segNames){
+    aoa.push([dim,...segNames,'Total']);
+    for(const c of cats) aoa.push([c.name,...segNames.map(sn=>c.segs[sn]||0),c.segTotal]);
+  } else {
+    aoa.push([dim, measureLabel(cfg.measure)]);
+    for(const c of cats) aoa.push([c.name, c.val]);
+  }
+  return aoa;
+}
+function rowsAOA(){
+  const m=S.model, rows=filteredRows();
+  const dimKeys=Object.keys(m.dimCols);
+  const per=[...m.pyMonths,...m.cyMonths,...m.quarterCols,...m.ytdCols];
+  const aoa=[[...dimKeys.map(k=>String(m.header[m.dimCols[k]])), ...per.map(p=>String(m.header[p.col]))]];
+  for(const r of rows) aoa.push([...dimKeys.map(k=>r.d[k]), ...per.map(p=>r.v[p.col])]);
+  return aoa;
+}
+function widgetAOA(w){
+  if(w.type==='chart') return chartAOA(w.cfg);
+  const rows=widgetRows(w.l2), name=w.l2||'Total (all KPIs)';
+  if(w.type==='trend') return trendAOA(rows, name+' — monthly trend');
+  if(w.type==='l3') return breakdownAOA(rows,'micaL3', name+' — MICA Level 3 breakdown');
+  if(w.type==='products') return breakdownAOA(rows,'prodL2', name+' — product breakdown');
+  const m=S.model, k=kpi(rows,m,S.ytdM,S.includeFC);
+  return [[name+' — KPI'],[filterNote()],[],
+    ['Measure','Value'],
+    [`YTD ${m.yearCY}`,k.cy],[`YTD ${m.yearPY}`,k.py],
+    ['Variance',k.varAbs],['Variance %',pct(k.varPct)],['RAG',rag(k.varPct,S.thresh).label]];
+}
 
 function breakdownTable(el, title, subtitle, groups, clickAttr){
   // groups: [{name, k, sub?:[{name,k}]}]
@@ -1256,6 +1345,7 @@ function renderCustom(){
       <option value="donut"${w.cfg.type==='donut'?' selected':''}>Donut</option></select>`:'';
     let head=`<div class="whead" draggable="true" title="Drag to rearrange">
       <span class="grip" aria-hidden="true">⠿</span><h5>${esc(widgetTitle(w))}</h5>${typeSel}
+      <button class="wexport" title="Export data to Excel" aria-label="Export data to Excel">⤓</button>
       <button class="wremove" title="Remove widget" aria-label="Remove widget">✕</button></div>`;
     let body='';
     if(w.type==='chart'){
@@ -1318,6 +1408,8 @@ function renderCustom(){
     div.querySelector('.wremove').addEventListener('click',()=>{
       S.widgets.splice(idx,1); saveWidgets(); renderCustom();
     });
+    div.querySelector('.wexport').addEventListener('click',()=>
+      exportWB([{name:'Widget', aoa:widgetAOA(w)}],'IWPB_SG_widget'));
     grid.appendChild(div);
   });
 }
@@ -1405,6 +1497,25 @@ function init(){
   $('mxDim').addEventListener('change',e=>{ MX.groupBy=e.target.value; saveMix(); renderMix(); });
   $('mxMeasure').addEventListener('change',e=>{ MX.measure=e.target.value; saveMix(); renderMix(); });
   $('mxType').addEventListener('change',e=>{ MX.type=e.target.value; saveMix(); renderMix(); });
+  $('btnExportAll').addEventListener('click',()=>exportWB([
+    {name:'KPI Summary', aoa:kpiSummaryAOA()},
+    {name:'Mix analysis', aoa:chartAOA({...MX})},
+    {name:'Source rows', aoa:rowsAOA()},
+  ],'IWPB_SG_KPI_Summary'));
+  $('btnExportMix').addEventListener('click',()=>exportWB([{name:'Mix analysis', aoa:chartAOA({...MX})}],'IWPB_SG_mix'));
+  $('btnExportChart').addEventListener('click',()=>{
+    if(B.groupBy) exportWB([{name:'Chart data', aoa:chartAOA({...B})}],'IWPB_SG_chart');
+  });
+  $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA()}],'IWPB_SG_data'));
+  $('btnExportDrill').addEventListener('click',()=>{
+    let rows=filteredRows().filter(r=>r.d.micaL2===S.drillL2);
+    let scopeName=S.drillL2||'Drill';
+    if(S.drillL3){ rows=rows.filter(r=>r.d.micaL3===S.drillL3); scopeName=S.drillL3; }
+    const sheets=[{name:'Trend', aoa:trendAOA(rows, scopeName+' — monthly trend')}];
+    if(!S.drillL3) sheets.push({name:'MICA L3', aoa:breakdownAOA(rows,'micaL3', scopeName+' — MICA Level 3 breakdown')});
+    sheets.push({name:'Products', aoa:breakdownAOA(rows,'prodL2', scopeName+' — product breakdown')});
+    exportWB(sheets,'IWPB_SG_drill');
+  });
   $('btnAddWidget').addEventListener('click',()=>{
     S.widgets.push({id:newWidgetId(), type:$('wType').value, l2:$('wKpi').value||null});
     saveWidgets(); renderCustom();
