@@ -52,6 +52,13 @@ browser, drop your Excel file on it, and drill.
   filters the whole dashboard (tree, grand total, KPIs, crosstab) to that
   category. P&L is the default pane; the grand-total row and footnote are
   labelled with the active pane.
+- **Dimension filters (slicers)** — a sidebar Filters section restricts any
+  dimension to chosen values; active filters apply to everything (panes,
+  tree, KPIs, crosstab) and are listed in the footnote. A currency-like
+  column (`Curr…`/`CCY…`) with several members is auto-pinned to one member
+  on load (Total-style consolidation preferred, else USD/GBP) so totals
+  never sum across currencies; the load banner says what was pinned.
+  Stale filters are pruned when a different file is loaded.
 - **Session cache** — after a successful load the file's bytes are stored in
   the browser's IndexedDB and the view setup (drill levels, ticked periods,
   crosstab column, scale, calculated-rows toggle, worksheet) in localStorage.
