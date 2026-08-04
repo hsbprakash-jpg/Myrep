@@ -117,8 +117,11 @@ be row 1; the loader scans the first 10 rows and picks the most plausible one.
 | Path | Purpose |
 |---|---|
 | `index.html` | The entire dashboard, self-contained (UI + semantic layer + pivot engine + embedded SheetJS) |
+| `gbp-workspace.html` | Workspace-style visual overview for Group Business Performance extracts — KPI tiles, actual/forecast trend, quarterly bars, FY waterfall, forecast-vs-target-vs-run-rate bullets, drillable P&L tree, balance-sheet & headcount cards. Reads the same IndexedDB session cache as the driller (open it in the same browser and the last-loaded file appears automatically); also self-contained with its own drag-and-drop loader |
 | `sample/make_sample.py` | Generates a synthetic extract with the same structure |
 | `sample/GPS_Driller_sample.xlsx` | Output of the generator, for demo/testing |
+| `sample/make_gbp_sample.py` | Generates a synthetic Group Business Performance driller extract |
+| `sample/GBP_Driller_sample.xlsx` | Output of that generator — demo data for `gbp-workspace.html` |
 
 ## Try it
 
