@@ -103,6 +103,28 @@ aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
 .stat .num{font-size:27px;font-weight:750;margin-top:6px;font-variant-numeric:tabular-nums;line-height:1.15}
 .stat .cap{font-size:10.5px;color:var(--text-muted);margin-top:5px}
 .negnum{color:var(--status-critical)}
+/* chart builder */
+#fieldChips{display:flex;flex-wrap:wrap;gap:8px}
+.fchip{border:1px solid var(--border-strong);border-radius:6px;padding:5px 11px;font-size:12px;
+  background:var(--surface-2);color:var(--text-primary);cursor:grab;user-select:none}
+.fchip:hover{border-color:var(--hsbc-red)}
+.wells{display:flex;gap:14px;margin:16px 0 4px;flex-wrap:wrap}
+.well{flex:1;min-width:220px;border:2px dashed var(--border-strong);border-radius:8px;padding:9px 12px;min-height:54px}
+.well.dropover{border-color:var(--hsbc-red);background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
+.well .wlbl{font-size:9.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--text-secondary)}
+.well .wslot{margin-top:5px;font-size:12px;color:var(--text-muted)}
+.well .wslot .fchip{cursor:default;display:inline-flex;align-items:center;gap:7px}
+.well .wslot .fchip button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0}
+.well .wslot .fchip button:hover{color:var(--hsbc-red)}
+#builderOpts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+#builderOpts select{padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
+  background:var(--surface-2);color:var(--text-primary);font-size:12.5px;max-width:220px}
+.whead select{font:inherit;font-size:11.5px;padding:2px 4px;border:1px solid var(--border-strong);
+  border-radius:4px;background:var(--surface-2);color:var(--text-primary)}
+:root{--cat1:#db0011;--cat2:#8c8c8c;--cat3:#ef9198;--cat4:#4a4a4a;--cat5:#cfcfcf;--cat6:#8f1f27;--cat7:#b0b0b0}
+@media (prefers-color-scheme: dark){
+  :root{--cat1:#f0424d;--cat2:#9a9a9a;--cat3:#ef9198;--cat4:#d6d6d6;--cat5:#5a5a5a;--cat6:#c9666d;--cat7:#767676}
+}
 /* right pane — filters */
 #rightPane{width:230px;flex:none;background:var(--surface-1);border-left:1px solid var(--border);
   padding:8px 0 12px;display:flex;flex-direction:column}
@@ -246,6 +268,9 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <button id="navCustom">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="9" height="6" rx="1.2" fill="currentColor"/><rect x="12" y="1" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="6" y="9" width="9" height="6" rx="1.2" fill="currentColor"/></svg>
       My dashboard</button>
+    <button id="navBuilder">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="8" width="3.4" height="7" rx="1" fill="currentColor" opacity=".55"/><rect x="6.3" y="4" width="3.4" height="11" rx="1" fill="currentColor"/><rect x="11.6" y="1" width="3.4" height="14" rx="1" fill="currentColor" opacity=".55"/></svg>
+      Drag &amp; drop charts</button>
     <button id="navDrill">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 2h13L10 8v5.5L6 11V8L1.5 2z" fill="currentColor"/></svg>
       Drill-down</button>
@@ -333,6 +358,37 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <span class="note">Drag widgets by their header to rearrange · drag a KPI from the left pane to add it</span>
     </div>
     <div class="dashgrid" id="dashGrid"></div>
+  </div>
+
+  <div id="builderView" hidden>
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2>Drag &amp; Drop Charts</h2>
+      <p class="lede2">Drop a field into a well to build a chart over the filtered data, then pin it to My dashboard.</p>
+    </div></div>
+    <div class="panel">
+      <h4>Fields</h4>
+      <p class="subtitle">Drag a field into a well — or click a field to assign it · charts respect the filters on the right</p>
+      <div id="fieldChips"></div>
+      <div class="wells">
+        <div class="well" data-well="groupBy"><div class="wlbl">Group by</div><div class="wslot" id="slotGroup">Drop a field</div></div>
+        <div class="well" data-well="splitBy"><div class="wlbl">Split by · optional</div><div class="wslot" id="slotSplit">Drop a field</div></div>
+      </div>
+      <div id="builderOpts">
+        <select id="bScope" aria-label="KPI scope"></select>
+        <select id="bMeasure" aria-label="Measure"></select>
+        <select id="bType" aria-label="Chart type">
+          <option value="column">Column</option>
+          <option value="hbar">Horizontal bar</option>
+          <option value="donut">Donut</option>
+        </select>
+        <button class="btn-primary" id="btnPin" style="padding:6px 16px;font-size:13px">Pin to My dashboard</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><h4 id="bPrevTitle">Preview</h4><p class="subtitle" id="bPrevSub"></p></div></div>
+      <div id="bPreview" class="chart-wrap"></div>
+    </div>
   </div>
 
   <div id="tableView" hidden>
@@ -833,6 +889,200 @@ function renderDrill(){
 }
 const openProducts=new Set();
 
+/* ================= drag & drop chart builder ================= */
+const FIELD_LABELS={micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
+  prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3', prodCode:'Product code',
+  cgL1:'CG Level 1', cgL2:'Segment (CG L2)', funcL1:'Function Level 1', funcL2:'Function (L2)', entity:'Entity'};
+const CAT_COLORS=['var(--cat1)','var(--cat2)','var(--cat3)','var(--cat4)','var(--cat5)','var(--cat6)','var(--cat7)'];
+const B={groupBy:null, splitBy:null, measure:'cy', type:'column', l2:''};
+
+function measureLabel(mea){
+  const m=S.model;
+  return mea==='py'?`YTD ${m.yearPY}`:mea==='var'?'Variance vs PY':`YTD ${m.yearCY}`;
+}
+function chartTitle(cfg){
+  return `${cfg.l2||'Total'} · ${measureLabel(cfg.measure)} by ${FIELD_LABELS[cfg.groupBy]||cfg.groupBy}`+
+    (cfg.splitBy?` / ${FIELD_LABELS[cfg.splitBy]||cfg.splitBy}`:'');
+}
+function chartData(cfg){
+  const m=S.model;
+  let rows=filteredRows();
+  if(cfg.l2) rows=rows.filter(r=>r.d.micaL2===cfg.l2);
+  const mfn=rs=>{const k=kpi(rs,m,S.ytdM,S.includeFC);
+    return (cfg.measure==='py'?k.py:cfg.measure==='var'?k.varAbs:k.cy)||0;};
+  let groups=[...groupBy(rows,cfg.groupBy).entries()].map(([name,rs])=>({name,rows:rs,val:mfn(rs)}));
+  groups.sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
+  const TOP=cfg.type==='donut'?6:8;
+  let cats=groups.slice(0,TOP);
+  const rest=groups.slice(TOP);
+  if(rest.length) cats.push({name:'Other', rows:rest.flatMap(g=>g.rows), val:rest.reduce((s,g)=>s+g.val,0)});
+  let segNames=null, clamped=false;
+  if(cfg.splitBy && cfg.type!=='donut'){
+    const totals=new Map();
+    for(const c of cats) for(const [sn,rs] of groupBy(c.rows,cfg.splitBy))
+      totals.set(sn,(totals.get(sn)||0)+Math.abs(mfn(rs)));
+    const ordered=[...totals.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+    segNames=ordered.slice(0,4);
+    if(ordered.length>4) segNames.push('Other');
+    for(const c of cats){
+      const segs={};
+      for(const [sn,rs] of groupBy(c.rows,cfg.splitBy)){
+        const key=segNames.includes(sn)?sn:'Other';
+        const v=mfn(rs);
+        if(v<0){ clamped=true; continue; }        // stacked bars carry positive components only
+        segs[key]=(segs[key]||0)+v;
+      }
+      c.segs=segs;
+      c.segTotal=Object.values(segs).reduce((s,v)=>s+v,0);
+    }
+  }
+  return {cats, segNames, clamped};
+}
+function segLegend(segNames){
+  if(!segNames) return '';
+  return `<div class="legend">`+segNames.map((sn,i)=>
+    `<span><span class="sw" style="background:${CAT_COLORS[i%CAT_COLORS.length]};height:9px;width:9px;border-radius:2px"></span>${esc(sn)}</span>`).join('')+`</div>`;
+}
+function buildChartEl(cfg){
+  const wrap=document.createElement('div');
+  const {cats, segNames, clamped}=chartData(cfg);
+  if(!cats.length){ wrap.innerHTML='<p class="note">No rows for this selection under the current filters.</p>'; return wrap; }
+  let html='';
+  if(cfg.type==='donut'){
+    const pos=cats.filter(c=>c.val>0);
+    if(!pos.length){ wrap.innerHTML='<p class="note">Donut needs positive values — switch chart type for this selection.</p>'; return wrap; }
+    const total=pos.reduce((s,c)=>s+c.val,0);
+    const R=74, r=46, CX=100, CY=100;
+    let a0=-Math.PI/2, arcs='';
+    pos.forEach((c,i)=>{
+      const a1=a0+(c.val/total)*2*Math.PI;
+      const large=(a1-a0)>Math.PI?1:0;
+      const x0=CX+R*Math.cos(a0), y0=CY+R*Math.sin(a0), x1=CX+R*Math.cos(a1), y1=CY+R*Math.sin(a1);
+      const xi0=CX+r*Math.cos(a1), yi0=CY+r*Math.sin(a1), xi1=CX+r*Math.cos(a0), yi1=CY+r*Math.sin(a0);
+      arcs+=`<path d="M${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} L${xi0.toFixed(1)} ${yi0.toFixed(1)} A${r} ${r} 0 ${large} 0 ${xi1.toFixed(1)} ${yi1.toFixed(1)} Z"
+        fill="${CAT_COLORS[i%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="2"><title>${esc(c.name)}: ${fmtFull(c.val)} · ${(c.val/total*100).toFixed(1)}%</title></path>`;
+      a0=a1;
+    });
+    const legend=pos.map((c,i)=>`<div style="display:flex;align-items:center;gap:7px;font-size:12px;margin:3px 0">
+      <span style="width:10px;height:10px;border-radius:2px;background:${CAT_COLORS[i%CAT_COLORS.length]};flex:none"></span>
+      <span class="namecell" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span>
+      <span style="color:var(--text-muted)">— ${fmt(c.val)} · ${(c.val/total*100).toFixed(1)}%</span></div>`).join('');
+    html=`<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
+      <svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="Donut chart">${arcs}
+        <text x="100" y="96" text-anchor="middle" font-size="19" font-weight="750" fill="var(--text-primary)">${fmt(total)}</text>
+        <text x="100" y="113" text-anchor="middle" font-size="9.5" fill="var(--text-secondary)">TOTAL</text></svg>
+      <div>${legend}</div></div>`;
+    if(cats.some(c=>c.val<0)) html+='<p class="note">Negative categories are excluded from the donut.</p>';
+  } else if(cfg.type==='hbar'){
+    const maxAbs=Math.max(...cats.map(c=>Math.abs(segNames?c.segTotal:c.val)),1);
+    html='<div>'+cats.map(c=>{
+      let bar;
+      if(segNames){
+        bar=Object.entries(c.segs).sort((a,b)=>b[1]-a[1]).map(([sn,v])=>
+          `<span style="display:inline-block;height:14px;width:${Math.max(1,Math.round(v/maxAbs*420))}px;background:${CAT_COLORS[segNames.indexOf(sn)%CAT_COLORS.length]};margin-right:2px" title="${esc(sn)}: ${fmtFull(v)}"></span>`).join('');
+      } else {
+        const w=Math.max(2,Math.round(Math.abs(c.val)/maxAbs*420));
+        bar=`<span class="mbar${c.val<0?' neg':''}" style="width:${w}px;height:14px" title="${esc(c.name)}: ${fmtFull(c.val)}"></span>`;
+      }
+      const v=segNames?c.segTotal:c.val;
+      return `<div style="display:flex;align-items:center;gap:10px;margin:7px 0">
+        <span class="namecell" style="width:190px;flex:none;font-size:12px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.name)}">${esc(c.name)}</span>
+        <span style="flex:1;min-width:0">${bar}</span>
+        <span style="font-size:12px;font-variant-numeric:tabular-nums;flex:none">${v<0?`<span class="negnum">${fmt(v)}</span>`:fmt(v)}</span></div>`;
+    }).join('')+'</div>'+segLegend(segNames);
+  } else { /* column */
+    const W=Math.max(430, cats.length*72+70), H=250, L=52, T=14, BOT=44;
+    const vals=cats.map(c=>segNames?c.segTotal:c.val);
+    const min=Math.min(0,...vals), max=Math.max(0,...vals), span=(max-min)||1;
+    const y=v=>T+(H-T-BOT)-(v-min)*(H-T-BOT)/span;
+    const bw=34;
+    let svg='';
+    for(let i=0;i<=3;i++){ const v=min+span*i/3, yy=y(v);
+      svg+=`<line x1="${L}" x2="${W-8}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`+
+        `<text x="${L-7}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-secondary)">${fmt(v)}</text>`; }
+    cats.forEach((c,i)=>{
+      const cx=L+18+i*((W-L-26)/cats.length);
+      if(segNames){
+        let acc=0;
+        for(const sn of segNames){
+          const v=c.segs[sn]||0; if(!v) continue;
+          const y1=y(acc+v), y2=y(acc);
+          svg+=`<rect x="${cx.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw}" height="${Math.max(1,y2-y1).toFixed(1)}"
+            fill="${CAT_COLORS[segNames.indexOf(sn)%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="1"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(v)}</title></rect>`;
+          acc+=v;
+        }
+      } else {
+        const v=c.val, y1=y(Math.max(0,v)), y2=y(Math.min(0,v));
+        svg+=`<rect x="${cx.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw}" height="${Math.max(2,y2-y1).toFixed(1)}" rx="2"
+          fill="${v<0?'var(--cat2)':'var(--cat1)'}"><title>${esc(c.name)}: ${fmtFull(v)}</title></rect>`;
+      }
+      const tv=segNames?c.segTotal:c.val;
+      if(cats.length<=9) svg+=`<text x="${(cx+bw/2).toFixed(1)}" y="${(y(Math.max(0,tv))-5).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${tv<0?'var(--status-critical)':'var(--text-primary)'}">${fmt(tv)}</text>`;
+      const lbl=c.name.length>11?c.name.slice(0,10)+'…':c.name;
+      svg+=`<text x="${(cx+bw/2).toFixed(1)}" y="${H-26}" text-anchor="middle" font-size="10" fill="var(--text-secondary)"><title>${esc(c.name)}</title>${esc(lbl)}</text>`;
+    });
+    if(min<0&&max>0) svg+=`<line x1="${L}" x2="${W-8}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--border-strong)"/>`;
+    html=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Column chart">${svg}</svg></div>`+segLegend(segNames);
+  }
+  if(clamped) html+='<p class="note">Negative components are excluded from stacked segments — switch off Split by to see net values.</p>';
+  wrap.innerHTML=html;
+  return wrap;
+}
+
+function renderBuilder(){
+  const m=S.model;
+  // field chips
+  const fields=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
+  $('fieldChips').innerHTML=fields.map(k=>
+    `<span class="fchip" draggable="true" data-f="${k}" title="Drag into a well, or click to assign">${esc(FIELD_LABELS[k])}</span>`).join('');
+  $('fieldChips').querySelectorAll('.fchip').forEach(ch=>{
+    ch.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/x-field',ch.dataset.f); e.dataTransfer.effectAllowed='copy'; });
+    ch.addEventListener('click',()=>{
+      if(!B.groupBy) B.groupBy=ch.dataset.f;
+      else if(!B.splitBy && ch.dataset.f!==B.groupBy) B.splitBy=ch.dataset.f;
+      else B.groupBy=ch.dataset.f;
+      renderBuilder();
+    });
+  });
+  // wells
+  const slot=(id,key)=>{
+    const el=$(id);
+    el.innerHTML=B[key]?`<span class="fchip">${esc(FIELD_LABELS[B[key]])} <button aria-label="Clear">✕</button></span>`:'Drop a field';
+    const clr=el.querySelector('button');
+    if(clr) clr.addEventListener('click',()=>{ B[key]=null; renderBuilder(); });
+  };
+  slot('slotGroup','groupBy'); slot('slotSplit','splitBy');
+  document.querySelectorAll('.well').forEach(w=>{
+    w.ondragover=e=>{ e.preventDefault(); w.classList.add('dropover'); };
+    w.ondragleave=()=>w.classList.remove('dropover');
+    w.ondrop=e=>{
+      e.preventDefault(); w.classList.remove('dropover');
+      const f=e.dataTransfer.getData('text/x-field');
+      if(f){ B[w.dataset.well]=f; if(B.groupBy===B.splitBy) B.splitBy=null; renderBuilder(); }
+    };
+  });
+  // options
+  const l2s=[...new Set(m.rows.map(r=>r.d.micaL2).filter(Boolean))].sort();
+  const sc=$('bScope'), keep=sc.value;
+  sc.innerHTML=`<option value="">Total (all KPIs)</option>`+l2s.map(l2=>`<option value="${esc(l2)}">${esc(l2)}</option>`).join('');
+  sc.value=[...sc.options].some(o=>o.value===B.l2)?B.l2:'';
+  $('bMeasure').innerHTML=`<option value="cy">${esc(measureLabel('cy'))}</option>
+    <option value="py">${esc(measureLabel('py'))}</option><option value="var">${esc(measureLabel('var'))}</option>`;
+  $('bMeasure').value=B.measure; $('bType').value=B.type;
+  // preview
+  const pv=$('bPreview'); pv.innerHTML='';
+  if(!B.groupBy){
+    $('bPrevTitle').textContent='Preview';
+    $('bPrevSub').textContent='Drop a field in Group by to build the chart.';
+    pv.innerHTML='<div class="dash-empty" style="grid-column:auto">No chart yet — drop a field into <b>Group by</b> above.</div>';
+    return;
+  }
+  const cfg={...B};
+  $('bPrevTitle').textContent=chartTitle(cfg);
+  $('bPrevSub').textContent=`YTD ${ytdLabel()} · respects the filters on the right · top ${cfg.type==='donut'?6:8} categories, rest folded into Other`;
+  pv.appendChild(buildChartEl(cfg));
+}
+
 function renderTable(){
   const m=S.model, rows=filteredRows();
   const CAP=400;
@@ -853,10 +1103,12 @@ function setView(v){
   S.view=v;
   $('summaryView').hidden = v!=='summary';
   $('customView').hidden  = v!=='custom';
+  $('builderView').hidden = v!=='builder';
   $('drillView').hidden   = v!=='drill';
   $('tableView').hidden   = v!=='table';
   $('navSummary').classList.toggle('active',v==='summary');
   $('navCustom').classList.toggle('active',v==='custom');
+  $('navBuilder').classList.toggle('active',v==='builder');
   $('navDrill').classList.toggle('active',v==='drill');
   $('navTable').classList.toggle('active',v==='table');
   render();
@@ -896,6 +1148,7 @@ function render(){
   if(!S.model) return;
   if(S.view==='summary') renderSummary();
   else if(S.view==='custom') renderCustom();
+  else if(S.view==='builder') renderBuilder();
   else if(S.view==='drill') renderDrill();
   else renderTable();
   renderKpiNav();
@@ -904,12 +1157,12 @@ function render(){
 }
 
 /* ================= dynamic dashboard (drag & drop) ================= */
-const WTYPES={card:'KPI card', trend:'Monthly trend', l3:'MICA L3 breakdown', products:'Product breakdown'};
+const WTYPES={card:'KPI card', trend:'Monthly trend', l3:'MICA L3 breakdown', products:'Product breakdown', chart:'Custom chart'};
 let widgetSeq=0;
 function newWidgetId(){ return 'w'+(++widgetSeq)+'_'+Math.floor(Math.random()*1e6); }
 function loadWidgets(){
   try{ const w=JSON.parse(localStorage.getItem('iwpbsg_widgets')||'null');
-    if(Array.isArray(w)&&w.every(x=>x&&x.id&&x.type in WTYPES)) return w;
+    if(Array.isArray(w)&&w.every(x=>x&&x.id&&x.type in WTYPES&&(x.type!=='chart'||(x.cfg&&x.cfg.groupBy)))) return w;
   }catch(e){}
   return null;
 }
@@ -924,7 +1177,9 @@ function widgetRows(l2){
   const rows=filteredRows();
   return l2? rows.filter(r=>r.d.micaL2===l2) : rows;
 }
-function widgetTitle(w){ return (w.l2||'Total (all KPIs)')+' · '+WTYPES[w.type]; }
+function widgetTitle(w){
+  return w.type==='chart'? chartTitle(w.cfg) : (w.l2||'Total (all KPIs)')+' · '+WTYPES[w.type];
+}
 
 function renderCustom(){
   const m=S.model;
@@ -949,11 +1204,17 @@ function renderCustom(){
     const rows=widgetRows(w.l2);
     const k=kpi(rows,m,S.ytdM,S.includeFC);
     const rg=rag(k.varPct,S.thresh);
+    const typeSel=w.type==='chart'?`<select class="wtype" aria-label="Chart type">
+      <option value="column"${w.cfg.type==='column'?' selected':''}>Column</option>
+      <option value="hbar"${w.cfg.type==='hbar'?' selected':''}>Horizontal bar</option>
+      <option value="donut"${w.cfg.type==='donut'?' selected':''}>Donut</option></select>`:'';
     let head=`<div class="whead" draggable="true" title="Drag to rearrange">
-      <span class="grip" aria-hidden="true">⠿</span><h5>${esc(widgetTitle(w))}</h5>
+      <span class="grip" aria-hidden="true">⠿</span><h5>${esc(widgetTitle(w))}</h5>${typeSel}
       <button class="wremove" title="Remove widget" aria-label="Remove widget">✕</button></div>`;
     let body='';
-    if(!rows.length){
+    if(w.type==='chart'){
+      body='<div class="wchartbody"></div>';
+    } else if(!rows.length){
       body='<p class="note">No rows for this KPI under the current filters.</p>';
     } else if(w.type==='card'){
       body=`<div class="val${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</div>
@@ -966,6 +1227,14 @@ function renderCustom(){
         `</div><div class="chart-wrap wchart"></div>`;
     }
     div.innerHTML=head+`<div class="wbody">${body}</div>`;
+    if(w.type==='chart'){
+      div.querySelector('.wchartbody').appendChild(buildChartEl(w.cfg));
+      const sel=div.querySelector('.wtype'), headEl0=div.querySelector('.whead');
+      sel.addEventListener('pointerdown',()=>headEl0.setAttribute('draggable','false'));
+      sel.addEventListener('pointerup',()=>headEl0.setAttribute('draggable','true'));
+      sel.addEventListener('mouseleave',()=>headEl0.setAttribute('draggable','true'));
+      sel.addEventListener('change',()=>{ w.cfg.type=sel.value; saveWidgets(); renderCustom(); });
+    }
     if(rows.length && w.type==='trend')
       lineChart(div.querySelector('.wchart'), k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY);
     if(rows.length && (w.type==='l3'||w.type==='products')){
@@ -1070,6 +1339,17 @@ function init(){
   $('fThresh').addEventListener('change',e=>{S.thresh=+e.target.value;render();});
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navCustom').addEventListener('click',()=>setView('custom'));
+  $('navBuilder').addEventListener('click',()=>setView('builder'));
+  $('bScope').addEventListener('change',e=>{ B.l2=e.target.value; renderBuilder(); });
+  $('bMeasure').addEventListener('change',e=>{ B.measure=e.target.value; renderBuilder(); });
+  $('bType').addEventListener('change',e=>{ B.type=e.target.value; renderBuilder(); });
+  $('btnPin').addEventListener('click',()=>{
+    if(!B.groupBy) return;
+    S.widgets.push({id:newWidgetId(), type:'chart', cfg:{...B}});
+    saveWidgets();
+    const b=$('btnPin'), t=b.textContent;
+    b.textContent='Pinned ✓'; setTimeout(()=>{ b.textContent=t; },1200);
+  });
   $('navDrill').addEventListener('click',()=>setView('drill'));
   $('navTable').addEventListener('click',()=>setView('table'));
   $('btnAddWidget').addEventListener('click',()=>{

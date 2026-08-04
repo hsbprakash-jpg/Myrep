@@ -68,3 +68,16 @@ real data. Regenerate with:
 ```
 cd sample && python3 make_sample.py   # needs openpyxl
 ```
+
+## Drag & Drop Charts
+
+The **Drag & drop charts** page is a field-based chart builder. Drag any
+dimension chip (MICA levels, Product levels/code, Segment, Function, Entity)
+into the **Group by** well — or click a chip to assign it — and optionally a
+second field into **Split by** for stacked segments. Pick the KPI scope, the
+measure (YTD current year, YTD prior year, or variance) and the chart type
+(column, horizontal bar, donut); the preview renders live and respects the
+right-pane filters. **Pin to My dashboard** saves the chart as a widget you
+can drag to rearrange, and each pinned chart keeps its own chart-type
+dropdown in its header. Top 8 categories are shown (6 for donuts) with the
+rest folded into Other.
