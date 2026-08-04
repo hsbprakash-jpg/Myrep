@@ -337,6 +337,8 @@ main{flex:1;min-width:0;padding:20px 26px}
 .btn-quiet{background:none;border:1px solid var(--border-strong);color:var(--text-primary);
   border-radius:4px;padding:5px 12px;font-size:12.5px;cursor:pointer}
 .btn-quiet:hover{border-color:var(--text-secondary)}
+.cachedcard{margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface-2);font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
 /* ---------- KPI summary ---------- */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}
@@ -445,6 +447,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div class="hint">Click a KPI to drill into it · drag one onto My dashboard to add a card</div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
+    <span id="fileNote" class="note" style="font-size:10px"></span><br>
     <button class="btn-quiet" id="btnNewFile" hidden style="margin-top:8px">Load new file</button>
   </div>
 </aside>
@@ -466,6 +469,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <div class="hint">or click to browse &nbsp;·&nbsp; expects MICA / Product / Segment / Function levels + monthly actuals</div>
     </div>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsb,.csv" hidden>
+    <div id="cachedInfo"></div>
     <div id="ingestReport"></div>
   </div>
 </section>
@@ -2234,51 +2238,101 @@ function renderCustom(){
   });
 }
 
-/* ================= ingest ================= */
+/* ================= ingest & file cache ================= */
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('iwpbsg',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('files');
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
+}
+async function cachePut(name,buf){
+  try{ const db=await idbOpen();
+    db.transaction('files','readwrite').objectStore('files').put({name, ts:Date.now(), buf},'last');
+  }catch(e){}
+}
+async function cacheGet(){
+  try{ const db=await idbOpen();
+    return await new Promise(res=>{
+      const rq=db.transaction('files').objectStore('files').get('last');
+      rq.onsuccess=()=>res(rq.result||null);
+      rq.onerror=()=>res(null);
+    });
+  }catch(e){ return null; }
+}
+async function cacheClear(){
+  try{ const db=await idbOpen();
+    db.transaction('files','readwrite').objectStore('files').delete('last');
+  }catch(e){}
+}
+async function refreshCachedInfo(){
+  const el=$('cachedInfo'); if(!el) return;
+  const rec=await cacheGet();
+  if(!rec){ el.innerHTML=''; return; }
+  el.innerHTML=`<div class="cachedcard">💾 Last file: <b>${esc(rec.name)}</b>
+    <span class="note">${new Date(rec.ts).toLocaleString()}</span>
+    <button class="btn-quiet" id="btnReuse">Reuse this file</button>
+    <button class="linklike" id="btnCacheClear">Clear</button></div>`;
+  $('btnReuse').addEventListener('click',()=>ingestArrayBuffer(rec.buf, rec.name, true));
+  $('btnCacheClear').addEventListener('click',async()=>{ await cacheClear(); refreshCachedInfo(); });
+}
 function handleFile(file){
   const rep=$('ingestReport');
   rep.innerHTML='Reading '+esc(file.name)+'…';
   const reader=new FileReader();
   reader.onload=e=>{
+    if(ingestArrayBuffer(e.target.result, file.name, false))
+      cachePut(file.name, e.target.result);
+  };
+  reader.readAsArrayBuffer(file);
+}
+function ingestArrayBuffer(buf, name, fromCache){
+  const rep=$('ingestReport');
+  {
     let model;
     try{
-      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
       model=parseSheet(aoa);
     }catch(err){
       rep.innerHTML=`<span class="err">Could not read file: ${esc(err.message)}</span>`;
-      return;
+      if(fromCache) cacheClear();
+      return false;
     }
     if(model.error){
       rep.innerHTML=`<span class="err">${esc(model.error)}</span>`+
         (model.missing&&model.missing.length?`<div class="note">Columns not found: ${esc(model.missing.join(', '))}</div>`:'');
-      return;
+      if(fromCache) cacheClear();
+      return false;
     }
-    S.model=model; S.fileName=file.name;
+    S.model=model; S.fileName=name;
     S.drillL2=null; S.drillL3=null; openProducts.clear();
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
     Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
     const dlh=document.getElementById('qDlHost'); if(dlh) dlh.dataset.done='';
     const l2s=new Set(model.rows.map(r=>r.d.micaL2).filter(Boolean));
-    rep.innerHTML=`<span class="ok">✔ Ingested ${esc(file.name)}</span>
+    rep.innerHTML=`<span class="ok">✔ ${fromCache?'Restored from cache':'Ingested'} ${esc(name)}</span>
       <table>
       <tr><td>Rows</td><td>${model.rows.length.toLocaleString()}</td></tr>
       <tr><td>MICA Level 2 KPIs</td><td>${l2s.size} (${esc([...l2s].slice(0,5).join(', '))}${l2s.size>5?', …':''})</td></tr>
       <tr><td>Periods</td><td>${model.pyMonths.length} months ${esc(model.yearPY)} · ${model.cyMonths.length} months ${esc(model.yearCY)}${model.cyMonths.some(p=>p.fc)?' (incl. forecast)':''}</td></tr>
       ${model.missing.length?`<tr><td>Columns not found</td><td>${esc(model.missing.join(', '))} — related filters disabled</td></tr>`:''}
       </table>`;
-    setTimeout(()=>{
+    const go=()=>{
       $('uploadView').hidden=true;
       $('dashView').hidden=false;
       $('btnNewFile').hidden=false;
       $('sideNav').hidden=false;
       $('rightPane').hidden=false;
+      $('fileNote').textContent=`${name}${fromCache?' · restored from cache':''}`;
       fillFilters();
       setView('summary');
-    },700);
-  };
-  reader.readAsArrayBuffer(file);
+    };
+    if(fromCache) go(); else setTimeout(go,700);
+    return true;
+  }
 }
 
 /* ================= wiring ================= */
@@ -2293,6 +2347,7 @@ function init(){
   $('btnNewFile').addEventListener('click',()=>{
     $('dashView').hidden=true; $('btnNewFile').hidden=true; $('sideNav').hidden=true; $('rightPane').hidden=true;
     $('uploadView').hidden=false; $('ingestReport').innerHTML=''; fi.value='';
+    refreshCachedInfo();
   });
   $('btnClearFilters').addEventListener('click',()=>{
     S.filters={};
@@ -2421,7 +2476,14 @@ function init(){
     $('btnTrendTable').textContent=t.hidden?'View as table':'Hide table';
   });
 }
-if(typeof window!=='undefined' && window.document){ init(); }
+if(typeof window!=='undefined' && window.document){
+  init();
+  // auto-restore the last uploaded file so it doesn't need re-uploading
+  cacheGet().then(rec=>{
+    if(rec && !S.model) ingestArrayBuffer(rec.buf, rec.name, true);
+    else if(!rec) refreshCachedInfo();
+  }).catch(()=>{});
+}
 if(typeof module!=='undefined' && module.exports){
   module.exports={parseSheet, classifyPeriod, num, kpi, rag, sumCols, groupBy, normH};
 }
