@@ -101,6 +101,18 @@ main{padding:18px 20px; overflow-x:auto}
 .catcard .cval.neg{color:var(--hsbc-red)}
 .catcard .csub{font-size:10px; color:var(--ink-soft)}
 
+/* waterfall summary */
+.wfcard{margin-bottom:16px; padding:14px 16px}
+.wfcard h3{font-size:13px; margin:0 0 8px; color:var(--ink); font-weight:700}
+.wfsvg{width:100%; height:auto; display:block}
+.wf-total{fill:#54565a}
+.wf-pos{fill:#2e7d32}
+.wf-neg{fill:var(--hsbc-red)}
+.wf-axis{stroke:var(--line); stroke-width:1}
+.wf-conn{stroke:var(--ink-soft); stroke-width:1; stroke-dasharray:2 3}
+.wf-val{font-size:11px; fill:var(--ink); font-weight:600}
+.wf-name{font-size:10.5px; fill:var(--ink-soft)}
+
 /* table hint row */
 tr.hint td{
   padding:18px 14px; text-align:center; font-size:13px; color:var(--ink-soft);
@@ -302,6 +314,7 @@ tr.total td.c-dim{background:var(--grey-2)}
         <button class="chipbtn" id="expandAll">⤢ Expand all</button>
         <button class="chipbtn" id="collapseAll">⤡ Collapse all</button>
         <button class="chipbtn" id="varBtn" title="Show variance between first two value columns">Δ Variance</button>
+        <button class="chipbtn" id="viewBtn" title="Waterfall summary: walk the gap to Prior Year / Target / Forecast">📊 Summary</button>
         <select id="colDimSel" class="chipbtn" title="What runs across the columns: the selected periods, or the values of one dimension for a single period"></select>
         <select id="scaleSel" class="chipbtn" title="Display scale — values are divided for display only">
           <option value="1">Units</option>
@@ -317,6 +330,13 @@ tr.total td.c-dim{background:var(--grey-2)}
         </table>
       </div>
       <div class="footnote" id="tableNote"></div>
+      <div id="summaryArea" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <label class="fld" style="margin:0">Walk by</label>
+          <select id="walkDim" class="chipbtn"></select>
+        </div>
+        <div id="wfCards"></div>
+      </div>
     </div>
   </main>
 </div>
@@ -345,6 +365,7 @@ const state = {
   allRecords:[], calcCount:0,     // rows flagged as "calculated" subtotals
   includeCalc:false,              // they are excluded from totals unless re-included
   colDim:"",                      // "" = periods across; else a dimension crosstab
+  view:"table", walkDim:"",       // summary view: waterfall walks by this dimension
   baseRecords:[],                 // post-calc-filter, post-slicer rows, all categories
   calcFiltered:[],                // post-calc-filter rows before slicers
   filters:{},                     // dimension slicers: {dim: [allowed values]}
@@ -458,7 +479,8 @@ function savePrefs(){
     localStorage.setItem("gpsdriller.prefs.v2",JSON.stringify({
       levels:state.levels, valueCols:state.valueCols, colDim:state.colDim,
       scale:state.scale, includeCalc:state.includeCalc, sheetName:state.sheetName,
-      activeCat:state.activeCat, filters:state.filters
+      activeCat:state.activeCat, filters:state.filters,
+      view:state.view, walkDim:state.walkDim
     }));
   }catch(e){}
 }
@@ -624,12 +646,15 @@ function loadSheet(name){
     if(pv.activeCat&&state.categories.includes(pv.activeCat)){
       state.activeCat=pv.activeCat; buildCategories();
     }
+    if(pv.walkDim&&state.dims.includes(pv.walkDim)) state.walkDim=pv.walkDim;
+    if(pv.view==="summary"||pv.view==="table") state.view=pv.view;
   }
   buildSidebar();
   recompute();
   document.getElementById("emptyState").style.display="none";
   document.getElementById("dash").style.display="block";
   document.getElementById("configArea").style.display="block";
+  applyView();
   setStatus(`Loaded ${records.length.toLocaleString()} rows · ${state.dims.length} dimensions · ${state.measures.length} periods (header row ${headerIdx+1})`+
     (state.calcCount?` · ${state.calcCount} “calculated” subtotal row${state.calcCount===1?"":"s"} excluded from totals`:"")+
     curNote+".");
@@ -938,6 +963,7 @@ function recompute(){
   // default-expand depth 0 the first time
   if(state.expanded.size===0) state.tree.forEach(n=>state.expanded.add(n.id));
   renderCatBar(); renderKpis(); renderTable();
+  if(state.view==="summary") renderSummary();
   if(state.workbook) savePrefs();
 }
 
@@ -1043,6 +1069,116 @@ function renderKpis(){
     box.innerHTML=`<div class="kpi card"><div class="k-label">No period selected</div>`+
       `<div class="k-val">–</div><div class="k-sub">pick values in the sidebar</div></div>`;
   }
+}
+
+/* ---------- waterfall summary ---------- */
+function summaryPairs(){
+  // classic comparison set for the anchor (first ticked) period, from whatever
+  // scenario columns the file actually has. Chart runs start -> end.
+  const M=state.measureMeta, anchor=state.valueCols[0];
+  if(!anchor) return [];
+  const a=M[anchor];
+  const find=f=>state.measures.find(h=>f(M[h]));
+  const same=(m,scen,yr)=>m.gran===a.gran&&m.order===a.order&&m.scenario===scen&&m.year===yr;
+  const pairs=[];
+  const py=find(m=>same(m,a.scenario,a.year-1));
+  if(py) pairs.push({title:`${a.scenario} vs Prior Year`, start:py, end:anchor});
+  if(a.scenario!=="Target"){
+    const tar=find(m=>same(m,"Target",a.year));
+    if(tar) pairs.push({title:`${a.scenario} vs Target`, start:anchor, end:tar});
+  }
+  if(a.scenario!=="Forecast"){
+    const fc=find(m=>same(m,"Forecast",a.year));
+    if(fc) pairs.push({title:`${a.scenario} vs Forecast`, start:anchor, end:fc});
+  }
+  return pairs;
+}
+function walkData(start,end,dim){
+  const map=new Map();
+  let totS=0,totE=0,nS=0,nE=0;
+  for(const r of state.records){
+    const k=xKey(r[dim]);
+    const e=map.get(k)||{s:0,e:0};
+    const vs=num(r[start]); if(vs!==null){ e.s+=vs; totS+=vs; nS++; }
+    const ve=num(r[end]);   if(ve!==null){ e.e+=ve; totE+=ve; nE++; }
+    map.set(k,e);
+  }
+  let items=[...map.entries()].map(([name,e])=>({name, delta:e.e-e.s}));
+  items.sort((x,y)=>Math.abs(y.delta)-Math.abs(x.delta));
+  if(items.length>12){
+    const rest=items.slice(11).reduce((s,i)=>s+i.delta,0);
+    items=items.slice(0,11).concat([{name:"Other", delta:rest}]);
+  }
+  return {items, totS:nS?totS:0, totE:nE?totE:0};
+}
+function waterfallSVG(d,labStart,labEnd){
+  const steps=[{name:labStart,type:"total",v:d.totS}]
+    .concat(d.items.map(i=>({name:i.name,type:"delta",v:i.delta})))
+    .concat([{name:labEnd,type:"total",v:d.totE}]);
+  const W=940,H=300,mL=12,mR=12,mT=26,mB=56;
+  const plotW=W-mL-mR, plotH=H-mT-mB;
+  let cum=0, lo=0, hi=0;
+  const bars=steps.map(s=>{
+    let y0,y1;
+    if(s.type==="total"){ y0=0; y1=s.v; cum=s.v; }
+    else { y0=cum; cum+=s.v; y1=cum; }
+    lo=Math.min(lo,y0,y1); hi=Math.max(hi,y0,y1);
+    return {...s,y0,y1};
+  });
+  const span=(hi-lo)||1;
+  hi+=span*0.14; lo-=span*0.05;
+  const Y=v=>mT+plotH*(1-(v-lo)/(hi-lo));
+  const n=bars.length, slot=plotW/n, bw=Math.min(slot*0.6,92);
+  let svg=`<svg viewBox="0 0 ${W} ${H}" class="wfsvg" role="img">`;
+  svg+=`<line x1="${mL}" x2="${W-mR}" y1="${Y(0)}" y2="${Y(0)}" class="wf-axis"/>`;
+  bars.forEach((b,i)=>{
+    const x=mL+slot*i+(slot-bw)/2;
+    const yTop=Y(Math.max(b.y0,b.y1));
+    const h=Math.max(Math.abs(Y(b.y0)-Y(b.y1)),1.5);
+    const cls=b.type==="total"?"wf-total":(b.v>=0?"wf-pos":"wf-neg");
+    svg+=`<rect x="${x.toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" class="${cls}" rx="1.5"/>`;
+    if(i<bars.length-1){
+      const nx=mL+slot*(i+1)+(slot-bw)/2;
+      svg+=`<line x1="${(x+bw).toFixed(1)}" x2="${nx.toFixed(1)}" y1="${Y(b.y1).toFixed(1)}" y2="${Y(b.y1).toFixed(1)}" class="wf-conn"/>`;
+    }
+    svg+=`<text x="${(x+bw/2).toFixed(1)}" y="${(yTop-5).toFixed(1)}" text-anchor="middle" class="wf-val">${fmt(b.v).t}</text>`;
+    const nm=String(b.name).length>15?String(b.name).slice(0,14)+"…":String(b.name);
+    svg+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-mB+18+(i%2)*15}" text-anchor="middle" class="wf-name">${esc(nm)}</text>`;
+  });
+  return svg+"</svg>";
+}
+function renderSummary(){
+  const M=state.measureMeta;
+  const sel=document.getElementById("walkDim");
+  if(!state.walkDim||!state.dims.includes(state.walkDim))
+    state.walkDim=state.dims.find(d=>/^ac\s*line$/i.test(d))||state.levels[0]||state.dims[0]||"";
+  sel.innerHTML=state.dims.filter(d=>d!==state.catDim)
+    .map(d=>`<option ${d===state.walkDim?"selected":""}>${esc(d)}</option>`).join("");
+  sel.onchange=e=>{ state.walkDim=e.target.value; renderSummary(); savePrefs(); };
+  const area=document.getElementById("wfCards");
+  const anchor=state.valueCols[0];
+  if(!anchor){ area.innerHTML=`<div class="card wfcard">Tick at least one period in the sidebar to anchor the summary.</div>`; return; }
+  const pairs=summaryPairs();
+  if(!pairs.length){
+    area.innerHTML=`<div class="card wfcard">No comparable columns found for <b>${esc(M[anchor].label)}</b> — a walk needs a matching Prior-Year, Target or Forecast column of the same granularity.</div>`;
+    return;
+  }
+  area.innerHTML=pairs.map(p=>{
+    const d=walkData(p.start,p.end,state.walkDim);
+    const diffF=fmt(d.totE-d.totS);
+    return `<div class="card wfcard">`+
+      `<h3>${esc(p.title)} — ${esc(M[p.start].label)} → ${esc(M[p.end].label)} · walked by ${esc(state.walkDim)} · Δ <span class="${diffF.cls}">${diffF.t}</span>`+
+      `${state.activeCat?` · ${esc(state.activeCat)} pane`:""}${scaleSuffix()?` · (${scaleSuffix()})`:""}</h3>`+
+      waterfallSVG(d,M[p.start].label,M[p.end].label)+`</div>`;
+  }).join("");
+}
+function applyView(){
+  const summary=state.view==="summary";
+  document.querySelector(".tablewrap").style.display=summary?"none":"";
+  document.getElementById("tableNote").style.display=summary?"none":"";
+  document.getElementById("summaryArea").style.display=summary?"block":"none";
+  document.getElementById("viewBtn").classList.toggle("on",summary);
+  if(summary) renderSummary();
 }
 
 /* ---------- crosstab helpers ---------- */
@@ -1227,6 +1363,12 @@ varBtn.onclick=()=>{state.showVariance=!state.showVariance; varBtn.classList.tog
 document.getElementById("scaleSel").onchange=e=>{
   state.scale=+e.target.value;
   renderKpis(); renderTable();   // display-only: no re-aggregation needed
+  if(state.view==="summary") renderSummary();
+  if(state.workbook) savePrefs();
+};
+document.getElementById("viewBtn").onclick=()=>{
+  state.view=state.view==="summary"?"table":"summary";
+  applyView();
   if(state.workbook) savePrefs();
 };
 document.getElementById("clearCacheBtn").onclick=async()=>{
