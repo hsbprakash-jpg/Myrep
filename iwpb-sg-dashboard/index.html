@@ -381,6 +381,16 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
   font-weight:700;font-size:13px;min-height:120px;border-style:dashed}
 .card.morecard:hover{background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
 .card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
+.card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .tval{font-size:19px;font-weight:750;font-variant-numeric:tabular-nums;flex:none}
+.krow{display:flex;align-items:baseline;margin-top:4px;font-size:12.5px}
+.krow .kl{color:var(--text-secondary);flex:1}
+.krow .kv{font-weight:700;font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
+.krow .kv.fav{color:var(--status-good)}
+.krow .kv.unfav{color:var(--status-critical)}
+.krow.actonly .kl{color:var(--text-muted)}
 .delta{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
 .card .drill-hint{font-size:11.5px;color:var(--text-muted);margin-top:10px;border-top:1px solid var(--border);padding-top:7px}
 
@@ -535,7 +545,8 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <h2 class="landingTitle" id="landingTitle">Financial Performance</h2>
       <p class="lede2" id="summaryLede"></p>
     </div>
-    <div><button class="btn-quiet" id="btnExportAll">⤓ Export to Excel</button></div></div>
+    <div><button class="btn-quiet" id="btnExportAll">⤓ Export to Excel</button>
+      <button class="btn-quiet" id="btnPptSummary" title="One-slide financial dashboard in the driller tile format">⤓ PPT</button></div></div>
     <div class="cards" id="cardGrid"></div>
     <div class="chiprow" id="chipRow"></div>
     <div class="twocol">
@@ -901,6 +912,10 @@ function kpi(rows, model, ytdM, includeFC){
   const varFcPct = (varFc!=null&&ytdFc!==0)? varFc/Math.abs(ytdFc) : null;
   const varTgt = (outlook!=null&&target!=null)? outlook-target : null;
   const varTgtPct = (varTgt!=null&&target!==0)? varTgt/Math.abs(target) : null;
+  // FY target phased to the elapsed months, for YTD-vs-target tile rows
+  const ytdTgt = target!=null? target*(cySel.length/12) : null;
+  const varYT = (cy!=null&&ytdTgt!=null)? cy-ytdTgt : null;
+  const varYTPct = (varYT!=null&&ytdTgt!==0)? varYT/Math.abs(ytdTgt) : null;
   // the comparison every view leans on: prior year when present, else FY target
   let cmpMode='none', cmpBase=null, cmpVar=null, cmpVarPct=null;
   if(model.pyMonths.length){ cmpMode='py'; cmpBase=py; cmpVar=varAbs; cmpVarPct=varPct; }
@@ -916,7 +931,8 @@ function kpi(rows, model, ytdM, includeFC){
   const flip = costLike && (mainVal||0)>0;
   const favVarPct = cmpVarPct==null? null : (flip? -cmpVarPct : cmpVarPct);
   return {cy, py, varAbs, varPct, cySeries, pySeries, outlook, target, varTgt, varTgtPct, fyPrior,
-    fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct, favVarPct};
+    fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct, favVarPct,
+    ytdTgt, varYT, varYTPct, dirFlip:flip, costLike};
 }
 /* cost and ECL lines stay actuals-only on landing widgets in target-only files;
    with a forecast basis the YTD actuals vs YTD forecast comparison applies to
@@ -925,6 +941,15 @@ function cmpHidden(name){
   if(!S.model||S.model.pyMonths.length) return false;
   if(S.model.fyFcCols&&S.model.fyFcCols.length) return false;
   return /direct\s*costs?|costs?\s*[-–]?\s*(direct|indirect)|indirect\s*costs?|\becl\b|expected\s+credit/i.test(String(name||''));
+}
+/* comparison rows for a driller-style KPI tile: label + variance amount + % */
+function tileRows(k,m){
+  const rows=[];
+  if(m.pyMonths.length&&k.py!=null) rows.push({lbl:'vs PY', v:k.varAbs, p:k.varPct});
+  if(k.ytdFc!=null) rows.push({lbl:'vs Fcst', v:k.varFc, p:k.varFcPct});
+  if(k.ytdFc!=null&&k.ytdTgt!=null) rows.push({lbl:'vs Target', v:k.varYT, p:k.varYTPct});
+  else if(!m.pyMonths.length&&k.ytdFc==null&&k.target!=null) rows.push({lbl:'vs Target', v:k.varTgt, p:k.varTgtPct});
+  return rows;
 }
 /* labels for whichever comparison basis the file supports */
 function cmpLabels(m){
@@ -1295,32 +1320,32 @@ function renderSummary(){
     : L.mode==='fc' ? 'RAG by MICA Level 2 — year-to-date actuals against the YTD forecast (FY forecast phased over elapsed months) · figures in US$ as reported.'
     : 'MICA Level 2 summary — no comparison baseline in this file · figures in US$ as reported.';
 
-  // hero card row: Total first, then the top KPIs (six cards in all)
-  const CARD_CAP=6;
-  const sub=k=> L.mode==='tgt'
-    ? `${fmt(k.target)} target · <span${(k.cmpVarPct||0)<0?' class="negnum"':''}>${fmtPct(k.cmpVarPct)}</span> vs tgt`
-    : L.mode==='py'
-    ? `${fmt(k.py)} prior yr · <span${(k.cmpVarPct||0)<0?' class="negnum"':''}>${fmtPct(k.cmpVarPct)}</span> YoY`
-    : L.mode==='fc'
-    ? `${fmt(k.ytdFc)} YTD fcst · <span${(k.cmpVarPct||0)<0?' class="negnum"':''}>${fmtPct(k.cmpVarPct)}</span> vs fcst`
-    : `YTD ${esc(ytdLabel())}`;
-  const cardHtml=(name,l1,k,l2attr,hideCmp)=>`
+  // driller-format KPI tiles: name + headline, then vs-comparison rows with
+  // direction triangles (colour = favourability, triangle = movement)
+  const pctAbs=v=>v==null?'\u2013':(Math.abs(v)*100).toFixed(1)+'%';
+  const tileRowHtml=(k,r)=>{
+    const fav=(k.dirFlip? -(r.p??0) : (r.p??0))>=0;
+    const raw=r.v??r.p??0;
+    const up=((k.costLike&&!k.dirFlip)? -raw : raw)>=0;
+    const c=fav?'fav':'unfav', tri=up?'\u25B2':'\u25BC';
+    return `<div class="krow"><span class="kl">${esc(r.lbl)}</span>
+      <span class="kv ${c}">${r.v==null?'\u2013':tri+fmt(Math.abs(r.v))}</span>
+      <span class="kv ${c}">${r.p==null?'':tri+pctAbs(r.p)}</span></div>`;
+  };
+  const cardHtml=(name,l1,k,l2attr,hideCmp)=>{
+    const trs=hideCmp?[]:tileRows(k,m);
+    return `
     <button class="card" ${l2attr} title="View this line in Mix analysis">
-      <div class="l1tag">${esc(l1||'')}</div>
-      <h3>${esc(name)}</h3>
-      <div class="val${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</div>
-      <div class="row"><span class="delta">${hideCmp?`YTD ${esc(ytdLabel())} actuals`:sub(k)}</span>${hideCmp?'':ragPill(rag(k.favVarPct,S.thresh))}</div>
-      <div style="margin-top:8px">${sparkline(k.cySeries,220,34)}</div>
+      <div class="thead"><span class="tname">${esc(name)}</span>
+        <span class="tval${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</span></div>
+      ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
+        :`<div class="krow actonly"><span class="kl">YTD ${esc(ytdLabel())} actuals</span></div>`}
       <div class="vd">View detail →</div>
     </button>`;
-  const shown=S.showAllKpis? cards : cards.slice(0,CARD_CAP-1);
+  };
   $('cardGrid').innerHTML=
     cardHtml(`Total ${l1name}`, `All KPIs`, kT, 'data-l2=""', false)+
-    shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
-    (cards.length>CARD_CAP-1?
-      `<button class="card morecard" id="btnMoreKpis">${S.showAllKpis?`Show top ${CARD_CAP-1} only`:`Show all ${cards.length} KPIs →`}</button>`:'');
-  const moreBtn=$('btnMoreKpis');
-  if(moreBtn) moreBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showAllKpis=!S.showAllKpis; renderSummary(); });
+    cards.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${esc(c.l2)}"`, cmpHidden(c.l2))).join('');
   $('cardGrid').querySelectorAll('.card[data-l2]').forEach(el=>
     el.addEventListener('click',()=>{
       MX.l2=el.dataset.l2; saveMix(); render();
@@ -1516,6 +1541,53 @@ function svgToPngData(svgEl, scale){
     img.onerror=()=>res(null);
     img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(clone));
   });
+}
+/* one widescreen slide replicating the driller financial-dashboard tile grid */
+async function exportSummaryPPT(){
+  const m=S.model, rows=filteredRows();
+  const byL2=[...groupBy(rows,'micaL2').entries()]
+    .map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  const kT=kpi(rows,m,S.ytdM,S.includeFC);
+  const l1name=[...groupBy(rows,'micaL1').keys()][0]||'Revenue';
+  const tiles=[{name:`Total ${l1name}`,k:kT,hide:false},
+    ...byL2.map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
+  const pctAbs=v=>v==null?'\u2013':(Math.abs(v)*100).toFixed(1)+'%';
+  const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
+  const slide=p.addSlide(); slide.background={color:'FFFFFF'};
+  slide.addText(`Financial Performance \u2014 ${MON_LBL[S.ytdM]} ${m.yearCY}`,
+    {x:0.4,y:0.2,w:12.5,h:0.5,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI'});
+  slide.addText(`${MON_LBL[S.ytdM]} YTD financial dashboard \u00b7 figures in US$ as reported`,
+    {x:0.4,y:0.7,w:12.5,h:0.3,fontSize:11,color:'52514E',fontFace:'Segoe UI'});
+  const COLS=4, TW=3.04, TH=1.42, GX=0.11, GY=0.13, X0=0.42, Y0=1.12;
+  tiles.forEach((t,i)=>{
+    const tx=X0+(i%COLS)*(TW+GX), ty=Y0+Math.floor(i/COLS)*(TH+GY);
+    slide.addShape('rect',{x:tx,y:ty,w:TW,h:TH,fill:{color:'FFFFFF'},line:{color:'C8C7C3',width:1}});
+    slide.addText(t.name,{x:tx+0.1,y:ty+0.07,w:TW-1.35,h:0.3,fontSize:11.5,bold:true,
+      color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
+    slide.addText(fmt(t.k.cy),{x:tx+TW-1.32,y:ty+0.07,w:1.22,h:0.3,align:'right',bold:true,
+      fontSize:13,color:(t.k.cy||0)<0?'DB0011':'1A1A19',fontFace:'Segoe UI'});
+    slide.addShape('rect',{x:tx+0.1,y:ty+0.4,w:TW-0.2,h:0.016,fill:{color:'1A1A19'},line:{type:'none'}});
+    const trs=t.hide?[]:tileRows(t.k,m).slice(0,3);
+    if(!trs.length)
+      slide.addText(`YTD ${ytdLabel()} actuals`,{x:tx+0.1,y:ty+0.48,w:TW-0.2,h:0.26,
+        fontSize:10,color:'8A8880',fontFace:'Segoe UI'});
+    trs.forEach((r,ri)=>{
+      const fav=(t.k.dirFlip? -(r.p??0):(r.p??0))>=0;
+      const raw=r.v??r.p??0;
+      const up=((t.k.costLike&&!t.k.dirFlip)? -raw : raw)>=0;
+      const col=fav?'0B7A0B':'C21A1A', tri=up?'\u25B2':'\u25BC';
+      const ry=ty+0.46+ri*0.3;
+      slide.addText(r.lbl,{x:tx+0.1,y:ry,w:1.0,h:0.26,fontSize:10,color:'52514E',fontFace:'Segoe UI'});
+      slide.addText(r.v==null?'\u2013':tri+fmt(Math.abs(r.v)),
+        {x:tx+1.0,y:ry,w:1.05,h:0.26,fontSize:10,bold:true,color:col,align:'right',fontFace:'Segoe UI'});
+      slide.addText(r.p==null?'':tri+pctAbs(r.p),
+        {x:tx+2.1,y:ry,w:TW-2.22,h:0.26,fontSize:10,bold:true,color:col,align:'right',fontFace:'Segoe UI'});
+    });
+  });
+  slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
+    {x:0.42,y:7.08,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
+  await p.writeFile({fileName:'IWPB_SG_financial_dashboard_'+new Date().toISOString().slice(0,10)+'.pptx'});
 }
 async function exportPPT(items, name){
   const p=new PptxGenJS();
@@ -2826,6 +2898,7 @@ function init(){
   $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA()}],'IWPB_SG_data'));
   $('dataSearch').addEventListener('input',e=>{ S.dataQ=e.target.value; dataPager.page=1; renderTable(); });
   $('btnPptMix').addEventListener('click',()=>exportPPT([{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX})}],'IWPB_SG_mix'));
+  $('btnPptSummary').addEventListener('click',()=>exportSummaryPPT());
   $('btnPptChart').addEventListener('click',()=>{
     if(B.groupBy.length)
       exportPPT([{title:chartTitle(B), el:$('bPreview'), aoa:chartAOA({...B})}],'IWPB_SG_chart');

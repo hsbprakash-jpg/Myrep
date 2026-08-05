@@ -45,10 +45,14 @@ A single header row with:
 
 ## Views
 
-- **KPI summary** — a hero tile per MICA Level 1 (Revenue) and a card per
-  MICA Level 2 line (Net Interest Income, Net Fee Income, Trading Income, …):
-  YTD current-year actuals, variance vs the same prior-year period, a
-  current-year sparkline and a RAG pill (▲ Favourable / ● Watch / ▼ Unfavourable).
+- **KPI summary** — driller-style financial-dashboard tiles: one per MICA
+  Level 2 line plus a total, each with the KPI name and headline YTD value,
+  then compact comparison rows (`vs PY`, `vs Fcst`, `vs Target`) showing
+  the variance amount and % with direction triangles — the triangle tracks
+  the business movement (revenue up ▲, cost up ▲) and the colour the
+  favourability (green favourable, red unfavourable). The **⤓ PPT** button
+  beside Export to Excel produces the same tile grid as a single
+  widescreen slide, built natively in PowerPoint.
 - **Data** — the filtered source rows, paginated with search.
 
 Clicking a KPI card (or a KPI in the left pane) focuses the **Mix
