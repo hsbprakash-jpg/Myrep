@@ -580,7 +580,9 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <option value="0.10">±10% tolerance</option>
     </select></label>
   </div>
-  <div class="sect sect-row"><span data-lbl="sect_filters">Filters — all columns</span> <button class="linklike" id="btnClearFilters">Reset</button></div>
+  <div class="sect sect-row" id="sectFiltersRow" title="Collapse / expand the filters" style="cursor:pointer">
+    <span data-lbl="sect_filters">Filters — all columns</span>
+    <span style="display:flex;align-items:baseline;gap:8px"><button class="linklike" id="btnClearFilters">Reset</button><span id="filtersCaret" style="font-size:10px;color:var(--text-muted)">▾</span></span></div>
   <div id="dimFilters"></div>
   <div class="sect" data-lbl="sect_output">Output fields</div>
   <p class="hint2">Tick the columns to include in the Data view and Excel exports.</p>
@@ -928,7 +930,13 @@ function cfgSimDims(){
 }
 function cfgTileL1(nL1){ const v=cfgS('tile_level').toLowerCase();
   return v==='level1'?true : v==='level2'?false : nL1>1; }
-function cfgL(k){ const v=CFG.labels&&CFG.labels[k]; return (v==null||v==='')? (CFG_DEFAULT.labels[k]||null) : String(v); }
+function deMoji(x){ return String(x)
+  .replace(/\u00c3\u0082|\u00c3\u201a/g,'\u00c2')
+  .replace(/\u00c3(?=\u00c2)/g,'')
+  .replace(/\u00c2\u00c2/g,'\u00c2')
+  .replace(/\u00c2\u00b7/g,'\u00b7').replace(/\u00e2\u20ac\u201d/g,'\u2014')
+  .replace(/\u00e2\u20ac\u2122/g,"'").replace(/\u00c2(?=\s|$)/g,''); }
+function cfgL(k){ const v=CFG.labels&&CFG.labels[k]; return (v==null||v==='')? (CFG_DEFAULT.labels[k]||null) : deMoji(v).trim()||null; }
 function cfgViewOn(v){ return String((CFG.views&&CFG.views[v])==null?'Y':CFG.views[v]).toUpperCase()!=='N'; }
 function cfgPage(){ return Math.max(1,parseInt(cfgS('dashboard_page_size'))||6); }
 function cfgUnit(){ const u=cfgS('unit_label'); return u&&u.trim()? u.trim() : 'US$'; }
@@ -3813,12 +3821,7 @@ function applyCfgDom(){
 }
 function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
-  const low=x=>String(x==null?'':x).trim()
-    .replace(/\u00c3\u0082|\u00c3\u201a/g,'\u00c2')        // collapse double-encoded chains first
-    .replace(/\u00c3(?=\u00c2)/g,'')
-    .replace(/\u00c2\u00c2/g,'\u00c2')
-    .replace(/\u00c2\u00b7/g,'\u00b7').replace(/\u00e2\u20ac\u201d/g,'\u2014')
-    .replace(/\u00e2\u20ac\u2122/g,"'").replace(/\u00c2(?=\s|$)/g,'');
+  const low=x=>deMoji(String(x==null?'':x).trim()).trim();
   const tp=[];
   const handle=(section,rows)=>{
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
@@ -4040,6 +4043,18 @@ function init(){
     applyKpiNavCollapse();
   });
   applyKpiNavCollapse();
+  const applyFiltersCollapse=()=>{
+    const open=localStorage.getItem('iwpbsg_filters_collapsed')!=='1';
+    $('dimFilters').style.display=open?'':'none';
+    $('filtersCaret').textContent=open?'\u25be':'\u25b8';
+  };
+  $('sectFiltersRow').addEventListener('click',e=>{
+    if(e.target.closest('#btnClearFilters')) return;
+    const open=localStorage.getItem('iwpbsg_filters_collapsed')!=='1';
+    localStorage.setItem('iwpbsg_filters_collapsed', open?'1':'0');
+    applyFiltersCollapse();
+  });
+  applyFiltersCollapse();
   $('btnCfgUpload').addEventListener('click',()=>$('cfgInput').click());
   $('cfgInput').addEventListener('change',e=>{ if(e.target.files[0]) handleCfgFile(e.target.files[0]); e.target.value=''; });
   $('btnCfgTemplate').addEventListener('click',downloadCfgTemplate);
