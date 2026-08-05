@@ -12,6 +12,13 @@ Settings,target_label_pattern,\btarget\b|\btgt\b|target|tgt,,
 Settings,cost_patterns,cost|\becl\b|expected\s+credit|impair|expense,,
 Settings,hidden_cmp_patterns,direct\s*costs?|costs?\s*[-–]?\s*(direct|indirect)|indirect\s*costs?|\becl\b|expected\s+credit,,
 Settings,dashboard_page_size,6,,
+Calculations,calc_ytd_actuals,column,,
+Calculations,calc_fy_forecast,column,,
+Calculations,calc_ytd_forecast,even,,
+Calculations,calc_forecast_weights,,,
+Calculations,calc_cmp_priority,"py,fc,tgt",,
+Calculations,calc_rag_green_at,0,,
+Calculations,calc_rag_direction,Y,,
 TilePriority,1,revenue,,
 TilePriority,2,net\s*interest|\bnii\b,,
 TilePriority,3,trading,,
@@ -22,10 +29,10 @@ TilePriority,7,\becl\b|expected\s+credit,,
 Dimensions,mica,MICA code,Y,Y
 Dimensions,micaL3,MICA Level 3,Y,Y
 Dimensions,micaL2,MICA Level 2,Y,Y
-Dimensions,micaL1,P&L Level 1,Y,Y
+Dimensions,micaL1,MICA Level 1,Y,Y
 Dimensions,prodCode,Product code,Y,N
 Dimensions,prodL3,Product Level 3,Y,N
-Dimensions,prodL2,Product Family,Y,N
+Dimensions,prodL2,Product Level 2,Y,N
 Dimensions,prodL1,Product Level 1,Y,N
 Dimensions,segCode,Segment code,Y,N
 Dimensions,cgL2,Segment (CG L2),Y,N

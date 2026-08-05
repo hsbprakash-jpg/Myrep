@@ -128,6 +128,17 @@ What each section governs:
   recognise Forecast and Target columns, the cost/ECL direction patterns,
   the hidden-comparison patterns for target-only files, and the My
   dashboard page size.
+- **Calculations** — the calculation rules themselves:
+  `calc_ytd_actuals` (`column` = as-of YTD column authoritative /
+  `months` = always sum months), `calc_fy_forecast` (`column` = FY
+  forecast column first / `outlook` = always Jan–Dec months),
+  `calc_ytd_forecast` phasing (`even` = elapsed÷12 / `profile` = the
+  file's own monthly shape / `weights` = custom), `calc_forecast_weights`
+  (12 comma-separated weights for `weights` mode, also drives the trend
+  reference lines), `calc_cmp_priority` (ordered comparison basis, e.g.
+  `py,fc,tgt`), `calc_rag_green_at` (variance needed to rate Favourable,
+  e.g. `0.02` requires +2%), `calc_rag_direction` (Y/N — direction-aware
+  cost/ECL rating).
 - **TilePriority** — the ordered name patterns pinning the top KPI tiles.
 - **Dimensions** — per dimension: display label override, whether it
   appears in the left-pane filters (`Extra1` = Y/N) and whether it is

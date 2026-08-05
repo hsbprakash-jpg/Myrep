@@ -851,7 +851,14 @@ const CFG_DEFAULT={
     target_label_pattern:'\\btarget\\b|\\btgt\\b|target|tgt',
     cost_patterns:'cost|\\becl\\b|expected\\s+credit|impair|expense',
     hidden_cmp_patterns:'direct\\s*costs?|costs?\\s*[-\u2013]?\\s*(direct|indirect)|indirect\\s*costs?|\\becl\\b|expected\\s+credit',
-    dashboard_page_size:'6'
+    dashboard_page_size:'6',
+    calc_ytd_actuals:'column',
+    calc_fy_forecast:'column',
+    calc_ytd_forecast:'even',
+    calc_forecast_weights:'',
+    calc_cmp_priority:'py,fc,tgt',
+    calc_rag_green_at:'0',
+    calc_rag_direction:'Y'
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
@@ -883,6 +890,28 @@ function cfgTileL1(nL1){ const v=cfgS('tile_level').toLowerCase();
   return v==='level1'?true : v==='level2'?false : nL1>1; }
 function cfgViewOn(v){ return String((CFG.views&&CFG.views[v])==null?'Y':CFG.views[v]).toUpperCase()!=='N'; }
 function cfgPage(){ return Math.max(1,parseInt(cfgS('dashboard_page_size'))||6); }
+/* monthly phasing weight for forecast/target: even 1/12, the file's own
+   monthly profile, or custom weights from the config */
+function fcWeight(model, mi){
+  const meth=cfgS('calc_ytd_forecast').toLowerCase();
+  if(meth==='weights'){
+    const w=cfgS('calc_forecast_weights').split(/[,;\s]+/).map(x=>parseFloat(x));
+    if(w.length===12&&w.every(x=>isFinite(x))){
+      const tot=w.reduce((a,b)=>a+b,0);
+      if(tot) return (w[mi]||0)/tot;
+    }
+  }
+  if(meth==='profile'&&model&&model.fcProfile){
+    const tot=model.fcProfile.reduce((s2,p)=>s2+p.w,0);
+    if(tot){ const e=model.fcProfile.find(p=>p.m===mi); return e? e.w/tot : 0; }
+  }
+  return 1/12;
+}
+function phaseFrac(model, monthsSel){ return monthsSel.reduce((s2,p)=>s2+fcWeight(model,p.m),0); }
+function cfgCmpOrder(){
+  const v=cfgS('calc_cmp_priority').toLowerCase().split(/[,;\s]+/).filter(x=>['py','fc','tgt'].includes(x));
+  return v.length?v:['py','fc','tgt'];
+}
 
 function normH(h){ return String(h==null?'':h).toLowerCase().replace(/[^a-z0-9]/g,''); }
 
@@ -1058,8 +1087,9 @@ function parseSheet(aoa){
   const isCYytd=p=>!p.target&&!p.fy&&p.ytdM!=null&&(p.ytdYear==null||p.ytdYear===cyYY);
   const ytdAsOfCols=ytdCols.filter(p=>isCYytd(p)&&!p.fc).slice(0,1);
   const ytdFcAsOfCols=ytdCols.filter(p=>isCYytd(p)&&p.fc).slice(0,1);
+  const fcProfile=cyMonths.map(p=>({m:p.m, w:rows.reduce((s2,r)=>s2+Math.abs(r.v[p.col]||0),0)}));
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
-    fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, yearPY, yearCY};
+    fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, fcProfile, yearPY, yearCY};
 }
 
 /* ================= aggregation ================= */
@@ -1080,7 +1110,8 @@ function kpi(rows, model, ytdM, includeFC){
   let cy = sumCols(rows, cySel.map(p=>p.col));
   // a YTD column for exactly the selected month is authoritative — taken as-is
   const asOf=model.ytdAsOfCols&&model.ytdAsOfCols[0];
-  if(!model.pyMonths.length&&asOf&&asOf.ytdM===ytdM&&!cySel.some(p=>p.fc)) cy=sumCols(rows,[asOf.col]);
+  if(cfgS('calc_ytd_actuals').toLowerCase()!=='months'&&
+     !model.pyMonths.length&&asOf&&asOf.ytdM===ytdM&&!cySel.some(p=>p.fc)) cy=sumCols(rows,[asOf.col]);
   const py = model.pyMonths.length? sumCols(rows, pySel.map(p=>p.col)) : null;
   const varAbs = (cy!=null&&py!=null)? cy-py : null;
   const varPct = (varAbs!=null && py!==0)? varAbs/Math.abs(py) : null;
@@ -1094,24 +1125,27 @@ function kpi(rows, model, ytdM, includeFC){
   const fyFcCol = (model.fyFcCols&&model.fyFcCols.length)? sumCols(rows, model.fyFcCols.map(p=>p.col)) : null;
   // no FY forecast column but forecast months exist: the Jan-Dec outlook
   // (actual + forecast months) is the full-year forecast
-  const fyFc = fyFcCol!=null? fyFcCol
-    : (!model.pyMonths.length&&model.cyMonths.some(p=>p.fc))? outlook : null;
+  const fyFc = (cfgS('calc_fy_forecast').toLowerCase()!=='outlook'&&fyFcCol!=null)? fyFcCol
+    : (!model.pyMonths.length&&model.cyMonths.some(p=>p.fc))? outlook
+    : fyFcCol;
   const fcAsOf=model.ytdFcAsOfCols&&model.ytdFcAsOfCols[0];
   const ytdFc = (fcAsOf&&fcAsOf.ytdM===ytdM)? sumCols(rows,[fcAsOf.col])
-    : fyFc!=null? fyFc*(cySel.length/12) : null;
+    : fyFc!=null? fyFc*phaseFrac(model,cySel) : null;
   const varFc = (cy!=null&&ytdFc!=null)? cy-ytdFc : null;
   const varFcPct = (varFc!=null&&ytdFc!==0)? varFc/Math.abs(ytdFc) : null;
   const varTgt = (outlook!=null&&target!=null)? outlook-target : null;
   const varTgtPct = (varTgt!=null&&target!==0)? varTgt/Math.abs(target) : null;
   // FY target phased to the elapsed months, for YTD-vs-target tile rows
-  const ytdTgt = target!=null? target*(cySel.length/12) : null;
+  const ytdTgt = target!=null? target*phaseFrac(model,cySel) : null;
   const varYT = (cy!=null&&ytdTgt!=null)? cy-ytdTgt : null;
   const varYTPct = (varYT!=null&&ytdTgt!==0)? varYT/Math.abs(ytdTgt) : null;
   // the comparison every view leans on: prior year when present, else FY target
   let cmpMode='none', cmpBase=null, cmpVar=null, cmpVarPct=null;
-  if(model.pyMonths.length){ cmpMode='py'; cmpBase=py; cmpVar=varAbs; cmpVarPct=varPct; }
-  else if(ytdFc!=null){ cmpMode='fc'; cmpBase=ytdFc; cmpVar=varFc; cmpVarPct=varFcPct; }
-  else if(target!=null){ cmpMode='tgt'; cmpBase=target; cmpVar=varTgt; cmpVarPct=varTgtPct; }
+  for(const mth of cfgCmpOrder()){
+    if(mth==='py'&&model.pyMonths.length){ cmpMode='py'; cmpBase=py; cmpVar=varAbs; cmpVarPct=varPct; break; }
+    if(mth==='fc'&&ytdFc!=null){ cmpMode='fc'; cmpBase=ytdFc; cmpVar=varFc; cmpVarPct=varFcPct; break; }
+    if(mth==='tgt'&&target!=null){ cmpMode='tgt'; cmpBase=target; cmpVar=varTgt; cmpVarPct=varTgtPct; break; }
+  }
   // direction-aware favourability: an increase in revenue is favourable, an
   // increase in costs or ECL is unfavourable. Files that store costs as
   // negatives already point the variance the right way; files storing cost
@@ -1120,7 +1154,7 @@ function kpi(rows, model, ytdM, includeFC){
     RE_COST.test((r.d.micaL1||'')+' '+(r.d.micaL2||'')));
   const mainVal = cy!=null&&cy!==0? cy : cmpBase;
   const flip = costLike && (mainVal||0)>0;
-  const favVarPct = cmpVarPct==null? null : (flip? -cmpVarPct : cmpVarPct);
+  const favVarPct = cmpVarPct==null? null : ((flip&&cfgYes('calc_rag_direction'))? -cmpVarPct : cmpVarPct);
   return {cy, py, varAbs, varPct, cySeries, pySeries, outlook, target, varTgt, varTgtPct, fyPrior,
     fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct, favVarPct,
     ytdTgt, varYT, varYTPct, dirFlip:flip, costLike};
@@ -1151,23 +1185,26 @@ function fcBasis(m){
    prior year when present, else the phased forecast, else the phased target */
 function cmpTrend(k,m){
   if(m.pyMonths.length) return {series:k.pySeries, name:m.yearPY};
-  if(k.fyFc!=null) return {series:m.cyMonths.map(p=>({m:p.m,fc:false,val:k.fyFc/12})), name:'Forecast'};
-  if(k.target!=null) return {series:m.cyMonths.map(p=>({m:p.m,fc:false,val:k.target/12})), name:'Target'};
+  if(k.fyFc!=null) return {series:m.cyMonths.map(p=>({m:p.m,fc:false,val:k.fyFc*fcWeight(m,p.m)})), name:'Forecast'};
+  if(k.target!=null) return {series:m.cyMonths.map(p=>({m:p.m,fc:false,val:k.target*fcWeight(m,p.m)})), name:'Target'};
   return {series:[], name:''};
 }
 function scatterBase(k,m){ return m.pyMonths.length? k.py : (k.ytdFc!=null? k.ytdFc : k.ytdTgt); }
 function scatterBaseLbl(m){ return m.pyMonths.length? `YTD ${m.yearPY}` : (fcBasis(m)? 'YTD forecast' : 'YTD target (phased)'); }
 /* labels for whichever comparison basis the file supports */
 function cmpLabels(m){
-  if(m.pyMonths.length) return {mode:'py', main:`YTD ${m.yearCY}`, base:`YTD ${m.yearPY}`, vs:`vs ${m.yearPY}`, mainKey:'cy'};
-  if(fcBasis(m)) return {mode:'fc', main:`YTD ${m.yearCY}`, base:'YTD forecast', vs:'vs YTD forecast', mainKey:'cy'};
-  if(m.targetCols&&m.targetCols.length) return {mode:'tgt', main:'FY Outlook', base:'FY Target', vs:'vs FY target', mainKey:'outlook'};
+  for(const mth of cfgCmpOrder()){
+    if(mth==='py'&&m.pyMonths.length) return {mode:'py', main:`YTD ${m.yearCY}`, base:`YTD ${m.yearPY}`, vs:`vs ${m.yearPY}`, mainKey:'cy'};
+    if(mth==='fc'&&fcBasis(m)) return {mode:'fc', main:`YTD ${m.yearCY}`, base:'YTD forecast', vs:'vs YTD forecast', mainKey:'cy'};
+    if(mth==='tgt'&&m.targetCols&&m.targetCols.length) return {mode:'tgt', main:'FY Outlook', base:'FY Target', vs:'vs FY target', mainKey:'outlook'};
+  }
   return {mode:'none', main:`YTD ${m.yearCY}`, base:'Prior year', vs:'vs prior year', mainKey:'cy'};
 }
 function rag(varPct, thresh){
   if(varPct==null) return {cls:'n', ic:'○', label:'No baseline'};
-  if(varPct>=0)        return {cls:'g', ic:'▲', label:'Favourable'};
-  if(varPct>=-thresh)  return {cls:'a', ic:'●', label:'Watch'};
+  const g=parseFloat(cfgS('calc_rag_green_at')), gAt=isFinite(g)? g : 0;
+  if(varPct>=gAt)        return {cls:'g', ic:'▲', label:'Favourable'};
+  if(varPct>=gAt-thresh) return {cls:'a', ic:'●', label:'Watch'};
   return {cls:'r', ic:'▼', label:'Unfavourable'};
 }
 
@@ -3387,7 +3424,7 @@ function cfgFromWorkbook(wb){
       if(!r||r.every(c=>c==null||c==='')) continue;
       const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]);
       if(/^(key|order|view|dimension)$/i.test(a)) continue;
-      if(sec==='settings'){ if(a) cfg.settings[a.toLowerCase()]=b2; }
+      if(sec==='settings'||sec==='calculations'){ if(a) cfg.settings[a.toLowerCase()]=b2; }
       else if(sec==='tilepriority'){ const pat=b2||a; if(pat) tp.push(pat); }
       else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'N'}; }
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
@@ -3425,7 +3462,8 @@ function handleCfgFile(file){
 function cfgTemplateCSV(){
   const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; };
   const rows=[['Sheet','Key','Value','Extra1','Extra2'],
-    ...Object.entries(CFG_DEFAULT.settings).map(([k,v])=>['Settings',k,v,'','']),
+    ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>!k.startsWith('calc_')).map(([k,v])=>['Settings',k,v,'','']),
+    ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>k.startsWith('calc_')).map(([k,v])=>['Calculations',k,v,'','']),
     ...CFG_DEFAULT.tilePriority.map((p2,i)=>['TilePriority',String(i+1),p2,'','']),
     ...Object.entries(CFG_DEFAULT.dimensions).map(([k,d])=>['Dimensions',k,ALL_DIM_LABELS[k]||k,d.filter,d.sim]),
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'',''])];
