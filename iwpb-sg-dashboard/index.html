@@ -917,9 +917,12 @@ function kpi(rows, model, ytdM, includeFC){
   return {cy, py, varAbs, varPct, cySeries, pySeries, outlook, target, varTgt, varTgtPct, fyPrior,
     fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct, favVarPct};
 }
-/* cost and ECL lines stay actuals-only on landing widgets in target-based files */
+/* cost and ECL lines stay actuals-only on landing widgets in target-only files;
+   with a forecast basis the YTD actuals vs YTD forecast comparison applies to
+   every KPI (direction-aware, so cost/ECL increases rate unfavourable) */
 function cmpHidden(name){
   if(!S.model||S.model.pyMonths.length) return false;
+  if(S.model.fyFcCols&&S.model.fyFcCols.length) return false;
   return /direct\s*costs?|costs?\s*[-–]?\s*(direct|indirect)|indirect\s*costs?|\becl\b|expected\s+credit/i.test(String(name||''));
 }
 /* labels for whichever comparison basis the file supports */

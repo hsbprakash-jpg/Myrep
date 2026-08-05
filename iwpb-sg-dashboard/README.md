@@ -36,8 +36,9 @@ A single header row with:
      comparison becomes **YTD actuals vs YTD forecast** — the FY
      forecast column phased over the elapsed months (FY forecast ×
      months ÷ 12) — with the FY outlook (Jan–Dec months), FY target and
-     FY prior-year actuals shown alongside in the trajectory panel.
-     Direct Costs, Indirect Costs and ECL show actuals only.
+     FY prior-year actuals shown alongside in the trajectory panel. The
+     forecast comparison applies to every KPI, costs and ECL included,
+     with direction-aware ratings.
 
   Values may be numbers, `1,234` text, `(1,234)` bracket negatives, `-`,
   or blank.
