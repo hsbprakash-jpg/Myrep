@@ -871,11 +871,19 @@ function parseSheet(aoa){
   });
   const fyPriorLabel=fyPriorCols.length?String(fyPriorCols[0].label).match(/fy[- ']?(\d{2})/i)[1]:null;
   // current-year FY forecast column (e.g. FY-26 with an Actuals/Forecast band of Forecast)
-  const fyFcCols=ytdCols.filter(p=>{
+  let fyFcCols=ytdCols.filter(p=>{
     if(!p.fy||p.target||!p.fc) return false;
     const mm=String(p.label).match(/fy[- ']?(\d{2})/i);
     return !mm||mm[1]===cyYY;
   });
+  if(!fyFcCols.length&&!pyMonths.length)
+    // band row may not mark the FY column as Forecast — a current-year FY
+    // column that isn't the target still carries the full-year number
+    fyFcCols=ytdCols.filter(p=>{
+      if(!p.fy||p.target) return false;
+      const mm=String(p.label).match(/fy[- ']?(\d{2})/i);
+      return !mm||mm[1]===cyYY;
+    });
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
     fyPriorCols, fyPriorLabel, fyFcCols, yearPY, yearCY};
 }
@@ -947,8 +955,9 @@ function tileRows(k,m){
   const rows=[];
   if(m.pyMonths.length&&k.py!=null) rows.push({lbl:'vs PY', v:k.varAbs, p:k.varPct});
   if(k.ytdFc!=null) rows.push({lbl:'vs Fcst', v:k.varFc, p:k.varFcPct});
-  if(k.ytdFc!=null&&k.ytdTgt!=null) rows.push({lbl:'vs Target', v:k.varYT, p:k.varYTPct});
-  else if(!m.pyMonths.length&&k.ytdFc==null&&k.target!=null) rows.push({lbl:'vs Target', v:k.varTgt, p:k.varTgtPct});
+  // target is a full-year number: compare the FY outlook (actual + forecast
+  // months, Jan-Dec) against it, never the YTD actuals
+  if(k.varTgt!=null) rows.push({lbl:'FY vs Tgt', v:k.varTgt, p:k.varTgtPct});
   return rows;
 }
 /* labels for whichever comparison basis the file supports */
