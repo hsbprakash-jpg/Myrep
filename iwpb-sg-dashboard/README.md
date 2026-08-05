@@ -47,7 +47,7 @@ A single header row with:
 - **KPI summary** — a hero tile per MICA Level 1 (Revenue) and a card per
   MICA Level 2 line (Net Interest Income, Net Fee Income, Trading Income, …):
   YTD current-year actuals, variance vs the same prior-year period, a
-  current-year sparkline and a RAG pill (▲ On track / ● Watch / ▼ Off track).
+  current-year sparkline and a RAG pill (▲ Favourable / ● Watch / ▼ Unfavourable).
 - **Data** — the filtered source rows, paginated with search.
 
 Clicking a KPI card (or a KPI in the left pane) focuses the **Mix

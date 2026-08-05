@@ -922,9 +922,9 @@ function cmpLabels(m){
 }
 function rag(varPct, thresh){
   if(varPct==null) return {cls:'n', ic:'○', label:'No baseline'};
-  if(varPct>=0)        return {cls:'g', ic:'▲', label:'On track'};
+  if(varPct>=0)        return {cls:'g', ic:'▲', label:'Favourable'};
   if(varPct>=-thresh)  return {cls:'a', ic:'●', label:'Watch'};
-  return {cls:'r', ic:'▼', label:'Off track'};
+  return {cls:'r', ic:'▼', label:'Unfavourable'};
 }
 
 /* ================= formatting ================= */
@@ -1318,9 +1318,9 @@ function renderSummary(){
   const counts={g:0,a:0,r:0,n:0};
   cards.forEach(c=>{ if(!cmpHidden(c.l2)) counts[rag(c.k.cmpVarPct,S.thresh).cls]++; });
   $('chipRow').innerHTML=
-    `<span class="chip"><span class="cdot" style="background:var(--status-good)"></span>On track <b>${counts.g}</b></span>`+
+    `<span class="chip"><span class="cdot" style="background:var(--status-good)"></span>Favourable <b>${counts.g}</b></span>`+
     `<span class="chip"><span class="cdot" style="background:var(--status-warning)"></span>Watch <b>${counts.a}</b></span>`+
-    `<span class="chip"><span class="cdot" style="background:var(--status-critical)"></span>Off track <b>${counts.r}</b></span>`+
+    `<span class="chip"><span class="cdot" style="background:var(--status-critical)"></span>Unfavourable <b>${counts.r}</b></span>`+
     (counts.n?`<span class="chip"><span class="cdot" style="background:var(--text-muted)"></span>No baseline <b>${counts.n}</b></span>`:'')+
     (best&&best.k.cmpVarPct!=null?`<span class="chip">Best <b>${esc(best.l2)}</b> ${fmtPct(best.k.cmpVarPct)}</span>`:'')+
     (worst&&worst.k.cmpVarPct!=null&&worst!==best?`<span class="chip">Weakest <b>${esc(worst.l2)}</b> ${fmtPct(worst.k.cmpVarPct)}</span>`:'')+
@@ -1378,7 +1378,7 @@ function renderSummary(){
   };
   $('attnPanel').innerHTML=`<h4>Attention required</h4>
     <p class="subtitle">${attn.length?`${attn.length} KPI${attn.length>1?'s':''} behind the ${L.mode==='tgt'?'FY target':L.mode==='fc'?'YTD forecast':'prior year'}`:'All KPIs at or above the baseline'}</p>
-    <div class="attn">${attn.length?attn.map(aItem).join(''):`<div class="allgood">▲ Nothing off track under the current filters.</div>`}</div>`;
+    <div class="attn">${attn.length?attn.map(aItem).join(''):`<div class="allgood">▲ Nothing unfavourable under the current filters.</div>`}</div>`;
   $('attnPanel').querySelectorAll('.abtn').forEach(b=>
     b.addEventListener('click',()=>{
       MX.l2=b.dataset.l2; saveMix(); render();
