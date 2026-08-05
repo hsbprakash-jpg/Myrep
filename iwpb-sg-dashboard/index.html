@@ -423,6 +423,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 .card.morecard:hover{background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
 .card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
 .card .tval.negnum,.trio .tv.negnum,#kpiNav .v{color:var(--text-primary)}
+.legend .swl{display:inline-block;width:20px;height:0;margin-right:6px;vertical-align:middle}
 .card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
 .card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1658,6 +1659,11 @@ function renderSummary(){
       <p class="subtitle">${esc(totName)} — ${esc(m.yearCY)} monthly actuals${hasFC?' + forecast':''}${L.mode==='py'?` vs ${esc(m.yearPY)}`:''}</p></div>
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
+    <div class="legend">
+      <span><span class="swl" style="border-top:3px solid var(--series-1)"></span>${esc(m.yearCY)} actuals</span>
+      ${hasFC?`<span><span class="swl" style="border-top:3px dashed var(--series-1)"></span>Forecast months</span>`:''}
+      ${L.mode==='py'?`<span><span class="swl" style="border-top:3px solid var(--series-2)"></span>${esc(m.yearPY)} actuals</span>`:''}
+    </div>
     <div class="chart-wrap" id="trajChart"></div>`;
   const {series:cmpSeries, name:cmpName}=cmpTrend(kT,m);
   trendChart($('trajChart'), kT.cySeries, cmpSeries, m.yearCY, cmpName, 'line');
