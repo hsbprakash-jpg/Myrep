@@ -395,8 +395,12 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 .btn-solid{background:var(--hsbc-red);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer;font:inherit}
 .btn-solid:hover{filter:brightness(1.1)}
 #simSaved{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-.simsaved{display:flex;align-items:center;gap:8px;background:var(--surface-1);border:1px solid var(--border);border-radius:16px;padding:5px 12px;font-size:12px;color:var(--text-secondary)}
-.simsaved button{background:none;border:none;cursor:pointer;color:var(--hsbc-red);font-weight:700;font:inherit;padding:0;font-size:12px}
+.simsaved{display:flex;align-items:center;gap:10px;background:var(--surface-1);border:1px solid var(--border);border-radius:16px;padding:5px 6px 5px 12px;font-size:12px;color:var(--text-secondary)}
+.simsaved button{background:none;border:none;cursor:pointer;font-weight:700;font:inherit;padding:0 6px;font-size:12px}
+.simsaved .ld{color:var(--hsbc-red)}
+.simsaved .ld:hover{text-decoration:underline}
+.simsaved .del{color:var(--text-muted);border-left:1px solid var(--border);border-radius:0;margin-left:2px;padding-left:10px}
+.simsaved .del:hover{color:var(--hsbc-red)}
 #simRules .simrule{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);margin-bottom:8px;font-size:12.5px}
 .simrule select,.simrule input{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);max-width:250px}
 .simrule input[type=number]{width:110px}
@@ -2812,12 +2816,15 @@ function renderSim(){
   const store=simStore();
   $('simSaved').innerHTML=Object.keys(store).length?
     Object.keys(store).sort().map(n=>`<span class="simsaved">${esc(n)}
-      <button data-n="${esc(n)}" data-act="load">Load</button>
-      <button data-n="${esc(n)}" data-act="del" title="Delete">✕</button></span>`).join('')
+      <button class="ld" data-n="${esc(n)}" data-act="load">Load</button>
+      <button class="del" data-n="${esc(n)}" data-act="del" title="Delete this saved scenario">Delete</button></span>`).join('')
     : '<span class="note">No saved scenarios yet.</span>';
   $('simSaved').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
     const st=simStore();
-    if(b.dataset.act==='del'){ delete st[b.dataset.n]; simStoreSet(st); }
+    if(b.dataset.act==='del'){
+      if(!confirm(`Delete saved scenario "${b.dataset.n}"?`)) return;
+      delete st[b.dataset.n]; simStoreSet(st);
+    }
     else{ SIM={name:b.dataset.n, rules:st[b.dataset.n]||[]}; saveSimCur(); }
     renderSim();
   }));
