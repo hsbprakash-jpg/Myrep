@@ -403,11 +403,12 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 .simrule .rlbl{color:var(--text-muted);font-size:11px}
 .simrule .rx{margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px}
 .simrule .rx:hover{color:var(--hsbc-red)}
-#simResults .atable{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:10px;table-layout:auto}
-#simResults .atable th{background:var(--hsbc-red);color:#fff;padding:5px 8px;text-align:left;font-weight:700}
-#simResults .atable td{padding:5px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
-#simResults .atable td:first-child{overflow-wrap:anywhere;min-width:110px}
-#simResults .atable td.num,#simResults .atable th.num{text-align:right;white-space:nowrap}
+#simResults .atable{border-collapse:collapse;font-size:12px;width:100%;margin-top:10px;table-layout:auto}
+#simResults .atable th{background:var(--hsbc-red);color:#fff;padding:5px 7px;text-align:left;font-weight:700;white-space:normal;line-height:1.25}
+#simResults .atable td{padding:5px 7px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+#simResults .atable td:first-child{overflow-wrap:anywhere;min-width:90px}
+#simResults .atable td.num{text-align:right;white-space:nowrap}
+#simResults .atable th.num{text-align:right;white-space:normal}
 .card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:13px 16px 11px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
 .card:hover{border-color:var(--hsbc-red)}
@@ -2797,7 +2798,7 @@ function simChart(el, act, base, sim, yearCY){
       <span><span class="sw" style="background:var(--series-1)"></span>${esc(yearCY)} actuals</span>
       <span><span class="sw" style="background:var(--series-2)"></span>Prior forecast</span>
       <span><span class="sw" style="background:var(--series-1);opacity:.55"></span>Simulated forecast</span></div>
-    <div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Prior vs simulated forecast">${svg}</svg></div>`;
+    <div class="scroll-x"><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;min-width:520px" role="img" aria-label="Prior vs simulated forecast">${svg}</svg></div>`;
 }
 function simAOA(){
   const rules=SIM_LAST||[];
@@ -2902,7 +2903,7 @@ function renderSim(){
       ${t.target!=null?`<div class="t"><div class="tv${dcls(t.simVar)}">${fmtPct(t.simVarPct)}</div><div class="tl">vs FY target · simulated</div></div>`:''}
     </div>
     <div class="chart-wrap" id="simChartEl"></div>
-    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">FY outlook · prior</th><th class="num">FY outlook · simulated</th><th class="num">Δ</th><th class="num">FY target</th><th class="num">vs tgt · prior</th><th class="num">vs tgt · simulated</th></tr></thead>
+    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th><th class="num">FY target</th><th class="num">vs tgt prior</th><th class="num">vs tgt sim</th></tr></thead>
     <tbody>${[...a.groups,t].map(g=>`<tr${g.name==='Total P&L'?' style="font-weight:700"':''}>
       <td>${esc(g.name)}</td><td class="num">${fmtCell(g.baseOut)}</td><td class="num">${fmtCell(g.simOut)}</td>
       <td class="num">${fmtCell(g.delta)}</td><td class="num">${fmtCell(g.target)}</td>
