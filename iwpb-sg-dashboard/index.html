@@ -400,9 +400,12 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 #simSaved{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
 #simSaved label{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px}
 #simSaved select{border:1px solid var(--border);border-radius:6px;padding:7px 10px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);min-width:240px}
-#simRules .simrule{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);margin-bottom:8px;font-size:12.5px}
-.simrule select,.simrule input{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);max-width:250px}
-.simrule input[type=number]{width:110px}
+#simRules{overflow-x:auto}
+#simRules .simrule{display:grid;grid-template-columns:40px 128px minmax(170px,1fr) 72px 150px 96px 32px 74px 16px 74px 26px;
+  gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-2);margin-bottom:8px;font-size:12.5px;min-width:920px}
+.simrule select,.simrule input{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);width:100%;min-width:0}
+.simrule input[type=number]{width:100%}
 .simrule .rlbl{color:var(--text-muted);font-size:11px}
 .simrule .rx{margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px}
 .simrule .rx:hover{color:var(--hsbc-red)}
@@ -3115,7 +3118,7 @@ function renderSim(){
       <span class="rlbl">Scope</span>
       <select class="rdim"><option value=""${!r.dim?' selected':''}>All rows</option>${
         dims.map(d=>`<option value="${d}"${r.dim===d?' selected':''}>${esc(ALL_DIM_LABELS[d])}</option>`).join('')}</select>
-      ${r.dim?`<select class="rval">${vals(r.dim).map(v=>`<option${r.val2===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`:''}
+      ${r.dim?`<select class="rval">${vals(r.dim).map(v=>`<option${r.val2===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`:'<span class="note">all rows</span>'}
       <span class="rlbl">Adjustment</span>
       <select class="rtype">
         <option value="pct"${r.type==='pct'?' selected':''}>% change</option>
