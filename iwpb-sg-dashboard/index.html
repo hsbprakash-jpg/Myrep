@@ -1624,6 +1624,18 @@ function comText(hostId){
   const el=$(hostId); const t=el&&el.querySelector('.aicom-t');
   return t? t.textContent.trim() : '';
 }
+function widgetComSig(w){
+  const c=w.cfg||{};
+  return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,c.measure,c.type])+'|'+filterNote()+'|'+S.ytdM;
+}
+function widgetCommentText(w){
+  if(w.type!=='chart') return '';
+  const st=comStore(); const sig=widgetComSig(w);
+  let html=st[sig]&&st[sig].t;
+  if(html==null){ try{ html=chartCommentaryHtml({...w.cfg}); }catch(e){ html=''; } }
+  const d=document.createElement('div'); d.innerHTML=html||'';
+  return d.textContent.trim();
+}
 function chartCommentaryHtml(cfg){
   const {cats, segNames}=chartData(cfg);
   if(!cats.length) return '';
@@ -2181,7 +2193,12 @@ function rowsAOA(){
   return aoa;
 }
 function widgetAOA(w){
-  if(w.type==='chart') return chartAOA(w.cfg);
+  if(w.type==='chart'){
+    const aoa=chartAOA(w.cfg);
+    const txt=widgetCommentText(w);
+    if(txt){ aoa.push([]); aoa.push(['AI commentary']); aoa.push([txt]); }
+    return aoa;
+  }
   const rows=widgetRows(w.l2), name=w.l2||'Total (all KPIs)';
   if(w.type==='trend') return trendAOA(rows, name+' — monthly trend');
   if(w.type==='l3') return breakdownAOA(rows,'micaL3', name+' — MICA Level 3 breakdown');
@@ -3557,7 +3574,11 @@ function renderCustom(){
     }
     div.innerHTML=head+`<div class="wbody">${body}</div>`;
     if(w.type==='chart'){
-      div.querySelector('.wchartbody').appendChild(buildChartEl(w.cfg));
+      const wcb=div.querySelector('.wchartbody');
+      wcb.appendChild(buildChartEl(w.cfg));
+      const comDiv=document.createElement('div');
+      wcb.appendChild(comDiv);
+      aiComment(comDiv, widgetComSig(w), ()=>chartCommentaryHtml({...w.cfg}));
       const headEl0=div.querySelector('.whead');
       for(const [cls,key] of [['wtype','type'],['wdim','groupBy']]){
         const sel=div.querySelector('.'+cls);
@@ -3903,7 +3924,12 @@ function init(){
   $('bType').addEventListener('change',e=>{ B.type=e.target.value; renderBuilder(); });
   $('btnPin').addEventListener('click',()=>{
     if(!B.groupBy.length) return;
-    S.widgets.push({id:newWidgetId(), type:'chart', cfg:{...B, groupBy:[...B.groupBy], splitBy:[...B.splitBy]}});
+    const wNew={id:newWidgetId(), type:'chart', cfg:{...B, groupBy:[...B.groupBy], splitBy:[...B.splitBy]}};
+    S.widgets.push(wNew);
+    const srcT=$('bCom')&&$('bCom').querySelector('.aicom-t');
+    if(srcT&&srcT.innerHTML.trim()){
+      const st=comStore(); st[widgetComSig(wNew)]={t:srcT.innerHTML, ts:Date.now()}; comSave(st);
+    }
     dashPage=Math.ceil(S.widgets.length/cfgPage());
     saveWidgets();
     const b=$('btnPin'), t=b.textContent;
@@ -3979,8 +4005,8 @@ function init(){
           const svg=host.querySelector('svg');
           if(svg) png=await svgToPngData(svg);
         }
-        items.push({title:widgetTitle(w), png, aoa:widgetAOA(w)});
-      }catch(e){ items.push({title:widgetTitle(w), png:null, aoa:(()=>{try{return widgetAOA(w);}catch(e2){return null;}})()}); }
+        items.push({title:widgetTitle(w), png, aoa:widgetAOA(w), note:widgetCommentText(w)});
+      }catch(e){ items.push({title:widgetTitle(w), png:null, aoa:(()=>{try{return widgetAOA(w);}catch(e2){return null;}})(), note:''}); }
     }
     hosts.forEach(h=>h.remove());
     if(!items.length){ alert('Nothing to export on this page.'); return; }
@@ -3995,22 +4021,27 @@ function init(){
     const addChart=it=>{
       const hAt=CW*it.png.h/it.png.w;
       const big=hAt>CH+0.15;                       // needs a full column: 2 per slide
+      const noteH=it.note?0.4:0;
       if(big){
         let col=(!cells||cells[0]||cells[2])? ((!cells||cells[1]||cells[3])? -1 : 1) : 0;
         if(!slide||col<0){ newGrid(); col=0; }
         cells[col]=cells[col+2]=true;
-        let w2=CW, h2=hAt; if(h2>COLH){ h2=COLH; w2=h2*it.png.w/it.png.h; }
+        let w2=CW, h2=hAt; if(h2>COLH-noteH){ h2=COLH-noteH; w2=h2*it.png.w/it.png.h; }
         slide.addText(it.title,{x:X[col],y:Y[0]-0.34,w:CW,h:0.3,fontSize:11,bold:true,
           color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
         slide.addImage({data:it.png.data,x:X[col],y:Y[0],w:w2,h:h2});
+        if(it.note) slide.addText(it.note,{x:X[col],y:Y[0]+h2+0.02,w:CW,h:0.38,fontSize:8.5,italic:true,
+          color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
       } else {
         let q=cells? cells.findIndex(c=>!c) : -1;
         if(!slide||q<0){ newGrid(); q=0; }
         cells[q]=true;
-        let w2=CW, h2=hAt; if(h2>CH){ h2=CH; w2=h2*it.png.w/it.png.h; }
+        let w2=CW, h2=hAt; if(h2>CH-noteH){ h2=CH-noteH; w2=h2*it.png.w/it.png.h; }
         slide.addText(it.title,{x:X[q%2],y:Y[Math.floor(q/2)]-0.34,w:CW,h:0.3,fontSize:11,bold:true,
           color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
         slide.addImage({data:it.png.data,x:X[q%2],y:Y[Math.floor(q/2)],w:w2,h:h2});
+        if(it.note) slide.addText(it.note,{x:X[q%2],y:Y[Math.floor(q/2)]+h2+0.02,w:CW,h:0.38,fontSize:8.5,italic:true,
+          color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
       }
     };
     const addTableSlide=it=>{
@@ -4025,6 +4056,8 @@ function init(){
         if(rows2.length) ts.addTable(rows2,{x:0.42,y:1.05,w:12.4,fontSize:11,fontFace:'Segoe UI',
           border:{pt:0.5,color:'DDDCD8'},autoPage:false});
       }
+      if(it.note) ts.addText(it.note,{x:0.42,y:6.5,w:12.5,h:0.5,fontSize:10.5,italic:true,
+        color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
       ts.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
         {x:0.42,y:7.05,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
     };
