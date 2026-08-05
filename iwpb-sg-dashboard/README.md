@@ -34,12 +34,11 @@ A single header row with:
   MICA Level 2 line (Net Interest Income, Net Fee Income, Trading Income, …):
   YTD current-year actuals, variance vs the same prior-year period, a
   current-year sparkline and a RAG pill (▲ On track / ● Watch / ▼ Off track).
-- **Drill-down** — click any card: monthly trend (current vs prior year, the
-  forecast month drawn dashed with a hollow marker, hover for exact values,
-  "View as table" for the numbers), a MICA Level 3 breakdown (click a line to
-  isolate it), and a product breakdown by Product Level 2 expandable to the
-  Level 3 products.
-- **Data** — the filtered source rows.
+- **Data** — the filtered source rows, paginated with search.
+
+Clicking a KPI card (or a KPI in the left pane) focuses the **Mix
+analysis** panel on that KPI — deeper slicing lives in the Query builder
+and the chart builder, which cover the old drill-down and more.
 
 The KPI summary also ends with a **Mix analysis** panel: a flexible chart
 driven entirely by dropdowns — KPI scope, view-by dimension, measure and
@@ -60,7 +59,7 @@ red uppercase eyebrow over large page titles; flat white stat tiles with big
 numbers (negatives in red brackets); and red monochrome charts with a grey
 prior-year series. The left pane hosts the dashboards navigation and a KPI
 shortcut list (each MICA Level 2 line with its RAG dot and YTD value — click
-to jump straight into its drill-down, drag onto My dashboard to add it).
+to analyse it in Mix analysis, drag onto My dashboard to add it).
 Below the KPI list, the left pane holds the controls: period settings
 (YTD-through month, include-forecast, RAG tolerance), then a checkbox
 filter for EVERY dimension column in the file — each column expands to its distinct values
@@ -122,8 +121,6 @@ Everything exports back to Excel, generated locally in the browser:
 - **KPI summary → ⤓ Export to Excel** — one workbook with the KPI summary
   (values, variance, RAG), the Mix analysis chart data and all filtered
   source rows.
-- **Drill-down → ⤓ Excel** — the current KPI's monthly trend, MICA Level 3
-  breakdown and product breakdown as separate sheets.
 - **Mix analysis / chart builder → ⤓ Excel** — the displayed chart's data.
 - **My dashboard** — every widget has a ⤓ button exporting that widget's
   data (KPI figures, monthly series, breakdown or chart categories).
@@ -138,8 +135,8 @@ content.
 ## PowerPoint export
 
 Every chart exports to a widescreen .pptx deck (generated locally):
-**⤓ PPT** buttons on the Mix analysis panel, the chart builder preview and
-the drill-down trend export one slide each, and **⤓ PPT deck** on My
+**⤓ PPT** buttons on the Mix analysis panel, and the chart builder preview
+export one slide each, and **⤓ PPT deck** on My
 dashboard exports every widget — charts as high-resolution images, KPI
 cards and breakdowns as styled tables — with titles, the red accent rule
 and the filter context in the footer.
