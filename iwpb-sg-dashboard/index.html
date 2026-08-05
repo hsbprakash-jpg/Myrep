@@ -905,8 +905,17 @@ function kpi(rows, model, ytdM, includeFC){
   if(model.pyMonths.length){ cmpMode='py'; cmpBase=py; cmpVar=varAbs; cmpVarPct=varPct; }
   else if(ytdFc!=null){ cmpMode='fc'; cmpBase=ytdFc; cmpVar=varFc; cmpVarPct=varFcPct; }
   else if(target!=null){ cmpMode='tgt'; cmpBase=target; cmpVar=varTgt; cmpVarPct=varTgtPct; }
+  // direction-aware favourability: an increase in revenue is favourable, an
+  // increase in costs or ECL is unfavourable. Files that store costs as
+  // negatives already point the variance the right way; files storing cost
+  // magnitudes as positives need the sign flipped before RAG rating.
+  const costLike = rows.length>0 && rows.every(r=>
+    /cost|\becl\b|expected\s+credit|impair|expense/i.test((r.d.micaL1||'')+' '+(r.d.micaL2||'')));
+  const mainVal = cy!=null&&cy!==0? cy : cmpBase;
+  const flip = costLike && (mainVal||0)>0;
+  const favVarPct = cmpVarPct==null? null : (flip? -cmpVarPct : cmpVarPct);
   return {cy, py, varAbs, varPct, cySeries, pySeries, outlook, target, varTgt, varTgtPct, fyPrior,
-    fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct};
+    fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct, favVarPct};
 }
 /* cost and ECL lines stay actuals-only on landing widgets in target-based files */
 function cmpHidden(name){
@@ -1242,7 +1251,7 @@ function renderSummary(){
   const m=S.model;
   const L=cmpLabels(m);
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
-  const rgT=rag(kT.cmpVarPct,S.thresh);
+  const rgT=rag(kT.favVarPct,S.thresh);
 
   // greeting + context
   const hh=new Date().getHours();
@@ -1258,9 +1267,9 @@ function renderSummary(){
   }).sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
 
   // auto-written commentary with bold figures
-  const withVar=cards.filter(c=>c.k.cmpVarPct!=null && !cmpHidden(c.l2));
-  const best=withVar.length?withVar.reduce((a,b)=>a.k.cmpVarPct>=b.k.cmpVarPct?a:b):null;
-  const worst=withVar.length?withVar.reduce((a,b)=>a.k.cmpVarPct<=b.k.cmpVarPct?a:b):null;
+  const withVar=cards.filter(c=>c.k.favVarPct!=null && !cmpHidden(c.l2));
+  const best=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct>=b.k.favVarPct?a:b):null;
+  const worst=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct<=b.k.favVarPct?a:b):null;
   const l1name=[...groupBy(rows,'micaL1').keys()][0]||'Revenue';
   let cm=`${esc(l1name)} of <b>${fmt(kT.cy)}</b> for YTD ${esc(ytdLabel())}`;
   if(kT.cmpVarPct!=null){
@@ -1296,7 +1305,7 @@ function renderSummary(){
       <div class="l1tag">${esc(l1||'')}</div>
       <h3>${esc(name)}</h3>
       <div class="val${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</div>
-      <div class="row"><span class="delta">${hideCmp?`YTD ${esc(ytdLabel())} actuals`:sub(k)}</span>${hideCmp?'':ragPill(rag(k.cmpVarPct,S.thresh))}</div>
+      <div class="row"><span class="delta">${hideCmp?`YTD ${esc(ytdLabel())} actuals`:sub(k)}</span>${hideCmp?'':ragPill(rag(k.favVarPct,S.thresh))}</div>
       <div style="margin-top:8px">${sparkline(k.cySeries,220,34)}</div>
       <div class="vd">View detail →</div>
     </button>`;
@@ -1316,7 +1325,7 @@ function renderSummary(){
 
   // slim status chips
   const counts={g:0,a:0,r:0,n:0};
-  cards.forEach(c=>{ if(!cmpHidden(c.l2)) counts[rag(c.k.cmpVarPct,S.thresh).cls]++; });
+  cards.forEach(c=>{ if(!cmpHidden(c.l2)) counts[rag(c.k.favVarPct,S.thresh).cls]++; });
   $('chipRow').innerHTML=
     `<span class="chip"><span class="cdot" style="background:var(--status-good)"></span>Favourable <b>${counts.g}</b></span>`+
     `<span class="chip"><span class="cdot" style="background:var(--status-warning)"></span>Watch <b>${counts.a}</b></span>`+
@@ -1359,10 +1368,10 @@ function renderSummary(){
   trendChart($('trajChart'), kT.cySeries, cmpSeries, m.yearCY, cmpName, 'line');
 
   // attention required — anything not green
-  const attn=cards.filter(c=>!cmpHidden(c.l2)&&['a','r'].includes(rag(c.k.cmpVarPct,S.thresh).cls))
-    .sort((a,b)=>(a.k.cmpVarPct??0)-(b.k.cmpVarPct??0)).slice(0,4);
+  const attn=cards.filter(c=>!cmpHidden(c.l2)&&['a','r'].includes(rag(c.k.favVarPct,S.thresh).cls))
+    .sort((a,b)=>(a.k.favVarPct??0)-(b.k.favVarPct??0)).slice(0,4);
   const aItem=c=>{
-    const rg=rag(c.k.cmpVarPct,S.thresh);
+    const rg=rag(c.k.favVarPct,S.thresh);
     const col=rg.cls==='r'?'var(--status-critical)':'var(--status-warning)';
     const desc= L.mode==='tgt'
       ? `Outlook ${fmt(c.k.outlook)} vs target ${fmt(c.k.target)} · ${fmtPct(c.k.cmpVarPct)}`
@@ -1558,8 +1567,8 @@ function kpiSummaryAOA(){
   const row=(name,l1,k)=>{
     const hide=cmpHidden(name);
     return L.mode==='tgt'
-      ? [name,l1,k.cy,k.outlook,hide?null:k.target,hide?null:k.cmpVar,hide?null:pct(k.cmpVarPct),hide?'actuals only':rag(k.cmpVarPct,S.thresh).label]
-      : [name,l1,k.cy,hide?null:k.cmpBase,hide?null:k.cmpVar,hide?null:pct(k.cmpVarPct),hide?'actuals only':rag(k.cmpVarPct,S.thresh).label];
+      ? [name,l1,k.cy,k.outlook,hide?null:k.target,hide?null:k.cmpVar,hide?null:pct(k.cmpVarPct),hide?'actuals only':rag(k.favVarPct,S.thresh).label]
+      : [name,l1,k.cy,hide?null:k.cmpBase,hide?null:k.cmpVar,hide?null:pct(k.cmpVarPct),hide?'actuals only':rag(k.favVarPct,S.thresh).label];
   };
   for(const c of byL2) aoa.push(row(c.l2,c.l1,c.k));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
@@ -1585,9 +1594,9 @@ function breakdownAOA(rows, key, label){
   const mainOf=k=>L.mode==='tgt'? k.outlook : k.cy;
   const aoa=[[label],[filterNote()],[],
     ['Line',L.main,L.base,'Variance','Variance %','RAG']];
-  for(const g of gs) aoa.push([g.name,mainOf(g.k),g.k.cmpBase,g.k.cmpVar,pct(g.k.cmpVarPct),rag(g.k.cmpVarPct,S.thresh).label]);
+  for(const g of gs) aoa.push([g.name,mainOf(g.k),g.k.cmpBase,g.k.cmpVar,pct(g.k.cmpVarPct),rag(g.k.favVarPct,S.thresh).label]);
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
-  aoa.push(['Total',mainOf(kT),kT.cmpBase,kT.cmpVar,pct(kT.cmpVarPct),rag(kT.cmpVarPct,S.thresh).label]);
+  aoa.push(['Total',mainOf(kT),kT.cmpBase,kT.cmpVar,pct(kT.cmpVarPct),rag(kT.favVarPct,S.thresh).label]);
   return aoa;
 }
 function chartAOA(cfg){
@@ -1625,7 +1634,7 @@ function widgetAOA(w){
   if(L.mode==='tgt') rowsOut.push(['FY Outlook',k.outlook],['FY Target',k.target]);
   else if(L.mode==='fc') rowsOut.push(['YTD Forecast',k.ytdFc],['FY Outlook',k.outlook],...(k.target!=null?[['FY Target',k.target]]:[]));
   else rowsOut.push([L.base,k.cmpBase]);
-  rowsOut.push(['Variance',k.cmpVar],['Variance %',pct(k.cmpVarPct)],['RAG',rag(k.cmpVarPct,S.thresh).label]);
+  rowsOut.push(['Variance',k.cmpVar],['Variance %',pct(k.cmpVarPct)],['RAG',rag(k.favVarPct,S.thresh).label]);
   return rowsOut;
 }
 
@@ -1636,7 +1645,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
   const mainOf=k=>L.mode==='tgt'? k.outlook : k.cy;
   const maxAbs=Math.max(1,...groups.map(g=>Math.abs(mainOf(g.k)||0)));
   const rowHtml=(g,cls,attr)=>{
-    const rg=rag(g.k.cmpVarPct,S.thresh);
+    const rg=rag(g.k.favVarPct,S.thresh);
     const w=Math.round(Math.abs(mainOf(g.k)||0)/maxAbs*140);
     const bar=`<span class="mbar${(mainOf(g.k)||0)<0?' neg':''}" style="width:${w}px" aria-hidden="true"></span>`;
     return `<tr class="${cls}" ${attr||''}>
@@ -2405,7 +2414,7 @@ function renderKpiNav(){
   const items=[...byL2.entries()].map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   $('kpiNav').innerHTML=items.map(it=>{
-    const rg=cmpHidden(it.l2)?{cls:'n',label:'actuals only'}:rag(it.k.cmpVarPct,S.thresh);
+    const rg=cmpHidden(it.l2)?{cls:'n',label:'actuals only'}:rag(it.k.favVarPct,S.thresh);
     const act=S.view==='summary'&&MX.l2===it.l2;
     return `<button class="${act?'active':''}" data-l2="${esc(it.l2)}" draggable="true"
       title="${esc(it.l2)} — ${rg.label}" aria-label="${esc(it.l2)}, ${rg.label}">
@@ -2521,7 +2530,7 @@ function renderCustom(){
     div.dataset.idx=idx;
     const rows=widgetRows(w.l2);
     const k=kpi(rows,m,S.ytdM,S.includeFC);
-    const rg=rag(k.varPct,S.thresh);
+    const rg=rag(k.favVarPct,S.thresh);
     const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
       Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
         `<option value="${k}"${gArr(w.cfg.groupBy)[0]===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('')
@@ -2541,7 +2550,7 @@ function renderCustom(){
     } else if(w.type==='card'){
       const Lw=cmpLabels(m);
       const hidew=cmpHidden(w.l2);
-      const rgw=rag(k.cmpVarPct,S.thresh);
+      const rgw=rag(k.favVarPct,S.thresh);
       const subw= hidew? `YTD ${esc(ytdLabel())} actuals` : Lw.mode==='tgt'
         ? `Outlook ${fmt(k.outlook)} · ${fmtPct(k.cmpVarPct)} vs target`
         : Lw.mode==='fc'

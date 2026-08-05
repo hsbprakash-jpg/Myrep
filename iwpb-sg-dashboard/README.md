@@ -82,7 +82,10 @@ combination applies to every view, chart and export. Below that, an
 Output fields section with checkboxes chooses which dimension columns and
 period column groups appear in the Data view and in Excel exports. RAG compares YTD actuals with the same
 prior-year months: green at or above prior year, amber within the selected
-tolerance below, red beyond it.
+tolerance below, red beyond it. Ratings are direction-aware — an increase
+in revenue rates Favourable while an increase in costs or ECL rates
+Unfavourable, whichever sign convention the file stores costs in (signed
+negatives or positive magnitudes).
 
 ## Sample data
 
