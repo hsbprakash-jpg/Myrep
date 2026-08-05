@@ -1656,17 +1656,28 @@ function renderSummary(){
     : [['YTD actuals',fmt(kT.cy)]];
   traj.innerHTML=`<div class="panel-head">
       <div><h4>Performance trajectory ${ragPill(rgT)}</h4>
-      <p class="subtitle">${esc(totName)} — ${esc(m.yearCY)} monthly actuals${hasFC?' + forecast':''}${L.mode==='py'?` vs ${esc(m.yearPY)}`:''}</p></div>
+      <p class="subtitle">${esc(totName)} — cumulative YTD actuals${hasFC?' + outlook':''}${L.mode==='py'?` vs YTD ${esc(m.yearPY)}`:' vs YTD forecast'}</p></div>
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
     <div class="legend">
-      <span><span class="swl" style="border-top:3px solid var(--series-1)"></span>${esc(m.yearCY)} actuals</span>
-      ${hasFC?`<span><span class="swl" style="border-top:3px dashed var(--series-1)"></span>Forecast months</span>`:''}
-      ${L.mode==='py'?`<span><span class="swl" style="border-top:3px solid var(--series-2)"></span>${esc(m.yearPY)} actuals</span>`:''}
+      <span><span class="swl" style="border-top:3px solid var(--series-1)"></span>YTD actuals</span>
+      ${hasFC?`<span><span class="swl" style="border-top:3px dashed var(--series-1)"></span>YTD outlook (forecast months)</span>`:''}
+      ${L.mode==='py'?`<span><span class="swl" style="border-top:3px solid var(--series-2)"></span>YTD ${esc(m.yearPY)}</span>`
+        :`<span><span class="swl" style="border-top:3px solid var(--series-2)"></span>YTD forecast</span>`}
     </div>
     <div class="chart-wrap" id="trajChart"></div>`;
-  const {series:cmpSeries, name:cmpName}=cmpTrend(kT,m);
-  trendChart($('trajChart'), kT.cySeries, cmpSeries, m.yearCY, cmpName, 'line');
+  // cumulative view: YTD actuals building through the year (dashed once the
+  // months are forecast) against the cumulative YTD forecast path
+  const cum=ser=>{ let acc=0; return ser.map(p2=>({m:p2.m, fc:p2.fc, val:(acc+=(p2.val||0))})); };
+  const cumAct=cum(kT.cySeries);
+  let cmpCum=[], cmpName='';
+  if(L.mode==='py'&&kT.pySeries.length){ cmpCum=cum(kT.pySeries); cmpName=`YTD ${m.yearPY}`; }
+  else if(kT.fyFc!=null){
+    let accW=0;
+    cmpCum=m.cyMonths.map(p2=>{ accW+=fcWeight(m,p2.m); return {m:p2.m, fc:false, val:kT.fyFc*accW}; });
+    cmpName='YTD forecast';
+  }
+  trendChart($('trajChart'), cumAct, cmpCum, m.yearCY, cmpName, 'line');
 
   // attention required — anything not green
   const attn=cards.filter(c=>!cmpHidden(c.l2)&&['a','r'].includes(rag(c.k.favVarPct,S.thresh).cls))
