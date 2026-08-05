@@ -306,6 +306,7 @@ main{flex:1;min-width:0;padding:20px 26px}
 @media (max-width:700px){.widget.w2{grid-column:span 1}}
 .whead{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border);cursor:grab}
 .whead .grip{color:var(--text-muted);letter-spacing:1px;font-size:13px}
+.whead .wunit{flex-shrink:0;font-size:10.5px;font-weight:600;color:var(--text-muted)}
 .whead h5{margin:0;font-size:12.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .whead button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:1px 5px;border-radius:3px}
 .whead button:hover{color:var(--text-primary);background:color-mix(in srgb, var(--text-primary) 8%, transparent)}
@@ -2382,10 +2383,11 @@ function scopeFilter(rows, sc){
   return rows.filter(r=>r.d.micaL2===t);
 }
 function scopeName(sc){ return !sc? 'Total (all KPIs)' : String(sc).startsWith('l1:')? String(sc).slice(3) : String(sc); }
-function chartTitle(cfg){
+function chartTitleBase(cfg){
   return `${cfg.l2?scopeName(cfg.l2):'Total'} · ${measureLabel(cfg.measure)} by ${fieldLabels(cfg.groupBy)}`+
-    (gArr(cfg.splitBy).length?` / ${fieldLabels(cfg.splitBy)}`:'')+` (${cfgUnit()})`;
+    (gArr(cfg.splitBy).length?` / ${fieldLabels(cfg.splitBy)}`:'');
 }
+function chartTitle(cfg){ return chartTitleBase(cfg)+` (${cfgUnit()})`; }
 const CHART_TYPES=[['column','Column'],['hbar','Horizontal bar'],['lollipop','Lollipop'],
   ['line','Line'],['area','Area'],['pie','Pie'],['donut','Donut'],['waterfall','Waterfall'],
   ['pareto','Pareto'],['treemap','Treemap'],['scatter','Scatter vs baseline'],['table','Table']];
@@ -3578,7 +3580,10 @@ function widgetRows(l2){
   return scopeFilter(filteredRows(), l2);
 }
 function widgetTitle(w){
-  return w.type==='chart'? chartTitle(w.cfg) : scopeName(w.l2)+' · '+WTYPES[w.type]+` (${cfgUnit()})`;
+  return widgetTitleBase(w)+` (${cfgUnit()})`;
+}
+function widgetTitleBase(w){
+  return w.type==='chart'? chartTitleBase(w.cfg) : scopeName(w.l2)+' · '+WTYPES[w.type];
 }
 
 function renderCustom(){
@@ -3640,7 +3645,7 @@ function renderCustom(){
         [['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar'],['table','Table']].map(([v,l])=>
           `<option value="${v}"${(w.ttype||'line')===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
     let head=`<div class="whead" draggable="true" title="Drag to rearrange">
-      <span class="grip" aria-hidden="true">⠿</span><h5>${esc(widgetTitle(w))}</h5>${typeSel}
+      <span class="grip" aria-hidden="true">⠿</span><h5 title="${esc(widgetTitle(w))}">${esc(widgetTitleBase(w))}</h5><span class="wunit">(${esc(cfgUnit())})</span>${typeSel}
       <button class="wexport" title="Export data to Excel" aria-label="Export data to Excel">⤓</button>
       <button class="wremove" title="Remove widget" aria-label="Remove widget">✕</button></div>`;
     let body='';
