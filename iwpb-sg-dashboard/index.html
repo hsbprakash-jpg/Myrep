@@ -1420,7 +1420,8 @@ function renderSummary(){
 
   // driller-format KPI tiles: name + headline, then vs-comparison rows with
   // direction triangles (colour = favourability, triangle = movement)
-  const pctAbs=v=>v==null?'\u2013':(Math.abs(v)*100).toFixed(1)+'%';
+  const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
+    return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
   const tileRowHtml=(k,r)=>{
     const fav=(k.dirFlip? -(r.p??0) : (r.p??0))>=0;
     const raw=r.v??r.p??0;
@@ -1663,7 +1664,14 @@ async function exportSummaryPPT(){
   }
   const tiles=[{name:tileL1?'Total P&L':`Total ${l1name}`,k:kT,hide:false},
     ...[...prio,...rest].map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
-  const pctAbs=v=>v==null?'\u2013':(Math.abs(v)*100).toFixed(1)+'%';
+  const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
+    return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
+  // font sizes step down with content length so nothing overflows its box
+  const nameFs=n=>{ const l=String(n).length;
+    return l<=22?11 : l<=30?10 : l<=42?9 : l<=58?8 : 7; };
+  const nameTxt=n=>String(n).length>76? String(n).slice(0,75)+'\u2026' : String(n);
+  const valFs=t2=>{ const l=String(t2).length; return l>10?9.5 : l>7?11.5 : 13; };
+  const cellFs=t2=>String(t2).length>8? 8.5 : 9.5;
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const slide=p.addSlide(); slide.background={color:'FFFFFF'};
   slide.addText(`Financial Performance \u2014 ${MON_LBL[S.ytdM]} ${m.yearCY}`,
@@ -1674,26 +1682,29 @@ async function exportSummaryPPT(){
   tiles.forEach((t,i)=>{
     const tx=X0+(i%COLS)*(TW+GX), ty=Y0+Math.floor(i/COLS)*(TH+GY);
     slide.addShape('rect',{x:tx,y:ty,w:TW,h:TH,fill:{color:'FFFFFF'},line:{color:'C8C7C3',width:1}});
-    slide.addText(t.name,{x:tx+0.1,y:ty+0.07,w:TW-1.35,h:0.3,fontSize:11.5,bold:true,
-      color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
-    slide.addText(fmt(t.k.cy),{x:tx+TW-1.32,y:ty+0.07,w:1.22,h:0.3,align:'right',bold:true,
-      fontSize:13,color:(t.k.cy||0)<0?'DB0011':'1A1A19',fontFace:'Segoe UI'});
-    slide.addShape('rect',{x:tx+0.1,y:ty+0.4,w:TW-0.2,h:0.016,fill:{color:'1A1A19'},line:{type:'none'}});
+    const nm=nameTxt(t.name), vTxt=fmt(t.k.cy);
+    slide.addText(nm,{x:tx+0.1,y:ty+0.05,w:TW-1.18,h:0.42,fontSize:nameFs(nm),bold:true,
+      color:'1A1A19',fontFace:'Segoe UI',wrap:true,fit:'shrink',valign:'top',lineSpacing:nameFs(nm)+1});
+    slide.addText(vTxt,{x:tx+TW-1.12,y:ty+0.05,w:1.02,h:0.28,align:'right',bold:true,valign:'top',
+      fontSize:valFs(vTxt),color:(t.k.cy||0)<0?'DB0011':'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
+    slide.addShape('rect',{x:tx+0.1,y:ty+0.5,w:TW-0.2,h:0.014,fill:{color:'1A1A19'},line:{type:'none'}});
     const trs=t.hide?[]:tileRows(t.k,m).slice(0,3);
     if(!trs.length)
-      slide.addText(`YTD ${ytdLabel()} actuals`,{x:tx+0.1,y:ty+0.48,w:TW-0.2,h:0.26,
-        fontSize:10,color:'8A8880',fontFace:'Segoe UI'});
+      slide.addText(`YTD ${ytdLabel()} actuals`,{x:tx+0.1,y:ty+0.56,w:TW-0.2,h:0.24,
+        fontSize:9.5,color:'8A8880',fontFace:'Segoe UI'});
     trs.forEach((r,ri)=>{
       const fav=(t.k.dirFlip? -(r.p??0):(r.p??0))>=0;
       const raw=r.v??r.p??0;
       const up=((t.k.costLike&&!t.k.dirFlip)? -raw : raw)>=0;
       const col=fav?'0B7A0B':'C21A1A', tri=up?'\u25B2':'\u25BC';
-      const ry=ty+0.46+ri*0.3;
-      slide.addText(r.lbl,{x:tx+0.1,y:ry,w:1.0,h:0.26,fontSize:10,color:'52514E',fontFace:'Segoe UI'});
-      slide.addText(r.v==null?'\u2013':tri+fmt(Math.abs(r.v)),
-        {x:tx+1.0,y:ry,w:1.05,h:0.26,fontSize:10,bold:true,color:col,align:'right',fontFace:'Segoe UI'});
-      slide.addText(r.p==null?'':tri+pctAbs(r.p),
-        {x:tx+2.1,y:ry,w:TW-2.22,h:0.26,fontSize:10,bold:true,color:col,align:'right',fontFace:'Segoe UI'});
+      const ry=ty+0.55+ri*0.27;
+      const aTxt=r.v==null?'\u2013':tri+fmt(Math.abs(r.v));
+      const pTxt=r.p==null?'':tri+pctAbs(r.p);
+      slide.addText(r.lbl,{x:tx+0.1,y:ry,w:0.78,h:0.24,fontSize:9.5,color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
+      slide.addText(aTxt,{x:tx+0.88,y:ry,w:1.0,h:0.24,fontSize:cellFs(aTxt),bold:true,color:col,
+        align:'right',fontFace:'Segoe UI',fit:'shrink'});
+      slide.addText(pTxt,{x:tx+1.92,y:ry,w:TW-2.04,h:0.24,fontSize:cellFs(pTxt),bold:true,color:col,
+        align:'right',fontFace:'Segoe UI',fit:'shrink'});
     });
   });
   slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
