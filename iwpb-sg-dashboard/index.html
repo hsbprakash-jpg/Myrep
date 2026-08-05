@@ -685,16 +685,24 @@ const DIM_SPECS = [
 
 function normH(h){ return String(h==null?'':h).toLowerCase().replace(/[^a-z0-9]/g,''); }
 
-function classifyPeriod(raw){
+function classifyPeriod(raw, bandVal){
   const t = String(raw==null?'':raw).trim().toLowerCase();
   if(!t) return null;
+  const b = String(bandVal||'').toLowerCase();
+  const isFc = /\bfc\b|forecast/.test(t) || b.includes('forecast');
+  const isTarget = b.includes('target') || /\btarget\b/.test(t);
   if(t.includes('ytd')) return {type:'ytd', label:String(raw)};
-  let q = t.match(/^([1-4])\s*q\s*'?(\d{2,4})/) || t.match(/^q([1-4])\s*'?(\d{2,4})/);
-  if(q) return {type:'quarter', q:+q[1], year:(+q[2])%100, label:String(raw)};
+  // full-year / target columns ride along as extra exportable columns
+  if(/^fy\b|^fy[- ']/.test(t)) return {type:'ytd', label:String(raw)};
+  let q = t.match(/^([1-4])\s*q\s*'?(\d{2,4})/) || t.match(/^q([1-4])(?:\s*[-' ]\s*(\d{2,4}))?/);
+  if(q){
+    if(isTarget) return {type:'ytd', label:String(raw)};
+    return {type:'quarter', q:+q[1], year:q[2]!=null?(+q[2])%100:null, label:String(raw)};
+  }
   const mi = MON.findIndex(m=>t.startsWith(m));
   if(mi>=0){
-    const fc = /\bfc\b|forecast/.test(t);
-    return {type:'month', m:mi, fc, label:String(raw)};
+    if(isTarget) return {type:'ytd', label:String(raw)};
+    return {type:'month', m:mi, fc:isFc, label:String(raw)};
   }
   return null;
 }
@@ -712,10 +720,33 @@ function num(v){
   return neg? -n : n;
 }
 
-/* Parse a 2-D array (header row + data rows) into the data model. */
+/* Parse a 2-D array into the data model. Handles both driller layouts:
+   headers in row 1, or a title block + an Actuals/Forecast/Target band row
+   above the header row (CIB-style). */
 function parseSheet(aoa){
   if(!aoa || aoa.length<2) return {error:'File has no data rows.'};
-  const header = aoa[0];
+  // header row = first row (searching the top 20) carrying several known dimension headers
+  let hr=-1;
+  for(let r=0;r<Math.min(20,aoa.length);r++){
+    const row=aoa[r]||[];
+    let hits=0;
+    for(const spec of DIM_SPECS) if(row.some(cell=>spec.test(normH(cell)))) hits++;
+    if(hits>=4){ hr=r; break; }
+  }
+  if(hr<0) return {error:'Could not find the driller header row — no MICA / Product columns detected.'};
+  if(aoa.length<=hr+1) return {error:'File has no data rows.'};
+  const header = aoa[hr];
+  // band row above the header: Actuals / Forecast / Target labels, forward-filled across merges
+  let band=null;
+  if(hr>0){
+    band=[]; let cur=null;
+    const braw=aoa[hr-1]||[];
+    for(let c=0;c<header.length;c++){
+      const v=braw[c];
+      if(v!=null && String(v).trim()!=='') cur=String(v).trim();
+      band[c]=cur;
+    }
+  }
   const dimCols = {};              // key -> col index
   const claimed = new Set();
   for(const spec of DIM_SPECS){
@@ -731,7 +762,7 @@ function parseSheet(aoa){
   const monthCols=[], quarterCols=[], ytdCols=[];
   for(let c=0;c<header.length;c++){
     if(claimed.has(c)) continue;
-    const p = classifyPeriod(header[c]);
+    const p = classifyPeriod(header[c], band?band[c]:null);
     if(!p) continue;
     p.col=c;
     if(p.type==='month') monthCols.push(p);
@@ -751,15 +782,22 @@ function parseSheet(aoa){
   if(blocks.length>=2){ pyMonths=blocks[0]; cyMonths=blocks.slice(1).flat(); }
   else { cyMonths=blocks[0]; }
 
-  // quarter years give the axis labels
-  const qYears=[...new Set(quarterCols.map(q=>q.year))].sort((a,b)=>a-b);
+  // quarter years give the axis labels; CIB-style files carry the year in FY-xx headers or the title block
+  const qYears=[...new Set(quarterCols.map(q=>q.year).filter(y=>y!=null))].sort((a,b)=>a-b);
   let yearPY='Prior year', yearCY='Current year';
   if(qYears.length>=2){ yearPY='20'+String(qYears[0]).padStart(2,'0'); yearCY='20'+String(qYears[qYears.length-1]).padStart(2,'0'); }
   else if(qYears.length===1){ yearCY='20'+String(qYears[0]).padStart(2,'0'); }
+  else{
+    let yy=null;
+    for(const h of header){ const m2=String(h||'').match(/fy[- ']?(\d{2})\b/i); if(m2){ yy=+m2[1]; break; } }
+    if(yy==null) for(let r=0;r<hr && yy==null;r++)
+      for(const cell of (aoa[r]||[])){ const m2=String(cell||'').match(/\b20(\d{2})\b/); if(m2){ yy=+m2[1]; break; } }
+    if(yy!=null) yearCY='20'+String(yy).padStart(2,'0');
+  }
 
   // data rows
   const rows=[];
-  for(let r=1;r<aoa.length;r++){
+  for(let r=hr+1;r<aoa.length;r++){
     const raw=aoa[r];
     if(!raw || !raw.length) continue;
     const d={};
@@ -2357,23 +2395,28 @@ function handleFile(file){
 function ingestArrayBuffer(buf, name, fromCache){
   const rep=$('ingestReport');
   {
-    let model;
+    let model=null, sheetName=null, lastErr=null, lastMissing=null;
     try{
       const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
-      model=parseSheet(aoa);
+      // the data sheet may sit behind Control/notes tabs — take the first sheet that parses
+      for(const sn of wb.SheetNames){
+        const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
+        const cand=parseSheet(aoa);
+        if(!cand.error && cand.rows.length){ model=cand; sheetName=sn; break; }
+        lastErr=cand.error||lastErr; lastMissing=cand.missing||lastMissing;
+      }
     }catch(err){
       rep.innerHTML=`<span class="err">Could not read file: ${esc(err.message)}</span>`;
       if(fromCache) cacheClear();
       return false;
     }
-    if(model.error){
-      rep.innerHTML=`<span class="err">${esc(model.error)}</span>`+
-        (model.missing&&model.missing.length?`<div class="note">Columns not found: ${esc(model.missing.join(', '))}</div>`:'');
+    if(!model){
+      rep.innerHTML=`<span class="err">${esc(lastErr||'No sheet in this workbook matches the driller layout.')}</span>`+
+        (lastMissing&&lastMissing.length?`<div class="note">Columns not found: ${esc(lastMissing.join(', '))}</div>`:'');
       if(fromCache) cacheClear();
       return false;
     }
+    model.sheetName=sheetName;
     S.model=model; S.fileName=name;
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
     Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
@@ -2381,9 +2424,10 @@ function ingestArrayBuffer(buf, name, fromCache){
     const l2s=new Set(model.rows.map(r=>r.d.micaL2).filter(Boolean));
     rep.innerHTML=`<span class="ok">✔ ${fromCache?'Restored from cache':'Ingested'} ${esc(name)}</span>
       <table>
+      <tr><td>Sheet</td><td>${esc(sheetName)}</td></tr>
       <tr><td>Rows</td><td>${model.rows.length.toLocaleString()}</td></tr>
       <tr><td>MICA Level 2 KPIs</td><td>${l2s.size} (${esc([...l2s].slice(0,5).join(', '))}${l2s.size>5?', …':''})</td></tr>
-      <tr><td>Periods</td><td>${model.pyMonths.length} months ${esc(model.yearPY)} · ${model.cyMonths.length} months ${esc(model.yearCY)}${model.cyMonths.some(p=>p.fc)?' (incl. forecast)':''}</td></tr>
+      <tr><td>Periods</td><td>${model.pyMonths.length?`${model.pyMonths.length} months ${esc(model.yearPY)} · `:''}${model.cyMonths.length} months ${esc(model.yearCY)}${model.cyMonths.some(p=>p.fc)?' (incl. forecast)':''}</td></tr>
       ${model.missing.length?`<tr><td>Columns not found</td><td>${esc(model.missing.join(', '))} — related filters disabled</td></tr>`:''}
       </table>`;
     const go=()=>{

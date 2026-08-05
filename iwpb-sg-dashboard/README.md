@@ -22,11 +22,22 @@ A single header row with:
   `Function_Level_2/1`, `Entity code`. Header matching is tolerant of
   case/underscore/spacing differences; missing optional columns just disable
   the related filter.
-- **Periods** — two blocks of monthly columns (`Jan Actual … Dec Actual` for
-  the prior year, then `Jan Actual …` for the current year), quarterly columns
-  (`1Q25 Actual`, `1Q26 Actual`, …) whose 2-digit years label the two blocks,
-  plus optional `… FC` forecast months and YTD columns. Values may be numbers,
-  `1,234` text, `(1,234)` bracket negatives, `-`, or blank.
+- **Periods** — either of two layouts:
+  1. Two blocks of monthly columns (`Jan Actual … Dec Actual` prior year,
+     then `Jan Actual …` current year), quarterly columns (`1Q25 Actual`,
+     `1Q26 Actual`, …) whose 2-digit years label the blocks, plus optional
+     `… FC` forecast months and YTD columns.
+  2. CIB-style: title rows above the table, an **Actuals / Forecast /
+     Target band row** above the headers, a single year of months
+     (`Jan-26 … Dec-26`) whose actual-vs-forecast split comes from the
+     band, quarters without year digits, YTD, FY and FY-Target columns.
+     The data sheet may sit behind Control/notes tabs — every sheet is
+     tried until one matches. With no prior-year months, comparisons show
+     "No prior yr" and the FY/Target columns ride along as exportable
+     extras.
+
+  Values may be numbers, `1,234` text, `(1,234)` bracket negatives, `-`,
+  or blank.
 
 ## Views
 
