@@ -2712,8 +2712,8 @@ function renderKpiNav(){
 }
 /* ================= Simulation agent — what-if on the forecast ================= */
 let SIM=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_sim_cur')||'null');
-  if(v&&Array.isArray(v.rules)) return v; }catch(e){}
-  return {name:'', rules:[]}; })();
+  if(v&&Array.isArray(v.rules)){ if(!v.by) v.by='micaL1'; return v; } }catch(e){}
+  return {name:'', rules:[], by:'micaL1'}; })();
 function saveSimCur(){ try{ localStorage.setItem('iwpbsg_sim_cur',JSON.stringify(SIM)); }catch(e){} }
 function simStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_sims')||'{}'); }catch(e){ return {}; } }
 function simStoreSet(o){ try{ localStorage.setItem('iwpbsg_sims',JSON.stringify(o)); }catch(e){} }
@@ -2768,7 +2768,8 @@ function simAgg(rules){
       simVar:k.target!=null? (simOut-k.target) : null,
       simVarPct:(k.target!=null&&k.target!==0)? (simOut-k.target)/Math.abs(k.target) : null};
   };
-  const groups=[...groupBy(rows,'micaL1').entries()].map(([n,rs])=>gRow(n,rs))
+  const by=(SIM.by&&SIM.by in m.dimCols)? SIM.by : 'micaL1';
+  const groups=[...groupBy(rows,by).entries()].map(([n,rs])=>gRow(n||'(blank)',rs))
     .sort((a,b)=>Math.abs(b.baseOut||0)-Math.abs(a.baseOut||0));
   const total=gRow('Total P&L',rows);
   const actSeries=actMonths.filter(p=>p.m<=S.ytdM||true).map(p=>({m:p.m,val:sumCols(rows,[p.col])}));
@@ -2808,7 +2809,7 @@ function simAOA(){
   const ruleTxt=rules.map((r,i)=>`Rule ${i+1}: ${r.dim?(ALL_DIM_LABELS[r.dim]||r.dim)+' = '+r.val2:'All rows'} · ${
     r.type==='pct'?r.val+'% change':r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
   const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote()],[ruleTxt||'No rules'],[],
-    ['Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY target','vs tgt (prior)','vs tgt (simulated)']];
+    [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY target','vs tgt (prior)','vs tgt (simulated)']];
   for(const g of [...a.groups, a.total])
     aoa.push([g.name,g.baseOut,g.simOut,g.delta,g.target,g.baseVar,g.simVar]);
   return aoa;
@@ -2830,7 +2831,10 @@ function renderSim(){
       if(!confirm(`Delete saved scenario "${b.dataset.n}"?`)) return;
       delete st[b.dataset.n]; simStoreSet(st);
     }
-    else{ SIM={name:b.dataset.n, rules:st[b.dataset.n]||[]}; saveSimCur();
+    else{ const v=st[b.dataset.n];
+      SIM=Array.isArray(v)? {name:b.dataset.n, rules:v, by:'micaL1'}
+        : {name:b.dataset.n, rules:(v&&v.rules)||[], by:(v&&v.by)||'micaL1'};
+      saveSimCur();
       SIM_LAST=JSON.parse(JSON.stringify(SIM.rules)); }
     renderSim();
   }));
@@ -2879,8 +2883,15 @@ function renderSim(){
   const dcls=v=>v>=0?'':' negnum';
   $('simResults').innerHTML=`
     ${stale?`<p class="note" style="color:#9a6a00;background:color-mix(in srgb, var(--status-warning) 12%, transparent);border:1px solid var(--status-warning);border-radius:6px;padding:8px 12px">Rules have changed since the last run — click <b>▶ Run simulation</b> to refresh these results.</p>`:''}
-    <h4 style="margin:0 0 4px">Impact — prior vs simulated forecast</h4>
-    <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters.</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div><h4 style="margin:0 0 4px">Impact — prior vs simulated forecast</h4>
+      <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters.</p></div>
+      <label style="font-size:12px;color:var(--text-muted)">View impact by
+        <select id="simBy" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)">${
+          Object.keys(ALL_DIM_LABELS).filter(k2=>k2 in m.dimCols).map(k2=>
+            `<option value="${k2}"${(SIM.by||'micaL1')===k2?' selected':''}>${esc(ALL_DIM_LABELS[k2])}</option>`).join('')}</select>
+      </label>
+    </div>
     <div class="trio">
       <div class="t"><div class="tv${(t.baseOut||0)<0?' negnum':''}">${fmt(t.baseOut)}</div><div class="tl">FY outlook · prior fcst</div></div>
       <div class="t"><div class="tv${(t.simOut||0)<0?' negnum':''}">${fmt(t.simOut)}</div><div class="tl">FY outlook · simulated</div></div>
@@ -2888,11 +2899,12 @@ function renderSim(){
       ${t.target!=null?`<div class="t"><div class="tv${dcls(t.simVar)}">${fmtPct(t.simVarPct)}</div><div class="tl">vs FY target · simulated</div></div>`:''}
     </div>
     <div class="chart-wrap" id="simChartEl"></div>
-    <div class="scroll-x"><table class="atable"><thead><tr><th>Line</th><th class="num">FY outlook · prior</th><th class="num">FY outlook · simulated</th><th class="num">Δ</th><th class="num">FY target</th><th class="num">vs tgt · prior</th><th class="num">vs tgt · simulated</th></tr></thead>
+    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">FY outlook · prior</th><th class="num">FY outlook · simulated</th><th class="num">Δ</th><th class="num">FY target</th><th class="num">vs tgt · prior</th><th class="num">vs tgt · simulated</th></tr></thead>
     <tbody>${[...a.groups,t].map(g=>`<tr${g.name==='Total P&L'?' style="font-weight:700"':''}>
       <td>${esc(g.name)}</td><td class="num">${fmtCell(g.baseOut)}</td><td class="num">${fmtCell(g.simOut)}</td>
       <td class="num">${fmtCell(g.delta)}</td><td class="num">${fmtCell(g.target)}</td>
       <td class="num">${fmtCell(g.baseVar)}</td><td class="num">${fmtCell(g.simVar)}</td></tr>`).join('')}</tbody></table></div>`;
+  $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
 }
 /* ================= MI Assistant — governed Q&A ================= */
@@ -3427,9 +3439,9 @@ function init(){
   $('btnSimSave').addEventListener('click',()=>{
     SIM.name=$('simName').value.trim();
     if(!SIM.name){ alert('Give the scenario a name first.'); return; }
-    const st=simStore(); st[SIM.name]=SIM.rules; simStoreSet(st); saveSimCur(); renderSim();
+    const st=simStore(); st[SIM.name]={rules:SIM.rules, by:SIM.by}; simStoreSet(st); saveSimCur(); renderSim();
   });
-  $('btnSimNew').addEventListener('click',()=>{ SIM={name:'',rules:[]}; SIM_LAST=null; saveSimCur(); renderSim(); });
+  $('btnSimNew').addEventListener('click',()=>{ SIM={name:'',rules:[],by:'micaL1'}; SIM_LAST=null; saveSimCur(); renderSim(); });
   $('btnSimRun').addEventListener('click',()=>{ SIM_LAST=JSON.parse(JSON.stringify(SIM.rules)); renderSim(); });
   $('btnSimExport').addEventListener('click',()=>{
     if(!SIM_LAST){ alert('Run the simulation first.'); return; }
