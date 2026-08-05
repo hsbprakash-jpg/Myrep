@@ -156,6 +156,7 @@ aside.side .sect.sect-fold{color:var(--fold-red);background:var(--fold-bg);
   margin:14px 10px 4px;padding:6px 9px;border-radius:6px;
   border-left:3px solid var(--hsbc-red);transition:background .15s}
 aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
+.unitsfx{font-weight:600;color:var(--text-muted);font-size:.72em}
 aside.side nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
   padding:8px 18px 8px 15px;font:inherit;font-size:13px;color:var(--text-secondary);cursor:pointer;
   border-left:3px solid transparent;text-align:left}
@@ -663,7 +664,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="customView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>Dynamic Dashboard</h2>
+      <h2>Dynamic Dashboard <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2">Compose your own layout — add KPI cards, trends and breakdowns, then drag to rearrange.</p>
     </div></div>
     <div id="dashToolbar">
@@ -687,7 +688,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="builderView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>Drag &amp; Drop Charts</h2>
+      <h2>Drag &amp; Drop Charts <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2">Drop a field into a well to build a chart over the filtered data, then pin it to My dashboard.</p>
     </div></div>
     <div class="panel">
@@ -721,7 +722,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="queryView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>Query Builder</h2>
+      <h2>Query Builder <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2">Drag fields into Filters, Output Columns or Sort By — or use the +F / +O / +S shortcuts — then run the query. Output sequence controls the result column order.</p>
     </div></div>
     <div id="qbGrid">
@@ -776,7 +777,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="simView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>Simulation Agent</h2>
+      <h2>Simulation Agent <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2">Build what-if scenarios on the forecast months — the prior forecast stays untouched, the simulated path is recomputed live under the current filters, and scenarios can be saved for reuse.</p>
     </div></div>
     <div class="panel">
@@ -802,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="assistView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>MI Assistant</h2>
+      <h2>MI Assistant <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2">Governed Q&amp;A over the loaded driller — every answer is computed deterministically in your browser from the filtered data. Nothing leaves this page.</p>
     </div></div>
     <div class="panel">
@@ -819,7 +820,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="tableView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>Data Drill Down</h2>
+      <h2>Data Drill Down <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2">Drill into the underlying driller rows in scope of the current filters.</p>
     </div></div>
     <div class="panel">
@@ -1869,7 +1870,7 @@ function renderSummary(){
     ? [['YTD actuals',fmt(kT.cy)],[`YTD ${m.yearPY}`,fmt(kT.py)],['vs prior year',fmtPct(kT.cmpVarPct)]]
     : [['YTD actuals',fmt(kT.cy)]];
   traj.innerHTML=`<div class="panel-head">
-      <div><h4>Performance trajectory ${ragPill(rgT)}</h4>
+      <div><h4>Performance trajectory <span class="unitsfx">(${esc(cfgUnit())})</span> ${ragPill(rgT)}</h4>
       <p class="subtitle">${esc(totName)} — cumulative YTD actuals${hasFC?' + outlook':''}${L.mode==='py'?` vs YTD ${esc(m.yearPY)}`:' vs YTD forecast'} · ${esc(cfgUnit())}</p></div>
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
@@ -2382,7 +2383,7 @@ function scopeFilter(rows, sc){
 function scopeName(sc){ return !sc? 'Total (all KPIs)' : String(sc).startsWith('l1:')? String(sc).slice(3) : String(sc); }
 function chartTitle(cfg){
   return `${cfg.l2?scopeName(cfg.l2):'Total'} · ${measureLabel(cfg.measure)} by ${fieldLabels(cfg.groupBy)}`+
-    (gArr(cfg.splitBy).length?` / ${fieldLabels(cfg.splitBy)}`:'');
+    (gArr(cfg.splitBy).length?` / ${fieldLabels(cfg.splitBy)}`:'')+` (${cfgUnit()})`;
 }
 const CHART_TYPES=[['column','Column'],['hbar','Horizontal bar'],['lollipop','Lollipop'],
   ['line','Line'],['area','Area'],['pie','Pie'],['donut','Donut'],['waterfall','Waterfall'],
@@ -3576,7 +3577,7 @@ function widgetRows(l2){
   return scopeFilter(filteredRows(), l2);
 }
 function widgetTitle(w){
-  return w.type==='chart'? chartTitle(w.cfg) : scopeName(w.l2)+' · '+WTYPES[w.type];
+  return w.type==='chart'? chartTitle(w.cfg) : scopeName(w.l2)+' · '+WTYPES[w.type]+` (${cfgUnit()})`;
 }
 
 function renderCustom(){
@@ -3803,6 +3804,7 @@ function applyCfgDom(){
   });
   const fpx=(key,sel2)=>{ const v=parseFloat(cfgS(key));
     document.querySelectorAll(sel2).forEach(el=>{ el.style.fontSize=isFinite(v)&&v>0? v+'px':''; }); };
+  document.querySelectorAll('[data-unitsfx]').forEach(el=>el.textContent='('+cfgUnit()+')');
   fpx('font_greeting','.greet');
   fpx('font_commentary','.commentary');
   fpx('font_eyebrow','.eyebrow');
