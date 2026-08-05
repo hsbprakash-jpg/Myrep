@@ -197,7 +197,7 @@ aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
 .well .wslot .fchip button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0}
 .well .wslot .fchip button:hover{color:var(--hsbc-red)}
 #builderOpts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
-#builderOpts select,#mixCtl select{padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
+#builderOpts select,#mixCtl select,.panel-head select{padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
   background:var(--surface-2);color:var(--text-primary);font-size:12.5px;max-width:220px}
 #mixCtl{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .whead select{font:inherit;font-size:11.5px;padding:2px 4px;border:1px solid var(--border-strong);
@@ -542,7 +542,13 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="panel">
       <div class="panel-head">
         <div><h4 id="trendTitle"></h4><p class="subtitle" id="trendSub"></p></div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="trendType" aria-label="Chart type">
+            <option value="line">Line</option>
+            <option value="area">Area</option>
+            <option value="column">Column</option>
+            <option value="hbar">Horizontal bar</option>
+          </select>
           <button class="btn-quiet" id="btnExportDrill">⤓ Excel</button>
           <button class="btn-quiet" id="btnPptDrill">⤓ PPT</button>
           <button class="btn-quiet" id="btnTrendTable">View as table</button>
@@ -877,7 +883,68 @@ function sparkline(series, w, h){
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${zero}<path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${fcDots}</svg>`;
 }
 
-function lineChart(el, cySeries, pySeries, yearCY, yearPY){
+function trendChart(el, cySeries, pySeries, yearCY, yearPY, type){
+  type=type||'line';
+  if(type==='line'||type==='area') return lineChart(el, cySeries, pySeries, yearCY, yearPY, type==='area');
+  el.innerHTML='';
+  const months=[...new Set([...cySeries,...pySeries].filter(p=>p.val!=null).map(p=>p.m))].sort((a,b)=>a-b);
+  if(!months.length){ el.innerHTML='<p class="note">No data for this selection.</p>'; return; }
+  const cyMap=new Map(cySeries.map(p=>[p.m,p])), pyMap=new Map(pySeries.map(p=>[p.m,p]));
+  const vals=[...cySeries,...pySeries].map(p=>p.val).filter(v=>v!=null);
+  const min=Math.min(0,...vals), max=Math.max(0,...vals), span=(max-min)||1;
+  let svg='', W, H;
+  if(type==='column'){
+    W=Math.max(560, months.length*58+90); H=270;
+    const L=56, T=14, B=34, bw=17;
+    const y=v=>T+(H-T-B)-(v-min)*(H-T-B)/span;
+    for(let i=0;i<=3;i++){ const v=min+span*i/3, yy=y(v);
+      svg+=`<line x1="${L}" x2="${W-10}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`+
+        `<text x="${L-7}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-secondary)">${fmt(v)}</text>`; }
+    months.forEach((mi,i)=>{
+      const x0=L+12+i*((W-L-28)/months.length);
+      const c=cyMap.get(mi), p=pyMap.get(mi);
+      if(c&&c.val!=null){
+        const y1=y(Math.max(0,c.val)), y2=y(Math.min(0,c.val));
+        svg+=`<rect x="${x0.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw}" height="${Math.max(2,y2-y1).toFixed(1)}" rx="2"
+          fill="var(--cat1)"${c.fc?' fill-opacity="0.45" stroke="var(--cat1)" stroke-dasharray="3 2"':''}><title>${MON_LBL[mi]} ${esc(yearCY)}${c.fc?' (FC)':''}: ${fmtFull(c.val)}</title></rect>`;
+      }
+      if(p&&p.val!=null){
+        const y1=y(Math.max(0,p.val)), y2=y(Math.min(0,p.val));
+        svg+=`<rect x="${(x0+bw+3).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw}" height="${Math.max(2,y2-y1).toFixed(1)}" rx="2"
+          fill="var(--cat2)"><title>${MON_LBL[mi]} ${esc(yearPY)}: ${fmtFull(p.val)}</title></rect>`;
+      }
+      svg+=`<text x="${(x0+bw+1.5).toFixed(1)}" y="${H-12}" text-anchor="middle" font-size="10" fill="var(--text-secondary)">${MON_LBL[mi]}</text>`;
+    });
+    if(min<0&&max>0) svg+=`<line x1="${L}" x2="${W-10}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--border-strong)"/>`;
+  } else { /* hbar — months down the side, paired bars */
+    const rowH=32, labelW=64, valW=74, T2=8;
+    W=700; H=months.length*rowH+T2*2;
+    const maxBar=W-labelW-valW-16;
+    const xOf=v=>labelW+((v-min)/span)*maxBar;
+    const x0=xOf(0);
+    months.forEach((mi,i)=>{
+      const cy0=T2+i*rowH+rowH/2;
+      const c=cyMap.get(mi), p=pyMap.get(mi);
+      svg+=`<text x="${labelW-10}" y="${(cy0+3.5).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--text-primary)">${MON_LBL[mi]}${c&&c.fc?'*':''}</text>`;
+      if(c&&c.val!=null){
+        const xa=Math.min(x0,xOf(c.val)), wdt=Math.max(2,Math.abs(xOf(c.val)-x0));
+        svg+=`<rect x="${xa.toFixed(1)}" y="${(cy0-11).toFixed(1)}" width="${wdt.toFixed(1)}" height="9" rx="2"
+          fill="var(--cat1)"${c.fc?' fill-opacity="0.45" stroke="var(--cat1)" stroke-dasharray="3 2"':''}><title>${MON_LBL[mi]} ${esc(yearCY)}${c.fc?' (FC)':''}: ${fmtFull(c.val)}</title></rect>`;
+        svg+=`<text x="${W-8}" y="${(cy0-2).toFixed(1)}" text-anchor="end" font-size="10.5" font-weight="600" fill="${c.val<0?'var(--status-critical)':'var(--text-primary)'}">${fmt(c.val)}</text>`;
+      }
+      if(p&&p.val!=null){
+        const xa=Math.min(x0,xOf(p.val)), wdt=Math.max(2,Math.abs(xOf(p.val)-x0));
+        svg+=`<rect x="${xa.toFixed(1)}" y="${(cy0+2).toFixed(1)}" width="${wdt.toFixed(1)}" height="9" rx="2"
+          fill="var(--cat2)"><title>${MON_LBL[mi]} ${esc(yearPY)}: ${fmtFull(p.val)}</title></rect>`;
+        svg+=`<text x="${W-8}" y="${(cy0+10).toFixed(1)}" text-anchor="end" font-size="10.5" fill="var(--text-secondary)">${fmt(p.val)}</text>`;
+      }
+    });
+    if(min<0) svg+=`<line x1="${x0.toFixed(1)}" x2="${x0.toFixed(1)}" y1="${T2}" y2="${H-T2}" stroke="var(--border-strong)"/>`;
+    if(cySeries.some(p=>p.fc)) svg+=`<text x="${labelW}" y="${H-2}" font-size="9.5" fill="var(--text-muted)">* forecast</text>`;
+  }
+  el.innerHTML=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly trend ${type} chart">${svg}</svg></div>`;
+}
+function lineChart(el, cySeries, pySeries, yearCY, yearPY, area){
   const W=760, H=260, L=56, R=64, T=16, B=28;
   const pts=[...cySeries,...pySeries].map(p=>p.val).filter(v=>v!=null);
   el.innerHTML='';
@@ -913,6 +980,13 @@ function lineChart(el, cySeries, pySeries, yearCY, yearPY){
     return {sldPath, fcPath, marks};
   }
   const cp=pathFor(cySeries,true), pp=pathFor(pySeries,false);
+  let areaPath='';
+  if(area){
+    const pts=cySeries.filter(p=>p.val!=null&&!p.fc).map(p=>[x(p.m),y(p.val)]);
+    if(pts.length>1){
+      areaPath=`<path d="M${pts.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L')} L${pts[pts.length-1][0].toFixed(1)} ${y(0).toFixed(1)} L${pts[0][0].toFixed(1)} ${y(0).toFixed(1)} Z" fill="var(--series-1)" opacity="0.13"/>`;
+    }
+  }
   const zero=(min<0&&max>0)? `<line x1="${L}" x2="${W-R}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--border-strong)" stroke-width="1"/>`:'';
   const lastOf=s=>{ for(let i=s.length-1;i>=0;i--) if(s[i].val!=null) return s[i]; return null; };
   const lc=lastOf(cySeries), lp=lastOf(pySeries);
@@ -924,7 +998,7 @@ function lineChart(el, cySeries, pySeries, yearCY, yearPY){
   svg.setAttribute('width','100%');
   svg.style.minWidth='560px';
   svg.style.display='block';
-  svg.innerHTML = grid+zero+axis+
+  svg.innerHTML = grid+zero+axis+areaPath+
     `<path d="${pp.sldPath}" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`+
     `<path d="${cp.sldPath}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`+
     `<path d="${cp.fcPath}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-dasharray="4 4"/>`+
@@ -1416,10 +1490,13 @@ function renderDrill(){
   const rg=rag(k.varPct,S.thresh);
   $('trendTitle').innerHTML=`${esc(scopeName)} — monthly trend &nbsp;${ragPill(rg)}`;
   $('trendSub').textContent=`YTD ${ytdLabel()}: ${fmtFull(k.cy)} vs ${m.yearPY} ${fmtFull(k.py)} (${fmtPct(k.varPct)})`;
+  const tt0=S.trendType||'line';
+  $('trendType').value=tt0;
+  const fcNote=tt0==='line'||tt0==='area'?'(○ dashed = forecast)':'(outlined = forecast)';
   $('trendLegend').innerHTML=
-    `<span><span class="sw" style="background:var(--series-1)"></span>${esc(m.yearCY)} actual (○ dashed = forecast)</span>`+
+    `<span><span class="sw" style="background:var(--series-1)"></span>${esc(m.yearCY)} actual ${fcNote}</span>`+
     (m.pyMonths.length?`<span><span class="sw" style="background:var(--series-2)"></span>${esc(m.yearPY)} actual</span>`:'');
-  lineChart($('trendChart'), k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY);
+  trendChart($('trendChart'), k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY, tt0);
   // trend as table
   const tt=$('trendTable');
   tt.innerHTML=`<div class="rvwwrap slim" style="max-width:420px"><table class="grid review"><thead><tr><th>Month</th><th>${esc(m.yearCY)}</th><th>${esc(m.yearPY)}</th></tr></thead><tbody>`+
@@ -2248,7 +2325,10 @@ function renderCustom(){
     const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
       Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
         `<option value="${k}"${gArr(w.cfg.groupBy)[0]===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('')
-      }</select><select class="wtype" aria-label="Chart type">${typeOptions(w.cfg.type)}</select>`:'';
+      }</select><select class="wtype" aria-label="Chart type">${typeOptions(w.cfg.type)}</select>`
+      : w.type==='trend'?`<select class="wttype" aria-label="Chart type">${
+        [['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar']].map(([v,l])=>
+          `<option value="${v}"${(w.ttype||'line')===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
     let head=`<div class="whead" draggable="true" title="Drag to rearrange">
       <span class="grip" aria-hidden="true">⠿</span><h5>${esc(widgetTitle(w))}</h5>${typeSel}
       <button class="wexport" title="Export data to Excel" aria-label="Export data to Excel">⤓</button>
@@ -2283,8 +2363,14 @@ function renderCustom(){
         });
       }
     }
-    if(rows.length && w.type==='trend')
-      lineChart(div.querySelector('.wchart'), k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY);
+    if(rows.length && w.type==='trend'){
+      trendChart(div.querySelector('.wchart'), k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY, w.ttype||'line');
+      const sel=div.querySelector('.wttype'), headEl1=div.querySelector('.whead');
+      sel.addEventListener('pointerdown',()=>headEl1.setAttribute('draggable','false'));
+      sel.addEventListener('pointerup',()=>headEl1.setAttribute('draggable','true'));
+      sel.addEventListener('mouseleave',()=>headEl1.setAttribute('draggable','true'));
+      sel.addEventListener('change',()=>{ w.ttype=sel.value; saveWidgets(); renderCustom(); });
+    }
     if(rows.length && (w.type==='l3'||w.type==='products')){
       const key=w.type==='l3'?'micaL3':'prodL2';
       const groups=[...groupBy(rows,key).entries()]
@@ -2454,6 +2540,12 @@ function init(){
     render();
   });
   $('fThresh').addEventListener('change',e=>{S.thresh=+e.target.value;render();});
+  S.trendType=(()=>{ try{ return localStorage.getItem('iwpbsg_trendtype')||'line'; }catch(e){ return 'line'; } })();
+  $('trendType').addEventListener('change',e=>{
+    S.trendType=e.target.value;
+    try{ localStorage.setItem('iwpbsg_trendtype',S.trendType); }catch(err){}
+    renderDrill();
+  });
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navCustom').addEventListener('click',()=>setView('custom'));
   $('navBuilder').addEventListener('click',()=>setView('builder'));
@@ -2531,7 +2623,7 @@ function init(){
         else{
           const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
           const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
-          lineChart(div, k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY);
+          trendChart(div, k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY, w.ttype||'line');
         }
         el=host;
       }
