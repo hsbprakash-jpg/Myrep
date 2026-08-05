@@ -2839,7 +2839,8 @@ function renderSim(){
     renderSim();
   }));
   // rules
-  const dims=Object.keys(ALL_DIM_LABELS).filter(k2=>k2 in m.dimCols);
+  // rule scope is governed to the MICA hierarchy only
+  const dims=['micaL1','micaL2','micaL3','mica'].filter(k2=>k2 in m.dimCols);
   const vals=d=>[...new Set(m.rows.map(r=>String(r.d[d]||'')).filter(Boolean))].sort();
   const mOpt=sel=>fc.map(p=>`<option value="${p.m}"${+sel===p.m?' selected':''}>${MON_LBL[p.m]}</option>`).join('');
   $('simRules').innerHTML= fc.length? SIM.rules.map((r,i)=>`
