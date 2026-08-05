@@ -540,6 +540,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <div class="sub">Management reporting · KPI insights</div>
     </div>
   </div>
+  <button class="btn-quiet" id="btnNewFile" hidden style="margin:10px 18px 0;width:calc(100% - 36px)" data-lbl="btn_newfile">Load new Driller</button>
   <div class="sect" data-lbl="sect_dashboards">KPI Dashboards</div>
   <nav>
     <button id="navSummary" class="active">
@@ -596,8 +597,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="outFields"></div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
-    <span id="fileNote" class="note" style="font-size:10px"></span><br>
-    <button class="btn-quiet" id="btnNewFile" hidden style="margin-top:8px">Load new file</button>
+    <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
 </aside>
 <main>
@@ -909,6 +909,7 @@ const CFG_DEFAULT={
     sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
     sect_config:'Configuration', sect_period:'Period & RAG',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
+    btn_newfile:'Load new Driller',
     lbl_ytd:'YTD through', lbl_fc:'Include forecast month', lbl_tol:'RAG tolerance',
     kpi_hint:'Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card'
   }
