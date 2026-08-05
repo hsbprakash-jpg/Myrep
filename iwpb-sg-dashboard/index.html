@@ -847,6 +847,7 @@ const CFG_DEFAULT={
     tile_level:'auto',
     collapse_rest:'Y',
     rag_tolerance:'0.05',
+    rag_tolerance_options:'0,0.03,0.05,0.10',
     fc_label_pattern:'forecast|fcst|\\bfc\\b',
     target_label_pattern:'\\btarget\\b|\\btgt\\b|target|tgt',
     cost_patterns:'cost|\\becl\\b|expected\\s+credit|impair|expense',
@@ -3405,13 +3406,19 @@ function applyCfgDom(){
   const NAVV={summary:'navSummary',custom:'navCustom',builder:'navBuilder',query:'navQuery',
     table:'navTable',assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
-  const th=parseFloat(cfgS('rag_tolerance'));
-  if(isFinite(th)&&th>=0){ const sel=$('fThresh');
-    if(sel){ if(![...sel.options].some(o=>+o.value===th)){
-        const o=document.createElement('option'); o.value=String(th);
-        o.textContent='±'+Math.round(th*100)+'% tolerance'; sel.appendChild(o); }
-      sel.value=String(th); }
-    S.thresh=th; }
+  const sel=$('fThresh');
+  if(sel){
+    let opts=cfgS('rag_tolerance_options').split(/[,;]/).map(x=>parseFloat(x))
+      .filter(x=>isFinite(x)&&x>=0);
+    if(!opts.length) opts=[0,0.03,0.05,0.10];
+    let th=parseFloat(cfgS('rag_tolerance'));
+    if(!isFinite(th)||th<0) th=opts.includes(0.05)?0.05:opts[0];
+    if(!opts.includes(th)) opts.push(th);
+    opts=[...new Set(opts)].sort((a,b)=>a-b);
+    sel.innerHTML=opts.map(v=>`<option value="${v}"${v===th?' selected':''}>${
+      v===0?'0% tolerance (no Watch band)':'±'+(+(v*100).toFixed(2))+'% tolerance'}</option>`).join('');
+    S.thresh=th;
+  }
   if(!cfgViewOn(S.view)) S.view='summary';
 }
 function cfgFromWorkbook(wb){
