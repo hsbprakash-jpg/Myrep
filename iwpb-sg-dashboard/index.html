@@ -1198,9 +1198,9 @@ function fcBasis(m){
 /* comparison series for monthly trend visuals — same basis everywhere:
    prior year when present, else the phased forecast, else the phased target */
 function cmpTrend(k,m){
+  // only a real prior-year series is drawn as a comparison line — the phased
+  // forecast/target reference lines are intentionally omitted
   if(m.pyMonths.length) return {series:k.pySeries, name:m.yearPY};
-  if(k.fyFc!=null) return {series:m.cyMonths.map(p=>({m:p.m,fc:false,val:k.fyFc*fcWeight(m,p.m)})), name:'Forecast'};
-  if(k.target!=null) return {series:m.cyMonths.map(p=>({m:p.m,fc:false,val:k.target*fcWeight(m,p.m)})), name:'Target'};
   return {series:[], name:''};
 }
 function scatterBase(k,m){ return m.pyMonths.length? k.py : (k.ytdFc!=null? k.ytdFc : k.ytdTgt); }
@@ -1655,7 +1655,7 @@ function renderSummary(){
     : [['YTD actuals',fmt(kT.cy)]];
   traj.innerHTML=`<div class="panel-head">
       <div><h4>Performance trajectory ${ragPill(rgT)}</h4>
-      <p class="subtitle">${esc(totName)} — ${esc(m.yearCY)} monthly actuals${hasFC?' + forecast':''}${L.mode==='tgt'?' vs pro-rated FY target':L.mode==='fc'?' vs phased FY forecast':L.mode==='py'?` vs ${esc(m.yearPY)}`:''}</p></div>
+      <p class="subtitle">${esc(totName)} — ${esc(m.yearCY)} monthly actuals${hasFC?' + forecast':''}${L.mode==='py'?` vs ${esc(m.yearPY)}`:''}</p></div>
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
     <div class="chart-wrap" id="trajChart"></div>`;
