@@ -2834,8 +2834,7 @@ function renderSim(){
     else{ const v=st[b.dataset.n];
       SIM=Array.isArray(v)? {name:b.dataset.n, rules:v, by:'micaL1'}
         : {name:b.dataset.n, rules:(v&&v.rules)||[], by:(v&&v.by)||'micaL1'};
-      saveSimCur();
-      SIM_LAST=JSON.parse(JSON.stringify(SIM.rules)); }
+      saveSimCur(); }   // staged only — results change when Run is pressed
     renderSim();
   }));
   // rules
