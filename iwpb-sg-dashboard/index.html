@@ -838,6 +838,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 /* ================= parsing ================= */
 const MON = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 const MON_LBL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MON_LBL_BASE = [...MON_LBL];
 
 const DIM_SPECS = [
   {key:'mica',     label:'MICA',             test:n=>n==='mica'},
@@ -879,6 +880,7 @@ const CFG_DEFAULT={
     dashboard_page_size:'6',
     font_greeting:'', font_commentary:'', font_eyebrow:'',
     sim_value_width:'50',
+    month_case:'upper',
     calc_ytd_actuals:'column',
     calc_fy_forecast:'column',
     calc_ytd_forecast:'even',
@@ -3757,6 +3759,8 @@ function applyCfgDom(){
   fpx('font_greeting','.greet');
   fpx('font_commentary','.commentary');
   fpx('font_eyebrow','.eyebrow');
+  const upM=cfgS('month_case').toLowerCase()!=='title';
+  for(let i=0;i<MON_LBL.length;i++) MON_LBL[i]=upM? MON_LBL_BASE[i].toUpperCase() : MON_LBL_BASE[i];
   const svw=parseFloat(cfgS('sim_value_width'));
   document.documentElement.style.setProperty('--sim-val-w', (isFinite(svw)&&svw>=10? svw : 50)+'ch');
   const NAVV={summary:'navSummary',custom:'navCustom',builder:'navBuilder',query:'navQuery',
