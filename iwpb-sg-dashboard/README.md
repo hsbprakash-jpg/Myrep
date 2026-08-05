@@ -108,6 +108,37 @@ in revenue rates Favourable while an increase in costs or ECL rates
 Unfavourable, whichever sign convention the file stores costs in (signed
 negatives or positive magnitudes).
 
+## Configuration
+
+The app's behavioural rules are externalised into an uploadable
+configuration — **left pane → Configuration → Upload config**. Two formats
+are accepted, both parsed locally:
+
+- an **xlsx workbook with a sheet per section** — `Settings`,
+  `TilePriority`, `Dimensions`, `Views`
+- a **flat CSV** with columns `Sheet,Key,Value,Extra1,Extra2`
+  (`IWPB_SG_dashboard_config.csv` in this folder is the template, also
+  downloadable in-app)
+
+What each section governs:
+
+- **Settings** — app title/subtitle/eyebrow, landing page title, total
+  tile label, tile grouping level (`auto`/`level1`/`level2`), collapse of
+  non-priority tiles, default RAG tolerance, the regex patterns that
+  recognise Forecast and Target columns, the cost/ECL direction patterns,
+  the hidden-comparison patterns for target-only files, and the My
+  dashboard page size.
+- **TilePriority** — the ordered name patterns pinning the top KPI tiles.
+- **Dimensions** — per dimension: display label override, whether it
+  appears in the left-pane filters (`Extra1` = Y/N) and whether it is
+  offered as a simulation rule scope (`Extra2` = Y/N).
+- **Views** — enable/disable each page (summary, custom, builder, query,
+  table, assist, sim).
+
+The applied config persists in the browser and re-parses the cached data
+file immediately; **Reset to defaults** reverts everything. Blank values
+fall back to defaults, and an unreadable config never breaks the app.
+
 ## Sample data
 
 `sample/IWPB_SG_Driller_sample.xlsx` mirrors the real file's 15 dimension +

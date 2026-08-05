@@ -1,0 +1,43 @@
+Sheet,Key,Value,Extra1,Extra2
+Settings,app_title,IWPB Singapore Driller,,
+Settings,app_subtitle,Management reporting · KPI insights,,
+Settings,eyebrow,HSBC Management Reporting : IWPB Singapore Driller,,
+Settings,landing_title,Financial Performance,,
+Settings,total_label,Total P&L,,
+Settings,tile_level,auto,,
+Settings,collapse_rest,Y,,
+Settings,rag_tolerance,0.05,,
+Settings,fc_label_pattern,forecast|fcst|\bfc\b,,
+Settings,target_label_pattern,\btarget\b|\btgt\b|target|tgt,,
+Settings,cost_patterns,cost|\becl\b|expected\s+credit|impair|expense,,
+Settings,hidden_cmp_patterns,direct\s*costs?|costs?\s*[-–]?\s*(direct|indirect)|indirect\s*costs?|\becl\b|expected\s+credit,,
+Settings,dashboard_page_size,6,,
+TilePriority,1,revenue,,
+TilePriority,2,net\s*interest|\bnii\b,,
+TilePriority,3,trading,,
+TilePriority,4,\bfee,,
+TilePriority,5,\bdirect\s*cost,,
+TilePriority,6,^costs?$,,
+TilePriority,7,\becl\b|expected\s+credit,,
+Dimensions,mica,MICA code,Y,Y
+Dimensions,micaL3,MICA Level 3,Y,Y
+Dimensions,micaL2,MICA Level 2,Y,Y
+Dimensions,micaL1,P&L Level 1,Y,Y
+Dimensions,prodCode,Product code,Y,N
+Dimensions,prodL3,Product Level 3,Y,N
+Dimensions,prodL2,Product Family,Y,N
+Dimensions,prodL1,Product Level 1,Y,N
+Dimensions,segCode,Segment code,Y,N
+Dimensions,cgL2,Segment (CG L2),Y,N
+Dimensions,cgL1,CG Level 1,Y,N
+Dimensions,funcCode,Function code,Y,N
+Dimensions,funcL2,Function (L2),Y,N
+Dimensions,funcL1,Function Level 1,Y,N
+Dimensions,entity,Entity,Y,N
+Views,summary,Y,,
+Views,custom,Y,,
+Views,builder,Y,,
+Views,query,Y,,
+Views,table,Y,,
+Views,assist,Y,,
+Views,sim,Y,,

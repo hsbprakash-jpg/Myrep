@@ -328,6 +328,9 @@ main{flex:1;min-width:0;padding:20px 26px}
 #dropZone .hint{color:var(--text-secondary);font-size:12.5px}
 #uploadView h2{margin:0 0 4px;font-size:18px}
 #uploadView .lede{color:var(--text-secondary);margin:0 0 22px}
+#cfgPanel{padding:2px 16px 14px;display:flex;flex-direction:column;gap:7px;font-size:12px}
+#cfgPanel .linklike{background:none;border:none;color:var(--hsbc-red);cursor:pointer;font:inherit;font-size:11.5px;padding:0}
+#cfgPanel .linklike:hover{text-decoration:underline}
 #ingestReport{margin-top:18px;font-size:13px}
 #ingestReport .ok{color:var(--status-good)}
 #ingestReport .err{color:var(--status-critical)}
@@ -536,6 +539,14 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div class="sect">KPIs · MICA Level 2</div>
   <div id="kpiNav"></div>
   <div class="hint">Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card</div>
+  <div class="sect">Configuration</div>
+  <div id="cfgPanel">
+    <button class="btn-quiet" id="btnCfgUpload">⤒ Upload config (xlsx / csv)</button>
+    <input type="file" id="cfgInput" accept=".xlsx,.xls,.csv" hidden>
+    <div><button class="linklike" id="btnCfgTemplate">Download template CSV</button> ·
+      <button class="linklike" id="btnCfgReset">Reset to defaults</button></div>
+    <div class="note" id="cfgStatus"></div>
+  </div>
   <div class="sect">Period &amp; RAG</div>
   <div id="sideFilters">
     <label>YTD through <select id="fMonth"></select></label>
@@ -821,14 +832,65 @@ const DIM_SPECS = [
   {key:'entity',   label:'Entity code',      test:n=>n.includes('entitycode')||n.includes('entity')},
 ];
 
+/* ================= uploadable configuration =================
+   Every behavioural rule below reads from CFG; upload a config workbook
+   (sheet per section) or flat CSV (Sheet,Key,Value,Extra1,Extra2) to
+   override without touching code. */
+const CFG_DEFAULT={
+  settings:{
+    app_title:'IWPB Singapore Driller',
+    app_subtitle:'Management reporting · KPI insights',
+    eyebrow:'HSBC Management Reporting : IWPB Singapore Driller',
+    landing_title:'Financial Performance',
+    total_label:'Total P&L',
+    tile_level:'auto',
+    collapse_rest:'Y',
+    rag_tolerance:'0.05',
+    fc_label_pattern:'forecast|fcst|\\bfc\\b',
+    target_label_pattern:'\\btarget\\b|\\btgt\\b|target|tgt',
+    cost_patterns:'cost|\\becl\\b|expected\\s+credit|impair|expense',
+    hidden_cmp_patterns:'direct\\s*costs?|costs?\\s*[-\u2013]?\\s*(direct|indirect)|indirect\\s*costs?|\\becl\\b|expected\\s+credit',
+    dashboard_page_size:'6'
+  },
+  tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
+  dimensions:{},
+  views:{summary:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'}
+};
+for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:/^mica/.test(sp.key)?'Y':'N'};
+let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null');
+  if(v&&v.settings) return v; }catch(e){} return JSON.parse(JSON.stringify(CFG_DEFAULT)); })();
+let RE_FC,RE_TGT,RE_COST,RE_HIDE,PRIO_RES;
+function cfgS(k){ const v=CFG.settings&&CFG.settings[k]; return (v==null||v==='')? CFG_DEFAULT.settings[k] : String(v); }
+function cfgYes(k){ return String(cfgS(k)).trim().toUpperCase()!=='N'; }
+function cfgRe(str,fb){ try{ return new RegExp(str||fb,'i'); }catch(e){ return new RegExp(fb,'i'); } }
+function cfgCompile(){
+  RE_FC=cfgRe(cfgS('fc_label_pattern'),CFG_DEFAULT.settings.fc_label_pattern);
+  RE_TGT=cfgRe(cfgS('target_label_pattern'),CFG_DEFAULT.settings.target_label_pattern);
+  RE_COST=cfgRe(cfgS('cost_patterns'),CFG_DEFAULT.settings.cost_patterns);
+  RE_HIDE=cfgRe(cfgS('hidden_cmp_patterns'),CFG_DEFAULT.settings.hidden_cmp_patterns);
+  PRIO_RES=((CFG.tilePriority&&CFG.tilePriority.length)?CFG.tilePriority:CFG_DEFAULT.tilePriority)
+    .map(p2=>{ try{ return new RegExp(p2,'i'); }catch(e){ return null; } }).filter(Boolean);
+}
+cfgCompile();
+function cfgDim(k){ return (CFG.dimensions&&CFG.dimensions[k])||CFG_DEFAULT.dimensions[k]||{}; }
+function cfgDimShow(k){ return String(cfgDim(k).filter==null?'Y':cfgDim(k).filter).toUpperCase()!=='N'; }
+function cfgSimDims(){
+  const out=Object.keys(CFG_DEFAULT.dimensions).filter(k=>String(cfgDim(k).sim==null?'N':cfgDim(k).sim).toUpperCase()==='Y');
+  return out.length?out:['micaL1','micaL2','micaL3','mica'];
+}
+function cfgTileL1(nL1){ const v=cfgS('tile_level').toLowerCase();
+  return v==='level1'?true : v==='level2'?false : nL1>1; }
+function cfgViewOn(v){ return String((CFG.views&&CFG.views[v])==null?'Y':CFG.views[v]).toUpperCase()!=='N'; }
+function cfgPage(){ return Math.max(1,parseInt(cfgS('dashboard_page_size'))||6); }
+
 function normH(h){ return String(h==null?'':h).toLowerCase().replace(/[^a-z0-9]/g,''); }
 
 function classifyPeriod(raw, bandVal){
   const t = String(raw==null?'':raw).trim().toLowerCase();
   if(!t) return null;
   const b = String(bandVal||'').toLowerCase();
-  const isFc = /\bfc\b|forecast/.test(t) || b.includes('forecast');
-  const isTarget = b.includes('target') || b.includes('tgt') || /\btarget\b|\btgt\b/.test(t);
+  const isFc = RE_FC.test(t) || RE_FC.test(b);
+  const isTarget = RE_TGT.test(t) || RE_TGT.test(b);
   if(t.includes('ytd')){
     const mi=MON.findIndex(mn=>t.startsWith(mn));
     const ym=t.match(/ytd[\s\-']*(?:20)?(\d{2})\b/);
@@ -972,7 +1034,7 @@ function parseSheet(aoa){
   // FY actuals for the PRIOR year (e.g. FY-25 when the file is 2026) — taken
   // as-is from its column; latest prior year wins, one column only
   let fyPriorCols=ytdCols.filter(p=>{
-    if(!p.fy||p.target||/forecast|fcst|\bfc\b/i.test(String(p.label))) return false;
+    if(!p.fy||p.target||RE_FC.test(String(p.label))) return false;
     const yy=fyYY(p.label);
     return yy!=null&&yy!==cyYY;
   });
@@ -984,7 +1046,7 @@ function parseSheet(aoa){
   // current-year FY forecast column — a label naming it Forecast/Fcst/FC wins,
   // then a Forecast band marking, then (no prior year) any current-year FY
   // column that isn't the target
-  let fyFcCols=ytdCols.filter(p=>p.fy&&!p.target&&isCYFY(p)&&/forecast|fcst|\bfc\b/i.test(String(p.label)));
+  let fyFcCols=ytdCols.filter(p=>p.fy&&!p.target&&isCYFY(p)&&RE_FC.test(String(p.label)));
   if(!fyFcCols.length)
     fyFcCols=ytdCols.filter(p=>p.fy&&!p.target&&p.fc&&isCYFY(p));
   if(!fyFcCols.length&&!pyMonths.length)
@@ -1054,7 +1116,7 @@ function kpi(rows, model, ytdM, includeFC){
   // negatives already point the variance the right way; files storing cost
   // magnitudes as positives need the sign flipped before RAG rating.
   const costLike = rows.length>0 && rows.every(r=>
-    /cost|\becl\b|expected\s+credit|impair|expense/i.test((r.d.micaL1||'')+' '+(r.d.micaL2||'')));
+    RE_COST.test((r.d.micaL1||'')+' '+(r.d.micaL2||'')));
   const mainVal = cy!=null&&cy!==0? cy : cmpBase;
   const flip = costLike && (mainVal||0)>0;
   const favVarPct = cmpVarPct==null? null : (flip? -cmpVarPct : cmpVarPct);
@@ -1068,7 +1130,7 @@ function kpi(rows, model, ytdM, includeFC){
 function cmpHidden(name){
   if(!S.model||S.model.pyMonths.length) return false;
   if(fcBasis(S.model)) return false;
-  return /direct\s*costs?|costs?\s*[-–]?\s*(direct|indirect)|indirect\s*costs?|\becl\b|expected\s+credit/i.test(String(name||''));
+  return RE_HIDE.test(String(name||''));
 }
 /* comparison rows for a driller-style KPI tile: label + variance amount + % */
 function tileRows(k,m){
@@ -1346,7 +1408,7 @@ function fillFilters(){
   const dimsDiv=$('dimFilters'); dimsDiv.innerHTML='';
   for(const spec of DIM_SPECS){
     const k=spec.key;
-    if(!(k in m.dimCols)) continue;
+    if(!(k in m.dimCols)||!cfgDimShow(k)) continue;
     const vals=[...new Set(m.rows.map(r=>r.d[k]||'(blank)'))].sort();
     const det=document.createElement('details');
     det.className='fltgrp';
@@ -1389,7 +1451,7 @@ function fillFilters(){
     ['quarters','Quarterly columns',m.quarterCols.length],['ytd','YTD columns',m.ytdCols.length]].filter(g=>g[2]>0);
   const of=$('outFields');
   of.innerHTML=`<div class="ofh">Dimensions</div>`+
-    DIM_SPECS.filter(s=>s.key in m.dimCols).map(s=>
+    DIM_SPECS.filter(s=>s.key in m.dimCols&&cfgDimShow(s.key)).map(s=>
       `<label><input type="checkbox" data-dim="${s.key}"${S.outDims.has(s.key)?' checked':''}><span>${esc(ALL_DIM_LABELS[s.key]||s.label)}</span></label>`).join('')+
     `<div class="ofh">Period columns</div>`+
     PGROUPS.map(([k,lbl,n])=>
@@ -1434,7 +1496,7 @@ function renderSummary(){
   // KPI tiles per MICA Level 1 (most material first); a degenerate file with
   // a single Level 1 value keeps the Level 2 tiles
   const byL1g=groupBy(rows,'micaL1');
-  const tileL1=byL1g.size>1;
+  const tileL1=cfgTileL1(byL1g.size);
   const cards=[...(tileL1?byL1g:groupBy(rows,'micaL2')).entries()].map(([nm,rs])=>{
     const k=kpi(rs,m,S.ytdM,S.includeFC);
     return {l2:nm, l1:tileL1?nm:rs[0].d.micaL1, rows:rs, k};
@@ -1446,8 +1508,8 @@ function renderSummary(){
   const best=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct>=b.k.favVarPct?a:b):null;
   const worst=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct<=b.k.favVarPct?a:b):null;
   const l1name=[...byL1g.keys()][0]||'Revenue';
-  const totName=tileL1? 'Total P&L' : `Total ${l1name}`;
-  let cm=`${esc(tileL1?'Total P&L':l1name)} of <b>${fmt(kT.cy)}</b> for YTD ${esc(ytdLabel())}`;
+  const totName=tileL1? cfgS('total_label') : `Total ${l1name}`;
+  let cm=`${esc(tileL1?cfgS('total_label'):l1name)} of <b>${fmt(kT.cy)}</b> for YTD ${esc(ytdLabel())}`;
   if(kT.cmpVarPct!=null){
     const dir=kT.cmpVarPct>=0?(L.mode==='tgt'?'above FY target':L.mode==='fc'?'ahead of the YTD forecast':'ahead of prior year')
                              :(L.mode==='tgt'?'below FY target':L.mode==='fc'?'behind the YTD forecast':'behind prior year');
@@ -1460,7 +1522,7 @@ function renderSummary(){
   } else cm+='; this file carries no comparison baseline.';
   $('commentary').innerHTML=cm;
 
-  $('landingTitle').textContent=`Financial Performance — ${MON_LBL[S.ytdM]} ${m.yearCY}`;
+  $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY}`;
   const lvl=tileL1?'MICA Level 1':'MICA Level 2';
   $('summaryLede').textContent= L.mode==='tgt'
     ? `RAG by ${lvl} — full-year outlook (Jan–Dec months only) against the FY target column · figures in US$ as reported.`
@@ -1493,17 +1555,17 @@ function renderSummary(){
     </button>`;
   };
   // top KPIs first (Total, NII, Trading, Fees, Direct Costs, ECL); collapse the rest
-  const PRIORITY=[/revenue/i, /net\s*interest|\bnii\b/i, /trading/i, /\bfee/i, /\bdirect\s*cost/i, /^costs?$/i, /\becl\b|expected\s+credit/i];
+  const PRIORITY=PRIO_RES;
   const prio=[], rest=[...cards];
   for(const rx of PRIORITY){
     const i=rest.findIndex(c=>rx.test(c.l2));
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const shown=S.showAllKpis? [...prio,...rest] : prio;
+  const shown=(S.showAllKpis||!cfgYes('collapse_rest'))? [...prio,...rest] : prio;
   $('cardGrid').innerHTML=
     cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false)+
     shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${scPfx}${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
-    (rest.length?`<button class="card morecard" id="btnMoreKpis">${
+    (rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'');
   const moreBtn=$('btnMoreKpis');
   if(moreBtn) moreBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showAllKpis=!S.showAllKpis; renderSummary(); });
@@ -1700,19 +1762,19 @@ function svgToPngData(svgEl, scale){
 async function exportSummaryPPT(){
   const m=S.model, rows=filteredRows();
   const l1g=groupBy(rows,'micaL1');
-  const tileL1=l1g.size>1;
+  const tileL1=cfgTileL1(l1g.size);
   const byL2=[...(tileL1?l1g:groupBy(rows,'micaL2')).entries()]
     .map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
   const l1name=[...l1g.keys()][0]||'Revenue';
-  const PRIORITY=[/revenue/i, /net\s*interest|\bnii\b/i, /trading/i, /\bfee/i, /\bdirect\s*cost/i, /^costs?$/i, /\becl\b|expected\s+credit/i];
+  const PRIORITY=PRIO_RES;
   const prio=[], rest=[...byL2];
   for(const rx of PRIORITY){
     const i=rest.findIndex(c=>rx.test(c.l2));
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const tiles=[{name:tileL1?'Total P&L':`Total ${l1name}`,k:kT,hide:false},
+  const tiles=[{name:tileL1?cfgS('total_label'):`Total ${l1name}`,k:kT,hide:false},
     ...[...prio,...rest].map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
   const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
     return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
@@ -1724,7 +1786,7 @@ async function exportSummaryPPT(){
   const cellFs=t2=>String(t2).length>8? 8.5 : 9.5;
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const slide=p.addSlide(); slide.background={color:'FFFFFF'};
-  slide.addText(`Financial Performance \u2014 ${MON_LBL[S.ytdM]} ${m.yearCY}`,
+  slide.addText(`${cfgS('landing_title')} \u2014 ${MON_LBL[S.ytdM]} ${m.yearCY}`,
     {x:0.4,y:0.2,w:12.5,h:0.5,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI'});
   slide.addText(`${MON_LBL[S.ytdM]} YTD financial dashboard \u00b7 figures in US$ as reported`,
     {x:0.4,y:0.7,w:12.5,h:0.3,fontSize:11,color:'52514E',fontFace:'Segoe UI'});
@@ -2768,7 +2830,7 @@ function simAgg(rules){
   const by=(SIM.by&&SIM.by in m.dimCols)? SIM.by : 'micaL1';
   const groups=[...groupBy(rows,by).entries()].map(([n,rs])=>gRow(n||'(blank)',rs))
     .sort((a,b)=>Math.abs(b.baseOut||0)-Math.abs(a.baseOut||0));
-  const total=gRow('Total P&L',rows);
+  const total=gRow(cfgS('total_label'),rows);
   const actSeries=actMonths.filter(p=>p.m<=S.ytdM||true).map(p=>({m:p.m,val:sumCols(rows,[p.col])}));
   const baseSeries=fcMonths.map(p=>({m:p.m,val:sumBase(rows,[p])}));
   const simSeries=fcMonths.map(p=>({m:p.m,val:sumSim(rows,[p])}));
@@ -2842,8 +2904,8 @@ function renderSim(){
     });
   }
   // rules
-  // rule scope is governed to the MICA hierarchy only
-  const dims=['micaL1','micaL2','micaL3','mica'].filter(k2=>k2 in m.dimCols);
+  // rule scope dims come from the configuration (defaults to the MICA hierarchy)
+  const dims=cfgSimDims().filter(k2=>k2 in m.dimCols);
   const vals=d=>[...new Set(m.rows.map(r=>String(r.d[d]||'')).filter(Boolean))].sort();
   const mOpt=sel=>fc.map(p=>`<option value="${p.m}"${+sel===p.m?' selected':''}>${MON_LBL[p.m]}</option>`).join('');
   $('simRules').innerHTML= fc.length? SIM.rules.map((r,i)=>`
@@ -2904,7 +2966,7 @@ function renderSim(){
     </div>
     <div class="chart-wrap" id="simChartEl"></div>
     <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th><th class="num">FY target</th><th class="num">vs tgt prior</th><th class="num">vs tgt sim</th></tr></thead>
-    <tbody>${[...a.groups,t].map(g=>`<tr${g.name==='Total P&L'?' style="font-weight:700"':''}>
+    <tbody>${[...a.groups,t].map(g=>`<tr${g.name===cfgS('total_label')?' style="font-weight:700"':''}>
       <td>${esc(g.name)}</td><td class="num">${fmtCell(g.baseOut)}</td><td class="num">${fmtCell(g.simOut)}</td>
       <td class="num">${fmtCell(g.delta)}</td><td class="num">${fmtCell(g.target)}</td>
       <td class="num">${fmtCell(g.baseVar)}</td><td class="num">${fmtCell(g.simVar)}</td></tr>`).join('')}</tbody></table></div>`;
@@ -3123,7 +3185,7 @@ function renderCustom(){
   const grid=$('dashGrid');
   grid.innerHTML='';
   // max 6 widgets per page; overflow flows onto the next page
-  const PPAGE=6;
+  const PPAGE=cfgPage();
   const pages=Math.max(1,Math.ceil(S.widgets.length/PPAGE));
   dashPage=Math.min(Math.max(1,dashPage),pages);
   const tabs=$('dashPages');
@@ -3295,6 +3357,85 @@ async function refreshCachedInfo(){
   $('btnReuse').addEventListener('click',()=>ingestArrayBuffer(rec.buf, rec.name, true));
   $('btnCacheClear').addEventListener('click',async()=>{ await cacheClear(); refreshCachedInfo(); });
 }
+function applyCfgDom(){
+  cfgCompile();
+  const bh=document.querySelector('.brand h1'); if(bh) bh.textContent=cfgS('app_title');
+  const bs=document.querySelector('.brand .sub'); if(bs) bs.textContent=cfgS('app_subtitle');
+  document.querySelectorAll('.eyebrow').forEach(el=>el.textContent=cfgS('eyebrow'));
+  for(const sp of DIM_SPECS){ const d=cfgDim(sp.key);
+    if(d.label){ ALL_DIM_LABELS[sp.key]=d.label; if(sp.key in FIELD_LABELS) FIELD_LABELS[sp.key]=d.label; } }
+  const NAVV={summary:'navSummary',custom:'navCustom',builder:'navBuilder',query:'navQuery',
+    table:'navTable',assist:'navAssist',sim:'navSim'};
+  for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
+  const th=parseFloat(cfgS('rag_tolerance'));
+  if(isFinite(th)&&th>0){ const sel=$('fThresh');
+    if(sel){ if(![...sel.options].some(o=>+o.value===th)){
+        const o=document.createElement('option'); o.value=String(th);
+        o.textContent='±'+Math.round(th*100)+'% tolerance'; sel.appendChild(o); }
+      sel.value=String(th); }
+    S.thresh=th; }
+  if(!cfgViewOn(S.view)) S.view='summary';
+}
+function cfgFromWorkbook(wb){
+  const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
+  const low=x=>String(x==null?'':x).trim();
+  const tp=[];
+  const handle=(section,rows)=>{
+    const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
+    for(const r of rows){
+      if(!r||r.every(c=>c==null||c==='')) continue;
+      const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]);
+      if(/^(key|order|view|dimension)$/i.test(a)) continue;
+      if(sec==='settings'){ if(a) cfg.settings[a.toLowerCase()]=b2; }
+      else if(sec==='tilepriority'){ const pat=b2||a; if(pat) tp.push(pat); }
+      else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'N'}; }
+      else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
+    }
+  };
+  const first=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null});
+  const hdr0=low((first[0]||[])[0]).toLowerCase();
+  if(wb.SheetNames.length===1&&hdr0==='sheet'){
+    const by={};
+    for(const r of first.slice(1)){ if(!r||r[0]==null||r[0]==='') continue;
+      (by[low(r[0])]=by[low(r[0])]||[]).push(r.slice(1)); }
+    for(const [sec,rows] of Object.entries(by)) handle(sec,rows);
+  } else for(const sn of wb.SheetNames) handle(sn, XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null}));
+  if(tp.length) cfg.tilePriority=tp;
+  return cfg;
+}
+function refreshCfgStatus(){
+  const el=$('cfgStatus'); if(!el) return;
+  el.textContent=localStorage.getItem('iwpbsg_cfg')!=null?'Custom configuration active.':'Default configuration.';
+}
+function handleCfgFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      CFG=cfgFromWorkbook(wb);
+      localStorage.setItem('iwpbsg_cfg',JSON.stringify(CFG));
+      applyCfgDom();
+      cacheGet().then(rec=>{ if(rec&&S.model) ingestArrayBuffer(rec.buf, rec.name, true); else if(S.model) render(); });
+      $('cfgStatus').textContent='✓ Config "'+file.name+'" applied.';
+    }catch(err){ $('cfgStatus').textContent='Config not readable: '+err.message; }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function cfgTemplateCSV(){
+  const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; };
+  const rows=[['Sheet','Key','Value','Extra1','Extra2'],
+    ...Object.entries(CFG_DEFAULT.settings).map(([k,v])=>['Settings',k,v,'','']),
+    ...CFG_DEFAULT.tilePriority.map((p2,i)=>['TilePriority',String(i+1),p2,'','']),
+    ...Object.entries(CFG_DEFAULT.dimensions).map(([k,d])=>['Dimensions',k,ALL_DIM_LABELS[k]||k,d.filter,d.sim]),
+    ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'',''])];
+  return rows.map(r=>r.map(q).join(',')).join('\r\n');
+}
+function downloadCfgTemplate(){
+  const blob=new Blob([cfgTemplateCSV()],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='IWPB_SG_dashboard_config.csv'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
 function handleFile(file){
   const rep=$('ingestReport');
   rep.innerHTML='Reading '+esc(file.name)+'…';
@@ -3430,7 +3571,7 @@ function init(){
   $('btnPin').addEventListener('click',()=>{
     if(!B.groupBy.length) return;
     S.widgets.push({id:newWidgetId(), type:'chart', cfg:{...B, groupBy:[...B.groupBy], splitBy:[...B.splitBy]}});
-    dashPage=Math.ceil(S.widgets.length/6);
+    dashPage=Math.ceil(S.widgets.length/cfgPage());
     saveWidgets();
     const b=$('btnPin'), t=b.textContent;
     b.textContent='Pinned ✓'; setTimeout(()=>{ b.textContent=t; },1200);
@@ -3438,6 +3579,16 @@ function init(){
   $('navTable').addEventListener('click',()=>setView('table'));
   $('navAssist').addEventListener('click',()=>setView('assist'));
   $('navSim').addEventListener('click',()=>setView('sim'));
+  $('btnCfgUpload').addEventListener('click',()=>$('cfgInput').click());
+  $('cfgInput').addEventListener('change',e=>{ if(e.target.files[0]) handleCfgFile(e.target.files[0]); e.target.value=''; });
+  $('btnCfgTemplate').addEventListener('click',downloadCfgTemplate);
+  $('btnCfgReset').addEventListener('click',()=>{
+    localStorage.removeItem('iwpbsg_cfg');
+    CFG=JSON.parse(JSON.stringify(CFG_DEFAULT));
+    applyCfgDom(); refreshCfgStatus();
+    cacheGet().then(rec=>{ if(rec&&S.model) ingestArrayBuffer(rec.buf, rec.name, true); else if(S.model) render(); });
+  });
+  applyCfgDom(); refreshCfgStatus();
   $('btnSimAddRule').addEventListener('click',()=>{ SIM.rules.push(simNewRule()); saveSimCur(); renderSim(); });
   $('simName').addEventListener('change',e=>{ SIM.name=e.target.value; saveSimCur(); });
   $('btnSimSave').addEventListener('click',()=>{
@@ -3498,12 +3649,12 @@ function init(){
     finally{ hosts.forEach(h=>h.remove()); }
   }
   $('btnPptDash').addEventListener('click',()=>
-    exportDashPPT(S.widgets.slice((dashPage-1)*6,dashPage*6),'IWPB_SG_dashboard_p'+dashPage));
+    exportDashPPT(S.widgets.slice((dashPage-1)*cfgPage(),dashPage*cfgPage()),'IWPB_SG_dashboard_p'+dashPage));
   $('btnPptDashAll').addEventListener('click',()=>
     exportDashPPT(S.widgets,'IWPB_SG_dashboard_all'));
   $('btnAddWidget').addEventListener('click',()=>{
     S.widgets.push({id:newWidgetId(), type:$('wType').value, l2:$('wKpi').value||null});
-    dashPage=Math.ceil(S.widgets.length/6);
+    dashPage=Math.ceil(S.widgets.length/cfgPage());
     saveWidgets(); renderCustom();
   });
   $('btnResetDash').addEventListener('click',()=>{
@@ -3518,12 +3669,12 @@ function init(){
     const kpiName=e.dataTransfer.getData('text/x-kpi');
     if(kpiName){
       S.widgets.push({id:newWidgetId(),type:'card',l2:kpiName});
-      dashPage=Math.ceil(S.widgets.length/6);
+      dashPage=Math.ceil(S.widgets.length/cfgPage());
       saveWidgets(); renderCustom(); return;
     }
     const from=e.dataTransfer.getData('text/x-widget');
     if(from!==''){ const [moved]=S.widgets.splice(+from,1); S.widgets.push(moved);
-      dashPage=Math.ceil(S.widgets.length/6); saveWidgets(); renderCustom(); }
+      dashPage=Math.ceil(S.widgets.length/cfgPage()); saveWidgets(); renderCustom(); }
   });
   // whatever way a drag ends, clear any lingering drop-target highlights
   document.addEventListener('dragend',()=>
