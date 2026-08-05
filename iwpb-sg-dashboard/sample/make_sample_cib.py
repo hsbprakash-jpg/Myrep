@@ -37,6 +37,9 @@ MICA_ROWS = [
     ("MP10102020000", "NFI - Fee Expense",       "Net Fee Income",            "Revenue", -1),
     ("MP10103010000", "Trading Income - NII",    "Trading Income",            "Revenue", +1),
     ("MP10103020000", "Trading Income - Income", "Trading Income",            "Revenue", +1),
+    ("MP20101000000", "Staff Costs",             "Direct Costs",              "Costs",   -1),
+    ("MP20102000000", "Allocated Costs",         "Indirect Costs",            "Costs",   -1),
+    ("MP30101000000", "ECL Charge",              "ECL",                       "ECL",     -1),
 ]
 PRODUCTS = [
     ("UNMAPPDT",   "Unmapped Product",                "Unmapped Product"),
