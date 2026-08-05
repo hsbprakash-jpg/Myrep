@@ -1777,7 +1777,7 @@ function renderMix(){
   const mops=measureOpts();
   if(!mops.includes(MX.measure)) MX.measure='cy';
   $('mxMeasure').innerHTML=mops.map(k2=>`<option value="${k2}"${MX.measure===k2?' selected':''}>${esc(measureLabel(k2))}</option>`).join('');
-  $('mxType').innerHTML=typeOptions(MX.type);
+  $('mxType').innerHTML=typeOptions(MX.type, ensureType(MX));
   $('mixTitle').textContent=chartTitle(MX);
   $('mixSub').textContent=`YTD ${ytdLabel()} · change the view with the dropdowns — it follows the filters in the left pane`;
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
@@ -2171,8 +2171,30 @@ function chartTitle(cfg){
 const CHART_TYPES=[['column','Column'],['hbar','Horizontal bar'],['lollipop','Lollipop'],
   ['line','Line'],['area','Area'],['pie','Pie'],['donut','Donut'],['waterfall','Waterfall'],
   ['pareto','Pareto'],['treemap','Treemap'],['scatter','Scatter vs baseline'],['table','Table']];
-function typeOptions(cur){
-  return CHART_TYPES.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('');
+/* chart types that can genuinely represent the current selection:
+   splits need column/hbar/table; negative values break pie/donut/treemap/
+   pareto; scatter needs a comparison baseline and no split */
+function suitableTypes(cfg){
+  const hasSplit=gArr(cfg.splitBy).filter(k=>!gArr(cfg.groupBy).includes(k)).length>0;
+  let neg=false;
+  try{ const {cats}=chartData({...cfg, type:'column', splitBy:[]}); neg=cats.some(c=>(c.val||0)<0); }catch(e){}
+  const m=S.model;
+  const hasBase=!!(m&&(m.pyMonths.length||fcBasis(m)||(m.targetCols&&m.targetCols.length)));
+  return CHART_TYPES.map(([v])=>v).filter(v=>{
+    if(hasSplit&&!SPLIT_TYPES.has(v)) return false;
+    if(neg&&['pie','donut','treemap','pareto'].includes(v)) return false;
+    if(v==='scatter'&&(!hasBase||hasSplit)) return false;
+    return true;
+  });
+}
+function ensureType(cfg){
+  const allowed=suitableTypes(cfg);
+  if(!allowed.includes(cfg.type)) cfg.type=allowed.includes('column')?'column':allowed[0];
+  return allowed;
+}
+function typeOptions(cur, allowed){
+  return CHART_TYPES.filter(([v])=>!allowed||allowed.includes(v))
+    .map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('');
 }
 const SPLIT_TYPES=new Set(['column','hbar','table']);
 function chartData(cfg){
@@ -2561,7 +2583,7 @@ function renderBuilder(){
   const bops=measureOpts();
   if(!bops.includes(B.measure)) B.measure='cy';
   $('bMeasure').innerHTML=bops.map(k2=>`<option value="${k2}"${B.measure===k2?' selected':''}>${esc(measureLabel(k2))}</option>`).join('');
-  $('bType').innerHTML=typeOptions(B.type);
+  $('bType').innerHTML=typeOptions(B.type, ensureType(B));
   // preview
   const pv=$('bPreview'); pv.innerHTML='';
   if(!B.groupBy.length){
@@ -3365,7 +3387,7 @@ function renderCustom(){
     const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
       Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
         `<option value="${k}"${gArr(w.cfg.groupBy)[0]===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('')
-      }</select><select class="wtype" aria-label="Chart type">${typeOptions(w.cfg.type)}</select>`
+      }</select><select class="wtype" aria-label="Chart type">${typeOptions(w.cfg.type, ensureType(w.cfg))}</select>`
       : w.type==='trend'?`<select class="wttype" aria-label="Chart type">${
         [['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar']].map(([v,l])=>
           `<option value="${v}"${(w.ttype||'line')===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
