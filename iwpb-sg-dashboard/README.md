@@ -46,7 +46,8 @@ A single header row with:
 ## Views
 
 - **KPI summary** — driller-style financial-dashboard tiles: one per MICA
-  Level 2 line plus a total, each with the KPI name and headline YTD value,
+  Level 1 rollup (Revenue, Costs, ECL, …) plus a Total P&L tile (files
+  with a single Level 1 value fall back to Level 2 tiles), each with the KPI name and headline YTD value,
   then compact comparison rows (`vs PY`, `vs Fcst`, `vs Target`) showing
   the variance amount and % with direction triangles — the triangle tracks
   the business movement (revenue up ▲, cost up ▲) and the colour the

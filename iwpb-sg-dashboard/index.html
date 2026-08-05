@@ -1344,19 +1344,23 @@ function renderSummary(){
   const hasFC=m.cyMonths.some(p=>p.fc);
   $('greetLine').innerHTML=`${greet} — here's your <b>IWPB Singapore</b> snapshot · data through <b>${MON_LBL[S.ytdM]} ${esc(m.yearCY)}</b>${hasFC?', later months forecast':''}.`;
 
-  // KPI list per MICA Level 2 (most material first)
-  const byL2=groupBy(rows,'micaL2');
-  const cards=[...byL2.entries()].map(([l2,rs])=>{
+  // KPI tiles per MICA Level 1 (most material first); a degenerate file with
+  // a single Level 1 value keeps the Level 2 tiles
+  const byL1g=groupBy(rows,'micaL1');
+  const tileL1=byL1g.size>1;
+  const cards=[...(tileL1?byL1g:groupBy(rows,'micaL2')).entries()].map(([nm,rs])=>{
     const k=kpi(rs,m,S.ytdM,S.includeFC);
-    return {l2, l1:rs[0].d.micaL1, rows:rs, k};
+    return {l2:nm, l1:tileL1?nm:rs[0].d.micaL1, rows:rs, k};
   }).sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  const scPfx=tileL1?'l1:':'';
 
   // auto-written commentary with bold figures
   const withVar=cards.filter(c=>c.k.favVarPct!=null && !cmpHidden(c.l2));
   const best=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct>=b.k.favVarPct?a:b):null;
   const worst=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct<=b.k.favVarPct?a:b):null;
-  const l1name=[...groupBy(rows,'micaL1').keys()][0]||'Revenue';
-  let cm=`${esc(l1name)} of <b>${fmt(kT.cy)}</b> for YTD ${esc(ytdLabel())}`;
+  const l1name=[...byL1g.keys()][0]||'Revenue';
+  const totName=tileL1? 'Total P&L' : `Total ${l1name}`;
+  let cm=`${esc(tileL1?'Total P&L':l1name)} of <b>${fmt(kT.cy)}</b> for YTD ${esc(ytdLabel())}`;
   if(kT.cmpVarPct!=null){
     const dir=kT.cmpVarPct>=0?(L.mode==='tgt'?'above FY target':L.mode==='fc'?'ahead of the YTD forecast':'ahead of prior year')
                              :(L.mode==='tgt'?'below FY target':L.mode==='fc'?'behind the YTD forecast':'behind prior year');
@@ -1370,11 +1374,12 @@ function renderSummary(){
   $('commentary').innerHTML=cm;
 
   $('landingTitle').textContent=`Financial Performance — ${MON_LBL[S.ytdM]} ${m.yearCY}`;
+  const lvl=tileL1?'MICA Level 1':'MICA Level 2';
   $('summaryLede').textContent= L.mode==='tgt'
-    ? 'RAG by MICA Level 2 — full-year outlook (Jan–Dec months only) against the FY target column · figures in US$ as reported.'
-    : L.mode==='py' ? 'RAG by MICA Level 2 — year-to-date actuals against the same prior-year period · figures in US$ as reported.'
-    : L.mode==='fc' ? 'RAG by MICA Level 2 — year-to-date actuals against the YTD forecast (FY forecast phased over elapsed months) · figures in US$ as reported.'
-    : 'MICA Level 2 summary — no comparison baseline in this file · figures in US$ as reported.';
+    ? `RAG by ${lvl} — full-year outlook (Jan–Dec months only) against the FY target column · figures in US$ as reported.`
+    : L.mode==='py' ? `RAG by ${lvl} — year-to-date actuals against the same prior-year period · figures in US$ as reported.`
+    : L.mode==='fc' ? `RAG by ${lvl} — year-to-date actuals against the YTD forecast (FY forecast phased over elapsed months) · figures in US$ as reported.`
+    : `${lvl} summary — no comparison baseline in this file · figures in US$ as reported.`;
 
   // driller-format KPI tiles: name + headline, then vs-comparison rows with
   // direction triangles (colour = favourability, triangle = movement)
@@ -1400,7 +1405,7 @@ function renderSummary(){
     </button>`;
   };
   // top KPIs first (Total, NII, Trading, Fees, Direct Costs, ECL); collapse the rest
-  const PRIORITY=[/net\s*interest|\bnii\b/i, /trading/i, /\bfee/i, /\bdirect\s*cost/i, /\becl\b|expected\s+credit/i];
+  const PRIORITY=[/revenue/i, /net\s*interest|\bnii\b/i, /trading/i, /\bfee/i, /\bdirect\s*cost/i, /^costs?$/i, /\becl\b|expected\s+credit/i];
   const prio=[], rest=[...cards];
   for(const rx of PRIORITY){
     const i=rest.findIndex(c=>rx.test(c.l2));
@@ -1408,8 +1413,8 @@ function renderSummary(){
   }
   const shown=S.showAllKpis? [...prio,...rest] : prio;
   $('cardGrid').innerHTML=
-    cardHtml(`Total ${l1name}`, `All KPIs`, kT, 'data-l2=""', false)+
-    shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
+    cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false)+
+    shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${scPfx}${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
     (rest.length?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'');
   const moreBtn=$('btnMoreKpis');
@@ -1448,7 +1453,7 @@ function renderSummary(){
     : [['YTD actuals',fmt(kT.cy)]];
   traj.innerHTML=`<div class="panel-head">
       <div><h4>Performance trajectory ${ragPill(rgT)}</h4>
-      <p class="subtitle">Total ${esc(l1name)} — ${esc(m.yearCY)} monthly actuals${hasFC?' + forecast':''}${L.mode==='tgt'?' vs pro-rated FY target':L.mode==='fc'?' vs phased FY forecast':L.mode==='py'?` vs ${esc(m.yearPY)}`:''}</p></div>
+      <p class="subtitle">${esc(totName)} — ${esc(m.yearCY)} monthly actuals${hasFC?' + forecast':''}${L.mode==='tgt'?' vs pro-rated FY target':L.mode==='fc'?' vs phased FY forecast':L.mode==='py'?` vs ${esc(m.yearPY)}`:''}</p></div>
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
     <div class="chart-wrap" id="trajChart"></div>`;
@@ -1470,7 +1475,7 @@ function renderSummary(){
       <div class="ahead"><span class="aic" style="color:${col}">${rg.cls==='r'?'▼':'●'}</span>${esc(c.l2)}
         <span style="margin-left:auto">${ragPill(rg)}</span></div>
       <div class="adesc">${desc}</div>
-      <button class="abtn" data-l2="${esc(c.l2)}">Review in Mix analysis →</button>
+      <button class="abtn" data-l2="${scPfx}${esc(c.l2)}">Review in Mix analysis →</button>
     </div>`;
   };
   $('attnPanel').innerHTML=`<h4>Attention required</h4>
@@ -1493,8 +1498,10 @@ function renderMix(){
   const m=S.model;
   if(!(MX.groupBy in m.dimCols)) MX.groupBy=Object.keys(FIELD_LABELS).find(k=>k in m.dimCols);
   const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
+  const l1s=[...new Set(m.rows.map(r=>r.d.micaL1).filter(Boolean))].sort();
   const l2s=[...new Set(m.rows.map(r=>r.d.micaL2).filter(Boolean))].sort();
   $('mxScope').innerHTML=`<option value="">Total (all KPIs)</option>`+
+    (l1s.length>1? l1s.map(l1=>`<option value="l1:${esc(l1)}"${MX.l2==='l1:'+l1?' selected':''}>${esc(l1)} · L1</option>`).join(''):'')+
     l2s.map(l2=>`<option value="${esc(l2)}"${MX.l2===l2?' selected':''}>${esc(l2)}</option>`).join('');
   $('mxDim').innerHTML=dims.map(k=>`<option value="${k}"${MX.groupBy===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('');
   const mops=measureOpts();
@@ -1604,18 +1611,20 @@ function svgToPngData(svgEl, scale){
 /* one widescreen slide replicating the driller financial-dashboard tile grid */
 async function exportSummaryPPT(){
   const m=S.model, rows=filteredRows();
-  const byL2=[...groupBy(rows,'micaL2').entries()]
+  const l1g=groupBy(rows,'micaL1');
+  const tileL1=l1g.size>1;
+  const byL2=[...(tileL1?l1g:groupBy(rows,'micaL2')).entries()]
     .map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
-  const l1name=[...groupBy(rows,'micaL1').keys()][0]||'Revenue';
-  const PRIORITY=[/net\s*interest|\bnii\b/i, /trading/i, /\bfee/i, /\bdirect\s*cost/i, /\becl\b|expected\s+credit/i];
+  const l1name=[...l1g.keys()][0]||'Revenue';
+  const PRIORITY=[/revenue/i, /net\s*interest|\bnii\b/i, /trading/i, /\bfee/i, /\bdirect\s*cost/i, /^costs?$/i, /\becl\b|expected\s+credit/i];
   const prio=[], rest=[...byL2];
   for(const rx of PRIORITY){
     const i=rest.findIndex(c=>rx.test(c.l2));
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const tiles=[{name:`Total ${l1name}`,k:kT,hide:false},
+  const tiles=[{name:tileL1?'Total P&L':`Total ${l1name}`,k:kT,hide:false},
     ...[...prio,...rest].map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
   const pctAbs=v=>v==null?'\u2013':(Math.abs(v)*100).toFixed(1)+'%';
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
@@ -1862,8 +1871,15 @@ function groupByFn(rows, fn){
   for(const r of rows){ const k=fn(r); let a=m.get(k); if(!a){a=[];m.set(k,a);} a.push(r); }
   return m;
 }
+function scopeFilter(rows, sc){
+  if(!sc) return rows;
+  const t=String(sc);
+  if(t.startsWith('l1:')){ const v=t.slice(3); return rows.filter(r=>r.d.micaL1===v); }
+  return rows.filter(r=>r.d.micaL2===t);
+}
+function scopeName(sc){ return !sc? 'Total (all KPIs)' : String(sc).startsWith('l1:')? String(sc).slice(3) : String(sc); }
 function chartTitle(cfg){
-  return `${cfg.l2||'Total'} · ${measureLabel(cfg.measure)} by ${fieldLabels(cfg.groupBy)}`+
+  return `${cfg.l2?scopeName(cfg.l2):'Total'} · ${measureLabel(cfg.measure)} by ${fieldLabels(cfg.groupBy)}`+
     (gArr(cfg.splitBy).length?` / ${fieldLabels(cfg.splitBy)}`:'');
 }
 const CHART_TYPES=[['column','Column'],['hbar','Horizontal bar'],['lollipop','Lollipop'],
@@ -1876,7 +1892,7 @@ const SPLIT_TYPES=new Set(['column','hbar']);
 function chartData(cfg){
   const m=S.model;
   let rows=filteredRows();
-  if(cfg.l2) rows=rows.filter(r=>r.d.micaL2===cfg.l2);
+  rows=scopeFilter(rows,cfg.l2);
   const mfn=rs=>pickMeasure(kpi(rs,m,S.ytdM,S.includeFC), cfg.measure)||0;
   const gks=gArr(cfg.groupBy);
   const gkey=r=>gks.map(k=>r.d[k]||'(blank)').join(' · ');
@@ -2622,11 +2638,10 @@ function defaultWidgets(){
   return w;
 }
 function widgetRows(l2){
-  const rows=filteredRows();
-  return l2? rows.filter(r=>r.d.micaL2===l2) : rows;
+  return scopeFilter(filteredRows(), l2);
 }
 function widgetTitle(w){
-  return w.type==='chart'? chartTitle(w.cfg) : (w.l2||'Total (all KPIs)')+' · '+WTYPES[w.type];
+  return w.type==='chart'? chartTitle(w.cfg) : scopeName(w.l2)+' · '+WTYPES[w.type];
 }
 
 function renderCustom(){
