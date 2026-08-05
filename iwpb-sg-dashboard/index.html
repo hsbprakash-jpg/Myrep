@@ -853,6 +853,7 @@ const CFG_DEFAULT={
     cost_patterns:'cost|\\becl\\b|expected\\s+credit|impair|expense',
     hidden_cmp_patterns:'direct\\s*costs?|costs?\\s*[-\u2013]?\\s*(direct|indirect)|indirect\\s*costs?|\\becl\\b|expected\\s+credit',
     dashboard_page_size:'6',
+    font_greeting:'', font_commentary:'', font_eyebrow:'',
     calc_ytd_actuals:'column',
     calc_fy_forecast:'column',
     calc_ytd_forecast:'even',
@@ -3423,6 +3424,11 @@ function applyCfgDom(){
   document.querySelectorAll('[data-lbl]').forEach(el=>{
     const v=cfgL(el.dataset.lbl); if(v!=null) el.textContent=v;
   });
+  const fpx=(key,sel2)=>{ const v=parseFloat(cfgS(key));
+    document.querySelectorAll(sel2).forEach(el=>{ el.style.fontSize=isFinite(v)&&v>0? v+'px':''; }); };
+  fpx('font_greeting','.greet');
+  fpx('font_commentary','.commentary');
+  fpx('font_eyebrow','.eyebrow');
   const NAVV={summary:'navSummary',custom:'navCustom',builder:'navBuilder',query:'navQuery',
     table:'navTable',assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
