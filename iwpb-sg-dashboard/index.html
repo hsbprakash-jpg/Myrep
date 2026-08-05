@@ -401,7 +401,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 #simSaved label{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px}
 #simSaved select{border:1px solid var(--border);border-radius:6px;padding:7px 10px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);min-width:240px}
 #simRules{overflow-x:auto}
-#simRules .simrule{display:grid;grid-template-columns:40px 128px minmax(200px,50ch) 72px 150px 96px 32px 74px 16px 74px 26px;justify-content:start;
+#simRules .simrule{display:grid;grid-template-columns:40px 128px minmax(200px,var(--sim-val-w,50ch)) 72px 150px 96px 32px 74px 16px 74px 26px;justify-content:start;
   gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface-2);margin-bottom:8px;font-size:12.5px;min-width:920px}
 .simrule select,.simrule input{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);width:100%;min-width:0}
@@ -867,6 +867,7 @@ const CFG_DEFAULT={
     hidden_cmp_patterns:'direct\\s*costs?|costs?\\s*[-\u2013]?\\s*(direct|indirect)|indirect\\s*costs?|\\becl\\b|expected\\s+credit',
     dashboard_page_size:'6',
     font_greeting:'', font_commentary:'', font_eyebrow:'',
+    sim_value_width:'50',
     calc_ytd_actuals:'column',
     calc_fy_forecast:'column',
     calc_ytd_forecast:'even',
@@ -3599,6 +3600,8 @@ function applyCfgDom(){
   fpx('font_greeting','.greet');
   fpx('font_commentary','.commentary');
   fpx('font_eyebrow','.eyebrow');
+  const svw=parseFloat(cfgS('sim_value_width'));
+  document.documentElement.style.setProperty('--sim-val-w', (isFinite(svw)&&svw>=10? svw : 50)+'ch');
   const NAVV={summary:'navSummary',custom:'navCustom',builder:'navBuilder',query:'navQuery',
     table:'navTable',assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
