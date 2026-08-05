@@ -976,6 +976,16 @@ function tileRows(k,m){
 function fcBasis(m){
   return !!(m&&!m.pyMonths.length&&((m.fyFcCols&&m.fyFcCols.length)||m.cyMonths.some(p=>p.fc)));
 }
+/* comparison series for monthly trend visuals — same basis everywhere:
+   prior year when present, else the phased forecast, else the phased target */
+function cmpTrend(k,m){
+  if(m.pyMonths.length) return {series:k.pySeries, name:m.yearPY};
+  if(k.fyFc!=null) return {series:m.cyMonths.map(p=>({m:p.m,fc:false,val:k.fyFc/12})), name:'Forecast'};
+  if(k.target!=null) return {series:m.cyMonths.map(p=>({m:p.m,fc:false,val:k.target/12})), name:'Target'};
+  return {series:[], name:''};
+}
+function scatterBase(k,m){ return m.pyMonths.length? k.py : (k.ytdFc!=null? k.ytdFc : k.ytdTgt); }
+function scatterBaseLbl(m){ return m.pyMonths.length? `YTD ${m.yearPY}` : (fcBasis(m)? 'YTD forecast' : 'YTD target (phased)'); }
 /* labels for whichever comparison basis the file supports */
 function cmpLabels(m){
   if(m.pyMonths.length) return {mode:'py', main:`YTD ${m.yearCY}`, base:`YTD ${m.yearPY}`, vs:`vs ${m.yearPY}`, mainKey:'cy'};
@@ -1421,17 +1431,7 @@ function renderSummary(){
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
     <div class="chart-wrap" id="trajChart"></div>`;
-  let cmpSeries=[], cmpName=m.yearPY;
-  if(L.mode==='py') cmpSeries=kT.pySeries;
-  else if(L.mode==='fc'&&kT.fyFc!=null){
-    cmpSeries=m.cyMonths.map(p=>({m:p.m, fc:false, val:kT.fyFc/12}));
-    cmpName='Forecast';
-  }
-
-  else if(L.mode==='tgt'&&kT.target!=null){
-    cmpSeries=m.cyMonths.map(p=>({m:p.m, fc:false, val:kT.target/12}));
-    cmpName='Target';
-  }
+  const {series:cmpSeries, name:cmpName}=cmpTrend(kT,m);
   trendChart($('trajChart'), kT.cySeries, cmpSeries, m.yearCY, cmpName, 'line');
 
   // attention required — anything not green
@@ -1697,11 +1697,16 @@ function kpiSummaryAOA(){
 }
 function trendAOA(rows, label){
   const m=S.model, k=kpi(rows,m,S.ytdM,S.includeFC);
-  const aoa=[[label||'Monthly trend'],[filterNote()],[],['Month',`${m.yearCY} actual`,`${m.yearPY} actual`]];
+  const ct=cmpTrend(k,m);
+  const cLbl= !ct.name? null : m.pyMonths.length? `${m.yearPY} actual` : `${ct.name} (FY/12)`;
+  const aoa=[[label||'Monthly trend'],[filterNote()],[],
+    ['Month',`${m.yearCY} actual`,cLbl].filter(x=>x!=null)];
   for(let mi=0;mi<12;mi++){
-    const c=k.cySeries.find(p=>p.m===mi), p=k.pySeries.find(p=>p.m===mi);
+    const c=k.cySeries.find(p=>p.m===mi), p=ct.series.find(p=>p.m===mi);
     if(!c&&!p) continue;
-    aoa.push([MON_LBL[mi]+(c&&c.fc?' (FC)':''), c?c.val:null, p?p.val:null]);
+    const row=[MON_LBL[mi]+(c&&c.fc?' (FC)':''), c?c.val:null];
+    if(cLbl) row.push(p?p.val:null);
+    aoa.push(row);
   }
   return aoa;
 }
@@ -1727,7 +1732,7 @@ function chartAOA(cfg){
     aoa.push([dim,...segNames,'Total']);
     for(const c of cats) aoa.push([c.name,...segNames.map(sn=>c.segs[sn]||0),c.segTotal]);
   } else if(cfg.type==='scatter'){
-    aoa.push([dim, `YTD ${S.model.yearCY}`, `YTD ${S.model.yearPY}`]);
+    aoa.push([dim, `YTD ${S.model.yearCY}`, scatterBaseLbl(S.model)]);
     for(const c of cats) aoa.push([c.name, c.cy, c.py]);
   } else {
     aoa.push([dim, measureLabel(cfg.measure)]);
@@ -1842,7 +1847,7 @@ function chartTitle(cfg){
 }
 const CHART_TYPES=[['column','Column'],['hbar','Horizontal bar'],['lollipop','Lollipop'],
   ['line','Line'],['area','Area'],['pie','Pie'],['donut','Donut'],['waterfall','Waterfall'],
-  ['pareto','Pareto'],['treemap','Treemap'],['scatter','Scatter CY vs PY']];
+  ['pareto','Pareto'],['treemap','Treemap'],['scatter','Scatter vs baseline']];
 function typeOptions(cur){
   return CHART_TYPES.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('');
 }
@@ -1856,7 +1861,7 @@ function chartData(cfg){
   const gkey=r=>gks.map(k=>r.d[k]||'(blank)').join(' · ');
   let groups=[...groupByFn(rows,gkey).entries()].map(([name,rs])=>{
     const k=kpi(rs,m,S.ytdM,S.includeFC);
-    return {name, rows:rs, cy:k.cy||0, py:k.py||0,
+    return {name, rows:rs, cy:k.cy||0, py:scatterBase(k,S.model)||0,
       val:pickMeasure(k,cfg.measure)||0};
   });
   groups.sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
@@ -2125,13 +2130,13 @@ function buildChartEl(cfg){
     }
     svg+=`<line x1="${x(lo).toFixed(1)}" y1="${y(lo).toFixed(1)}" x2="${x(hi).toFixed(1)}" y2="${y(hi).toFixed(1)}" stroke="var(--border-strong)" stroke-dasharray="4 4"/>`;
     cats.forEach((c,i)=>{
-      svg+=`<circle cx="${x(c.py).toFixed(1)}" cy="${y(c.cy).toFixed(1)}" r="5.5" fill="var(--cat1)" fill-opacity="0.85" stroke="var(--surface-1)" stroke-width="1.5"><title>${esc(c.name)} — ${m.yearCY}: ${fmtFull(c.cy)} · ${m.yearPY}: ${fmtFull(c.py)}</title></circle>`;
+      svg+=`<circle cx="${x(c.py).toFixed(1)}" cy="${y(c.cy).toFixed(1)}" r="5.5" fill="var(--cat1)" fill-opacity="0.85" stroke="var(--surface-1)" stroke-width="1.5"><title>${esc(c.name)} — YTD ${m.yearCY}: ${fmtFull(c.cy)} · ${scatterBaseLbl(m)}: ${fmtFull(c.py)}</title></circle>`;
       if(i<5) svg+=`<text x="${(x(c.py)+8).toFixed(1)}" y="${(y(c.cy)+3.5).toFixed(1)}" font-size="10" fill="var(--text-primary)">${esc(c.name.length>14?c.name.slice(0,13)+'…':c.name)}</text>`;
     });
-    svg+=`<text x="${((L+W-8)/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-secondary)">YTD ${esc(m.yearPY)}</text>`;
+    svg+=`<text x="${((L+W-8)/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-secondary)">${esc(scatterBaseLbl(m))}</text>`;
     svg+=`<text x="14" y="${((T+H-BOT)/2).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-secondary)" transform="rotate(-90 14 ${((T+H-BOT)/2).toFixed(1)})">YTD ${esc(m.yearCY)}</text>`;
     html=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Scatter chart">${svg}</svg></div>
-      <p class="note">Points above the dashed line grew versus prior year; below it declined. Measure dropdown does not apply here.</p>`;
+      <p class="note">Points above the dashed line run ahead of the baseline; below it behind. Measure dropdown does not apply here.</p>`;
 
   } else { /* column */
     const W=Math.max(430, cats.length*slotW+70), L=52, T=14, H=206+BOT;
@@ -2681,8 +2686,9 @@ function renderCustom(){
           <span class="delta">${subw}</span>${hidew?'':ragPill(rgw)}</div>
         <div style="margin-top:8px">${sparkline(k.cySeries,250,42)}</div>`;
     } else if(w.type==='trend'){
+      const ct=cmpTrend(k,m);
       body=`<div class="legend"><span><span class="sw" style="background:var(--series-1)"></span>${esc(m.yearCY)} actual</span>`+
-        (m.pyMonths.length?`<span><span class="sw" style="background:var(--series-2)"></span>${esc(m.yearPY)} actual</span>`:'')+
+        (ct.series.length?`<span><span class="sw" style="background:var(--series-2)"></span>${esc(ct.name)}${m.pyMonths.length?' actual':' (FY/12)'}</span>`:'')+
         `</div><div class="chart-wrap wchart"></div>`;
     }
     div.innerHTML=head+`<div class="wbody">${body}</div>`;
@@ -2701,7 +2707,8 @@ function renderCustom(){
       }
     }
     if(rows.length && w.type==='trend'){
-      trendChart(div.querySelector('.wchart'), k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY, w.ttype||'line');
+      const ctw=cmpTrend(k,m);
+      trendChart(div.querySelector('.wchart'), k.cySeries, ctw.series, m.yearCY, ctw.name, w.ttype||'line');
       const sel=div.querySelector('.wttype'), headEl1=div.querySelector('.whead');
       sel.addEventListener('pointerdown',()=>headEl1.setAttribute('draggable','false'));
       sel.addEventListener('pointerup',()=>headEl1.setAttribute('draggable','true'));
@@ -2960,7 +2967,8 @@ function init(){
         else{
           const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
           const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
-          trendChart(div, k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY, w.ttype||'line');
+          const ctp=cmpTrend(k,m);
+          trendChart(div, k.cySeries, ctp.series, m.yearCY, ctp.name, w.ttype||'line');
         }
         el=host;
       }
