@@ -742,7 +742,12 @@ function classifyPeriod(raw, bandVal){
   const b = String(bandVal||'').toLowerCase();
   const isFc = /\bfc\b|forecast/.test(t) || b.includes('forecast');
   const isTarget = b.includes('target') || b.includes('tgt') || /\btarget\b|\btgt\b/.test(t);
-  if(t.includes('ytd')) return {type:'ytd', label:String(raw), target:isTarget};
+  if(t.includes('ytd')){
+    const mi=MON.findIndex(mn=>t.startsWith(mn));
+    const ym=t.match(/ytd[\s\-']*(?:20)?(\d{2})\b/);
+    return {type:'ytd', label:String(raw), target:isTarget, fc:isFc,
+      ytdM:mi>=0?mi:null, ytdYear:ym?ym[1]:null};
+  }
   // full-year / target columns ride along as extra exportable columns
   if(/^fy\b|^fy[- ']|^fy\d/.test(t)) return {type:'ytd', label:String(raw), target:isTarget, fy:true, fc:isFc};
   let q = t.match(/^([1-4])\s*q\s*'?(\d{2,4})/) || t.match(/^q([1-4])(?:\s*[-' ]\s*(\d{2,4}))?/);
@@ -898,8 +903,13 @@ function parseSheet(aoa){
   if(!fyFcCols.length&&!pyMonths.length)
     fyFcCols=ytdCols.filter(p=>p.fy&&!p.target&&isCYFY(p));
   if(fyFcCols.length>1) fyFcCols=[fyFcCols[0]];
+  // YTD columns naming their month (Jun YTD-26): used as-is when the selected
+  // YTD-through month matches — actuals column and, if present, a forecast one
+  const isCYytd=p=>!p.target&&!p.fy&&p.ytdM!=null&&(p.ytdYear==null||p.ytdYear===cyYY);
+  const ytdAsOfCols=ytdCols.filter(p=>isCYytd(p)&&!p.fc).slice(0,1);
+  const ytdFcAsOfCols=ytdCols.filter(p=>isCYytd(p)&&p.fc).slice(0,1);
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
-    fyPriorCols, fyPriorLabel, fyFcCols, yearPY, yearCY};
+    fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, yearPY, yearCY};
 }
 
 /* ================= aggregation ================= */
@@ -917,7 +927,10 @@ function kpi(rows, model, ytdM, includeFC){
   const cySel = model.cyMonths.filter(p=>p.m<=ytdM && (!p.fc || includeFC));
   const months = new Set(cySel.map(p=>p.m));
   const pySel = model.pyMonths.filter(p=>months.has(p.m));
-  const cy = sumCols(rows, cySel.map(p=>p.col));
+  let cy = sumCols(rows, cySel.map(p=>p.col));
+  // a YTD column for exactly the selected month is authoritative — taken as-is
+  const asOf=model.ytdAsOfCols&&model.ytdAsOfCols[0];
+  if(!model.pyMonths.length&&asOf&&asOf.ytdM===ytdM&&!cySel.some(p=>p.fc)) cy=sumCols(rows,[asOf.col]);
   const py = model.pyMonths.length? sumCols(rows, pySel.map(p=>p.col)) : null;
   const varAbs = (cy!=null&&py!=null)? cy-py : null;
   const varPct = (varAbs!=null && py!==0)? varAbs/Math.abs(py) : null;
@@ -933,7 +946,9 @@ function kpi(rows, model, ytdM, includeFC){
   // (actual + forecast months) is the full-year forecast
   const fyFc = fyFcCol!=null? fyFcCol
     : (!model.pyMonths.length&&model.cyMonths.some(p=>p.fc))? outlook : null;
-  const ytdFc = fyFc!=null? fyFc*(cySel.length/12) : null;
+  const fcAsOf=model.ytdFcAsOfCols&&model.ytdFcAsOfCols[0];
+  const ytdFc = (fcAsOf&&fcAsOf.ytdM===ytdM)? sumCols(rows,[fcAsOf.col])
+    : fyFc!=null? fyFc*(cySel.length/12) : null;
   const varFc = (cy!=null&&ytdFc!=null)? cy-ytdFc : null;
   const varFcPct = (varFc!=null&&ytdFc!==0)? varFc/Math.abs(ytdFc) : null;
   const varTgt = (outlook!=null&&target!=null)? outlook-target : null;
