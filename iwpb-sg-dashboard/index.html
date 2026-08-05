@@ -3393,7 +3393,7 @@ function renderCustom(){
         `<option value="${k}"${gArr(w.cfg.groupBy)[0]===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('')
       }</select><select class="wtype" aria-label="Chart type">${typeOptions(w.cfg.type, ensureType(w.cfg))}</select>`
       : w.type==='trend'?`<select class="wttype" aria-label="Chart type">${
-        [['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar']].map(([v,l])=>
+        [['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar'],['table','Table']].map(([v,l])=>
           `<option value="${v}"${(w.ttype||'line')===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
     let head=`<div class="whead" draggable="true" title="Drag to rearrange">
       <span class="grip" aria-hidden="true">⠿</span><h5>${esc(widgetTitle(w))}</h5>${typeSel}
@@ -3440,7 +3440,14 @@ function renderCustom(){
     }
     if(rows.length && w.type==='trend'){
       const ctw=cmpTrend(k,m);
-      trendChart(div.querySelector('.wchart'), k.cySeries, ctw.series, m.yearCY, ctw.name, w.ttype||'line');
+      if((w.ttype||'line')==='table'){
+        const aoa=trendAOA(rows, widgetTitle(w));
+        const hdr=aoa[3]||[], body=aoa.slice(4);
+        div.querySelector('.wchart').innerHTML=`<div class="scroll-x"><table class="ctable">
+          <thead><tr>${hdr.map((h,i)=>`<th${i?' class="num"':''}>${esc(h)}</th>`).join('')}</tr></thead>
+          <tbody>${body.map(r=>`<tr>${r.map((v,i)=>`<td${i?' class="num"':''}>${i?fmtCell(v):esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+      }
+      else trendChart(div.querySelector('.wchart'), k.cySeries, ctw.series, m.yearCY, ctw.name, w.ttype||'line');
       const sel=div.querySelector('.wttype'), headEl1=div.querySelector('.whead');
       sel.addEventListener('pointerdown',()=>headEl1.setAttribute('draggable','false'));
       sel.addEventListener('pointerup',()=>headEl1.setAttribute('draggable','true'));
@@ -3821,7 +3828,7 @@ function init(){
           host.style.cssText='position:absolute;left:-10000px;top:0;width:820px';
           document.body.appendChild(host); hosts.push(host);
           if(w.type==='chart') host.appendChild(buildChartEl(w.cfg));
-          else{
+          else if((w.ttype||'line')!=='table'){
             const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
             const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
             const ctp=cmpTrend(k,m);
