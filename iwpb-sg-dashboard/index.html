@@ -424,6 +424,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 .card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
 .card .tval.negnum,.trio .tv.negnum,#kpiNav .v{color:var(--text-primary)}
 .legend .swl{display:inline-block;width:20px;height:0;margin-right:6px;vertical-align:middle}
+.card.dragtgt{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
 .card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
 .card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1532,6 +1533,14 @@ function outDimKeys(){
 
 function ragPill(r){ return `<span class="rag ${r.cls}"><span class="ic" aria-hidden="true">${r.ic}</span>${r.label}</span>`; }
 
+let TILE_DRAG=null, TILE_ALL=[];
+function tileOrderGet(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_tileorder')||'[]'); }catch(e){ return []; } }
+function tileOrderSet(a){ try{ localStorage.setItem('iwpbsg_tileorder',JSON.stringify(a)); }catch(e){} }
+function applyTileOrder(list){
+  const ord=tileOrderGet(); if(!ord.length) return list;
+  const idx=n=>{ const i=ord.indexOf(n); return i<0? 1e9 : i; };
+  return [...list].sort((a,b)=>idx(a.l2)-idx(b.l2));
+}
 function renderSummary(){
   const rows=filteredRows();
   $('rowCount').textContent=`${rows.length.toLocaleString()} rows in scope`;
@@ -1614,10 +1623,12 @@ function renderSummary(){
     const i=rest.findIndex(c=>rx.test(c.l2));
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const shown=(S.showAllKpis||!cfgYes('collapse_rest'))? [...prio,...rest] : prio;
+  const orderedAll=applyTileOrder([...prio,...rest]);
+  TILE_ALL=orderedAll.map(c=>c.l2);
+  const shown=(S.showAllKpis||!cfgYes('collapse_rest'))? orderedAll : orderedAll.slice(0,Math.max(1,prio.length));
   $('cardGrid').innerHTML=
     cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false)+
-    shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${scPfx}${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
+    shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${scPfx}${esc(c.l2)}" data-name="${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
     (rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'');
   const moreBtn=$('btnMoreKpis');
@@ -1627,6 +1638,31 @@ function renderSummary(){
       MX.l2=el.dataset.l2; saveMix(); render();
       $('mixPanel').scrollIntoView({behavior:'smooth',block:'start'});
     }));
+  // drag a tile left/right to reorder; the order persists in this browser
+  const tgrid=$('cardGrid');
+  tgrid.querySelectorAll('.card[data-name]').forEach(el=>{
+    el.setAttribute('draggable','true');
+    el.title=(el.title?el.title+' · ':'')+'Drag to reorder';
+    el.addEventListener('dragstart',e=>{ TILE_DRAG=el.dataset.name;
+      try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',TILE_DRAG); }catch(err){} });
+    el.addEventListener('dragover',e=>{ if(TILE_DRAG&&TILE_DRAG!==el.dataset.name){
+      e.preventDefault(); el.classList.add('dragtgt'); } });
+    el.addEventListener('dragleave',()=>el.classList.remove('dragtgt'));
+    el.addEventListener('drop',e=>{
+      e.preventDefault(); el.classList.remove('dragtgt');
+      if(!TILE_DRAG||TILE_DRAG===el.dataset.name) return;
+      const vis=[...tgrid.querySelectorAll('.card[data-name]')].map(x=>x.dataset.name);
+      const from=vis.indexOf(TILE_DRAG); if(from<0) return;
+      vis.splice(from,1);
+      let to=vis.indexOf(el.dataset.name);
+      const rect=el.getBoundingClientRect();
+      if(e.clientX>rect.left+rect.width/2) to+=1;
+      vis.splice(to,0,TILE_DRAG);
+      tileOrderSet(vis.concat(TILE_ALL.filter(n=>!vis.includes(n))));
+      TILE_DRAG=null;
+      renderSummary();
+    });
+  });
 
   // slim status chips
   const counts={g:0,a:0,r:0,n:0};
@@ -1850,7 +1886,7 @@ async function exportSummaryPPT(){
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
   const tiles=[{name:tileL1?cfgS('total_label'):`Total ${l1name}`,k:kT,hide:false},
-    ...[...prio,...rest].map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
+    ...applyTileOrder([...prio,...rest]).map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
   const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
     return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
   // font sizes step down with content length so nothing overflows its box
