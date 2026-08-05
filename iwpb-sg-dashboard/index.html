@@ -552,6 +552,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <label>YTD through <select id="fMonth"></select></label>
     <label class="chk"><input type="checkbox" id="fFC"> Include forecast month</label>
     <label>RAG tolerance <select id="fThresh">
+      <option value="0">0% tolerance (no Watch band)</option>
       <option value="0.03">±3% tolerance</option>
       <option value="0.05" selected>±5% tolerance</option>
       <option value="0.10">±10% tolerance</option>
@@ -3368,7 +3369,7 @@ function applyCfgDom(){
     table:'navTable',assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
   const th=parseFloat(cfgS('rag_tolerance'));
-  if(isFinite(th)&&th>0){ const sel=$('fThresh');
+  if(isFinite(th)&&th>=0){ const sel=$('fThresh');
     if(sel){ if(![...sel.options].some(o=>+o.value===th)){
         const o=document.createElement('option'); o.value=String(th);
         o.textContent='±'+Math.round(th*100)+'% tolerance'; sel.appendChild(o); }
