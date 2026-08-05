@@ -1874,12 +1874,16 @@ function svgToPngData(svgEl, scale){
     clone.insertBefore(bg,clone.firstChild);
     const img=new Image();
     img.onload=()=>{
-      const cv=document.createElement('canvas');
-      cv.width=w*scale; cv.height=h*scale;
-      const ctx=cv.getContext('2d');
-      ctx.scale(scale,scale); ctx.drawImage(img,0,0);
-      res({data:cv.toDataURL('image/png'), w, h});
+      try{
+        const cv=document.createElement('canvas');
+        cv.width=w*scale; cv.height=h*scale;
+        const ctx=cv.getContext('2d');
+        ctx.scale(scale,scale); ctx.drawImage(img,0,0);
+        res({data:cv.toDataURL('image/png'), w, h});
+      }catch(e){ res(null); }
     };
+    img.onerror=()=>res(null);
+    setTimeout(()=>res(null),5000);
     img.onerror=()=>res(null);
     img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(clone));
   });
@@ -3806,27 +3810,80 @@ function init(){
       exportPPT([{title:chartTitle(B), el:$('bPreview'), aoa:chartAOA({...B})}],'IWPB_SG_chart');
   });
   async function exportDashPPT(widgets, fname){
-    // render chart/trend widgets offscreen so they export as images
+    // render chart/trend widgets offscreen and convert to images; every widget
+    // is fault-isolated so one bad chart cannot sink the rest of the deck
     const items=[], hosts=[];
     for(const w of widgets){
-      let el=null;
-      if(w.type==='chart'||w.type==='trend'){
-        const host=document.createElement('div');
-        host.style.cssText='position:absolute;left:-10000px;top:0;width:820px';
-        document.body.appendChild(host); hosts.push(host);
-        if(w.type==='chart') host.appendChild(buildChartEl(w.cfg));
-        else{
-          const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
-          const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
-          const ctp=cmpTrend(k,m);
-          trendChart(div, k.cySeries, ctp.series, m.yearCY, ctp.name, w.ttype||'line');
+      try{
+        let png=null;
+        if(w.type==='chart'||w.type==='trend'){
+          const host=document.createElement('div');
+          host.style.cssText='position:absolute;left:-10000px;top:0;width:820px';
+          document.body.appendChild(host); hosts.push(host);
+          if(w.type==='chart') host.appendChild(buildChartEl(w.cfg));
+          else{
+            const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
+            const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
+            const ctp=cmpTrend(k,m);
+            trendChart(div, k.cySeries, ctp.series, m.yearCY, ctp.name, w.ttype||'line');
+          }
+          const svg=host.querySelector('svg');
+          if(svg) png=await svgToPngData(svg);
         }
-        el=host;
-      }
-      items.push({title:widgetTitle(w), el, aoa:widgetAOA(w)});
+        items.push({title:widgetTitle(w), png, aoa:widgetAOA(w)});
+      }catch(e){ items.push({title:widgetTitle(w), png:null, aoa:(()=>{try{return widgetAOA(w);}catch(e2){return null;}})()}); }
     }
-    try{ if(items.length) await exportPPT(items,fname); }
-    finally{ hosts.forEach(h=>h.remove()); }
+    hosts.forEach(h=>h.remove());
+    if(!items.length){ alert('Nothing to export on this page.'); return; }
+    const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
+    const X=[0.35,6.85], Y=[1.02,4.32], CW=6.1, CH=2.8, COLH=Y[1]+CH-Y[0];
+    let slide=null, cells=null;
+    const newGrid=()=>{ slide=p.addSlide(); slide.background={color:'FFFFFF'};
+      slide.addShape('rect',{x:0.35,y:0.3,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
+      slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
+        {x:0.35,y:7.12,w:12.6,h:0.28,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
+      cells=[false,false,false,false]; };
+    const addChart=it=>{
+      const hAt=CW*it.png.h/it.png.w;
+      const big=hAt>CH+0.15;                       // needs a full column: 2 per slide
+      if(big){
+        let col=(!cells||cells[0]||cells[2])? ((!cells||cells[1]||cells[3])? -1 : 1) : 0;
+        if(!slide||col<0){ newGrid(); col=0; }
+        cells[col]=cells[col+2]=true;
+        let w2=CW, h2=hAt; if(h2>COLH){ h2=COLH; w2=h2*it.png.w/it.png.h; }
+        slide.addText(it.title,{x:X[col],y:Y[0]-0.34,w:CW,h:0.3,fontSize:11,bold:true,
+          color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
+        slide.addImage({data:it.png.data,x:X[col],y:Y[0],w:w2,h:h2});
+      } else {
+        let q=cells? cells.findIndex(c=>!c) : -1;
+        if(!slide||q<0){ newGrid(); q=0; }
+        cells[q]=true;
+        let w2=CW, h2=hAt; if(h2>CH){ h2=CH; w2=h2*it.png.w/it.png.h; }
+        slide.addText(it.title,{x:X[q%2],y:Y[Math.floor(q/2)]-0.34,w:CW,h:0.3,fontSize:11,bold:true,
+          color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
+        slide.addImage({data:it.png.data,x:X[q%2],y:Y[Math.floor(q/2)],w:w2,h:h2});
+      }
+    };
+    const addTableSlide=it=>{
+      const ts=p.addSlide(); ts.background={color:'FFFFFF'};
+      ts.addText(it.title,{x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',
+        fontFace:'Segoe UI',fit:'shrink',wrap:true});
+      ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
+      if(it.aoa){
+        const rows2=it.aoa.filter(r=>r&&r.filter(x=>x!=null&&x!=='').length>=2).slice(0,16)
+          .map((r,i)=>r.map(v=>({text:v==null?'':(typeof v==='number'?fmtFull(v):String(v)),
+            options:i===0?{bold:true,color:'FFFFFF',fill:{color:'DB0011'}}:{}})));
+        if(rows2.length) ts.addTable(rows2,{x:0.42,y:1.05,w:12.4,fontSize:11,fontFace:'Segoe UI',
+          border:{pt:0.5,color:'DDDCD8'},autoPage:false});
+      }
+      ts.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
+        {x:0.42,y:7.05,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
+    };
+    for(const it of items){
+      if(it.png) addChart(it);
+      else addTableSlide(it);   // grid keeps filling across table slides
+    }
+    await p.writeFile({fileName:fname+'_'+new Date().toISOString().slice(0,10)+'.pptx'});
   }
   $('btnPptDash').addEventListener('click',()=>
     exportDashPPT(S.widgets.slice((dashPage-1)*cfgPage(),dashPage*cfgPage()),'IWPB_SG_dashboard_p'+dashPage));
