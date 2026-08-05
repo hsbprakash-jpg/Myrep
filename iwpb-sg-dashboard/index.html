@@ -1319,8 +1319,9 @@ function miniCol(series){
 function miniMonthTable(series){
   const pts=series.filter(p2=>p2.val!=null);
   if(!pts.length) return '';
-  return `<div class="scroll-x"><table class="ctable" style="font-size:11px"><thead><tr><th>Month</th><th class="num">Value</th></tr></thead><tbody>${
-    pts.map(p2=>`<tr><td>${MON_LBL[p2.m]}${p2.fc?' (FC)':''}</td><td class="num">${fmtCell(p2.val)}</td></tr>`).join('')}</tbody></table></div>`;
+  const tot=pts.reduce((s2,p2)=>s2+p2.val,0);
+  return `<div class="scroll-x"><table class="ctable" style="font-size:11px"><thead><tr><th>Month</th><th class="num">Value (${esc(cfgUnit())})</th></tr></thead><tbody>${
+    pts.map(p2=>`<tr><td>${MON_LBL[p2.m]}${p2.fc?' (FC)':''}</td><td class="num">${fmtCell(p2.val)}</td></tr>`).join('')}<tr class="tot"><td>Total</td><td class="num">${fmtCell(tot)}</td></tr></tbody></table></div>`;
 }
 function sparkline(series, w, h){
   const vals=series.map(p=>p.val).filter(v=>v!=null);
@@ -2320,7 +2321,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
   const tot={name:'Total', k:kpi(groups.flatMap(g=>g.rows||[]),m,S.ytdM,S.includeFC)};
   el.innerHTML=(title?`<h4>${esc(title)}</h4>`:'')+(subtitle?`<p class="subtitle">${esc(subtitle)}</p>`:'')+
     `<div class="rvwwrap slim"><table class="grid review">
-    <thead><tr><th>Line</th><th></th><th>${esc(L.main)}</th><th>${esc(L.base)}</th>
+    <thead><tr><th>Line</th><th></th><th>${esc(L.main)} (${esc(cfgUnit())})</th><th>${esc(L.base)}</th>
     <th>Δ</th><th>Δ%</th><th style="text-align:left">RAG</th></tr></thead>
     <tbody>${body}${rowHtml(tot,'total','')}</tbody></table></div>`;
 }
@@ -2681,11 +2682,11 @@ function buildChartEl(cfg){
     if(segNames){
       const rows2=cats.map(c=>`<tr><td>${esc(c.name)}</td>${segNames.map(sn=>`<td class="num">${fmtCell(c.segs[sn]||0)}</td>`).join('')}<td class="num">${fmtCell(c.segTotal)}</td></tr>`).join('');
       const tot=segNames.map(sn=>cats.reduce((s2,c)=>s2+(c.segs[sn]||0),0));
-      html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th>${segNames.map(sn=>`<th class="num">${esc(sn)}</th>`).join('')}<th class="num">Total</th></tr></thead>
+      html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th>${segNames.map(sn=>`<th class="num">${esc(sn)}</th>`).join('')}<th class="num">Total (${esc(cfgUnit())})</th></tr></thead>
         <tbody>${rows2}<tr class="tot"><td>Total</td>${tot.map(v=>`<td class="num">${fmtCell(v)}</td>`).join('')}<td class="num">${fmtCell(tot.reduce((a,b)=>a+b,0))}</td></tr></tbody></table></div>`;
     } else {
       const total=cats.reduce((s2,c)=>s2+(c.val||0),0);
-      html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th><th class="num">${esc(measureLabel(cfg.measure))}</th><th class="num">Share</th></tr></thead>
+      html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th><th class="num">${esc(measureLabel(cfg.measure))} (${esc(cfgUnit())})</th><th class="num">Share</th></tr></thead>
         <tbody>${cats.map(c=>`<tr><td>${esc(c.name)}</td><td class="num">${fmtCell(c.val)}</td><td class="num">${total? (c.val/total*100).toFixed(1)+'%':'\u2013'}</td></tr>`).join('')}
         <tr class="tot"><td>Total</td><td class="num">${fmtCell(total)}</td><td class="num">${total?'100.0%':'\u2013'}</td></tr></tbody></table></div>`;
     }
@@ -3699,10 +3700,12 @@ function renderCustom(){
       const ctw=cmpTrend(k,m);
       if((w.ttype||'line')==='table'){
         const aoa=trendAOA(rows, widgetTitle(w));
-        const hdr=aoa[3]||[], body=aoa.slice(4);
+        const hdr=(aoa[3]||[]).map((h,i)=>i? `${h} (${cfgUnit()})` : h), body=aoa.slice(4);
+        const trTot=hdr.slice(1).map((_,i)=>body.reduce((s2,r)=>s2+(typeof r[i+1]==='number'? r[i+1]:0),0));
         div.querySelector('.wchart').innerHTML=`<div class="scroll-x"><table class="ctable">
           <thead><tr>${hdr.map((h,i)=>`<th${i?' class="num"':''}>${esc(h)}</th>`).join('')}</tr></thead>
-          <tbody>${body.map(r=>`<tr>${r.map((v,i)=>`<td${i?' class="num"':''}>${i?fmtCell(v):esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+          <tbody>${body.map(r=>`<tr>${r.map((v,i)=>`<td${i?' class="num"':''}>${i?fmtCell(v):esc(v)}</td>`).join('')}</tr>`).join('')}
+          <tr class="tot"><td>Total</td>${trTot.map(v=>`<td class="num">${fmtCell(v)}</td>`).join('')}</tr></tbody></table></div>`;
       }
       else trendChart(div.querySelector('.wchart'), k.cySeries, ctw.series, m.yearCY, ctw.name, w.ttype||'line');
       const sel=div.querySelector('.wttype'), headEl1=div.querySelector('.whead');
