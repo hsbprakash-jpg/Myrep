@@ -422,7 +422,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
   font-weight:700;font-size:13px;min-height:120px;border-style:dashed}
 .card.morecard:hover{background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
 .card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
-.card .tval.negnum,.trio .tv.negnum,#kpiNav .v{color:var(--text-primary)}
+.card .tval.negnum,.trio .tv.negnum,#kpiNav .v,.widget .val.negnum{color:var(--text-primary)}
 .legend .swl{display:inline-block;width:20px;height:0;margin-right:6px;vertical-align:middle}
 .card.dragtgt{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
 .ctable{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:4px}
@@ -1254,6 +1254,41 @@ function fmtPct(v){
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 /* ================= charts (plain SVG) ================= */
+function miniHBar(series){
+  const pts=series.filter(p2=>p2.val!=null);
+  if(!pts.length) return '';
+  const W=250, rh=12, Lm=30, H2=pts.length*rh+4;
+  const lo=Math.min(0,...pts.map(p2=>p2.val)), hi=Math.max(0,...pts.map(p2=>p2.val)), span=(hi-lo)||1;
+  const x=v=>Lm+(v-lo)*(W-Lm-4)/span, x0=x(0);
+  let svg='';
+  pts.forEach((p2,i)=>{
+    const y2=2+i*rh, xv=x(p2.val);
+    svg+=`<text x="${Lm-4}" y="${y2+9}" text-anchor="end" font-size="8.5" fill="var(--text-muted)">${MON_LBL[p2.m]}</text>`+
+      `<rect x="${Math.min(x0,xv).toFixed(1)}" y="${y2}" width="${Math.max(1,Math.abs(xv-x0)).toFixed(1)}" height="${rh-3}" fill="var(--series-1)"${p2.fc?' opacity="0.45"':''}><title>${MON_LBL[p2.m]}: ${fmtFull(p2.val)}</title></rect>`;
+  });
+  return `<svg width="${W}" height="${H2}" viewBox="0 0 ${W} ${H2}" role="img" aria-label="Monthly bars">${svg}</svg>`;
+}
+function miniCol(series){
+  const pts=series.filter(p2=>p2.val!=null);
+  if(!pts.length) return '';
+  const W=250, H2=76, B2=12;
+  const lo=Math.min(0,...pts.map(p2=>p2.val)), hi=Math.max(0,...pts.map(p2=>p2.val)), span=(hi-lo)||1;
+  const y=v=>(H2-B2)-(v-lo)*(H2-B2-2)/span, y0=y(0);
+  const bw=Math.max(4,(W-8)/pts.length-3);
+  let svg='';
+  pts.forEach((p2,i)=>{
+    const x2=4+i*((W-8)/pts.length), yv=y(p2.val);
+    svg+=`<rect x="${x2.toFixed(1)}" y="${Math.min(y0,yv).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="var(--series-1)"${p2.fc?' opacity="0.45"':''}><title>${MON_LBL[p2.m]}: ${fmtFull(p2.val)}</title></rect>`+
+      `<text x="${(x2+bw/2).toFixed(1)}" y="${H2-2}" text-anchor="middle" font-size="7.5" fill="var(--text-muted)">${MON_LBL[p2.m][0]}</text>`;
+  });
+  return `<svg width="${W}" height="${H2}" viewBox="0 0 ${W} ${H2}" role="img" aria-label="Monthly columns">${svg}</svg>`;
+}
+function miniMonthTable(series){
+  const pts=series.filter(p2=>p2.val!=null);
+  if(!pts.length) return '';
+  return `<div class="scroll-x"><table class="ctable" style="font-size:11px"><thead><tr><th>Month</th><th class="num">Value</th></tr></thead><tbody>${
+    pts.map(p2=>`<tr><td>${MON_LBL[p2.m]}${p2.fc?' (FC)':''}</td><td class="num">${fmtCell(p2.val)}</td></tr>`).join('')}</tbody></table></div>`;
+}
 function sparkline(series, w, h){
   const vals=series.map(p=>p.val).filter(v=>v!=null);
   if(!vals.length) return '';
@@ -3392,6 +3427,9 @@ function renderCustom(){
       Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
         `<option value="${k}"${gArr(w.cfg.groupBy)[0]===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('')
       }</select><select class="wtype" aria-label="Chart type">${typeOptions(w.cfg.type, ensureType(w.cfg))}</select>`
+      : w.type==='card'?`<select class="wctype" aria-label="Chart type">${
+        [['hbar','Horizontal bar'],['line','Sparkline'],['column','Column'],['table','Table']].map(([v,l])=>
+          `<option value="${v}"${(w.ctype||'hbar')===v?' selected':''}>${l}</option>`).join('')}</select>`
       : w.type==='trend'?`<select class="wttype" aria-label="Chart type">${
         [['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar'],['table','Table']].map(([v,l])=>
           `<option value="${v}"${(w.ttype||'line')===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
@@ -3413,10 +3451,14 @@ function renderCustom(){
         : Lw.mode==='fc'
         ? `${fmtPct(k.cmpVarPct)} vs YTD forecast (${fmt(k.cmpVar)})`
         : `${fmtPct(k.cmpVarPct)} vs ${esc(m.yearPY)} (${fmt(k.cmpVar)})`;
+      const cviz=(w.ctype||'hbar')==='line'? sparkline(k.cySeries,250,42)
+        : (w.ctype||'hbar')==='column'? miniCol(k.cySeries)
+        : (w.ctype||'hbar')==='table'? miniMonthTable(k.cySeries)
+        : miniHBar(k.cySeries);
       body=`<div class="val${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</div>
         <div class="row" style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
           <span class="delta">${subw}</span>${hidew?'':ragPill(rgw)}</div>
-        <div style="margin-top:8px">${sparkline(k.cySeries,250,42)}</div>`;
+        <div style="margin-top:8px">${cviz}</div>`;
     } else if(w.type==='trend'){
       const ct=cmpTrend(k,m);
       body=`<div class="legend"><span><span class="sw" style="background:var(--series-1)"></span>${esc(m.yearCY)} actual</span>`+
@@ -3437,6 +3479,14 @@ function renderCustom(){
           saveWidgets(); renderCustom();
         });
       }
+    }
+    const csel=div.querySelector('.wctype');
+    if(csel){
+      const headC=div.querySelector('.whead');
+      csel.addEventListener('pointerdown',()=>headC.setAttribute('draggable','false'));
+      csel.addEventListener('pointerup',()=>headC.setAttribute('draggable','true'));
+      csel.addEventListener('mouseleave',()=>headC.setAttribute('draggable','true'));
+      csel.addEventListener('change',()=>{ w.ctype=csel.value; saveWidgets(); renderCustom(); });
     }
     if(rows.length && w.type==='trend'){
       const ctw=cmpTrend(k,m);
