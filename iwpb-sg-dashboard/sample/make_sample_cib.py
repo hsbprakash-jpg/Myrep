@@ -27,7 +27,7 @@ PERIODS = (
     [(f"{m}-26", "Actuals") for m in MONTHS[:6]] +
     [(f"{m}-26", "Forecast") for m in MONTHS[6:]] +
     [("Q1-26", "Actuals"), ("Q2-26", "Actuals"), ("Q3-26", "Forecast"), ("Q4-26", "Forecast")] +
-    [("Jun YTD-26", "Actuals"), ("FY-25", "Actuals"), ("FY-26", "Forecast"), ("FY-26 Target", "Target")]
+    [("Jun YTD-26", "Actuals"), ("FY-25", "Actuals"), ("FY-26 Forecast", "Forecast"), ("FY-26 Target", "Target")]
 )
 
 MICA_ROWS = [
@@ -94,7 +94,7 @@ for mica, l3, l2, l1, sign in MICA_ROWS:
                 "Q3-26": sum(months[6:9]),  "Q4-26": sum(months[9:12]),
                 "Jun YTD-26": sum(months[:6]),
                 "FY-25": sum(months) * random.uniform(0.85, 1.1),
-                "FY-26": sum(months),
+                "FY-26 Forecast": sum(months),
                 "FY-26 Target": sum(months) * random.uniform(0.92, 1.08),
             }
             vals = []
