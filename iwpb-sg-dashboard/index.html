@@ -1326,9 +1326,9 @@ function sparkline(series, w, h){
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${zero}<path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${fcDots}</svg>`;
 }
 
-function trendChart(el, cySeries, pySeries, yearCY, yearPY, type){
+function trendChart(el, cySeries, pySeries, yearCY, yearPY, type, annots){
   type=type||'line';
-  if(type==='line'||type==='area') return lineChart(el, cySeries, pySeries, yearCY, yearPY, type==='area');
+  if(type==='line'||type==='area') return lineChart(el, cySeries, pySeries, yearCY, yearPY, type==='area', annots);
   el.innerHTML='';
   const months=[...new Set([...cySeries,...pySeries].filter(p=>p.val!=null).map(p=>p.m))].sort((a,b)=>a-b);
   if(!months.length){ el.innerHTML='<p class="note">No data for this selection.</p>'; return; }
@@ -1387,7 +1387,7 @@ function trendChart(el, cySeries, pySeries, yearCY, yearPY, type){
   }
   el.innerHTML=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly trend ${type} chart">${svg}</svg></div>`;
 }
-function lineChart(el, cySeries, pySeries, yearCY, yearPY, area){
+function lineChart(el, cySeries, pySeries, yearCY, yearPY, area, annots){
   const H=260, L=56, T=16, B=28;
   const R=Math.max(64, 10+7*Math.max(String(yearCY||'').length, String(yearPY||'').length));
   const W=760;
@@ -1442,6 +1442,21 @@ function lineChart(el, cySeries, pySeries, yearCY, yearPY, area){
     else{ lpY-=(13-Math.abs(lpY-lcY))/2; lcY=lpY+13; }
   }
   let direct='';
+  for(const a of (annots||[])){
+    if(a.val==null) continue;
+    const px=x(a.m), py2=y(a.val);
+    const lines2=String(a.text).split('\n');
+    const bw=Math.max(...lines2.map(t2=>t2.length))*6.6+16, bh=lines2.length*13.5+9;
+    const above=py2>T+(H-T-B)*0.45;
+    const bx=Math.min(W-bw-4, Math.max(L+2, px-bw/2));
+    const by=above? Math.max(2, py2-bh-20) : Math.min(H-B-bh-2, py2+18);
+    const tipY=above? py2-5 : py2+5;
+    const boxEdgeY=above? by+bh : by;
+    direct+=`<line x1="${px.toFixed(1)}" y1="${boxEdgeY.toFixed(1)}" x2="${px.toFixed(1)}" y2="${tipY.toFixed(1)}" stroke="${a.color}" stroke-width="1.4"/>`+
+      `<polygon points="${px-3.5},${(tipY+(above?-5:5)).toFixed(1)} ${px+3.5},${(tipY+(above?-5:5)).toFixed(1)} ${px},${tipY.toFixed(1)}" fill="${a.color}"/>`+
+      `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="9" fill="var(--surface-1)" stroke="${a.color}" stroke-width="1.6"/>`+
+      lines2.map((t2,i)=>`<text x="${(bx+bw/2).toFixed(1)}" y="${(by+14+i*13.5).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="800" fill="${a.color}">${esc(t2)}</text>`).join('');
+  }
   if(lc) direct+=`<text x="${(x(lc.m)+8).toFixed(1)}" y="${lcY.toFixed(1)}" font-size="11" font-weight="700" fill="var(--text-primary)">${esc(yearCY)}</text>`;
   if(lp) direct+=`<text x="${(x(lp.m)+8).toFixed(1)}" y="${lpY.toFixed(1)}" font-size="11" font-weight="700" fill="var(--text-secondary)">${esc(yearPY)}</text>`;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -1860,7 +1875,20 @@ function renderSummary(){
     cmpCum=m.cyMonths.map(p2=>{ accW+=fcWeight(m,p2.m); return {m:p2.m, fc:false, val:kT.fyFc*accW}; });
     cmpName='YTD forecast';
   }
-  trendChart($('trajChart'), cumAct, cmpCum, m.yearCY, cmpName, 'line');
+  const annots=[];
+  const lastAct=cumAct.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM).pop();
+  if(lastAct&&kT.cmpVar!=null){
+    const favA=(kT.favVarPct==null?0:kT.favVarPct)>=0;
+    annots.push({m:lastAct.m, val:lastAct.val, color:favA?'#0b7a0b':'#c21a1a',
+      text:`${kT.cmpVar>=0?'+':''}${fmt(kT.cmpVar)} (${fmtPct(kT.cmpVarPct)})\nvs ${L.mode==='py'?'PY':'Fcst'}`});
+  }
+  const endPt=cumAct.length? cumAct[cumAct.length-1] : null;
+  if(endPt&&endPt.val!=null&&kT.varTgt!=null&&(!lastAct||endPt.m!==lastAct.m)){
+    const favT=kT.varTgt>=0;
+    annots.push({m:endPt.m, val:endPt.val, color:favT?'#0b7a0b':'#c21a1a',
+      text:`${kT.varTgt>=0?'+':''}${fmt(kT.varTgt)} (${fmtPct(kT.varTgtPct)})\nvs Target`});
+  }
+  trendChart($('trajChart'), cumAct, cmpCum, m.yearCY, cmpName, 'line', annots);
   aiComment($('trajCom'), 'traj|'+filterNote()+'|'+S.ytdM+'|'+L.mode, ()=>{
     const act=kT.cySeries.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
     const best=act.length? act.reduce((a,b)=>b.val>a.val?b:a) : null;
