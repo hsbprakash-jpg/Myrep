@@ -1742,12 +1742,18 @@ function styleSheet(ws, aoa){
       if(ws[addr]) ws[addr].s=XL_HEAD_STYLE;
     }
     ws['!rows']=ws['!rows']||[]; ws['!rows'][hr]={hpt:20};
-    // thousands separators + red bracket negatives on every numeric cell
+    // thousands separators + red bracket negatives on every numeric cell;
+    // RAG status words carry their status colour
+    const RAG_XL={'favourable':'FF0B7A0B','watch':'FFB57A00','unfavourable':'FFC21A1A'};
     for(let r=hr+1;r<aoa.length;r++){
       for(let c=0;c<(aoa[r]||[]).length;c++){
-        if(typeof aoa[r][c]!=='number') continue;
         const addr=XLSX.utils.encode_cell({r,c});
-        if(ws[addr]) ws[addr].z=pctCols.has(c)?'#,##0.0"%";[Red](#,##0.0"%")':'#,##0;[Red](#,##0)';
+        if(typeof aoa[r][c]==='number'){
+          if(ws[addr]) ws[addr].z=pctCols.has(c)?'#,##0.0"%";[Red](#,##0.0"%")':'#,##0;[Red](#,##0)';
+          continue;
+        }
+        const t=String(aoa[r][c]==null?'':aoa[r][c]).trim().toLowerCase();
+        if(RAG_XL[t]&&ws[addr]) ws[addr].s={font:{color:{rgb:RAG_XL[t]}, bold:true}};
       }
     }
     // filter dropdowns on larger tables
