@@ -750,7 +750,10 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="panel">
       <h4 style="margin:0 0 10px">Scenario rules — applied to forecast months only, in order</h4>
       <div id="simRules"></div>
-      <button class="btn-quiet" id="btnSimAddRule">+ Add rule</button>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn-quiet" id="btnSimAddRule">+ Add rule</button>
+        <button class="btn-solid" id="btnSimRun">▶ Run simulation</button>
+      </div>
     </div>
     <div class="panel" id="simResults"></div>
   </div>
@@ -2721,11 +2724,12 @@ function simNewRule(){
     from:fc.length?fc[0].m:0, to:fc.length?fc[fc.length-1].m:11};
 }
 /* apply the scenario rules to the forecast months; returns per-row simulated values */
-function computeSim(){
+let SIM_LAST=null;   // snapshot of the rules at the moment Run was pressed
+function computeSim(rules){
   const m=S.model, rows=filteredRows(), fcMonths=simFcMonths();
   const sv=new Map();
   for(const r of rows){ const o={}; for(const p of fcMonths) o[p.col]=r.v[p.col]||0; sv.set(r,o); }
-  for(const ru of SIM.rules){
+  for(const ru of (rules||[])){
     const val=+ru.val;
     if(!isFinite(val)) continue;
     const months=fcMonths.filter(p=>p.m>=+ru.from&&p.m<=+ru.to);
@@ -2749,8 +2753,8 @@ function computeSim(){
   }
   return {rows, fcMonths, sv};
 }
-function simAgg(){
-  const m=S.model, {rows, fcMonths, sv}=computeSim();
+function simAgg(rules){
+  const m=S.model, {rows, fcMonths, sv}=computeSim(rules);
   const sumSim=(rs,cols)=>rs.reduce((s2,r)=>s2+cols.reduce((s3,p)=>s3+(sv.get(r)[p.col]||0),0),0);
   const sumBase=(rs,cols)=>rs.reduce((s2,r)=>s2+cols.reduce((s3,p)=>s3+(r.v[p.col]||0),0),0);
   const actMonths=m.cyMonths.filter(p=>!p.fc);
@@ -2799,8 +2803,9 @@ function simChart(el, act, base, sim, yearCY){
     <div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Prior vs simulated forecast">${svg}</svg></div>`;
 }
 function simAOA(){
-  const a=simAgg(), m=S.model;
-  const ruleTxt=SIM.rules.map((r,i)=>`Rule ${i+1}: ${r.dim?(ALL_DIM_LABELS[r.dim]||r.dim)+' = '+r.val2:'All rows'} · ${
+  const rules=SIM_LAST||[];
+  const a=simAgg(rules), m=S.model;
+  const ruleTxt=rules.map((r,i)=>`Rule ${i+1}: ${r.dim?(ALL_DIM_LABELS[r.dim]||r.dim)+' = '+r.val2:'All rows'} · ${
     r.type==='pct'?r.val+'% change':r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
   const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote()],[ruleTxt||'No rules'],[],
     ['Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY target','vs tgt (prior)','vs tgt (simulated)']];
@@ -2825,7 +2830,8 @@ function renderSim(){
       if(!confirm(`Delete saved scenario "${b.dataset.n}"?`)) return;
       delete st[b.dataset.n]; simStoreSet(st);
     }
-    else{ SIM={name:b.dataset.n, rules:st[b.dataset.n]||[]}; saveSimCur(); }
+    else{ SIM={name:b.dataset.n, rules:st[b.dataset.n]||[]}; saveSimCur();
+      SIM_LAST=JSON.parse(JSON.stringify(SIM.rules)); }
     renderSim();
   }));
   // rules
@@ -2862,11 +2868,17 @@ function renderSim(){
     el.querySelector('.rto').addEventListener('change',e=>{ r.to=+e.target.value; upd(); });
     el.querySelector('.rx').addEventListener('click',()=>{ SIM.rules.splice(i,1); saveSimCur(); renderSim(); });
   });
-  // results
+  // results — only after Run, from the snapshot taken at run time
   if(!fc.length){ $('simResults').innerHTML=''; return; }
-  const a=simAgg(), t=a.total;
+  if(!SIM_LAST){
+    $('simResults').innerHTML='<p class="note">Set up your rules, then click <b>▶ Run simulation</b> to compute the impact.</p>';
+    return;
+  }
+  const stale=JSON.stringify(SIM.rules)!==JSON.stringify(SIM_LAST);
+  const a=simAgg(SIM_LAST), t=a.total;
   const dcls=v=>v>=0?'':' negnum';
   $('simResults').innerHTML=`
+    ${stale?`<p class="note" style="color:#9a6a00;background:color-mix(in srgb, var(--status-warning) 12%, transparent);border:1px solid var(--status-warning);border-radius:6px;padding:8px 12px">Rules have changed since the last run — click <b>▶ Run simulation</b> to refresh these results.</p>`:''}
     <h4 style="margin:0 0 4px">Impact — prior vs simulated forecast</h4>
     <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters.</p>
     <div class="trio">
@@ -3417,8 +3429,12 @@ function init(){
     if(!SIM.name){ alert('Give the scenario a name first.'); return; }
     const st=simStore(); st[SIM.name]=SIM.rules; simStoreSet(st); saveSimCur(); renderSim();
   });
-  $('btnSimNew').addEventListener('click',()=>{ SIM={name:'',rules:[]}; saveSimCur(); renderSim(); });
-  $('btnSimExport').addEventListener('click',()=>exportWB([{name:'Simulation', aoa:simAOA()}],'IWPB_SG_simulation'));
+  $('btnSimNew').addEventListener('click',()=>{ SIM={name:'',rules:[]}; SIM_LAST=null; saveSimCur(); renderSim(); });
+  $('btnSimRun').addEventListener('click',()=>{ SIM_LAST=JSON.parse(JSON.stringify(SIM.rules)); renderSim(); });
+  $('btnSimExport').addEventListener('click',()=>{
+    if(!SIM_LAST){ alert('Run the simulation first.'); return; }
+    exportWB([{name:'Simulation', aoa:simAOA()}],'IWPB_SG_simulation');
+  });
   $('btnAiAsk').addEventListener('click',()=>{ aiAsk($('aiInput').value); $('aiInput').value=''; });
   $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ aiAsk($('aiInput').value); $('aiInput').value=''; } });
   $('mxScope').addEventListener('change',e=>{ MX.l2=e.target.value; saveMix(); renderMix(); });
