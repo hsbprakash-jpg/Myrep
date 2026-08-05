@@ -309,6 +309,14 @@ main{flex:1;min-width:0;padding:20px 26px}
 .dashgrid.dropover{outline:2px dashed var(--hsbc-red);outline-offset:4px;border-radius:8px}
 .dash-empty{grid-column:1/-1;border:2px dashed var(--border-strong);border-radius:8px;
   padding:44px 20px;text-align:center;color:var(--text-secondary)}
+.pagetabs{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap;align-items:center}
+.pagetabs button{border:1px solid var(--border-strong);background:var(--surface-2);border-radius:6px;
+  padding:5px 15px;font-size:12px;cursor:pointer;color:var(--text-secondary);font-weight:600}
+.pagetabs button:hover{border-color:var(--hsbc-red)}
+.pagetabs button.active{background:color-mix(in srgb, var(--hsbc-red) 8%, transparent);
+  color:var(--hsbc-red);border-color:var(--hsbc-red);font-weight:700}
+.pagetabs button.dropover{outline:2px dashed var(--hsbc-red);outline-offset:2px}
+.pagetabs .pnote{font-size:11.5px;color:var(--text-muted);margin-left:6px}
 
 /* ---------- upload ---------- */
 #uploadView .panel{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;
@@ -567,6 +575,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <button class="btn-quiet" id="btnPptDash">⤓ PPT deck</button>
       <span class="note">Drag widgets by their header to rearrange · drag a KPI from the left pane to add it</span>
     </div>
+    <div class="pagetabs" id="dashPages"></div>
     <div class="dashgrid" id="dashGrid"></div>
   </div>
 
@@ -2147,6 +2156,7 @@ function render(){
 /* ================= dynamic dashboard (drag & drop) ================= */
 const WTYPES={card:'KPI card', trend:'Monthly trend', l3:'MICA L3 breakdown', products:'Product breakdown', chart:'Custom chart'};
 let widgetSeq=0;
+let dashPage=1;
 function newWidgetId(){ return 'w'+(++widgetSeq)+'_'+Math.floor(Math.random()*1e6); }
 function loadWidgets(){
   try{ const w=JSON.parse(localStorage.getItem('iwpbsg_widgets')||'null');
@@ -2182,12 +2192,37 @@ function renderCustom(){
 
   const grid=$('dashGrid');
   grid.innerHTML='';
+  // max 6 widgets per page; overflow flows onto the next page
+  const PPAGE=6;
+  const pages=Math.max(1,Math.ceil(S.widgets.length/PPAGE));
+  dashPage=Math.min(Math.max(1,dashPage),pages);
+  const tabs=$('dashPages');
+  tabs.innerHTML=pages<=1?'':Array.from({length:pages},(_,i)=>
+    `<button class="${dashPage===i+1?'active':''}" data-dp="${i+1}">Page ${i+1}</button>`).join('')+
+    `<span class="pnote">${Math.min(PPAGE,S.widgets.length-(dashPage-1)*PPAGE)} of ${S.widgets.length} widgets on this page · max ${PPAGE} per page</span>`;
+  tabs.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click',()=>{ dashPage=+b.dataset.dp; renderCustom(); });
+    // dropping a widget on a page tab moves it to that page
+    b.addEventListener('dragover',e=>{ e.preventDefault(); b.classList.add('dropover'); });
+    b.addEventListener('dragleave',()=>b.classList.remove('dropover'));
+    b.addEventListener('drop',e=>{
+      e.preventDefault(); e.stopPropagation(); b.classList.remove('dropover');
+      const from=e.dataTransfer.getData('text/x-widget');
+      if(from==='') return;
+      const target=+b.dataset.dp;
+      const [mv]=S.widgets.splice(+from,1);
+      S.widgets.splice(Math.min(target*PPAGE-1, S.widgets.length),0,mv);
+      dashPage=target; saveWidgets(); renderCustom();
+    });
+  });
   if(!S.widgets.length){
     grid.innerHTML=`<div class="dash-empty">Your dashboard is empty.<br>
       Add a widget with the controls above, or drag a KPI from the left pane and drop it here.</div>`;
     return;
   }
-  S.widgets.forEach((w,idx)=>{
+  const pStart=(dashPage-1)*PPAGE;
+  S.widgets.slice(pStart,pStart+PPAGE).forEach((w,pi)=>{
+    const idx=pStart+pi;
     const div=document.createElement('div');
     div.className='widget'+((w.type!=='card')?' w2':'');
     div.dataset.idx=idx;
@@ -2436,6 +2471,7 @@ function init(){
   $('btnPin').addEventListener('click',()=>{
     if(!B.groupBy.length) return;
     S.widgets.push({id:newWidgetId(), type:'chart', cfg:{...B, groupBy:[...B.groupBy], splitBy:[...B.splitBy]}});
+    dashPage=Math.ceil(S.widgets.length/6);
     saveWidgets();
     const b=$('btnPin'), t=b.textContent;
     b.textContent='Pinned ✓'; setTimeout(()=>{ b.textContent=t; },1200);
@@ -2467,12 +2503,26 @@ function init(){
     exportPPT([{title:scopeName+' — monthly trend', el:$('trendChart')}],'IWPB_SG_drill');
   });
   $('btnPptDash').addEventListener('click',async()=>{
-    const items=[];
-    const divs=[...$('dashGrid').querySelectorAll('.widget')];
-    S.widgets.forEach((w,i)=>{
-      items.push({title:widgetTitle(w), el:divs[i]||null, aoa:widgetAOA(w)});
-    });
-    if(items.length) await exportPPT(items,'IWPB_SG_dashboard');
+    // render every chart/trend widget offscreen so all pages export with images
+    const items=[], hosts=[];
+    for(const w of S.widgets){
+      let el=null;
+      if(w.type==='chart'||w.type==='trend'){
+        const host=document.createElement('div');
+        host.style.cssText='position:absolute;left:-10000px;top:0;width:820px';
+        document.body.appendChild(host); hosts.push(host);
+        if(w.type==='chart') host.appendChild(buildChartEl(w.cfg));
+        else{
+          const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
+          const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
+          lineChart(div, k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY);
+        }
+        el=host;
+      }
+      items.push({title:widgetTitle(w), el, aoa:widgetAOA(w)});
+    }
+    try{ if(items.length) await exportPPT(items,'IWPB_SG_dashboard'); }
+    finally{ hosts.forEach(h=>h.remove()); }
   });
   $('btnExportDrill').addEventListener('click',()=>{
     let rows=filteredRows().filter(r=>r.d.micaL2===S.drillL2);
@@ -2485,6 +2535,7 @@ function init(){
   });
   $('btnAddWidget').addEventListener('click',()=>{
     S.widgets.push({id:newWidgetId(), type:$('wType').value, l2:$('wKpi').value||null});
+    dashPage=Math.ceil(S.widgets.length/6);
     saveWidgets(); renderCustom();
   });
   $('btnResetDash').addEventListener('click',()=>{
@@ -2497,9 +2548,14 @@ function init(){
   grid.addEventListener('drop',e=>{
     e.preventDefault(); grid.classList.remove('dropover');
     const kpiName=e.dataTransfer.getData('text/x-kpi');
-    if(kpiName){ S.widgets.push({id:newWidgetId(),type:'card',l2:kpiName}); saveWidgets(); renderCustom(); return; }
+    if(kpiName){
+      S.widgets.push({id:newWidgetId(),type:'card',l2:kpiName});
+      dashPage=Math.ceil(S.widgets.length/6);
+      saveWidgets(); renderCustom(); return;
+    }
     const from=e.dataTransfer.getData('text/x-widget');
-    if(from!==''){ const [moved]=S.widgets.splice(+from,1); S.widgets.push(moved); saveWidgets(); renderCustom(); }
+    if(from!==''){ const [moved]=S.widgets.splice(+from,1); S.widgets.push(moved);
+      dashPage=Math.ceil(S.widgets.length/6); saveWidgets(); renderCustom(); }
   });
   // whatever way a drag ends, clear any lingering drop-target highlights
   document.addEventListener('dragend',()=>
