@@ -54,6 +54,12 @@ A single header row with:
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
   widescreen slide, built natively in PowerPoint.
+- **MI Assistant** — a governed Q&A page (left-pane entry): ten approved
+  questions (performance, lines behind forecast, FY target, top/dragging
+  products, costs, ECL, required run-rate, prior year, contribution mix)
+  answered deterministically in the browser from the filtered data on the
+  standard comparison basis. Free-text questions are matched to the
+  governed set; anything outside it is declined. Nothing leaves the page.
 - **Data** — the filtered source rows, paginated with search.
 
 Clicking a KPI card (or a KPI in the left pane) focuses the **Mix

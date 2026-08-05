@@ -371,6 +371,23 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 .attn .abtn{background:none;border:none;color:var(--hsbc-red);font-weight:700;font-size:11.5px;cursor:pointer;padding:0}
 .attn .abtn:hover{text-decoration:underline}
 .attn .allgood{color:var(--status-good);font-size:12.5px;font-weight:600;padding:12px 4px}
+#aiLog{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;max-height:480px;overflow-y:auto;padding-right:4px}
+.amsg{max-width:82%;border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.55}
+.amsg.user{align-self:flex-end;background:var(--hsbc-red);color:#fff;font-weight:600}
+.amsg.bot{align-self:flex-start;background:var(--surface-2);border:1px solid var(--border);color:var(--text-secondary)}
+.amsg.bot b{color:var(--text-primary);font-variant-numeric:tabular-nums}
+.amsg .atable{margin-top:8px;border-collapse:collapse;font-size:12px;width:100%}
+.amsg .atable th{background:var(--hsbc-red);color:#fff;padding:4px 9px;text-align:left;font-weight:700;white-space:nowrap}
+.amsg .atable td{padding:4px 9px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.amsg .atable td.num{text-align:right;white-space:nowrap}
+.amsg .anote{margin-top:7px;font-size:10.5px;color:var(--text-muted)}
+#aiChips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.achip{background:var(--surface-1);border:1px solid var(--border);border-radius:16px;padding:6px 13px;font-size:12px;cursor:pointer;color:var(--text-secondary);font:inherit}
+.achip:hover{border-color:var(--hsbc-red);color:var(--hsbc-red)}
+#aiInputRow{display:flex;gap:8px}
+#aiInputRow input{flex:1;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font:inherit;font-size:13px;background:var(--surface-1);color:var(--text-primary)}
+#aiInputRow button{background:var(--hsbc-red);color:#fff;border:none;border-radius:6px;padding:9px 20px;font-weight:700;cursor:pointer;font:inherit}
+#aiInputRow button:hover{filter:brightness(1.1)}
 .card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:13px 16px 11px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
 .card:hover{border-color:var(--hsbc-red)}
@@ -488,6 +505,9 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <button id="navTable">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="2" width="14" height="2.4" rx="1" fill="currentColor"/><rect x="1" y="6.8" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="11.6" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/></svg>
       Data drill down</button>
+    <button id="navAssist">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1C4.1 1 1 3.6 1 6.8c0 1.8 1 3.4 2.6 4.5L3 15l3.5-2c.5.1 1 .1 1.5.1 3.9 0 7-2.6 7-5.8S11.9 1 8 1z" fill="currentColor"/></svg>
+      MI Assistant</button>
   </nav>
   <div class="sect">KPIs · MICA Level 2</div>
   <div id="kpiNav"></div>
@@ -683,6 +703,23 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     </div>
     <datalist id="qDatalists" hidden></datalist>
     <div id="qDlHost" hidden></div>
+  </div>
+
+  <div id="assistView" hidden>
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2>MI Assistant</h2>
+      <p class="lede2">Governed Q&amp;A over the loaded driller — every answer is computed deterministically in your browser from the filtered data. Nothing leaves this page.</p>
+    </div></div>
+    <div class="panel">
+      <div id="aiLog"></div>
+      <div id="aiChips"></div>
+      <div id="aiInputRow">
+        <input id="aiInput" type="text" placeholder="Ask a governed question — or pick one above" aria-label="Ask the MI assistant">
+        <button id="btnAiAsk">Ask</button>
+      </div>
+      <p class="note">Governed scope: only the approved questions above are answered, always on the standard basis — YTD actuals vs YTD forecast, full-year outlook vs FY target — with figures taken as-is from the driller columns and the left-pane filters applied.</p>
+    </div>
   </div>
 
   <div id="tableView" hidden>
@@ -2563,11 +2600,13 @@ function setView(v){
   $('builderView').hidden = v!=='builder';
   $('queryView').hidden   = v!=='query';
   $('tableView').hidden   = v!=='table';
+  $('assistView').hidden  = v!=='assist';
   $('navSummary').classList.toggle('active',v==='summary');
   $('navCustom').classList.toggle('active',v==='custom');
   $('navBuilder').classList.toggle('active',v==='builder');
   $('navQuery').classList.toggle('active',v==='query');
   $('navTable').classList.toggle('active',v==='table');
+  $('navAssist').classList.toggle('active',v==='assist');
   render();
 }
 function renderKpiNav(){
@@ -2605,12 +2644,172 @@ function renderKpiNav(){
     });
   });
 }
+/* ================= MI Assistant — governed Q&A ================= */
+function aTable(headers, rows2){
+  return `<table class="atable"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
+    rows2.map(r=>`<tr>${r.map((c,i)=>`<td${i?' class="num"':''}>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+function gnote(){
+  return `<div class="anote">${esc(filterNote())} · governed answer, computed locally from the driller</div>`;
+}
+function aKpi(rows){ return kpi(rows,S.model,S.ytdM,S.includeFC); }
+function aPerf(){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m), kT=aKpi(rows);
+  const g=[...groupBy(rows,'micaL1').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
+    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  const rg=rag(kT.favVarPct,S.thresh);
+  let h=`YTD ${esc(ytdLabel())} stands at <b>${fmt(kT.cy)}</b>`;
+  h+= kT.cmpVarPct!=null? `, <b>${fmtPct(kT.cmpVarPct)}</b> ${esc(L.vs)} — rated <b>${rg.label}</b>.` : ' with no comparison baseline in this file.';
+  if(g.length>1) h+=aTable(['Line','YTD',L.base,'Var %','Rating'],
+    g.map(x=>[esc(x.n),fmtCell(x.k.cy),fmtCell(x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
+  return h+gnote();
+}
+function aBehind(){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  const g=[...groupBy(rows,'micaL2').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
+    .filter(x=>!cmpHidden(x.n)&&x.k.favVarPct!=null&&x.k.favVarPct<0)
+    .sort((a,b)=>a.k.favVarPct-b.k.favVarPct);
+  if(!g.length) return `Nothing is behind — every line is at or ahead of the ${esc(L.base)} under the current filters.`+gnote();
+  return `<b>${g.length}</b> line${g.length>1?'s run':' runs'} behind the ${esc(L.base)}, worst first:`+
+    aTable(['Line','YTD',L.base,'Var','Var %'],
+      g.map(x=>[esc(x.n),fmtCell(x.k.cy),fmtCell(x.k.cmpBase),fmtCell(x.k.cmpVar),fmtPct(x.k.cmpVarPct)]))+gnote();
+}
+function aFyTgt(){
+  const m=S.model, rows=filteredRows(), kT=aKpi(rows);
+  if(kT.target==null) return 'This file carries no FY target column, so I cannot compare against target.'+gnote();
+  const g=[...groupBy(rows,'micaL1').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
+    .sort((a,b)=>Math.abs(b.k.outlook||0)-Math.abs(a.k.outlook||0));
+  let h=`The full-year outlook (actual + forecast months, Jan–Dec) is <b>${fmt(kT.outlook)}</b> against an FY target of <b>${fmt(kT.target)}</b> — <b>${fmt(kT.varTgt)}</b> (<b>${fmtPct(kT.varTgtPct)}</b>) ${kT.varTgt>=0?'ahead of':'short of'} target.`;
+  if(g.length>1) h+=aTable(['Line','FY outlook','FY target','Var','Var %'],
+    g.map(x=>[esc(x.n),fmtCell(x.k.outlook),fmtCell(x.k.target),fmtCell(x.k.varTgt),fmtPct(x.k.varTgtPct)]));
+  return h+gnote();
+}
+function aTopProducts(){
+  const m=S.model, rows=filteredRows();
+  if(!('prodL2' in m.dimCols)) return 'This file has no product dimension.'+gnote();
+  const rev=rows.filter(r=>/revenue/i.test(r.d.micaL1||''));
+  const base=rev.length?rev:rows, tot=aKpi(base).cy||1;
+  const g=[...groupBy(base,'prodL2').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
+    .sort((a,b)=>(b.k.cy||0)-(a.k.cy||0)).slice(0,5);
+  return `Top products by ${rev.length?'Revenue':'total'} YTD:`+
+    aTable(['Product','YTD','Share'],
+      g.map(x=>[esc(x.n),fmtCell(x.k.cy),(x.k.cy/tot*100).toFixed(1)+'%']))+gnote();
+}
+function aDragProducts(){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  if(!('prodL2' in m.dimCols)) return 'This file has no product dimension.'+gnote();
+  const g=[...groupBy(rows,'prodL2').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
+    .filter(x=>x.k.favVarPct!=null).sort((a,b)=>a.k.favVarPct-b.k.favVarPct).slice(0,3);
+  if(!g.length) return 'No comparison baseline available for products in this file.'+gnote();
+  return `Products dragging performance the most ${esc(L.vs)}:`+
+    aTable(['Product','YTD',L.base,'Var %'],
+      g.map(x=>[esc(x.n),fmtCell(x.k.cy),fmtCell(x.k.cmpBase),fmtPct(x.k.cmpVarPct)]))+gnote();
+}
+function aCosts(){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  const cr=rows.filter(r=>/cost/i.test(r.d.micaL1||''));
+  if(!cr.length) return 'No cost lines under the current filters.'+gnote();
+  const kC=aKpi(cr), rg=rag(kC.favVarPct,S.thresh);
+  const g=[...groupBy(cr,'micaL2').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
+    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  let h=`Total costs run at <b>${fmt(kC.cy)}</b> YTD`;
+  h+= kC.cmpVarPct!=null? `, <b>${fmtPct(kC.cmpVarPct)}</b> ${esc(L.vs)} — rated <b>${rg.label}</b> (cost increases rate unfavourable).`:'.';
+  if(g.length>1) h+=aTable(['Cost line','YTD',L.base,'Var %','Rating'],
+    g.map(x=>[esc(x.n),fmtCell(x.k.cy),fmtCell(x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
+  return h+gnote();
+}
+function aEcl(){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  const er=rows.filter(r=>/\becl\b|expected\s+credit/i.test((r.d.micaL1||'')+' '+(r.d.micaL2||'')));
+  if(!er.length) return 'No ECL lines under the current filters.'+gnote();
+  const k=aKpi(er), rg=rag(k.favVarPct,S.thresh);
+  const act=k.cySeries.filter(p=>!p.fc&&p.m<=S.ytdM&&p.val!=null);
+  const last=act[act.length-1], avg=act.length?act.reduce((s,p)=>s+p.val,0)/act.length:null;
+  let h=`ECL stands at <b>${fmt(k.cy)}</b> YTD`;
+  h+= k.cmpVarPct!=null? `, <b>${fmtPct(k.cmpVarPct)}</b> ${esc(L.vs)} — rated <b>${rg.label}</b> (a rising charge rates unfavourable).`:'.';
+  if(last&&avg!=null) h+=` The latest actual month (${MON_LBL[last.m]}) came in at <b>${fmt(last.val)}</b> against a monthly average of <b>${fmt(avg)}</b>.`;
+  return h+gnote();
+}
+function aRunRate(){
+  const m=S.model, rows=filteredRows(), kT=aKpi(rows);
+  const elapsed=S.ytdM+1, rem=12-elapsed;
+  if(kT.target==null) return 'This file carries no FY target column, so there is no run-rate to solve for.'+gnote();
+  if(rem<=0) return 'The year is complete — no months remain.'+gnote();
+  const req=(kT.target-kT.cy)/rem, avg=kT.cy/elapsed;
+  let h=`To land on the FY target of <b>${fmt(kT.target)}</b>, the remaining <b>${rem}</b> months need to average <b>${fmt(req)}</b> per month. The YTD actual run-rate is <b>${fmt(avg)}</b> per month`;
+  if(kT.fyFc!=null) h+=`, and the forecast implies <b>${fmt((kT.fyFc-kT.cy)/rem)}</b> per month for the rest of the year`;
+  return h+'.'+gnote();
+}
+function aVsPrior(){
+  const m=S.model, rows=filteredRows(), kT=aKpi(rows);
+  if(kT.fyPrior==null) return 'This file carries no prior-year FY actuals column.'+gnote();
+  const d=kT.outlook-kT.fyPrior, dp=kT.fyPrior!==0? d/Math.abs(kT.fyPrior):null;
+  const g=[...groupBy(rows,'micaL1').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
+    .sort((a,b)=>Math.abs(b.k.outlook||0)-Math.abs(a.k.outlook||0));
+  let h=`FY ${esc(m.yearCY)} outlook of <b>${fmt(kT.outlook)}</b> versus FY-${esc(m.fyPriorLabel||'prior')} actuals of <b>${fmt(kT.fyPrior)}</b> — a change of <b>${fmt(d)}</b>${dp!=null?` (<b>${fmtPct(dp)}</b>)`:''}.`;
+  if(g.length>1) h+=aTable(['Line',`FY ${m.yearCY} outlook`,`FY-${m.fyPriorLabel||''} actuals`,'Change'],
+    g.map(x=>[esc(x.n),fmtCell(x.k.outlook),fmtCell(x.k.fyPrior),fmtCell(x.k.outlook!=null&&x.k.fyPrior!=null?x.k.outlook-x.k.fyPrior:null)]));
+  return h+gnote();
+}
+function aFuncMix(){
+  const m=S.model, rows=filteredRows();
+  const key='funcL2' in m.dimCols?'funcL2':'prodL2' in m.dimCols?'prodL2':null;
+  if(!key) return 'No function or product dimension in this file.'+gnote();
+  const tot=aKpi(rows).cy||1;
+  const g=[...groupBy(rows,key).entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
+    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0)).slice(0,5);
+  return `Largest contributors by ${key==='funcL2'?'function':'product'}:`+
+    aTable([key==='funcL2'?'Function':'Product','YTD','Share'],
+      g.map(x=>[esc(x.n),fmtCell(x.k.cy),(x.k.cy/tot*100).toFixed(1)+'%']))+gnote();
+}
+const AQ=[
+  {id:'perf',   q:'How are we performing YTD?',                    kw:['perform','overall','doing','how are we','summary','ytd'], run:aPerf},
+  {id:'behind', q:'Which lines are behind forecast?',              kw:['behind','lagging','miss','unfavourable','worst','off track'], run:aBehind},
+  {id:'fytgt',  q:'Will we hit the FY target?',                    kw:['target','hit','full year','fy target','achieve'], run:aFyTgt},
+  {id:'prods',  q:'What are the top products by revenue?',         kw:['top product','product','revenue by','biggest'], run:aTopProducts},
+  {id:'drag',   q:'Which products are dragging performance?',      kw:['drag','bottom','weak product','underperform'], run:aDragProducts},
+  {id:'costs',  q:'How are costs tracking?',                       kw:['cost','spend','expense','opex'], run:aCosts},
+  {id:'ecl',    q:'What is ECL doing?',                            kw:['ecl','credit loss','impair','provision'], run:aEcl},
+  {id:'run',    q:'What run-rate is needed for the rest of the year?', kw:['run rate','run-rate','pace','monthly','remaining','need per month'], run:aRunRate},
+  {id:'prior',  q:'How does this year compare to last year?',      kw:['prior','last year','previous year','fy-25','2025','year on year','yoy'], run:aVsPrior},
+  {id:'mix',    q:'Who contributes most to the result?',           kw:['contribut','function','segment','mix','who','largest'], run:aFuncMix},
+];
+let A_LOG=[];
+function assistAnswer(text){
+  const t=text.toLowerCase();
+  let best=null, score=0;
+  for(const q of AQ){
+    let sc=0;
+    for(const kw of q.kw) if(t.includes(kw)) sc+=kw.length;
+    if(t.trim()===q.q.toLowerCase()) sc+=100;
+    if(sc>score){ score=sc; best=q; }
+  }
+  if(!best) return `I'm governed to answer only the approved questions — pick a chip above, or ask about performance, forecast, target, products, costs, ECL, run-rate or last year.`;
+  try{ return best.run(); }catch(e){ return 'That question needs columns this file does not carry.'; }
+}
+function aiAsk(text){
+  if(!text||!text.trim()||!S.model) return;
+  A_LOG.push({who:'user', html:esc(text.trim())});
+  A_LOG.push({who:'bot',  html:assistAnswer(text)});
+  renderAssist();
+}
+function renderAssist(){
+  if(!A_LOG.length)
+    A_LOG.push({who:'bot', html:`Hello — I'm the governed MI assistant for this driller. I answer a fixed set of approved questions, computed directly from the sheet under your current filters and on the standard comparison basis. Pick a question below or type one.`});
+  const log=$('aiLog');
+  log.innerHTML=A_LOG.map(x=>`<div class="amsg ${x.who}">${x.html}</div>`).join('');
+  log.scrollTop=log.scrollHeight;
+  $('aiChips').innerHTML=AQ.map(q=>`<button class="achip" data-id="${q.id}">${esc(q.q)}</button>`).join('');
+  $('aiChips').querySelectorAll('.achip').forEach(b=>
+    b.addEventListener('click',()=>{ const q=AQ.find(x=>x.id===b.dataset.id); if(q) aiAsk(q.q); }));
+}
 function render(){
   if(!S.model) return;
   if(S.view==='summary') renderSummary();
   else if(S.view==='custom') renderCustom();
   else if(S.view==='builder') renderBuilder();
   else if(S.view==='query') renderQuery();
+  else if(S.view==='assist') renderAssist();
   else renderTable();
   renderKpiNav();
   const rows=filteredRows();
@@ -2969,6 +3168,9 @@ function init(){
     b.textContent='Pinned ✓'; setTimeout(()=>{ b.textContent=t; },1200);
   });
   $('navTable').addEventListener('click',()=>setView('table'));
+  $('navAssist').addEventListener('click',()=>setView('assist'));
+  $('btnAiAsk').addEventListener('click',()=>{ aiAsk($('aiInput').value); $('aiInput').value=''; });
+  $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ aiAsk($('aiInput').value); $('aiInput').value=''; } });
   $('mxScope').addEventListener('change',e=>{ MX.l2=e.target.value; saveMix(); renderMix(); });
   $('mxDim').addEventListener('change',e=>{ MX.groupBy=e.target.value; saveMix(); renderMix(); });
   $('mxMeasure').addEventListener('change',e=>{ MX.measure=e.target.value; saveMix(); renderMix(); });
