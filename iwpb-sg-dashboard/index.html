@@ -512,34 +512,34 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <div class="sub">Management reporting · KPI insights</div>
     </div>
   </div>
-  <div class="sect">KPI Dashboards</div>
+  <div class="sect" data-lbl="sect_dashboards">KPI Dashboards</div>
   <nav>
     <button id="navSummary" class="active">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1.2" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="6" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="9" y="9" width="6" height="6" rx="1.2" fill="currentColor"/></svg>
-      KPI summary</button>
+      <span data-lbl="nav_summary">KPI summary</span></button>
     <button id="navCustom">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="9" height="6" rx="1.2" fill="currentColor"/><rect x="12" y="1" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="6" y="9" width="9" height="6" rx="1.2" fill="currentColor"/></svg>
-      My dashboard</button>
+      <span data-lbl="nav_custom">My dashboard</span></button>
     <button id="navBuilder">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="8" width="3.4" height="7" rx="1" fill="currentColor" opacity=".55"/><rect x="6.3" y="4" width="3.4" height="11" rx="1" fill="currentColor"/><rect x="11.6" y="1" width="3.4" height="14" rx="1" fill="currentColor" opacity=".55"/></svg>
-      Drag &amp; drop charts</button>
+      <span data-lbl="nav_builder">Drag &amp; drop charts</span></button>
     <button id="navQuery">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="3" rx="1" fill="currentColor"/><rect x="1" y="6.5" width="9" height="3" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="12" width="12" height="3" rx="1" fill="currentColor" opacity=".6"/></svg>
-      Query builder</button>
+      <span data-lbl="nav_query">Query builder</span></button>
     <button id="navTable">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="2" width="14" height="2.4" rx="1" fill="currentColor"/><rect x="1" y="6.8" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="11.6" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/></svg>
-      Data drill down</button>
+      <span data-lbl="nav_table">Data drill down</span></button>
     <button id="navAssist">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1C4.1 1 1 3.6 1 6.8c0 1.8 1 3.4 2.6 4.5L3 15l3.5-2c.5.1 1 .1 1.5.1 3.9 0 7-2.6 7-5.8S11.9 1 8 1z" fill="currentColor"/></svg>
-      MI Assistant</button>
+      <span data-lbl="nav_assist">MI Assistant</span></button>
     <button id="navSim">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 13 L5 8 L8 10.5 L15 2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1 15 L5 11.5 L8 13 L15 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2" opacity=".6"/></svg>
-      Simulation agent</button>
+      <span data-lbl="nav_sim">Simulation agent</span></button>
   </nav>
-  <div class="sect">KPIs · MICA Level 2</div>
+  <div class="sect" data-lbl="sect_kpis">KPIs · MICA Level 2</div>
   <div id="kpiNav"></div>
-  <div class="hint">Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card</div>
-  <div class="sect">Configuration</div>
+  <div class="hint" data-lbl="kpi_hint">Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card</div>
+  <div class="sect" data-lbl="sect_config">Configuration</div>
   <div id="cfgPanel">
     <button class="btn-quiet" id="btnCfgUpload">⤒ Upload config (xlsx / csv)</button>
     <input type="file" id="cfgInput" accept=".xlsx,.xls,.csv" hidden>
@@ -547,20 +547,20 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <button class="linklike" id="btnCfgReset">Reset to defaults</button></div>
     <div class="note" id="cfgStatus"></div>
   </div>
-  <div class="sect">Period &amp; RAG</div>
+  <div class="sect" data-lbl="sect_period">Period &amp; RAG</div>
   <div id="sideFilters">
-    <label>YTD through <select id="fMonth"></select></label>
-    <label class="chk"><input type="checkbox" id="fFC"> Include forecast month</label>
-    <label>RAG tolerance <select id="fThresh">
+    <label><span data-lbl="lbl_ytd">YTD through</span> <select id="fMonth"></select></label>
+    <label class="chk"><input type="checkbox" id="fFC"> <span data-lbl="lbl_fc">Include forecast month</span></label>
+    <label><span data-lbl="lbl_tol">RAG tolerance</span> <select id="fThresh">
       <option value="0">0% tolerance (no Watch band)</option>
       <option value="0.03">±3% tolerance</option>
       <option value="0.05" selected>±5% tolerance</option>
       <option value="0.10">±10% tolerance</option>
     </select></label>
   </div>
-  <div class="sect sect-row">Filters — all columns <button class="linklike" id="btnClearFilters">Reset</button></div>
+  <div class="sect sect-row"><span data-lbl="sect_filters">Filters — all columns</span> <button class="linklike" id="btnClearFilters">Reset</button></div>
   <div id="dimFilters"></div>
-  <div class="sect">Output fields</div>
+  <div class="sect" data-lbl="sect_output">Output fields</div>
   <p class="hint2">Tick the columns to include in the Data view and Excel exports.</p>
   <div id="outFields"></div>
   <div class="foot">
@@ -863,7 +863,17 @@ const CFG_DEFAULT={
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
-  views:{summary:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'}
+  views:{summary:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
+  labels:{
+    nav_summary:'KPI summary', nav_custom:'My dashboard', nav_builder:'Drag & drop charts',
+    nav_query:'Query builder', nav_table:'Data drill down', nav_assist:'MI Assistant',
+    nav_sim:'Simulation agent',
+    sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
+    sect_config:'Configuration', sect_period:'Period & RAG',
+    sect_filters:'Filters — all columns', sect_output:'Output fields',
+    lbl_ytd:'YTD through', lbl_fc:'Include forecast month', lbl_tol:'RAG tolerance',
+    kpi_hint:'Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card'
+  }
 };
 for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:/^mica/.test(sp.key)?'Y':'N'};
 let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null');
@@ -889,6 +899,7 @@ function cfgSimDims(){
 }
 function cfgTileL1(nL1){ const v=cfgS('tile_level').toLowerCase();
   return v==='level1'?true : v==='level2'?false : nL1>1; }
+function cfgL(k){ const v=CFG.labels&&CFG.labels[k]; return (v==null||v==='')? (CFG_DEFAULT.labels[k]||null) : String(v); }
 function cfgViewOn(v){ return String((CFG.views&&CFG.views[v])==null?'Y':CFG.views[v]).toUpperCase()!=='N'; }
 function cfgPage(){ return Math.max(1,parseInt(cfgS('dashboard_page_size'))||6); }
 /* monthly phasing weight for forecast/target: even 1/12, the file's own
@@ -3403,6 +3414,9 @@ function applyCfgDom(){
   document.querySelectorAll('.eyebrow').forEach(el=>el.textContent=cfgS('eyebrow'));
   for(const sp of DIM_SPECS){ const d=cfgDim(sp.key);
     if(d.label){ ALL_DIM_LABELS[sp.key]=d.label; if(sp.key in FIELD_LABELS) FIELD_LABELS[sp.key]=d.label; } }
+  document.querySelectorAll('[data-lbl]').forEach(el=>{
+    const v=cfgL(el.dataset.lbl); if(v!=null) el.textContent=v;
+  });
   const NAVV={summary:'navSummary',custom:'navCustom',builder:'navBuilder',query:'navQuery',
     table:'navTable',assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
@@ -3435,6 +3449,7 @@ function cfgFromWorkbook(wb){
       else if(sec==='tilepriority'){ const pat=b2||a; if(pat) tp.push(pat); }
       else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'N'}; }
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
+      else if(sec==='labels'){ if(a) cfg.labels[a.toLowerCase()]=b2; }
     }
   };
   const first=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null});
@@ -3473,7 +3488,8 @@ function cfgTemplateCSV(){
     ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>k.startsWith('calc_')).map(([k,v])=>['Calculations',k,v,'','']),
     ...CFG_DEFAULT.tilePriority.map((p2,i)=>['TilePriority',String(i+1),p2,'','']),
     ...Object.entries(CFG_DEFAULT.dimensions).map(([k,d])=>['Dimensions',k,ALL_DIM_LABELS[k]||k,d.filter,d.sim]),
-    ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'',''])];
+    ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
+    ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'',''])];
   return rows.map(r=>r.map(q).join(',')).join('\r\n');
 }
 function downloadCfgTemplate(){
