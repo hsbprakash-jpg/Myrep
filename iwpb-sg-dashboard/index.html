@@ -388,6 +388,23 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 #aiInputRow input{flex:1;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font:inherit;font-size:13px;background:var(--surface-1);color:var(--text-primary)}
 #aiInputRow button{background:var(--hsbc-red);color:#fff;border:none;border-radius:6px;padding:9px 20px;font-weight:700;cursor:pointer;font:inherit}
 #aiInputRow button:hover{filter:brightness(1.1)}
+#simBar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#simBar input{border:1px solid var(--border);border-radius:6px;padding:8px 12px;font:inherit;font-size:13px;background:var(--surface-1);color:var(--text-primary);min-width:230px}
+.btn-solid{background:var(--hsbc-red);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer;font:inherit}
+.btn-solid:hover{filter:brightness(1.1)}
+#simSaved{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.simsaved{display:flex;align-items:center;gap:8px;background:var(--surface-1);border:1px solid var(--border);border-radius:16px;padding:5px 12px;font-size:12px;color:var(--text-secondary)}
+.simsaved button{background:none;border:none;cursor:pointer;color:var(--hsbc-red);font-weight:700;font:inherit;padding:0;font-size:12px}
+#simRules .simrule{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);margin-bottom:8px;font-size:12.5px}
+.simrule select,.simrule input{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);max-width:250px}
+.simrule input[type=number]{width:110px}
+.simrule .rlbl{color:var(--text-muted);font-size:11px}
+.simrule .rx{margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px}
+.simrule .rx:hover{color:var(--hsbc-red)}
+#simResults .atable{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:10px}
+#simResults .atable th{background:var(--hsbc-red);color:#fff;padding:5px 10px;text-align:left;font-weight:700;white-space:nowrap}
+#simResults .atable td{padding:5px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+#simResults .atable td.num{text-align:right;white-space:nowrap}
 .card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:13px 16px 11px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
 .card:hover{border-color:var(--hsbc-red)}
@@ -508,6 +525,9 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <button id="navAssist">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1C4.1 1 1 3.6 1 6.8c0 1.8 1 3.4 2.6 4.5L3 15l3.5-2c.5.1 1 .1 1.5.1 3.9 0 7-2.6 7-5.8S11.9 1 8 1z" fill="currentColor"/></svg>
       MI Assistant</button>
+    <button id="navSim">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 13 L5 8 L8 10.5 L15 2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1 15 L5 11.5 L8 13 L15 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2" opacity=".6"/></svg>
+      Simulation agent</button>
   </nav>
   <div class="sect">KPIs · MICA Level 2</div>
   <div id="kpiNav"></div>
@@ -703,6 +723,29 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     </div>
     <datalist id="qDatalists" hidden></datalist>
     <div id="qDlHost" hidden></div>
+  </div>
+
+  <div id="simView" hidden>
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2>Simulation Agent</h2>
+      <p class="lede2">Build what-if scenarios on the forecast months — the prior forecast stays untouched, the simulated path is recomputed live under the current filters, and scenarios can be saved for reuse.</p>
+    </div></div>
+    <div class="panel">
+      <div id="simBar">
+        <input id="simName" type="text" placeholder="Scenario name (e.g. Rate cut -50bps on NII)" aria-label="Scenario name">
+        <button class="btn-solid" id="btnSimSave">Save scenario</button>
+        <button class="btn-quiet" id="btnSimNew">New</button>
+        <button class="btn-quiet" id="btnSimExport">⤓ Excel</button>
+      </div>
+      <div id="simSaved"></div>
+    </div>
+    <div class="panel">
+      <h4 style="margin:0 0 10px">Scenario rules — applied to forecast months only, in order</h4>
+      <div id="simRules"></div>
+      <button class="btn-quiet" id="btnSimAddRule">+ Add rule</button>
+    </div>
+    <div class="panel" id="simResults"></div>
   </div>
 
   <div id="assistView" hidden>
@@ -2612,12 +2655,14 @@ function setView(v){
   $('queryView').hidden   = v!=='query';
   $('tableView').hidden   = v!=='table';
   $('assistView').hidden  = v!=='assist';
+  $('simView').hidden     = v!=='sim';
   $('navSummary').classList.toggle('active',v==='summary');
   $('navCustom').classList.toggle('active',v==='custom');
   $('navBuilder').classList.toggle('active',v==='builder');
   $('navQuery').classList.toggle('active',v==='query');
   $('navTable').classList.toggle('active',v==='table');
   $('navAssist').classList.toggle('active',v==='assist');
+  $('navSim').classList.toggle('active',v==='sim');
   render();
 }
 function renderKpiNav(){
@@ -2654,6 +2699,179 @@ function renderKpiNav(){
       }
     });
   });
+}
+/* ================= Simulation agent — what-if on the forecast ================= */
+let SIM=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_sim_cur')||'null');
+  if(v&&Array.isArray(v.rules)) return v; }catch(e){}
+  return {name:'', rules:[]}; })();
+function saveSimCur(){ try{ localStorage.setItem('iwpbsg_sim_cur',JSON.stringify(SIM)); }catch(e){} }
+function simStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_sims')||'{}'); }catch(e){ return {}; } }
+function simStoreSet(o){ try{ localStorage.setItem('iwpbsg_sims',JSON.stringify(o)); }catch(e){} }
+function simFcMonths(){ return S.model? S.model.cyMonths.filter(p=>p.fc) : []; }
+function simNewRule(){
+  const fc=simFcMonths();
+  return {dim:'micaL1', val2:'', type:'pct', val:10,
+    from:fc.length?fc[0].m:0, to:fc.length?fc[fc.length-1].m:11};
+}
+/* apply the scenario rules to the forecast months; returns per-row simulated values */
+function computeSim(){
+  const m=S.model, rows=filteredRows(), fcMonths=simFcMonths();
+  const sv=new Map();
+  for(const r of rows){ const o={}; for(const p of fcMonths) o[p.col]=r.v[p.col]||0; sv.set(r,o); }
+  for(const ru of SIM.rules){
+    const val=+ru.val;
+    if(!isFinite(val)) continue;
+    const months=fcMonths.filter(p=>p.m>=+ru.from&&p.m<=+ru.to);
+    const match=ru.dim? rows.filter(r=>String(r.d[ru.dim]||'')===String(ru.val2)) : rows;
+    if(!match.length||!months.length) continue;
+    for(const p of months){
+      if(ru.type==='pct'){
+        for(const r of match) sv.get(r)[p.col]*=(1+val/100);
+      } else {
+        const tot=match.reduce((s2,r)=>s2+(sv.get(r)[p.col]||0),0);
+        if(ru.type==='amt'){
+          const per=val/months.length;
+          for(const r of match){ const cur=sv.get(r)[p.col]||0;
+            sv.get(r)[p.col]=cur+(tot? per*cur/tot : per/match.length); }
+        } else if(ru.type==='setm'){
+          for(const r of match){ const cur=sv.get(r)[p.col]||0;
+            sv.get(r)[p.col]= tot? val*cur/tot : val/match.length; }
+        }
+      }
+    }
+  }
+  return {rows, fcMonths, sv};
+}
+function simAgg(){
+  const m=S.model, {rows, fcMonths, sv}=computeSim();
+  const sumSim=(rs,cols)=>rs.reduce((s2,r)=>s2+cols.reduce((s3,p)=>s3+(sv.get(r)[p.col]||0),0),0);
+  const sumBase=(rs,cols)=>rs.reduce((s2,r)=>s2+cols.reduce((s3,p)=>s3+(r.v[p.col]||0),0),0);
+  const actMonths=m.cyMonths.filter(p=>!p.fc);
+  const gRow=(name,rs)=>{
+    const k=kpi(rs,m,S.ytdM,S.includeFC);
+    const baseFc=sumBase(rs,fcMonths), simFc=sumSim(rs,fcMonths);
+    const simOut=(k.outlook||0)-baseFc+simFc;
+    return {name, k, baseOut:k.outlook, simOut, delta:simFc-baseFc,
+      target:k.target,
+      baseVar:k.target!=null? (k.outlook-k.target) : null,
+      simVar:k.target!=null? (simOut-k.target) : null,
+      simVarPct:(k.target!=null&&k.target!==0)? (simOut-k.target)/Math.abs(k.target) : null};
+  };
+  const groups=[...groupBy(rows,'micaL1').entries()].map(([n,rs])=>gRow(n,rs))
+    .sort((a,b)=>Math.abs(b.baseOut||0)-Math.abs(a.baseOut||0));
+  const total=gRow('Total P&L',rows);
+  const actSeries=actMonths.filter(p=>p.m<=S.ytdM||true).map(p=>({m:p.m,val:sumCols(rows,[p.col])}));
+  const baseSeries=fcMonths.map(p=>({m:p.m,val:sumBase(rows,[p])}));
+  const simSeries=fcMonths.map(p=>({m:p.m,val:sumSim(rows,[p])}));
+  return {groups,total,actSeries,baseSeries,simSeries,fcMonths};
+}
+function simChart(el, act, base, sim, yearCY){
+  const W=880,H=250,Lm=66,T=14,B=30,R=14;
+  const all=[...act,...base,...sim].map(p=>p.val).filter(v=>v!=null);
+  if(!all.length){ el.innerHTML='<p class="note">Nothing to chart.</p>'; return; }
+  const lo=Math.min(0,...all), hi=Math.max(0,...all), span=(hi-lo)||1;
+  const months=[...new Set([...act,...base,...sim].map(p=>p.m))].sort((a,b)=>a-b);
+  const x=mm=>Lm+months.indexOf(mm)*(W-Lm-R)/Math.max(1,months.length-1);
+  const y=v=>T+(H-T-B)-(v-lo)*(H-T-B)/span;
+  const path=s2=>s2.filter(p=>p.val!=null).map((p,i)=>`${i?'L':'M'}${x(p.m).toFixed(1)},${y(p.val).toFixed(1)}`).join(' ');
+  const bridge=(a,b)=>a.length&&b.length? `M${x(a[a.length-1].m).toFixed(1)},${y(a[a.length-1].val).toFixed(1)} L${x(b[0].m).toFixed(1)},${y(b[0].val).toFixed(1)}`:'';
+  let svg='';
+  for(let i2=0;i2<=3;i2++){ const v=lo+span*i2/3, yy=y(v).toFixed(1);
+    svg+=`<line x1="${Lm}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/>`+
+      `<text x="${Lm-7}" y="${(+yy+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-secondary)">${fmt(v)}</text>`; }
+  for(const mm of months) svg+=`<text x="${x(mm).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--text-secondary)">${MON_LBL[mm]}</text>`;
+  svg+=`<path d="${bridge(act,base)}" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-dasharray="5 4"/>`;
+  svg+=`<path d="${bridge(act,sim)}" fill="none" stroke="var(--series-1)" stroke-width="2.2" stroke-dasharray="5 4" opacity=".8"/>`;
+  svg+=`<path d="${path(act)}" fill="none" stroke="var(--series-1)" stroke-width="2.5"/>`;
+  svg+=`<path d="${path(base)}" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-dasharray="5 4"/>`;
+  svg+=`<path d="${path(sim)}" fill="none" stroke="var(--series-1)" stroke-width="2.2" stroke-dasharray="5 4" opacity=".8"/>`;
+  el.innerHTML=`<div class="legend">
+      <span><span class="sw" style="background:var(--series-1)"></span>${esc(yearCY)} actuals</span>
+      <span><span class="sw" style="background:var(--series-2)"></span>Prior forecast</span>
+      <span><span class="sw" style="background:var(--series-1);opacity:.55"></span>Simulated forecast</span></div>
+    <div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Prior vs simulated forecast">${svg}</svg></div>`;
+}
+function simAOA(){
+  const a=simAgg(), m=S.model;
+  const ruleTxt=SIM.rules.map((r,i)=>`Rule ${i+1}: ${r.dim?(ALL_DIM_LABELS[r.dim]||r.dim)+' = '+r.val2:'All rows'} · ${
+    r.type==='pct'?r.val+'% change':r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
+  const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote()],[ruleTxt||'No rules'],[],
+    ['Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY target','vs tgt (prior)','vs tgt (simulated)']];
+  for(const g of [...a.groups, a.total])
+    aoa.push([g.name,g.baseOut,g.simOut,g.delta,g.target,g.baseVar,g.simVar]);
+  return aoa;
+}
+function renderSim(){
+  const m=S.model; if(!m) return;
+  const fc=simFcMonths();
+  $('simName').value=SIM.name||'';
+  // saved scenarios
+  const store=simStore();
+  $('simSaved').innerHTML=Object.keys(store).length?
+    Object.keys(store).sort().map(n=>`<span class="simsaved">${esc(n)}
+      <button data-n="${esc(n)}" data-act="load">Load</button>
+      <button data-n="${esc(n)}" data-act="del" title="Delete">✕</button></span>`).join('')
+    : '<span class="note">No saved scenarios yet.</span>';
+  $('simSaved').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    const st=simStore();
+    if(b.dataset.act==='del'){ delete st[b.dataset.n]; simStoreSet(st); }
+    else{ SIM={name:b.dataset.n, rules:st[b.dataset.n]||[]}; saveSimCur(); }
+    renderSim();
+  }));
+  // rules
+  const dims=Object.keys(ALL_DIM_LABELS).filter(k2=>k2 in m.dimCols);
+  const vals=d=>[...new Set(m.rows.map(r=>String(r.d[d]||'')).filter(Boolean))].sort();
+  const mOpt=sel=>fc.map(p=>`<option value="${p.m}"${+sel===p.m?' selected':''}>${MON_LBL[p.m]}</option>`).join('');
+  $('simRules').innerHTML= fc.length? SIM.rules.map((r,i)=>`
+    <div class="simrule" data-i="${i}">
+      <span class="rlbl">Scope</span>
+      <select class="rdim"><option value=""${!r.dim?' selected':''}>All rows</option>${
+        dims.map(d=>`<option value="${d}"${r.dim===d?' selected':''}>${esc(ALL_DIM_LABELS[d])}</option>`).join('')}</select>
+      ${r.dim?`<select class="rval">${vals(r.dim).map(v=>`<option${r.val2===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`:''}
+      <span class="rlbl">Adjustment</span>
+      <select class="rtype">
+        <option value="pct"${r.type==='pct'?' selected':''}>% change</option>
+        <option value="amt"${r.type==='amt'?' selected':''}>Add amount (total)</option>
+        <option value="setm"${r.type==='setm'?' selected':''}>Set monthly total</option>
+      </select>
+      <input class="rv" type="number" step="any" value="${r.val}">
+      <span class="rlbl">from</span><select class="rfrom">${mOpt(r.from)}</select>
+      <span class="rlbl">to</span><select class="rto">${mOpt(r.to)}</select>
+      <button class="rx" title="Remove rule" aria-label="Remove rule">✕</button>
+    </div>`).join('')||'<p class="note">No rules yet — add one to start simulating. With no rules the simulated forecast equals the prior forecast.</p>'
+    : '<p class="note">This file has no forecast months, so there is nothing to simulate.</p>';
+  $('simRules').querySelectorAll('.simrule').forEach(el=>{
+    const i=+el.dataset.i, r=SIM.rules[i];
+    const upd=()=>{ saveSimCur(); renderSim(); };
+    el.querySelector('.rdim').addEventListener('change',e=>{ r.dim=e.target.value;
+      r.val2=r.dim? (vals(r.dim)[0]||'') : ''; upd(); });
+    const rv=el.querySelector('.rval'); if(rv) rv.addEventListener('change',e=>{ r.val2=e.target.value; upd(); });
+    el.querySelector('.rtype').addEventListener('change',e=>{ r.type=e.target.value; upd(); });
+    el.querySelector('.rv').addEventListener('change',e=>{ r.val=e.target.value; upd(); });
+    el.querySelector('.rfrom').addEventListener('change',e=>{ r.from=+e.target.value; upd(); });
+    el.querySelector('.rto').addEventListener('change',e=>{ r.to=+e.target.value; upd(); });
+    el.querySelector('.rx').addEventListener('click',()=>{ SIM.rules.splice(i,1); saveSimCur(); renderSim(); });
+  });
+  // results
+  if(!fc.length){ $('simResults').innerHTML=''; return; }
+  const a=simAgg(), t=a.total;
+  const dcls=v=>v>=0?'':' negnum';
+  $('simResults').innerHTML=`
+    <h4 style="margin:0 0 4px">Impact — prior vs simulated forecast</h4>
+    <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters.</p>
+    <div class="trio">
+      <div class="t"><div class="tv${(t.baseOut||0)<0?' negnum':''}">${fmt(t.baseOut)}</div><div class="tl">FY outlook · prior fcst</div></div>
+      <div class="t"><div class="tv${(t.simOut||0)<0?' negnum':''}">${fmt(t.simOut)}</div><div class="tl">FY outlook · simulated</div></div>
+      <div class="t"><div class="tv${dcls(t.delta)}">${t.delta>=0?'+':''}${fmt(t.delta)}</div><div class="tl">Δ forecast</div></div>
+      ${t.target!=null?`<div class="t"><div class="tv${dcls(t.simVar)}">${fmtPct(t.simVarPct)}</div><div class="tl">vs FY target · simulated</div></div>`:''}
+    </div>
+    <div class="chart-wrap" id="simChartEl"></div>
+    <table class="atable"><thead><tr><th>Line</th><th>FY outlook · prior</th><th>FY outlook · simulated</th><th>Δ</th><th>FY target</th><th>vs tgt · prior</th><th>vs tgt · simulated</th></tr></thead>
+    <tbody>${[...a.groups,t].map(g=>`<tr${g.name==='Total P&L'?' style="font-weight:700"':''}>
+      <td>${esc(g.name)}</td><td class="num">${fmtCell(g.baseOut)}</td><td class="num">${fmtCell(g.simOut)}</td>
+      <td class="num">${fmtCell(g.delta)}</td><td class="num">${fmtCell(g.target)}</td>
+      <td class="num">${fmtCell(g.baseVar)}</td><td class="num">${fmtCell(g.simVar)}</td></tr>`).join('')}</tbody></table>`;
+  simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
 }
 /* ================= MI Assistant — governed Q&A ================= */
 function aTable(headers, rows2){
@@ -2821,6 +3039,7 @@ function render(){
   else if(S.view==='builder') renderBuilder();
   else if(S.view==='query') renderQuery();
   else if(S.view==='assist') renderAssist();
+  else if(S.view==='sim') renderSim();
   else renderTable();
   renderKpiNav();
   const rows=filteredRows();
@@ -3180,6 +3399,16 @@ function init(){
   });
   $('navTable').addEventListener('click',()=>setView('table'));
   $('navAssist').addEventListener('click',()=>setView('assist'));
+  $('navSim').addEventListener('click',()=>setView('sim'));
+  $('btnSimAddRule').addEventListener('click',()=>{ SIM.rules.push(simNewRule()); saveSimCur(); renderSim(); });
+  $('simName').addEventListener('change',e=>{ SIM.name=e.target.value; saveSimCur(); });
+  $('btnSimSave').addEventListener('click',()=>{
+    SIM.name=$('simName').value.trim();
+    if(!SIM.name){ alert('Give the scenario a name first.'); return; }
+    const st=simStore(); st[SIM.name]=SIM.rules; simStoreSet(st); saveSimCur(); renderSim();
+  });
+  $('btnSimNew').addEventListener('click',()=>{ SIM={name:'',rules:[]}; saveSimCur(); renderSim(); });
+  $('btnSimExport').addEventListener('click',()=>exportWB([{name:'Simulation', aoa:simAOA()}],'IWPB_SG_simulation'));
   $('btnAiAsk').addEventListener('click',()=>{ aiAsk($('aiInput').value); $('aiInput').value=''; });
   $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ aiAsk($('aiInput').value); $('aiInput').value=''; } });
   $('mxScope').addEventListener('change',e=>{ MX.l2=e.target.value; saveMix(); renderMix(); });

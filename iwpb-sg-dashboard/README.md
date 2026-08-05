@@ -60,6 +60,15 @@ A single header row with:
   answered deterministically in the browser from the filtered data on the
   standard comparison basis. Free-text questions are matched to the
   governed set; anything outside it is declined. Nothing leaves the page.
+- **Simulation Agent** — what-if scenarios on the forecast months. Build
+  any number of ordered rules, each scoped to any dimension value (or all
+  rows) with three adjustment types: % change, add amount (spread over the
+  chosen months, pro-rata across matching rows), or set the monthly total.
+  The prior forecast stays untouched; the page shows prior vs simulated FY
+  outlook, the delta, both against the FY target, a monthly chart
+  (actuals, prior forecast, simulated forecast) and a per-Level-1 impact
+  table, with Excel export. Scenarios save by name (localStorage) for
+  reload; the work-in-progress scenario survives refreshes.
 - **Data** — the filtered source rows, paginated with search.
 
 Clicking a KPI card (or a KPI in the left pane) focuses the **Mix
