@@ -551,10 +551,12 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="sideFilters">
     <label>YTD through <select id="fMonth"></select></label>
     <label class="chk"><input type="checkbox" id="fFC"> Include forecast month</label>
-    <label>Watch band ±% <input type="number" id="fThresh" min="0" max="100" step="0.5" value="5"
-      title="How far behind the baseline a line may run before Watch turns Unfavourable. 0 = no Watch band."></label>
-    <label>Favourable from % <input type="number" id="fGreenAt" min="-100" max="100" step="0.5" value="0"
-      title="Variance needed to rate Favourable. 0 = at or above baseline; 2 = must beat it by 2%."></label>
+    <label>RAG tolerance <select id="fThresh">
+      <option value="0">0% tolerance (no Watch band)</option>
+      <option value="0.03">±3% tolerance</option>
+      <option value="0.05" selected>±5% tolerance</option>
+      <option value="0.10">±10% tolerance</option>
+    </select></label>
   </div>
   <div class="sect sect-row">Filters — all columns <button class="linklike" id="btnClearFilters">Reset</button></div>
   <div id="dimFilters"></div>
@@ -3404,11 +3406,12 @@ function applyCfgDom(){
     table:'navTable',assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
   const th=parseFloat(cfgS('rag_tolerance'));
-  if(isFinite(th)&&th>=0){ const inp=$('fThresh');
-    if(inp) inp.value=String(+(th*100).toFixed(2));
+  if(isFinite(th)&&th>=0){ const sel=$('fThresh');
+    if(sel){ if(![...sel.options].some(o=>+o.value===th)){
+        const o=document.createElement('option'); o.value=String(th);
+        o.textContent='±'+Math.round(th*100)+'% tolerance'; sel.appendChild(o); }
+      sel.value=String(th); }
     S.thresh=th; }
-  const ga=parseFloat(cfgS('calc_rag_green_at'));
-  const gi=$('fGreenAt'); if(gi&&isFinite(ga)) gi.value=String(+(ga*100).toFixed(2));
   if(!cfgViewOn(S.view)) S.view='summary';
 }
 function cfgFromWorkbook(wb){
@@ -3569,10 +3572,7 @@ function init(){
     }
     render();
   });
-  $('fThresh').addEventListener('change',e=>{S.thresh=Math.max(0,(+e.target.value||0))/100;render();});
-  $('fGreenAt').addEventListener('change',e=>{
-    CFG.settings.calc_rag_green_at=String(((+e.target.value)||0)/100); render();
-  });
+  $('fThresh').addEventListener('change',e=>{ S.thresh=+e.target.value; render(); renderKpiNav(); });
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navCustom').addEventListener('click',()=>setView('custom'));
   $('navBuilder').addEventListener('click',()=>setView('builder'));
