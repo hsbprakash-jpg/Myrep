@@ -741,7 +741,7 @@ function classifyPeriod(raw, bandVal){
   if(!t) return null;
   const b = String(bandVal||'').toLowerCase();
   const isFc = /\bfc\b|forecast/.test(t) || b.includes('forecast');
-  const isTarget = b.includes('target') || /\btarget\b/.test(t);
+  const isTarget = b.includes('target') || b.includes('tgt') || /\btarget\b|\btgt\b/.test(t);
   if(t.includes('ytd')) return {type:'ytd', label:String(raw), target:isTarget};
   // full-year / target columns ride along as extra exportable columns
   if(/^fy\b|^fy[- ']|^fy\d/.test(t)) return {type:'ytd', label:String(raw), target:isTarget, fy:true, fc:isFc};
@@ -869,18 +869,26 @@ function parseSheet(aoa){
     for(const p of ytdCols) v[p.col]=num(raw[p.col]);
     rows.push({d, v});
   }
-  const targetCols=ytdCols.filter(p=>p.target&&p.fy);
   // tolerant FY-year extraction: FY-26 / FY26 / FY 2026 / FY'26 all yield '26'
   const fyYY=l=>{ const mm=String(l).match(/fy[\s\-']*(?:20)?(\d{2})\b/i); return mm?mm[1]:null; };
-  // FY actuals for the PRIOR year (e.g. FY-25 when the file is 2026) — taken as-is from its column
   const cyYY=String(yearCY).slice(-2);
-  const fyPriorCols=ytdCols.filter(p=>{
-    if(!p.fy||p.target) return null;
+  const isCYFY=p=>{ const yy=fyYY(p.label); return yy==null||yy===cyYY; };
+  // FY target — prefer the current-year target; never sum duplicate columns
+  let targetCols=ytdCols.filter(p=>p.target&&p.fy&&isCYFY(p));
+  if(!targetCols.length) targetCols=ytdCols.filter(p=>p.target&&p.fy);
+  if(targetCols.length>1) targetCols=[targetCols[0]];
+  // FY actuals for the PRIOR year (e.g. FY-25 when the file is 2026) — taken
+  // as-is from its column; latest prior year wins, one column only
+  let fyPriorCols=ytdCols.filter(p=>{
+    if(!p.fy||p.target||/forecast|fcst|\bfc\b/i.test(String(p.label))) return false;
     const yy=fyYY(p.label);
     return yy!=null&&yy!==cyYY;
   });
+  if(fyPriorCols.length>1){
+    const latest=fyPriorCols.map(p=>fyYY(p.label)).sort().pop();
+    fyPriorCols=fyPriorCols.filter(p=>fyYY(p.label)===latest).slice(0,1);
+  }
   const fyPriorLabel=fyPriorCols.length?fyYY(fyPriorCols[0].label):null;
-  const isCYFY=p=>{ const yy=fyYY(p.label); return yy==null||yy===cyYY; };
   // current-year FY forecast column — a label naming it Forecast/Fcst/FC wins,
   // then a Forecast band marking, then (no prior year) any current-year FY
   // column that isn't the target
