@@ -881,6 +881,7 @@ const CFG_DEFAULT={
     font_greeting:'', font_commentary:'', font_eyebrow:'',
     sim_value_width:'50',
     month_case:'upper',
+    unit_label:'US$m',
     calc_ytd_actuals:'column',
     calc_fy_forecast:'column',
     calc_ytd_forecast:'even',
@@ -930,6 +931,7 @@ function cfgTileL1(nL1){ const v=cfgS('tile_level').toLowerCase();
 function cfgL(k){ const v=CFG.labels&&CFG.labels[k]; return (v==null||v==='')? (CFG_DEFAULT.labels[k]||null) : String(v); }
 function cfgViewOn(v){ return String((CFG.views&&CFG.views[v])==null?'Y':CFG.views[v]).toUpperCase()!=='N'; }
 function cfgPage(){ return Math.max(1,parseInt(cfgS('dashboard_page_size'))||6); }
+function cfgUnit(){ const u=cfgS('unit_label'); return u&&u.trim()? u.trim() : 'US$'; }
 /* monthly phasing weight for forecast/target: even 1/12, the file's own
    monthly profile, or custom weights from the config */
 function fcWeight(model, mi){
@@ -1745,13 +1747,13 @@ function renderSummary(){
   } else cm+='; this file carries no comparison baseline.';
   $('commentary').innerHTML=cm;
 
-  $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY}`;
+  $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY} (${cfgUnit()})`;
   const lvl=tileL1?'MICA Level 1':'MICA Level 2';
   $('summaryLede').textContent= L.mode==='tgt'
-    ? `RAG by ${lvl} — full-year outlook (Jan–Dec months only) against the FY target column · figures in US$ as reported.`
-    : L.mode==='py' ? `RAG by ${lvl} — year-to-date actuals against the same prior-year period · figures in US$ as reported.`
-    : L.mode==='fc' ? `RAG by ${lvl} — year-to-date actuals against the YTD forecast (FY forecast phased over elapsed months) · figures in US$ as reported.`
-    : `${lvl} summary — no comparison baseline in this file · figures in US$ as reported.`;
+    ? `RAG by ${lvl} — full-year outlook (Jan–Dec months only) against the FY target column · figures in ${esc(cfgUnit())} as reported.`
+    : L.mode==='py' ? `RAG by ${lvl} — year-to-date actuals against the same prior-year period · figures in ${esc(cfgUnit())} as reported.`
+    : L.mode==='fc' ? `RAG by ${lvl} — year-to-date actuals against the YTD forecast (FY forecast phased over elapsed months) · figures in ${esc(cfgUnit())} as reported.`
+    : `${lvl} summary — no comparison baseline in this file · figures in ${esc(cfgUnit())} as reported.`;
 
   // driller-format KPI tiles: name + headline, then vs-comparison rows with
   // direction triangles (colour = favourability, triangle = movement)
@@ -1853,7 +1855,7 @@ function renderSummary(){
     : [['YTD actuals',fmt(kT.cy)]];
   traj.innerHTML=`<div class="panel-head">
       <div><h4>Performance trajectory ${ragPill(rgT)}</h4>
-      <p class="subtitle">${esc(totName)} — cumulative YTD actuals${hasFC?' + outlook':''}${L.mode==='py'?` vs YTD ${esc(m.yearPY)}`:' vs YTD forecast'}</p></div>
+      <p class="subtitle">${esc(totName)} — cumulative YTD actuals${hasFC?' + outlook':''}${L.mode==='py'?` vs YTD ${esc(m.yearPY)}`:' vs YTD forecast'} · ${esc(cfgUnit())}</p></div>
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
     <div class="legend">
@@ -1965,7 +1967,7 @@ function renderMix(){
   $('mxMeasure').innerHTML=mops.map(k2=>`<option value="${k2}"${MX.measure===k2?' selected':''}>${esc(measureLabel(k2))}</option>`).join('');
   $('mxType').innerHTML=typeOptions(MX.type, ensureType(MX));
   $('mixTitle').textContent=chartTitle(MX);
-  $('mixSub').textContent=`YTD ${ytdLabel()} · change the view with the dropdowns — it follows the filters in the left pane`;
+  $('mixSub').textContent=`YTD ${ytdLabel()} · ${cfgUnit()} · change the view with the dropdowns — it follows the filters in the left pane`;
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
   aiComment($('mixCom'), 'mix|'+JSON.stringify([MX.l2,MX.groupBy,MX.measure,MX.type])+'|'+filterNote()+'|'+S.ytdM,
     ()=>chartCommentaryHtml({...MX}));
@@ -2106,7 +2108,7 @@ async function exportSummaryPPT(){
   const slide=p.addSlide(); slide.background={color:'FFFFFF'};
   slide.addText(`${cfgS('landing_title')} \u2014 ${MON_LBL[S.ytdM]} ${m.yearCY}`,
     {x:0.4,y:0.2,w:12.5,h:0.5,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI'});
-  slide.addText(`${MON_LBL[S.ytdM]} YTD financial dashboard \u00b7 figures in US$ as reported`,
+  slide.addText(`${MON_LBL[S.ytdM]} YTD financial dashboard \u00b7 figures in ${cfgUnit()} as reported`,
     {x:0.4,y:0.7,w:12.5,h:0.3,fontSize:11,color:'52514E',fontFace:'Segoe UI'});
   const COLS=4, TW=3.04, TH=1.42, GX=0.11, GY=0.13, X0=0.42, Y0=1.12;
   tiles.forEach((t,i)=>{
@@ -3316,7 +3318,7 @@ function renderSim(){
     ${stale?`<p class="note" style="color:#9a6a00;background:color-mix(in srgb, var(--status-warning) 12%, transparent);border:1px solid var(--status-warning);border-radius:6px;padding:8px 12px">Rules have changed since the last run — click <b>▶ Run simulation</b> to refresh these results.</p>`:''}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
       <div><h4 style="margin:0 0 4px">Impact — prior vs simulated forecast</h4>
-      <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters.</p></div>
+      <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters · ${esc(cfgUnit())}.</p></div>
       <label style="font-size:12px;color:var(--text-muted)">View impact by
         <select id="simBy" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)">${
           Object.keys(ALL_DIM_LABELS).filter(k2=>k2 in m.dimCols).map(k2=>
