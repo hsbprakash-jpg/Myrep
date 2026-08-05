@@ -557,7 +557,8 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 13 L5 8 L8 10.5 L15 2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1 15 L5 11.5 L8 13 L15 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2" opacity=".6"/></svg>
       <span data-lbl="nav_sim">Simulation agent</span></button>
   </nav>
-  <div class="sect" data-lbl="sect_kpis">KPIs · MICA Level 2</div>
+  <div class="sect" id="sectKpisRow" title="Collapse / expand the KPI list" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+    <span data-lbl="sect_kpis">KPIs · MICA Level 2</span><span id="kpiCaret" style="margin-left:auto;font-size:10px;color:var(--text-muted)">▾</span></div>
   <div id="kpiNav"></div>
   <div class="hint" data-lbl="kpi_hint">Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card</div>
   <div class="sect" data-lbl="sect_config">Configuration</div>
@@ -3778,7 +3779,12 @@ function applyCfgDom(){
 }
 function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
-  const low=x=>String(x==null?'':x).trim();
+  const low=x=>String(x==null?'':x).trim()
+    .replace(/\u00c3\u0082|\u00c3\u201a/g,'\u00c2')        // collapse double-encoded chains first
+    .replace(/\u00c3(?=\u00c2)/g,'')
+    .replace(/\u00c2\u00c2/g,'\u00c2')
+    .replace(/\u00c2\u00b7/g,'\u00b7').replace(/\u00e2\u20ac\u201d/g,'\u2014')
+    .replace(/\u00e2\u20ac\u2122/g,"'").replace(/\u00c2(?=\s|$)/g,'');
   const tp=[];
   const handle=(section,rows)=>{
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
@@ -3987,6 +3993,19 @@ function init(){
   $('navTable').addEventListener('click',()=>setView('table'));
   $('navAssist').addEventListener('click',()=>setView('assist'));
   $('navSim').addEventListener('click',()=>setView('sim'));
+  const applyKpiNavCollapse=()=>{
+    const open=localStorage.getItem('iwpbsg_kpinav_collapsed')!=='1';
+    $('kpiNav').style.display=open?'':'none';
+    const hint=document.querySelector('.hint[data-lbl="kpi_hint"]');
+    if(hint) hint.style.display=open?'':'none';
+    $('kpiCaret').textContent=open?'▾':'▸';
+  };
+  $('sectKpisRow').addEventListener('click',()=>{
+    const open=localStorage.getItem('iwpbsg_kpinav_collapsed')!=='1';
+    localStorage.setItem('iwpbsg_kpinav_collapsed', open?'1':'0');
+    applyKpiNavCollapse();
+  });
+  applyKpiNavCollapse();
   $('btnCfgUpload').addEventListener('click',()=>$('cfgInput').click());
   $('cfgInput').addEventListener('change',e=>{ if(e.target.files[0]) handleCfgFile(e.target.files[0]); e.target.value=''; });
   $('btnCfgTemplate').addEventListener('click',downloadCfgTemplate);
