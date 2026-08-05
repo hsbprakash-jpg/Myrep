@@ -406,6 +406,10 @@ table.review tbody tr:hover td{background:color-mix(in srgb, var(--series-1) 7%,
 table.review td{border-bottom:1px solid var(--grid)}
 .rvwsearch{padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;
   background:var(--surface-2);color:var(--text-primary);font-size:12.5px;min-width:220px}
+/* query results fit the panel width — text cells wrap rather than force sideways scrolling */
+#qResTable table{width:100%}
+#qResTable th{white-space:normal;overflow-wrap:anywhere}
+#qResTable td.namecell{white-space:normal;max-width:none;overflow:visible;overflow-wrap:anywhere}
 .pager{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;
   color:var(--text-secondary);flex-wrap:wrap}
 .pager button{padding:4px 10px;font-size:12px}
@@ -444,7 +448,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       Query builder</button>
     <button id="navTable">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="2" width="14" height="2.4" rx="1" fill="currentColor"/><rect x="1" y="6.8" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="11.6" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/></svg>
-      Data</button>
+      Data drill down</button>
   </nav>
   <div class="sect">KPIs · MICA Level 2</div>
   <div id="kpiNav"></div>
@@ -634,8 +638,8 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="tableView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>Source Data</h2>
-      <p class="lede2">The underlying driller rows in scope of the current filters.</p>
+      <h2>Data Drill Down</h2>
+      <p class="lede2">Drill into the underlying driller rows in scope of the current filters.</p>
     </div></div>
     <div class="panel">
       <div class="panel-head">
