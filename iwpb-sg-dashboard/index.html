@@ -425,6 +425,13 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 .card .tval.negnum,.trio .tv.negnum,#kpiNav .v{color:var(--text-primary)}
 .legend .swl{display:inline-block;width:20px;height:0;margin-right:6px;vertical-align:middle}
 .card.dragtgt{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
+.ctable{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:4px}
+.ctable th{background:var(--hsbc-red);color:#fff;padding:5px 9px;text-align:left;font-weight:700}
+.ctable th.num{text-align:right}
+.ctable td{padding:5px 9px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.ctable td:first-child{overflow-wrap:anywhere;min-width:100px}
+.ctable td.num{text-align:right;white-space:nowrap}
+.ctable tr.tot td{font-weight:700;border-top:2px solid var(--text-primary)}
 .card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
 .card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2163,11 +2170,11 @@ function chartTitle(cfg){
 }
 const CHART_TYPES=[['column','Column'],['hbar','Horizontal bar'],['lollipop','Lollipop'],
   ['line','Line'],['area','Area'],['pie','Pie'],['donut','Donut'],['waterfall','Waterfall'],
-  ['pareto','Pareto'],['treemap','Treemap'],['scatter','Scatter vs baseline']];
+  ['pareto','Pareto'],['treemap','Treemap'],['scatter','Scatter vs baseline'],['table','Table']];
 function typeOptions(cur){
   return CHART_TYPES.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('');
 }
-const SPLIT_TYPES=new Set(['column','hbar']);
+const SPLIT_TYPES=new Set(['column','hbar','table']);
 function chartData(cfg){
   const m=S.model;
   let rows=filteredRows();
@@ -2202,7 +2209,8 @@ function chartData(cfg){
       for(const [sn,rs] of groupByFn(c.rows,skey)){
         const key=segNames.includes(sn)?sn:'Other';
         const v=mfn(rs);
-        if(v<0){ clamped=true; continue; }        // stacked bars carry positive components only
+        // stacked bars carry positive components only; a table shows real signed values
+        if(v<0&&cfg.type!=='table'){ clamped=true; continue; }
         segs[key]=(segs[key]||0)+v;
       }
       c.segs=segs;
@@ -2430,6 +2438,20 @@ function buildChartEl(cfg){
     html=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Treemap">${svg}</svg></div>
       <p class="note">Hover a tile for the full name and value.</p>`;
     if(cats.some(c=>c.val<0)) notes.push('Negative categories are excluded from the treemap.');
+
+  } else if(t==='table'){
+    const dim=fieldLabels(cfg.groupBy);
+    if(segNames){
+      const rows2=cats.map(c=>`<tr><td>${esc(c.name)}</td>${segNames.map(sn=>`<td class="num">${fmtCell(c.segs[sn]||0)}</td>`).join('')}<td class="num">${fmtCell(c.segTotal)}</td></tr>`).join('');
+      const tot=segNames.map(sn=>cats.reduce((s2,c)=>s2+(c.segs[sn]||0),0));
+      html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th>${segNames.map(sn=>`<th class="num">${esc(sn)}</th>`).join('')}<th class="num">Total</th></tr></thead>
+        <tbody>${rows2}<tr class="tot"><td>Total</td>${tot.map(v=>`<td class="num">${fmtCell(v)}</td>`).join('')}<td class="num">${fmtCell(tot.reduce((a,b)=>a+b,0))}</td></tr></tbody></table></div>`;
+    } else {
+      const total=cats.reduce((s2,c)=>s2+(c.val||0),0);
+      html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th><th class="num">${esc(measureLabel(cfg.measure))}</th><th class="num">Share</th></tr></thead>
+        <tbody>${cats.map(c=>`<tr><td>${esc(c.name)}</td><td class="num">${fmtCell(c.val)}</td><td class="num">${total? (c.val/total*100).toFixed(1)+'%':'\u2013'}</td></tr>`).join('')}
+        <tr class="tot"><td>Total</td><td class="num">${fmtCell(total)}</td><td class="num">${total?'100.0%':'\u2013'}</td></tr></tbody></table></div>`;
+    }
 
   } else if(t==='scatter'){
     const W=560, H=320, L=64, T=16, BOT=46;
