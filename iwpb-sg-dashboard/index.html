@@ -732,7 +732,7 @@ function classifyPeriod(raw, bandVal){
   const isTarget = b.includes('target') || /\btarget\b/.test(t);
   if(t.includes('ytd')) return {type:'ytd', label:String(raw), target:isTarget};
   // full-year / target columns ride along as extra exportable columns
-  if(/^fy\b|^fy[- ']/.test(t)) return {type:'ytd', label:String(raw), target:isTarget, fy:true};
+  if(/^fy\b|^fy[- ']/.test(t)) return {type:'ytd', label:String(raw), target:isTarget, fy:true, fc:isFc};
   let q = t.match(/^([1-4])\s*q\s*'?(\d{2,4})/) || t.match(/^q([1-4])(?:\s*[-' ]\s*(\d{2,4}))?/);
   if(q){
     if(isTarget) return {type:'ytd', label:String(raw), target:true};
@@ -858,8 +858,14 @@ function parseSheet(aoa){
     return mm&&mm[1]!==cyYY;
   });
   const fyPriorLabel=fyPriorCols.length?String(fyPriorCols[0].label).match(/fy[- ']?(\d{2})/i)[1]:null;
+  // current-year FY forecast column (e.g. FY-26 with an Actuals/Forecast band of Forecast)
+  const fyFcCols=ytdCols.filter(p=>{
+    if(!p.fy||p.target||!p.fc) return false;
+    const mm=String(p.label).match(/fy[- ']?(\d{2})/i);
+    return !mm||mm[1]===cyYY;
+  });
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
-    fyPriorCols, fyPriorLabel, yearPY, yearCY};
+    fyPriorCols, fyPriorLabel, fyFcCols, yearPY, yearCY};
 }
 
 /* ================= aggregation ================= */
@@ -888,14 +894,19 @@ function kpi(rows, model, ytdM, includeFC){
   const outlook = sumCols(rows, model.cyMonths.map(p=>p.col));
   const target = (model.targetCols&&model.targetCols.length)? sumCols(rows, model.targetCols.map(p=>p.col)) : null;
   const fyPrior = (model.fyPriorCols&&model.fyPriorCols.length)? sumCols(rows, model.fyPriorCols.map(p=>p.col)) : null;
+  const fyFc = (model.fyFcCols&&model.fyFcCols.length)? sumCols(rows, model.fyFcCols.map(p=>p.col)) : null;
+  const ytdFc = fyFc!=null? fyFc*(cySel.length/12) : null;
+  const varFc = (cy!=null&&ytdFc!=null)? cy-ytdFc : null;
+  const varFcPct = (varFc!=null&&ytdFc!==0)? varFc/Math.abs(ytdFc) : null;
   const varTgt = (outlook!=null&&target!=null)? outlook-target : null;
   const varTgtPct = (varTgt!=null&&target!==0)? varTgt/Math.abs(target) : null;
   // the comparison every view leans on: prior year when present, else FY target
   let cmpMode='none', cmpBase=null, cmpVar=null, cmpVarPct=null;
   if(model.pyMonths.length){ cmpMode='py'; cmpBase=py; cmpVar=varAbs; cmpVarPct=varPct; }
+  else if(ytdFc!=null){ cmpMode='fc'; cmpBase=ytdFc; cmpVar=varFc; cmpVarPct=varFcPct; }
   else if(target!=null){ cmpMode='tgt'; cmpBase=target; cmpVar=varTgt; cmpVarPct=varTgtPct; }
   return {cy, py, varAbs, varPct, cySeries, pySeries, outlook, target, varTgt, varTgtPct, fyPrior,
-    cmpMode, cmpBase, cmpVar, cmpVarPct};
+    fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct};
 }
 /* cost and ECL lines stay actuals-only on landing widgets in target-based files */
 function cmpHidden(name){
@@ -905,6 +916,7 @@ function cmpHidden(name){
 /* labels for whichever comparison basis the file supports */
 function cmpLabels(m){
   if(m.pyMonths.length) return {mode:'py', main:`YTD ${m.yearCY}`, base:`YTD ${m.yearPY}`, vs:`vs ${m.yearPY}`, mainKey:'cy'};
+  if(m.fyFcCols&&m.fyFcCols.length) return {mode:'fc', main:`YTD ${m.yearCY}`, base:'YTD forecast', vs:'vs YTD forecast', mainKey:'cy'};
   if(m.targetCols&&m.targetCols.length) return {mode:'tgt', main:'FY Outlook', base:'FY Target', vs:'vs FY target', mainKey:'outlook'};
   return {mode:'none', main:`YTD ${m.yearCY}`, base:'Prior year', vs:'vs prior year', mainKey:'cy'};
 }
@@ -1252,10 +1264,11 @@ function renderSummary(){
   const l1name=[...groupBy(rows,'micaL1').keys()][0]||'Revenue';
   let cm=`${esc(l1name)} of <b>${fmt(kT.cy)}</b> for YTD ${esc(ytdLabel())}`;
   if(kT.cmpVarPct!=null){
-    const dir=kT.cmpVarPct>=0?(L.mode==='tgt'?'above FY target':'ahead of prior year')
-                             :(L.mode==='tgt'?'below FY target':'behind prior year');
+    const dir=kT.cmpVarPct>=0?(L.mode==='tgt'?'above FY target':L.mode==='fc'?'ahead of the YTD forecast':'ahead of prior year')
+                             :(L.mode==='tgt'?'below FY target':L.mode==='fc'?'behind the YTD forecast':'behind prior year');
     cm+=` runs <b>${fmtPct(kT.cmpVarPct)}</b> ${dir}`;
     if(L.mode==='tgt') cm+=` — full-year outlook of <b>${fmt(kT.outlook)}</b> against a target of <b>${fmt(kT.target)}</b>`;
+    else if(L.mode==='fc') cm+=` — <b>${fmt(kT.cy)}</b> actual against a phased forecast of <b>${fmt(kT.ytdFc)}</b>${kT.target!=null?`, with a full-year outlook of <b>${fmt(kT.outlook)}</b> vs target <b>${fmt(kT.target)}</b>`:''}`;
     cm+='.';
     if(best&&worst&&best!==worst)
       cm+=` <b>${esc(best.l2)}</b> leads at <b>${fmtPct(best.k.cmpVarPct)}</b>; <b>${esc(worst.l2)}</b> is the weakest line at <b>${fmtPct(worst.k.cmpVarPct)}</b>.`;
@@ -1266,6 +1279,7 @@ function renderSummary(){
   $('summaryLede').textContent= L.mode==='tgt'
     ? 'RAG by MICA Level 2 — full-year outlook (Jan–Dec months only) against the FY target column · figures in US$ as reported.'
     : L.mode==='py' ? 'RAG by MICA Level 2 — year-to-date actuals against the same prior-year period · figures in US$ as reported.'
+    : L.mode==='fc' ? 'RAG by MICA Level 2 — year-to-date actuals against the YTD forecast (FY forecast phased over elapsed months) · figures in US$ as reported.'
     : 'MICA Level 2 summary — no comparison baseline in this file · figures in US$ as reported.';
 
   // hero card row: Total first, then the top KPIs (six cards in all)
@@ -1274,6 +1288,8 @@ function renderSummary(){
     ? `${fmt(k.target)} target · <span${(k.cmpVarPct||0)<0?' class="negnum"':''}>${fmtPct(k.cmpVarPct)}</span> vs tgt`
     : L.mode==='py'
     ? `${fmt(k.py)} prior yr · <span${(k.cmpVarPct||0)<0?' class="negnum"':''}>${fmtPct(k.cmpVarPct)}</span> YoY`
+    : L.mode==='fc'
+    ? `${fmt(k.ytdFc)} YTD fcst · <span${(k.cmpVarPct||0)<0?' class="negnum"':''}>${fmtPct(k.cmpVarPct)}</span> vs fcst`
     : `YTD ${esc(ytdLabel())}`;
   const cardHtml=(name,l1,k,l2attr,hideCmp)=>`
     <button class="card" ${l2attr} title="View this line in Mix analysis">
@@ -1312,7 +1328,12 @@ function renderSummary(){
 
   // performance trajectory — total, monthly, against the comparison basis
   const traj=$('trajPanel');
-  const trio= L.mode==='tgt'
+  const trio= L.mode==='fc'
+    ? [['YTD actuals',fmt(kT.cy)],['YTD forecast',fmt(kT.ytdFc)],['vs YTD forecast',fmtPct(kT.cmpVarPct)],
+       ['FY outlook',fmt(kT.outlook)],
+       ...(kT.target!=null?[['FY target',fmt(kT.target)]]:[]),
+       ...(kT.fyPrior!=null?[[`FY-${m.fyPriorLabel} actuals`,fmt(kT.fyPrior)]]:[])]
+    : L.mode==='tgt'
     ? [['YTD actuals',fmt(kT.cy)],['FY outlook',fmt(kT.outlook)],
        ...(kT.fyPrior!=null?[[`FY-${m.fyPriorLabel} actuals`,fmt(kT.fyPrior)]]:[]),
        ['vs FY target',fmtPct(kT.cmpVarPct)]]
@@ -1321,12 +1342,16 @@ function renderSummary(){
     : [['YTD actuals',fmt(kT.cy)]];
   traj.innerHTML=`<div class="panel-head">
       <div><h4>Performance trajectory ${ragPill(rgT)}</h4>
-      <p class="subtitle">Total ${esc(l1name)} — ${esc(m.yearCY)} monthly actuals${hasFC?' + forecast':''}${L.mode==='tgt'?' vs pro-rated FY target':L.mode==='py'?` vs ${esc(m.yearPY)}`:''}</p></div>
+      <p class="subtitle">Total ${esc(l1name)} — ${esc(m.yearCY)} monthly actuals${hasFC?' + forecast':''}${L.mode==='tgt'?' vs pro-rated FY target':L.mode==='fc'?' vs phased FY forecast':L.mode==='py'?` vs ${esc(m.yearPY)}`:''}</p></div>
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
     <div class="chart-wrap" id="trajChart"></div>`;
   let cmpSeries=[], cmpName=m.yearPY;
   if(L.mode==='py') cmpSeries=kT.pySeries;
+  else if(L.mode==='fc'&&kT.fyFc!=null){
+    cmpSeries=m.cyMonths.map(p=>({m:p.m, fc:false, val:kT.fyFc/12}));
+    cmpName='Forecast';
+  }
   else if(L.mode==='tgt'&&kT.target!=null){
     cmpSeries=m.cyMonths.map(p=>({m:p.m, fc:false, val:kT.target/12}));
     cmpName='Target';
@@ -1341,6 +1366,8 @@ function renderSummary(){
     const col=rg.cls==='r'?'var(--status-critical)':'var(--status-warning)';
     const desc= L.mode==='tgt'
       ? `Outlook ${fmt(c.k.outlook)} vs target ${fmt(c.k.target)} · ${fmtPct(c.k.cmpVarPct)}`
+      : L.mode==='fc'
+      ? `YTD ${fmt(c.k.cy)} vs ${fmt(c.k.ytdFc)} YTD forecast · ${fmtPct(c.k.cmpVarPct)}`
       : `YTD ${fmt(c.k.cy)} vs ${fmt(c.k.cmpBase)} prior yr · ${fmtPct(c.k.cmpVarPct)}`;
     return `<div class="aitem">
       <div class="ahead"><span class="aic" style="color:${col}">${rg.cls==='r'?'▼':'●'}</span>${esc(c.l2)}
@@ -1350,7 +1377,7 @@ function renderSummary(){
     </div>`;
   };
   $('attnPanel').innerHTML=`<h4>Attention required</h4>
-    <p class="subtitle">${attn.length?`${attn.length} KPI${attn.length>1?'s':''} behind the ${L.mode==='tgt'?'FY target':'prior year'}`:'All KPIs at or above the baseline'}</p>
+    <p class="subtitle">${attn.length?`${attn.length} KPI${attn.length>1?'s':''} behind the ${L.mode==='tgt'?'FY target':L.mode==='fc'?'YTD forecast':'prior year'}`:'All KPIs at or above the baseline'}</p>
     <div class="attn">${attn.length?attn.map(aItem).join(''):`<div class="allgood">▲ Nothing off track under the current filters.</div>`}</div>`;
   $('attnPanel').querySelectorAll('.abtn').forEach(b=>
     b.addEventListener('click',()=>{
@@ -1532,7 +1559,7 @@ function kpiSummaryAOA(){
     const hide=cmpHidden(name);
     return L.mode==='tgt'
       ? [name,l1,k.cy,k.outlook,hide?null:k.target,hide?null:k.cmpVar,hide?null:pct(k.cmpVarPct),hide?'actuals only':rag(k.cmpVarPct,S.thresh).label]
-      : [name,l1,k.cy,k.cmpBase,k.cmpVar,pct(k.cmpVarPct),rag(k.cmpVarPct,S.thresh).label];
+      : [name,l1,k.cy,hide?null:k.cmpBase,hide?null:k.cmpVar,hide?null:pct(k.cmpVarPct),hide?'actuals only':rag(k.cmpVarPct,S.thresh).label];
   };
   for(const c of byL2) aoa.push(row(c.l2,c.l1,c.k));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
@@ -1596,6 +1623,7 @@ function widgetAOA(w){
   const L=cmpLabels(m);
   const rowsOut=[[name+' — KPI'],[filterNote()],[],['Measure','Value'],[`YTD ${m.yearCY}`,k.cy]];
   if(L.mode==='tgt') rowsOut.push(['FY Outlook',k.outlook],['FY Target',k.target]);
+  else if(L.mode==='fc') rowsOut.push(['YTD Forecast',k.ytdFc],['FY Outlook',k.outlook],...(k.target!=null?[['FY Target',k.target]]:[]));
   else rowsOut.push([L.base,k.cmpBase]);
   rowsOut.push(['Variance',k.cmpVar],['Variance %',pct(k.cmpVarPct)],['RAG',rag(k.cmpVarPct,S.thresh).label]);
   return rowsOut;
@@ -1649,13 +1677,17 @@ function measureLabel(mea){
     case 'target': return 'FY target';
     case 'vtgt': return 'Variance vs target';
     case 'fypy': return `FY-${m.fyPriorLabel||'PY'} actuals`;
+    case 'ytdfc': return 'YTD forecast (phased)';
+    case 'vfc': return 'Variance vs YTD forecast';
     default: return `YTD ${m.yearCY}`;
   }
 }
 function measureOpts(){
   const m=S.model;
   if(m.pyMonths.length) return ['cy','py','var'];
-  const o=['cy','outlook'];
+  const o=['cy'];
+  if(m.fyFcCols&&m.fyFcCols.length) o.push('ytdfc','vfc');
+  o.push('outlook');
   if(m.targetCols&&m.targetCols.length) o.push('target','vtgt');
   if(m.fyPriorCols&&m.fyPriorCols.length) o.push('fypy');
   return o;
@@ -1664,7 +1696,8 @@ function pickMeasure(k, mea){
   switch(mea){
     case 'py': return k.py; case 'var': return k.varAbs;
     case 'outlook': return k.outlook; case 'target': return k.target;
-    case 'vtgt': return k.varTgt; case 'fypy': return k.fyPrior; default: return k.cy;
+    case 'vtgt': return k.varTgt; case 'fypy': return k.fyPrior;
+    case 'ytdfc': return k.ytdFc; case 'vfc': return k.varFc; default: return k.cy;
   }
 }
 function gArr(v){ return Array.isArray(v)?v.filter(Boolean):(v?[v]:[]); }
@@ -2511,6 +2544,8 @@ function renderCustom(){
       const rgw=rag(k.cmpVarPct,S.thresh);
       const subw= hidew? `YTD ${esc(ytdLabel())} actuals` : Lw.mode==='tgt'
         ? `Outlook ${fmt(k.outlook)} · ${fmtPct(k.cmpVarPct)} vs target`
+        : Lw.mode==='fc'
+        ? `${fmtPct(k.cmpVarPct)} vs YTD forecast (${fmt(k.cmpVar)})`
         : `${fmtPct(k.cmpVarPct)} vs ${esc(m.yearPY)} (${fmt(k.cmpVar)})`;
       body=`<div class="val${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</div>
         <div class="row" style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">

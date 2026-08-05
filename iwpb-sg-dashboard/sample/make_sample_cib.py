@@ -71,11 +71,9 @@ ws.append([])
 ws.append([""] * len(DIM_HEADERS) + [b for _, b in PERIODS])   # band row
 ws.append(DIM_HEADERS + [h for h, _ in PERIODS])               # header row
 
-def val(base, sign):
-    if random.random() < 0.3:
-        return 0
-    v = round(random.gauss(base, base * 0.4), 1)
-    v = sign * abs(v)
+def cell(v):
+    """Render a value, sometimes as bracket-negative text to test the parser."""
+    v = round(v, 1)
     if v < 0 and random.random() < 0.25:
         return f"({abs(v):,.1f})"
     return v
@@ -88,17 +86,20 @@ for mica, l3, l2, l1, sign in MICA_ROWS:
             base = random.uniform(1, 40)
             dims = [mica, l3, l2, l1, pcode, p3, p2, "Total Product",
                     SEG[0], SEG[1], SEG[2], fcode, f2, f1, ENTITY]
+            # 12 monthly values first, then derive the roll-up columns from
+            # them so quarters / YTD / FY / target reconcile like a real file
+            months = [sign * abs(random.gauss(base, base * 0.35)) for _ in range(12)]
+            derived = {
+                "Q1-26": sum(months[0:3]),  "Q2-26": sum(months[3:6]),
+                "Q3-26": sum(months[6:9]),  "Q4-26": sum(months[9:12]),
+                "Jun YTD-26": sum(months[:6]),
+                "FY-25": sum(months) * random.uniform(0.85, 1.1),
+                "FY-26": sum(months),
+                "FY-26 Target": sum(months) * random.uniform(0.92, 1.08),
+            }
             vals = []
-            for h, band in PERIODS:
-                if h.startswith("Q"):
-                    scale = 3
-                elif "YTD" in h:
-                    scale = 6
-                elif h.startswith("FY"):
-                    scale = 12
-                else:
-                    scale = 1
-                vals.append(val(base * scale, sign))
+            for i, (h, band) in enumerate(PERIODS):
+                vals.append(cell(months[i] if i < 12 else derived[h]))
             ws.append(dims + vals)
 
 out = "IWPB_SG_Driller_CIB_style.xlsx"

@@ -32,9 +32,12 @@ A single header row with:
      (`Jan-26 … Dec-26`) whose actual-vs-forecast split comes from the
      band, quarters without year digits, YTD, FY and FY-Target columns.
      The data sheet may sit behind Control/notes tabs — every sheet is
-     tried until one matches. With no prior-year months, comparisons show
-     "No prior yr" and the FY/Target columns ride along as exportable
-     extras.
+     tried until one matches. With no prior-year months, the primary
+     comparison becomes **YTD actuals vs YTD forecast** — the FY
+     forecast column phased over the elapsed months (FY forecast ×
+     months ÷ 12) — with the FY outlook (Jan–Dec months), FY target and
+     FY prior-year actuals shown alongside in the trajectory panel.
+     Direct Costs, Indirect Costs and ECL show actuals only.
 
   Values may be numbers, `1,234` text, `(1,234)` bracket negatives, `-`,
   or blank.
