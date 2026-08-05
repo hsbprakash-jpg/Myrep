@@ -61,9 +61,9 @@ numbers (negatives in red brackets); and red monochrome charts with a grey
 prior-year series. The left pane hosts the dashboards navigation and a KPI
 shortcut list (each MICA Level 2 line with its RAG dot and YTD value — click
 to jump straight into its drill-down, drag onto My dashboard to add it).
-The right-side panel holds the controls: period settings (YTD-through
-month, include-forecast, RAG tolerance), then a checkbox filter for EVERY
-dimension column in the file — each column expands to its distinct values
+Below the KPI list, the left pane holds the controls: period settings
+(YTD-through month, include-forecast, RAG tolerance), then a checkbox
+filter for EVERY dimension column in the file — each column expands to its distinct values
 with All/None shortcuts and a search box for long lists, and any
 combination applies to every view, chart and export. Below that, an
 Output fields section with checkboxes chooses which dimension columns and

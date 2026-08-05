@@ -206,13 +206,11 @@ aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
 @media (prefers-color-scheme: dark){
   :root{--cat1:#f0424d;--cat2:#9a9a9a;--cat3:#ef9198;--cat4:#d6d6d6;--cat5:#5a5a5a;--cat6:#c9666d;--cat7:#767676}
 }
-/* right pane — filters */
-#rightPane{width:248px;flex:none;background:var(--surface-1);border-left:1px solid var(--border);
-  padding:8px 0 18px;display:flex;flex-direction:column}
-#rightPane .sect-row{display:flex;justify-content:space-between;align-items:baseline}
+/* filter sections in the left pane */
+aside.side .sect-row{display:flex;justify-content:space-between;align-items:baseline}
 .linklike{background:none;border:none;color:var(--series-1);cursor:pointer;font-size:11px;padding:0;font-weight:600;text-transform:none;letter-spacing:0}
 .linklike:hover{text-decoration:underline}
-#rightPane .hint2{font-size:10.5px;color:var(--text-muted);margin:2px 18px 6px}
+aside.side .hint2{font-size:10.5px;color:var(--text-muted);margin:2px 18px 6px}
 /* filter pane — query-builder card treatment */
 .fltgrp{margin:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);overflow:hidden}
 .fltgrp summary{cursor:pointer;font-size:12px;font-weight:600;padding:8px 11px;display:flex;
@@ -239,7 +237,7 @@ aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
 #outFields .ofh{font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--text-muted);margin:7px 0 4px}
 #outFields .ofh:first-child{margin-top:0}
 /* neat checkbox treatment across the pane */
-#rightPane input[type=checkbox],#queryView input[type=checkbox]{accent-color:var(--hsbc-red);width:13px;height:13px;flex:none}
+aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var(--hsbc-red);width:13px;height:13px;flex:none}
 .fltgrp summary:hover{background:color-mix(in srgb, var(--text-primary) 4%, transparent)}
 .fltgrp summary .selsum{display:block;font-size:10px;font-weight:400;color:var(--text-muted);
   max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -278,8 +276,6 @@ aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
 #qbActions select{padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
   background:var(--surface-2);color:var(--text-primary);font-size:12.5px}
 #qbActions .end{margin-left:auto;display:flex;gap:8px}
-#rightPane .sect{font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
-  color:var(--text-muted);padding:16px 18px 6px}
 #sideFilters{padding:2px 18px 0;display:flex;flex-direction:column;gap:10px}
 #sideFilters label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--text-secondary);font-weight:600}
 #sideFilters select{width:100%;padding:5px 8px;border:1px solid var(--border-strong);border-radius:4px;
@@ -288,8 +284,7 @@ aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
 main{flex:1;min-width:0;padding:20px 26px}
 @media (max-width:960px){
   #layout{flex-direction:column}
-  aside.side,#rightPane{width:100%;border-right:none;border-left:none;border-bottom:1px solid var(--border)}
-  #rightPane{order:-1}
+  aside.side{width:100%;border-right:none;border-bottom:1px solid var(--border)}
   main{padding:16px}
 }
 /* ---------- dynamic dashboard (drag & drop) ---------- */
@@ -455,6 +450,21 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div class="sect">KPIs · MICA Level 2</div>
   <div id="kpiNav"></div>
   <div class="hint">Click a KPI to drill into it · drag one onto My dashboard to add a card</div>
+  <div class="sect">Period &amp; RAG</div>
+  <div id="sideFilters">
+    <label>YTD through <select id="fMonth"></select></label>
+    <label class="chk"><input type="checkbox" id="fFC"> Include forecast month</label>
+    <label>RAG tolerance <select id="fThresh">
+      <option value="0.03">±3% vs prior year</option>
+      <option value="0.05" selected>±5% vs prior year</option>
+      <option value="0.10">±10% vs prior year</option>
+    </select></label>
+  </div>
+  <div class="sect sect-row">Filters — all columns <button class="linklike" id="btnClearFilters">Reset</button></div>
+  <div id="dimFilters"></div>
+  <div class="sect">Output fields</div>
+  <p class="hint2">Tick the columns to include in the Data view and Excel exports.</p>
+  <div id="outFields"></div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span><br>
@@ -568,7 +578,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     </div></div>
     <div class="panel">
       <h4>Fields</h4>
-      <p class="subtitle">Drag a field into a well — or click a field to assign it · charts respect the filters on the right</p>
+      <p class="subtitle">Drag a field into a well — or click a field to assign it · charts respect the filters in the left pane</p>
       <div id="fieldChips"></div>
       <div class="wells">
         <div class="well" data-well="groupBy"><div class="wlbl">Group by</div><div class="wslot" id="slotGroup">Drop a field</div></div>
@@ -666,23 +676,6 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 </section>
 
 </main>
-<aside id="rightPane" hidden>
-  <div class="sect">Period &amp; RAG</div>
-  <div id="sideFilters">
-    <label>YTD through <select id="fMonth"></select></label>
-    <label class="chk"><input type="checkbox" id="fFC"> Include forecast month</label>
-    <label>RAG tolerance <select id="fThresh">
-      <option value="0.03">±3% vs prior year</option>
-      <option value="0.05" selected>±5% vs prior year</option>
-      <option value="0.10">±10% vs prior year</option>
-    </select></label>
-  </div>
-  <div class="sect sect-row">Filters — all columns <button class="linklike" id="btnClearFilters">Reset</button></div>
-  <div id="dimFilters"></div>
-  <div class="sect">Output fields</div>
-  <p class="hint2">Tick the columns to include in the Data view and Excel exports.</p>
-  <div id="outFields"></div>
-</aside>
 </div>
 <footer>Processed locally in the browser · RAG rating compares YTD actuals with the same prior-year period</footer>
 
@@ -1148,7 +1141,7 @@ function renderMix(){
     <option value="var"${MX.measure==='var'?' selected':''}>${esc(measureLabel('var'))}</option>`;
   $('mxType').innerHTML=typeOptions(MX.type);
   $('mixTitle').textContent=chartTitle(MX);
-  $('mixSub').textContent=`YTD ${ytdLabel()} · change the view with the dropdowns — it follows the filters on the right`;
+  $('mixSub').textContent=`YTD ${ytdLabel()} · change the view with the dropdowns — it follows the filters in the left pane`;
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
 }
 function saveMix(){ try{ localStorage.setItem('iwpbsg_mix',JSON.stringify(MX)); }catch(e){} }
@@ -1855,7 +1848,7 @@ function renderBuilder(){
   }
   const cfg={...B};
   $('bPrevTitle').textContent=chartTitle(cfg);
-  $('bPrevSub').textContent=`YTD ${ytdLabel()} · respects the filters on the right · top ${cfg.type==='donut'?6:8} categories, rest folded into Other`;
+  $('bPrevSub').textContent=`YTD ${ytdLabel()} · respects the filters in the left pane · top ${cfg.type==='donut'?6:8} categories, rest folded into Other`;
   pv.appendChild(buildChartEl(cfg));
 }
 
@@ -2366,7 +2359,6 @@ function ingestArrayBuffer(buf, name, fromCache){
       $('dashView').hidden=false;
       $('btnNewFile').hidden=false;
       $('sideNav').hidden=false;
-      $('rightPane').hidden=false;
       $('fileNote').textContent=`${name}${fromCache?' · restored from cache':''}`;
       fillFilters();
       setView('summary');
@@ -2386,7 +2378,7 @@ function init(){
   ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
   dz.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
   $('btnNewFile').addEventListener('click',()=>{
-    $('dashView').hidden=true; $('btnNewFile').hidden=true; $('sideNav').hidden=true; $('rightPane').hidden=true;
+    $('dashView').hidden=true; $('btnNewFile').hidden=true; $('sideNav').hidden=true;
     $('uploadView').hidden=false; $('ingestReport').innerHTML=''; fi.value='';
     refreshCachedInfo();
   });
