@@ -370,7 +370,9 @@ main{flex:1;min-width:0;padding:20px 26px}
 #crumb .cur{font-weight:700}
 .panel{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow);padding:16px 18px;margin-bottom:16px}
-.panel h4{margin:0 0 2px;font-size:13.5px}
+.panel h4{margin:0 0 3px;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--text-primary);display:flex;align-items:center;gap:8px}
+.rag{text-transform:none;letter-spacing:normal}
 .panel .subtitle{font-size:11.5px;color:var(--text-secondary);margin:0 0 12px}
 .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .chart-wrap{position:relative;overflow-x:auto}
@@ -399,6 +401,7 @@ tr.subrow td:first-child{padding-left:34px;color:var(--text-secondary)}
 .scroll-x{overflow-x:auto}
 /* review grids — contained, sticky header, zebra rows */
 .rvwwrap{max-height:600px;overflow:auto;border:1px solid var(--border);border-radius:6px}
+.rvwwrap.slim{max-height:440px}
 table.review thead th{position:sticky;top:0;background:var(--surface-2);z-index:2;
   box-shadow:inset 0 -2px var(--border-strong)}
 table.review tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--text-primary) 2.5%, transparent)}
@@ -406,6 +409,13 @@ table.review tbody tr:hover td{background:color-mix(in srgb, var(--series-1) 7%,
 table.review td{border-bottom:1px solid var(--grid)}
 .rvwsearch{padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;
   background:var(--surface-2);color:var(--text-primary);font-size:12.5px;min-width:220px}
+.pager{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;
+  color:var(--text-secondary);flex-wrap:wrap}
+.pager button{padding:4px 10px;font-size:12px}
+.pager button:disabled{opacity:.4;cursor:default}
+.pager select{padding:4px 7px;border:1px solid var(--border-strong);border-radius:4px;
+  background:var(--surface-2);color:var(--text-primary);font-size:12px}
+.pager .pinfo{font-variant-numeric:tabular-nums}
 #tableView .panel{padding-bottom:8px}
 .note{font-size:11.5px;color:var(--text-muted);margin-top:8px}
 footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
@@ -629,6 +639,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <button class="btn-quiet" id="btnQExport">⤓ Export to Excel</button>
       </div>
       <div class="rvwwrap" id="qResTable"></div>
+      <div id="qPager"></div>
     </div>
     <datalist id="qDatalists" hidden></datalist>
     <div id="qDlHost" hidden></div>
@@ -649,6 +660,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         </div>
       </div>
       <div class="rvwwrap" id="rawTable"></div>
+      <div id="dataPager"></div>
     </div>
   </div>
 </section>
@@ -1366,7 +1378,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
   }
   const tot={name:'Total', k:kpi(groups.flatMap(g=>g.rows||[]),m,S.ytdM,S.includeFC)};
   el.innerHTML=(title?`<h4>${esc(title)}</h4>`:'')+(subtitle?`<p class="subtitle">${esc(subtitle)}</p>`:'')+
-    `<div class="scroll-x"><table class="grid">
+    `<div class="rvwwrap slim"><table class="grid review">
     <thead><tr><th>Line</th><th></th><th>YTD ${esc(m.yearCY)}</th><th>YTD ${esc(m.yearPY)}</th>
     <th>Δ</th><th>Δ%</th><th style="text-align:left">RAG</th></tr></thead>
     <tbody>${body}${rowHtml(tot,'total','')}</tbody></table></div>`;
@@ -1404,7 +1416,7 @@ function renderDrill(){
   lineChart($('trendChart'), k.cySeries, m.pyMonths.length?k.pySeries:[], m.yearCY, m.yearPY);
   // trend as table
   const tt=$('trendTable');
-  tt.innerHTML=`<div class="scroll-x"><table class="grid"><thead><tr><th>Month</th><th>${esc(m.yearCY)}</th><th>${esc(m.yearPY)}</th></tr></thead><tbody>`+
+  tt.innerHTML=`<div class="rvwwrap slim" style="max-width:420px"><table class="grid review"><thead><tr><th>Month</th><th>${esc(m.yearCY)}</th><th>${esc(m.yearPY)}</th></tr></thead><tbody>`+
     MON_LBL.map((lbl,mi)=>{
       const c=k.cySeries.find(p=>p.m===mi), p=k.pySeries.find(p=>p.m===mi);
       if(!c&&!p) return '';
@@ -2019,35 +2031,64 @@ function runQuery(){
   const aoa=[flds.map(f=>f.label)];
   for(const r of rows) aoa.push(flds.map(f=>f.kind==='dim'? r.d[f.key] : r.v[f.col]));
   qLastResult={aoa, count:rows.length, flds};
-  // render top 500
-  const CAP=500;
+  qPager.page=1;
+  renderQueryResults();
+}
+const qPager={page:1, ps:100};
+function renderQueryResults(){
+  if(!qLastResult) return;
+  const {aoa, count, flds}=qLastResult;
   $('qResults').hidden=false;
-  $('qResSub').textContent=`${rows.length.toLocaleString()} rows match the query`+(rows.length>CAP?` — showing first ${CAP}`:'');
+  $('qResSub').textContent=`${count.toLocaleString()} rows match the query`;
+  const {start, shown}=renderPager($('qPager'), qPager, count, renderQueryResults);
   let html='<table class="grid review"><thead><tr>'+flds.map(f=>`<th>${esc(f.label)}</th>`).join('')+'</tr></thead><tbody>';
-  aoa.slice(1,CAP+1).forEach(r=>{
+  aoa.slice(1+start, 1+start+shown).forEach(r=>{
     html+='<tr>'+r.map((v,ci)=>flds[ci].kind==='per'?`<td>${fmtCell(v)}</td>`
       :`<td class="namecell" style="text-align:left">${esc(v==null?'':v)}</td>`).join('')+'</tr>';
   });
   $('qResTable').innerHTML=html+'</tbody></table>';
+  $('qResTable').scrollTop=0;
 }
 
+function renderPager(el,state,total,rerender){
+  const pages=Math.max(1,Math.ceil(total/state.ps));
+  state.page=Math.min(Math.max(1,state.page),pages);
+  const start=(state.page-1)*state.ps;
+  const shown=Math.min(state.ps,total-start);
+  el.innerHTML=total<=0?'':`<div class="pager">
+    <button class="btn-quiet" data-pg="1" ${state.page<=1?'disabled':''}>«</button>
+    <button class="btn-quiet" data-pg="${state.page-1}" ${state.page<=1?'disabled':''}>‹ Prev</button>
+    <span class="pinfo">Page ${state.page} of ${pages} · rows ${(start+1).toLocaleString()}–${(start+shown).toLocaleString()} of ${total.toLocaleString()}</span>
+    <button class="btn-quiet" data-pg="${state.page+1}" ${state.page>=pages?'disabled':''}>Next ›</button>
+    <button class="btn-quiet" data-pg="${pages}" ${state.page>=pages?'disabled':''}>»</button>
+    <select aria-label="Rows per page">${[50,100,250,500].map(n=>`<option value="${n}"${state.ps===n?' selected':''}>${n} / page</option>`).join('')}</select>
+  </div>`;
+  el.querySelectorAll('button[data-pg]').forEach(b=>b.addEventListener('click',()=>{
+    state.page=+b.dataset.pg; rerender();
+  }));
+  const sel=el.querySelector('select');
+  if(sel) sel.addEventListener('change',()=>{ state.ps=+sel.value; state.page=1; rerender(); });
+  return {start, shown};
+}
+const dataPager={page:1, ps:100};
 function renderTable(){
   const m=S.model;
   let rows=filteredRows();
   const dimKeys=outDimKeys();
   const q=(S.dataQ||'').trim().toLowerCase();
   if(q) rows=rows.filter(r=>dimKeys.some(k=>String(r.d[k]||'').toLowerCase().includes(q)));
-  const CAP=400;
   $('tableSub').textContent=`${rows.length.toLocaleString()} rows`+(q?` match “${S.dataQ}”`:' match the filters')+
-    (rows.length>CAP?` — showing first ${CAP}`:'')+' · columns follow the Output fields selection';
+    ' · columns follow the Output fields selection';
+  const {start, shown}=renderPager($('dataPager'), dataPager, rows.length, renderTable);
   const perCols=outPeriodCols();
   let html='<table class="grid review"><thead><tr>'+dimKeys.map(k=>`<th>${esc(ALL_DIM_LABELS[k]||k)}</th>`).join('')+
     perCols.map(p=>`<th>${esc(String(m.header[p.col]))}</th>`).join('')+'</tr></thead><tbody>';
-  rows.slice(0,CAP).forEach(r=>{
+  rows.slice(start,start+shown).forEach(r=>{
     html+='<tr>'+dimKeys.map(k=>`<td class="namecell" style="text-align:left">${esc(r.d[k])}</td>`).join('')+
       perCols.map(p=>`<td>${fmtFull(r.v[p.col])}</td>`).join('')+'</tr>';
   });
   $('rawTable').innerHTML=html+'</tbody></table>';
+  $('rawTable').scrollTop=0;
 }
 
 function setView(v){
@@ -2423,7 +2464,7 @@ function init(){
     if(B.groupBy.length) exportWB([{name:'Chart data', aoa:chartAOA({...B})}],'IWPB_SG_chart');
   });
   $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA()}],'IWPB_SG_data'));
-  $('dataSearch').addEventListener('input',e=>{ S.dataQ=e.target.value; renderTable(); });
+  $('dataSearch').addEventListener('input',e=>{ S.dataQ=e.target.value; dataPager.page=1; renderTable(); });
   $('btnPptMix').addEventListener('click',()=>exportPPT([{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX})}],'IWPB_SG_mix'));
   $('btnPptChart').addEventListener('click',()=>{
     if(B.groupBy.length)
