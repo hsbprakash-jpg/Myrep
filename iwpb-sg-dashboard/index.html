@@ -120,6 +120,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
   --seq-300:#f0888f; --seq-450:#db0011;
   --status-good:#0ca30c; --status-warning:#fab219; --status-critical:#d03b3b;
   --grid:#ececea; --shadow:0 1px 2px rgba(0,0,0,.05);
+  --fold-bg:#fbecec; --fold-bg-h:#f6dede; --fold-red:#a50010;
 }
 @media (prefers-color-scheme: dark){
   :root{
@@ -130,6 +131,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
     --series-1:#f0424d; --series-2:#9a9a9a;
     --seq-300:#f0888f; --seq-450:#f0424d;
     --grid:#2a2a28; --shadow:0 1px 3px rgba(0,0,0,.4);
+    --fold-bg:rgba(240,66,77,.12); --fold-bg-h:rgba(240,66,77,.22); --fold-red:#f5747c;
   }
 }
 *{box-sizing:border-box}
@@ -150,6 +152,10 @@ aside.side{width:256px;flex:none;background:var(--surface-1);border-right:1px so
   padding:0 0 12px;display:flex;flex-direction:column}
 aside.side .sect{font-size:10px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;
   color:var(--text-muted);padding:18px 18px 6px}
+aside.side .sect.sect-fold{color:var(--fold-red);background:var(--fold-bg);
+  margin:14px 10px 4px;padding:6px 9px;border-radius:6px;
+  border-left:3px solid var(--hsbc-red);transition:background .15s}
+aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 aside.side nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
   padding:8px 18px 8px 15px;font:inherit;font-size:13px;color:var(--text-secondary);cursor:pointer;
   border-left:3px solid transparent;text-align:left}
@@ -557,11 +563,11 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 13 L5 8 L8 10.5 L15 2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1 15 L5 11.5 L8 13 L15 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2" opacity=".6"/></svg>
       <span data-lbl="nav_sim">Simulation agent</span></button>
   </nav>
-  <div class="sect" id="sectKpisRow" title="Collapse / expand the KPI list" style="display:flex;align-items:center;gap:6px;cursor:pointer">
-    <span data-lbl="sect_kpis">KPIs · MICA Level 2</span><span id="kpiCaret" style="margin-left:auto;font-size:10px;color:var(--text-muted)">▾</span></div>
+  <div class="sect sect-fold" id="sectKpisRow" title="Collapse / expand the KPI list" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+    <span data-lbl="sect_kpis">KPIs · MICA Level 2</span><span id="kpiCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="kpiNav"></div>
   <div class="hint" data-lbl="kpi_hint">Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card</div>
-  <div class="sect" id="sectCfgRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_config">Configuration</span><span id="cfgCaret" style="margin-left:auto;font-size:10px;color:var(--text-muted)">▾</span></div>
+  <div class="sect sect-fold" id="sectCfgRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_config">Configuration</span><span id="cfgCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="cfgPanel">
     <button class="btn-quiet" id="btnCfgUpload">⤒ Upload config (xlsx / csv)</button>
     <input type="file" id="cfgInput" accept=".xlsx,.xls,.csv" hidden>
@@ -569,7 +575,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <button class="linklike" id="btnCfgReset">Reset to defaults</button></div>
     <div class="note" id="cfgStatus"></div>
   </div>
-  <div class="sect" id="sectPeriodRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_period">Period &amp; RAG</span><span id="periodCaret" style="margin-left:auto;font-size:10px;color:var(--text-muted)">▾</span></div>
+  <div class="sect sect-fold" id="sectPeriodRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_period">Period &amp; RAG</span><span id="periodCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="sideFilters">
     <label><span data-lbl="lbl_ytd">YTD through</span> <select id="fMonth"></select></label>
     <label class="chk"><input type="checkbox" id="fFC"> <span data-lbl="lbl_fc">Include forecast month</span></label>
@@ -580,11 +586,11 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <option value="0.10">±10% tolerance</option>
     </select></label>
   </div>
-  <div class="sect sect-row" id="sectFiltersRow" title="Collapse / expand the filters" style="cursor:pointer">
+  <div class="sect sect-row sect-fold" id="sectFiltersRow" title="Collapse / expand the filters" style="cursor:pointer">
     <span data-lbl="sect_filters">Filters — all columns</span>
-    <span style="display:flex;align-items:baseline;gap:8px"><button class="linklike" id="btnClearFilters">Reset</button><span id="filtersCaret" style="font-size:10px;color:var(--text-muted)">▾</span></span></div>
+    <span style="display:flex;align-items:baseline;gap:8px"><button class="linklike" id="btnClearFilters">Reset</button><span id="filtersCaret" style="font-size:10px;color:inherit">▾</span></span></div>
   <div id="dimFilters"></div>
-  <div class="sect" id="sectOutputRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_output">Output fields</span><span id="outputCaret" style="margin-left:auto;font-size:10px;color:var(--text-muted)">▾</span></div>
+  <div class="sect sect-fold" id="sectOutputRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_output">Output fields</span><span id="outputCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <p class="hint2">Tick the columns to include in the Data view and Excel exports.</p>
   <div id="outFields"></div>
   <div class="foot">
