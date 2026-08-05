@@ -578,7 +578,8 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <select id="wKpi" aria-label="Widget KPI"></select>
       <button class="btn-primary" id="btnAddWidget" style="padding:6px 16px;font-size:13px">Add widget</button>
       <button class="btn-quiet" id="btnResetDash">Reset layout</button>
-      <button class="btn-quiet" id="btnPptDash">⤓ PPT deck</button>
+      <button class="btn-quiet" id="btnPptDash" title="Export the widgets on the current page">⤓ PPT (this page)</button>
+      <button class="btn-quiet" id="btnPptDashAll" title="Export every page of widgets">⤓ PPT all pages</button>
       <span class="note">Drag widgets by their header to rearrange · drag a KPI from the left pane to add it</span>
     </div>
     <div class="pagetabs" id="dashPages"></div>
@@ -2829,10 +2830,10 @@ function init(){
     if(B.groupBy.length)
       exportPPT([{title:chartTitle(B), el:$('bPreview'), aoa:chartAOA({...B})}],'IWPB_SG_chart');
   });
-  $('btnPptDash').addEventListener('click',async()=>{
-    // render every chart/trend widget offscreen so all pages export with images
+  async function exportDashPPT(widgets, fname){
+    // render chart/trend widgets offscreen so they export as images
     const items=[], hosts=[];
-    for(const w of S.widgets){
+    for(const w of widgets){
       let el=null;
       if(w.type==='chart'||w.type==='trend'){
         const host=document.createElement('div');
@@ -2848,9 +2849,13 @@ function init(){
       }
       items.push({title:widgetTitle(w), el, aoa:widgetAOA(w)});
     }
-    try{ if(items.length) await exportPPT(items,'IWPB_SG_dashboard'); }
+    try{ if(items.length) await exportPPT(items,fname); }
     finally{ hosts.forEach(h=>h.remove()); }
-  });
+  }
+  $('btnPptDash').addEventListener('click',()=>
+    exportDashPPT(S.widgets.slice((dashPage-1)*6,dashPage*6),'IWPB_SG_dashboard_p'+dashPage));
+  $('btnPptDashAll').addEventListener('click',()=>
+    exportDashPPT(S.widgets,'IWPB_SG_dashboard_all'));
   $('btnAddWidget').addEventListener('click',()=>{
     S.widgets.push({id:newWidgetId(), type:$('wType').value, l2:$('wKpi').value||null});
     dashPage=Math.ceil(S.widgets.length/6);

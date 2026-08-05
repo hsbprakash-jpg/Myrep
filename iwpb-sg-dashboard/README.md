@@ -154,7 +154,8 @@ content.
 
 Every chart exports to a widescreen .pptx deck (generated locally):
 **⤓ PPT** buttons on the Mix analysis panel, and the chart builder preview
-export one slide each, and **⤓ PPT deck** on My
-dashboard exports every widget — charts as high-resolution images, KPI
-cards and breakdowns as styled tables — with titles, the red accent rule
-and the filter context in the footer.
+export one slide each. My dashboard has two deck exports: **⤓ PPT (this
+page)** takes just the widgets on the page you're viewing, and **⤓ PPT
+all pages** takes every widget across all pages — charts as
+high-resolution images, KPI cards and breakdowns as styled tables — with
+titles, the red accent rule and the filter context in the footer.
