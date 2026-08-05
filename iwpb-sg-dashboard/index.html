@@ -1655,6 +1655,25 @@ function chartCommentaryHtml(cfg){
     out+=` The top three lines carry ${(top3/total*100).toFixed(0)}% of the total.`;
   }
   if(segNames&&segNames.length) out+=` Mix split by ${esc(fieldLabels(cfg.splitBy))}, led by <b>${esc(segNames[0])}</b>.`;
+  // driver analytics vs the comparison baseline
+  const m2=S.model, L2=cmpLabels(m2);
+  if(L2.mode!=='none'&&cats[0]&&cats[0].rows){
+    const perf=cats.filter(c=>c.name!=='Other'&&c.rows&&c.rows.length)
+      .map(c=>({name:c.name, k:kpi(c.rows,m2,S.ytdM,S.includeFC)}))
+      .filter(x2=>x2.k.cmpVarPct!=null);
+    if(perf.length>1){
+      const best=perf.reduce((a,b)=>(b.k.favVarPct??-1e9)>(a.k.favVarPct??-1e9)?b:a);
+      const worst=perf.reduce((a,b)=>(b.k.favVarPct??1e9)<(a.k.favVarPct??1e9)?b:a);
+      const behind=perf.filter(x2=>(x2.k.favVarPct??0)<0);
+      if(best!==worst)
+        out+=` ▲ <b>${esc(best.name)}</b> runs strongest ${esc(L2.vs)} at <b>${fmtPct(best.k.cmpVarPct)}</b>; ▼ <b>${esc(worst.name)}</b> lags at <b>${fmtPct(worst.k.cmpVarPct)}</b> (<b>${fmt(worst.k.cmpVar)}</b>).`;
+      out+=` ${behind.length} of ${perf.length} lines sit behind the ${esc(L2.base)}.`;
+    }
+  }
+  if(total&&Math.abs(total)>0.001){
+    const share=Math.abs(v(lead)/total);
+    if(share>0.5) out+=` Concentration risk: over half the total sits in one line.`;
+  }
   return out+` <span class="aicom-note">${esc(measureLabel(cfg.measure))} · ${esc(filterNote())}</span>`;
 }
 let TILE_DRAG=null, TILE_ALL=[];
@@ -1842,12 +1861,27 @@ function renderSummary(){
   aiComment($('trajCom'), 'traj|'+filterNote()+'|'+S.ytdM+'|'+L.mode, ()=>{
     const act=kT.cySeries.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
     const best=act.length? act.reduce((a,b)=>b.val>a.val?b:a) : null;
+    const avg=arr=>arr.reduce((s2,p2)=>s2+p2.val,0)/arr.length;
     let h2=`YTD actuals of <b>${fmt(kT.cy)}</b> run <b>${fmtPct(kT.cmpVarPct)}</b> ${esc(L.vs)}`;
     if(kT.cmpBase!=null) h2+=` (baseline <b>${fmt(kT.cmpBase)}</b>)`;
     h2+='.';
-    if(best) h2+=` The strongest actual month is <b>${MON_LBL[best.m]}</b> at <b>${fmt(best.val)}</b>.`;
+    if(act.length>=4){
+      const l3=avg(act.slice(-3)), e3=avg(act.slice(0,act.length-3));
+      if(e3!==0){
+        const mom=(l3-e3)/Math.abs(e3);
+        h2+=` Momentum is ${mom>=0.02?'building':mom<=-0.02?'fading':'flat'}: the last three actual months average <b>${fmt(l3)}</b> against <b>${fmt(e3)}</b> before (<b>${fmtPct(mom)}</b>).`;
+      }
+    } else if(best) h2+=` The strongest actual month is <b>${MON_LBL[best.m]}</b> at <b>${fmt(best.val)}</b>.`;
     if(kT.outlook!=null&&kT.target!=null)
       h2+=` The full-year outlook of <b>${fmt(kT.outlook)}</b> lands <b>${fmtPct(kT.varTgtPct)}</b> vs the FY target of <b>${fmt(kT.target)}</b>.`;
+    const rem=12-(S.ytdM+1);
+    if(kT.target!=null&&rem>0&&act.length){
+      const req=(kT.target-kT.cy)/rem, cur=kT.cy/act.length;
+      if(cur!==0){
+        const gap=(req-cur)/Math.abs(cur);
+        h2+=` Hitting target needs the remaining <b>${rem}</b> months to average <b>${fmt(req)}</b> — <b>${fmtPct(gap)}</b> vs the current run-rate of <b>${fmt(cur)}</b>/month.`;
+      }
+    }
     return h2+` <span class="aicom-note">${esc(filterNote())}</span>`;
   });
 
@@ -3275,10 +3309,25 @@ function renderSim(){
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
   aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote()+'|'+(SIM.by||''), ()=>{
     const mv=[...a.groups].sort((x,y)=>Math.abs(y.delta)-Math.abs(x.delta))[0];
-    let h2=`The scenario moves the FY outlook from <b>${fmt(t.baseOut)}</b> to <b>${fmt(t.simOut)}</b> (<b>${t.delta>=0?'+':''}${fmt(t.delta)}</b>)`;
-    if(mv&&Math.abs(mv.delta)>0.001) h2+=`, with the largest impact in <b>${esc(mv.name)}</b> (<b>${mv.delta>=0?'+':''}${fmt(mv.delta)}</b>)`;
+    const upl=t.baseOut? t.delta/Math.abs(t.baseOut) : null;
+    let h2=`The scenario moves the FY outlook from <b>${fmt(t.baseOut)}</b> to <b>${fmt(t.simOut)}</b> (<b>${t.delta>=0?'+':''}${fmt(t.delta)}</b>${upl!=null?`, <b>${fmtPct(upl)}</b> on the prior forecast path`:''})`;
+    if(mv&&Math.abs(mv.delta)>0.001){
+      const shr=t.delta? Math.abs(mv.delta/t.delta)*100 : null;
+      h2+=`, with the largest impact in <b>${esc(mv.name)}</b> (<b>${mv.delta>=0?'+':''}${fmt(mv.delta)}</b>${shr!=null&&isFinite(shr)?`, ${shr.toFixed(0)}% of the move`:''})`;
+    }
     h2+='.';
-    if(t.target!=null) h2+=` The simulated position lands <b>${fmtPct(t.simVarPct)}</b> vs the FY target of <b>${fmt(t.target)}</b>${t.baseVar!=null?` (prior: <b>${fmt(t.baseVar)}</b> variance)`:''}.`;
+    if(t.target!=null&&t.baseVar!=null&&t.simVar!=null){
+      let gapTxt;
+      if(t.baseVar>=0&&t.simVar>=0)
+        gapTxt=t.simVar>=t.baseVar? `extends the surplus above the FY target from <b>${fmt(t.baseVar)}</b> to <b>${fmt(t.simVar)}</b>`
+          : `trims the surplus above the FY target from <b>${fmt(t.baseVar)}</b> to <b>${fmt(t.simVar)}</b>`;
+      else if(t.baseVar<0&&t.simVar<0)
+        gapTxt=Math.abs(t.simVar)<Math.abs(t.baseVar)? `narrows the shortfall to the FY target from <b>${fmt(t.baseVar)}</b> to <b>${fmt(t.simVar)}</b>`
+          : `deepens the shortfall to the FY target from <b>${fmt(t.baseVar)}</b> to <b>${fmt(t.simVar)}</b>`;
+      else gapTxt=t.simVar>=0? `swings the position vs the FY target from a <b>${fmt(t.baseVar)}</b> shortfall to a <b>${fmt(t.simVar)}</b> surplus`
+        : `swings the position vs the FY target from a <b>${fmt(t.baseVar)}</b> surplus to a <b>${fmt(t.simVar)}</b> shortfall`;
+      h2+=` It ${gapTxt} — the simulated position lands <b>${fmtPct(t.simVarPct)}</b> vs target <b>${fmt(t.target)}</b>.`;
+    } else if(t.target!=null) h2+=` The simulated position lands <b>${fmtPct(t.simVarPct)}</b> vs the FY target of <b>${fmt(t.target)}</b>.`;
     return h2+` <span class="aicom-note">${esc(filterNote())}</span>`;
   });
 }
