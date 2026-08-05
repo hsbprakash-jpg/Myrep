@@ -344,13 +344,16 @@ main{flex:1;min-width:0;padding:20px 26px}
   background:var(--surface-2);font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
 /* ---------- KPI summary ---------- */
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}
-.card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:16px 18px 12px;
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:12px}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:13px 16px 11px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
 .card:hover{border-color:var(--hsbc-red)}
-.card .l1tag{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)}
-.card h3{margin:2px 0 10px;font-size:14.5px;font-weight:600;min-height:2.6em}
-.card .val{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.card .l1tag{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)}
+.card h3{margin:2px 0 8px;font-size:13.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .val{font-size:23px;font-weight:750;font-variant-numeric:tabular-nums}
+.card.morecard{display:flex;align-items:center;justify-content:center;color:var(--series-1);
+  font-weight:700;font-size:13px;min-height:120px;border-style:dashed}
+.card.morecard:hover{background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
 .card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
 .delta{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
 .card .drill-hint{font-size:11.5px;color:var(--text-muted);margin-top:10px;border-top:1px solid var(--border);padding-top:7px}
@@ -458,9 +461,9 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <label>YTD through <select id="fMonth"></select></label>
     <label class="chk"><input type="checkbox" id="fFC"> Include forecast month</label>
     <label>RAG tolerance <select id="fThresh">
-      <option value="0.03">±3% vs prior year</option>
-      <option value="0.05" selected>±5% vs prior year</option>
-      <option value="0.10">±10% vs prior year</option>
+      <option value="0.03">±3% tolerance</option>
+      <option value="0.05" selected>±5% tolerance</option>
+      <option value="0.10">±10% tolerance</option>
     </select></label>
   </div>
   <div class="sect sect-row">Filters — all columns <button class="linklike" id="btnClearFilters">Reset</button></div>
@@ -502,7 +505,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
       <h2>KPI Insights</h2>
-      <p class="lede2">RAG-rated summary by MICA Level 2 — year-to-date actuals against the same prior-year period.</p>
+      <p class="lede2" id="summaryLede">RAG-rated summary by MICA Level 2.</p>
     </div>
     <div><button class="btn-quiet" id="btnExportAll">⤓ Export to Excel</button></div></div>
     <div id="heroWrap"></div>
@@ -657,7 +660,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 
 </main>
 </div>
-<footer>Processed locally in the browser · RAG rating compares YTD actuals with the same prior-year period</footer>
+<footer>Processed locally in the browser · RAG compares against prior year, or against FY target when the file carries forecasts and targets</footer>
 
 <script>
 'use strict';
@@ -691,17 +694,17 @@ function classifyPeriod(raw, bandVal){
   const b = String(bandVal||'').toLowerCase();
   const isFc = /\bfc\b|forecast/.test(t) || b.includes('forecast');
   const isTarget = b.includes('target') || /\btarget\b/.test(t);
-  if(t.includes('ytd')) return {type:'ytd', label:String(raw)};
+  if(t.includes('ytd')) return {type:'ytd', label:String(raw), target:isTarget};
   // full-year / target columns ride along as extra exportable columns
-  if(/^fy\b|^fy[- ']/.test(t)) return {type:'ytd', label:String(raw)};
+  if(/^fy\b|^fy[- ']/.test(t)) return {type:'ytd', label:String(raw), target:isTarget, fy:true};
   let q = t.match(/^([1-4])\s*q\s*'?(\d{2,4})/) || t.match(/^q([1-4])(?:\s*[-' ]\s*(\d{2,4}))?/);
   if(q){
-    if(isTarget) return {type:'ytd', label:String(raw)};
+    if(isTarget) return {type:'ytd', label:String(raw), target:true};
     return {type:'quarter', q:+q[1], year:q[2]!=null?(+q[2])%100:null, label:String(raw)};
   }
   const mi = MON.findIndex(m=>t.startsWith(m));
   if(mi>=0){
-    if(isTarget) return {type:'ytd', label:String(raw)};
+    if(isTarget) return {type:'ytd', label:String(raw), target:true};
     return {type:'month', m:mi, fc:isFc, label:String(raw)};
   }
   return null;
@@ -810,7 +813,8 @@ function parseSheet(aoa){
     for(const p of ytdCols) v[p.col]=num(raw[p.col]);
     rows.push({d, v});
   }
-  return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, yearPY, yearCY};
+  const targetCols=ytdCols.filter(p=>p.target&&p.fy);
+  return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols, yearPY, yearCY};
 }
 
 /* ================= aggregation ================= */
@@ -834,10 +838,26 @@ function kpi(rows, model, ytdM, includeFC){
   const varPct = (varAbs!=null && py!==0)? varAbs/Math.abs(py) : null;
   const cySeries = model.cyMonths.map(p=>({m:p.m, fc:p.fc, val:sumCols(rows,[p.col])}));
   const pySeries = model.pyMonths.map(p=>({m:p.m, fc:false, val:sumCols(rows,[p.col])}));
-  return {cy, py, varAbs, varPct, cySeries, pySeries};
+  // full-year outlook (actuals + forecast) and FY target, for target-based files
+  const outlook = sumCols(rows, model.cyMonths.map(p=>p.col));
+  const target = (model.targetCols&&model.targetCols.length)? sumCols(rows, model.targetCols.map(p=>p.col)) : null;
+  const varTgt = (outlook!=null&&target!=null)? outlook-target : null;
+  const varTgtPct = (varTgt!=null&&target!==0)? varTgt/Math.abs(target) : null;
+  // the comparison every view leans on: prior year when present, else FY target
+  let cmpMode='none', cmpBase=null, cmpVar=null, cmpVarPct=null;
+  if(model.pyMonths.length){ cmpMode='py'; cmpBase=py; cmpVar=varAbs; cmpVarPct=varPct; }
+  else if(target!=null){ cmpMode='tgt'; cmpBase=target; cmpVar=varTgt; cmpVarPct=varTgtPct; }
+  return {cy, py, varAbs, varPct, cySeries, pySeries, outlook, target, varTgt, varTgtPct,
+    cmpMode, cmpBase, cmpVar, cmpVarPct};
+}
+/* labels for whichever comparison basis the file supports */
+function cmpLabels(m){
+  if(m.pyMonths.length) return {mode:'py', main:`YTD ${m.yearCY}`, base:`YTD ${m.yearPY}`, vs:`vs ${m.yearPY}`, mainKey:'cy'};
+  if(m.targetCols&&m.targetCols.length) return {mode:'tgt', main:'FY Outlook', base:'FY Target', vs:'vs FY target', mainKey:'outlook'};
+  return {mode:'none', main:`YTD ${m.yearCY}`, base:'Prior year', vs:'vs prior year', mainKey:'cy'};
 }
 function rag(varPct, thresh){
-  if(varPct==null) return {cls:'n', ic:'○', label:'No prior yr'};
+  if(varPct==null) return {cls:'n', ic:'○', label:'No baseline'};
   if(varPct>=0)        return {cls:'g', ic:'▲', label:'On track'};
   if(varPct>=-thresh)  return {cls:'a', ic:'●', label:'Watch'};
   return {cls:'r', ic:'▼', label:'Off track'};
@@ -1158,22 +1178,34 @@ function renderSummary(){
   const m=S.model;
   // hero tiles per MICA Level 1
   const byL1=groupBy(rows,'micaL1');
+  const L=cmpLabels(m);
+  $('summaryLede').textContent= L.mode==='tgt'
+    ? 'RAG-rated summary by MICA Level 2 — full-year outlook (actuals + forecast) against the FY target.'
+    : 'RAG-rated summary by MICA Level 2 — year-to-date actuals against the same prior-year period.';
   let hero='';
   for(const [l1,rs] of [...byL1.entries()].sort((a,b)=>Math.abs(kpiTotal(b[1]))-Math.abs(kpiTotal(a[1])))){
     const k=kpi(rs,m,S.ytdM,S.includeFC);
-    const rg=rag(k.varPct,S.thresh);
+    const rg=rag(k.cmpVarPct,S.thresh);
+    const mid= L.mode==='tgt'
+      ? `<div class="stat"><div class="lbl">FY Outlook</div>
+          <div class="num${(k.outlook||0)<0?' negnum':''}">${fmt(k.outlook)}</div>
+          <div class="cap">actuals + forecast, full year</div></div>
+        <div class="stat"><div class="lbl">FY Target</div>
+          <div class="num${(k.target||0)<0?' negnum':''}">${fmt(k.target)}</div>
+          <div class="cap">from the target column</div></div>`
+      : `<div class="stat"><div class="lbl">Prior year same period</div>
+          <div class="num${(k.py||0)<0?' negnum':''}">${fmt(k.py)}</div>
+          <div class="cap">${esc(m.yearPY)} actuals</div></div>
+        <div class="stat"><div class="lbl">Variance</div>
+          <div class="num${(k.varAbs||0)<0?' negnum':''}">${fmt(k.varAbs)}</div>
+          <div class="cap">vs ${esc(m.yearPY)} same period</div></div>`;
     hero+=`<div class="stats">
       <div class="stat"><div class="lbl">${esc(l1)} · YTD ${esc(ytdLabel())}</div>
         <div class="num${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</div>
         <div class="cap">${esc(m.yearCY)} actuals in scope</div></div>
-      <div class="stat"><div class="lbl">Prior year same period</div>
-        <div class="num${(k.py||0)<0?' negnum':''}">${fmt(k.py)}</div>
-        <div class="cap">${esc(m.yearPY)} actuals</div></div>
-      <div class="stat"><div class="lbl">Variance</div>
-        <div class="num${(k.varAbs||0)<0?' negnum':''}">${fmt(k.varAbs)}</div>
-        <div class="cap">vs ${esc(m.yearPY)} same period</div></div>
+      ${mid}
       <div class="stat"><div class="lbl">Variance %</div>
-        <div class="num${(k.varPct||0)<0?' negnum':''}">${fmtPct(k.varPct)}</div>
+        <div class="num${(k.cmpVarPct||0)<0?' negnum':''}">${fmtPct(k.cmpVarPct)}</div>
         <div class="cap" style="margin-top:7px">${ragPill(rg)}</div></div>
       <div class="stat"><div class="lbl">Monthly trend</div>
         <div style="margin-top:10px">${sparkline(k.cySeries,150,44)}</div>
@@ -1182,27 +1214,35 @@ function renderSummary(){
   }
   $('heroWrap').innerHTML=hero||'<p class="note">No rows match the current filters.</p>';
 
-  // KPI cards per MICA Level 2
+  // KPI cards per MICA Level 2 — most material first, top six by default
   const byL2=groupBy(rows,'micaL2');
   const cards=[...byL2.entries()].map(([l2,rs])=>{
     const k=kpi(rs,m,S.ytdM,S.includeFC);
     return {l2, l1:rs[0].d.micaL1, k};
   }).sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
-  $('cardGrid').innerHTML=cards.map(c=>{
-    const rg=rag(c.k.varPct,S.thresh);
-    return `<button class="card" data-l2="${esc(c.l2)}">
+  const CARD_CAP=6;
+  const visible=S.showAllKpis? cards : cards.slice(0,CARD_CAP);
+  $('cardGrid').innerHTML=visible.map(c=>{
+    const rg=rag(c.k.cmpVarPct,S.thresh);
+    const sub= L.mode==='tgt'
+      ? `Outlook ${fmt(c.k.outlook)} · ${fmtPct(c.k.cmpVarPct)} vs target`
+      : `${fmtPct(c.k.cmpVarPct)} vs ${esc(m.yearPY)} (${fmt(c.k.cmpVar)})`;
+    return `<button class="card" data-l2="${esc(c.l2)}" title="Click to focus the Mix analysis on ${esc(c.l2)}">
       <div class="l1tag">${esc(c.l1||'')}</div>
       <h3>${esc(c.l2)}</h3>
       <div class="val${(c.k.cy||0)<0?' negnum':''}">${fmt(c.k.cy)}</div>
       <div class="row">
-        <span class="delta">${fmtPct(c.k.varPct)} vs ${esc(m.yearPY)} (${fmt(c.k.varAbs)})</span>
+        <span class="delta">${sub}</span>
         ${ragPill(rg)}
       </div>
-      <div style="margin-top:8px">${sparkline(c.k.cySeries,236,40)}</div>
-      <div class="drill-hint">Click to focus the Mix analysis on this KPI →</div>
+      <div style="margin-top:8px">${sparkline(c.k.cySeries,220,36)}</div>
     </button>`;
-  }).join('');
-  $('cardGrid').querySelectorAll('.card').forEach(el=>
+  }).join('')+(cards.length>CARD_CAP?
+    `<button class="card morecard" id="btnMoreKpis">${S.showAllKpis?
+      `Show top ${CARD_CAP} only`:`Show all ${cards.length} KPIs →`}</button>`:'');
+  const moreBtn=$('btnMoreKpis');
+  if(moreBtn) moreBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showAllKpis=!S.showAllKpis; renderSummary(); });
+  $('cardGrid').querySelectorAll('.card[data-l2]').forEach(el=>
     el.addEventListener('click',()=>{
       MX.l2=el.dataset.l2; saveMix(); render();
       $('mixPanel').scrollIntoView({behavior:'smooth',block:'start'});
@@ -1225,9 +1265,9 @@ function renderMix(){
   $('mxScope').innerHTML=`<option value="">Total (all KPIs)</option>`+
     l2s.map(l2=>`<option value="${esc(l2)}"${MX.l2===l2?' selected':''}>${esc(l2)}</option>`).join('');
   $('mxDim').innerHTML=dims.map(k=>`<option value="${k}"${MX.groupBy===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('');
-  $('mxMeasure').innerHTML=`<option value="cy"${MX.measure==='cy'?' selected':''}>${esc(measureLabel('cy'))}</option>
-    <option value="py"${MX.measure==='py'?' selected':''}>${esc(measureLabel('py'))}</option>
-    <option value="var"${MX.measure==='var'?' selected':''}>${esc(measureLabel('var'))}</option>`;
+  const mops=measureOpts();
+  if(!mops.includes(MX.measure)) MX.measure='cy';
+  $('mxMeasure').innerHTML=mops.map(k2=>`<option value="${k2}"${MX.measure===k2?' selected':''}>${esc(measureLabel(k2))}</option>`).join('');
   $('mxType').innerHTML=typeOptions(MX.type);
   $('mixTitle').textContent=chartTitle(MX);
   $('mixSub').textContent=`YTD ${ytdLabel()} · change the view with the dropdowns — it follows the filters in the left pane`;
@@ -1372,14 +1412,20 @@ function filterNote(){
 }
 function kpiSummaryAOA(){
   const m=S.model, rows=filteredRows();
+  const L=cmpLabels(m);
   const aoa=[['IWPB Singapore Driller — KPI summary'],[filterNote()],[],
-    ['KPI (MICA Level 2)','MICA Level 1',`YTD ${m.yearCY}`,`YTD ${m.yearPY}`,'Variance','Variance %','RAG']];
+    ['KPI (MICA Level 2)','MICA Level 1',`YTD ${m.yearCY}`,L.mode==='tgt'?'FY Outlook':L.base,
+     L.mode==='tgt'?'FY Target':'Variance', L.mode==='tgt'?'Variance':'Variance %',
+     L.mode==='tgt'?'Variance %':'RAG', L.mode==='tgt'?'RAG':null].filter(x=>x!=null)];
   const byL2=[...groupBy(rows,'micaL2').entries()]
     .map(([l2,rs])=>({l2, l1:rs[0].d.micaL1, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
-  for(const c of byL2) aoa.push([c.l2,c.l1,c.k.cy,c.k.py,c.k.varAbs,pct(c.k.varPct),rag(c.k.varPct,S.thresh).label]);
+  const row=(name,l1,k)=> L.mode==='tgt'
+    ? [name,l1,k.cy,k.outlook,k.target,k.cmpVar,pct(k.cmpVarPct),rag(k.cmpVarPct,S.thresh).label]
+    : [name,l1,k.cy,k.cmpBase,k.cmpVar,pct(k.cmpVarPct),rag(k.cmpVarPct,S.thresh).label];
+  for(const c of byL2) aoa.push(row(c.l2,c.l1,c.k));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
-  aoa.push(['Total','',kT.cy,kT.py,kT.varAbs,pct(kT.varPct),rag(kT.varPct,S.thresh).label]);
+  aoa.push(row('Total','',kT));
   return aoa;
 }
 function trendAOA(rows, label){
@@ -1397,11 +1443,13 @@ function breakdownAOA(rows, key, label){
   const gs=[...groupBy(rows,key).entries()]
     .map(([name,rs])=>({name, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  const L=cmpLabels(m);
+  const mainOf=k=>L.mode==='tgt'? k.outlook : k.cy;
   const aoa=[[label],[filterNote()],[],
-    ['Line',`YTD ${m.yearCY}`,`YTD ${m.yearPY}`,'Variance','Variance %','RAG']];
-  for(const g of gs) aoa.push([g.name,g.k.cy,g.k.py,g.k.varAbs,pct(g.k.varPct),rag(g.k.varPct,S.thresh).label]);
+    ['Line',L.main,L.base,'Variance','Variance %','RAG']];
+  for(const g of gs) aoa.push([g.name,mainOf(g.k),g.k.cmpBase,g.k.cmpVar,pct(g.k.cmpVarPct),rag(g.k.cmpVarPct,S.thresh).label]);
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
-  aoa.push(['Total',kT.cy,kT.py,kT.varAbs,pct(kT.varPct),rag(kT.varPct,S.thresh).label]);
+  aoa.push(['Total',mainOf(kT),kT.cmpBase,kT.cmpVar,pct(kT.cmpVarPct),rag(kT.cmpVarPct,S.thresh).label]);
   return aoa;
 }
 function chartAOA(cfg){
@@ -1435,26 +1483,30 @@ function widgetAOA(w){
   if(w.type==='l3') return breakdownAOA(rows,'micaL3', name+' — MICA Level 3 breakdown');
   if(w.type==='products') return breakdownAOA(rows,'prodL2', name+' — product breakdown');
   const m=S.model, k=kpi(rows,m,S.ytdM,S.includeFC);
-  return [[name+' — KPI'],[filterNote()],[],
-    ['Measure','Value'],
-    [`YTD ${m.yearCY}`,k.cy],[`YTD ${m.yearPY}`,k.py],
-    ['Variance',k.varAbs],['Variance %',pct(k.varPct)],['RAG',rag(k.varPct,S.thresh).label]];
+  const L=cmpLabels(m);
+  const rowsOut=[[name+' — KPI'],[filterNote()],[],['Measure','Value'],[`YTD ${m.yearCY}`,k.cy]];
+  if(L.mode==='tgt') rowsOut.push(['FY Outlook',k.outlook],['FY Target',k.target]);
+  else rowsOut.push([L.base,k.cmpBase]);
+  rowsOut.push(['Variance',k.cmpVar],['Variance %',pct(k.cmpVarPct)],['RAG',rag(k.cmpVarPct,S.thresh).label]);
+  return rowsOut;
 }
 
 function breakdownTable(el, title, subtitle, groups, clickAttr){
   // groups: [{name, k, sub?:[{name,k}]}]
   const m=S.model;
-  const maxAbs=Math.max(1,...groups.map(g=>Math.abs(g.k.cy||0)));
+  const L=cmpLabels(m);
+  const mainOf=k=>L.mode==='tgt'? k.outlook : k.cy;
+  const maxAbs=Math.max(1,...groups.map(g=>Math.abs(mainOf(g.k)||0)));
   const rowHtml=(g,cls,attr)=>{
-    const rg=rag(g.k.varPct,S.thresh);
-    const w=Math.round(Math.abs(g.k.cy||0)/maxAbs*140);
-    const bar=`<span class="mbar${(g.k.cy||0)<0?' neg':''}" style="width:${w}px" aria-hidden="true"></span>`;
+    const rg=rag(g.k.cmpVarPct,S.thresh);
+    const w=Math.round(Math.abs(mainOf(g.k)||0)/maxAbs*140);
+    const bar=`<span class="mbar${(mainOf(g.k)||0)<0?' neg':''}" style="width:${w}px" aria-hidden="true"></span>`;
     return `<tr class="${cls}" ${attr||''}>
       <td class="namecell">${esc(g.name)}</td>
       <td>${bar}</td>
-      <td>${fmtCell(g.k.cy)}</td><td>${fmtCell(g.k.py)}</td>
-      <td>${fmtCell(g.k.varAbs)}</td>
-      <td><span${(g.k.varPct||0)<0?' class="negnum"':''}>${fmtPct(g.k.varPct)}</span></td>
+      <td>${fmtCell(mainOf(g.k))}</td><td>${fmtCell(g.k.cmpBase)}</td>
+      <td>${fmtCell(g.k.cmpVar)}</td>
+      <td><span${(g.k.cmpVarPct||0)<0?' class="negnum"':''}>${fmtPct(g.k.cmpVarPct)}</span></td>
       <td style="text-align:left">${ragPill(rg)}</td></tr>`;
   };
   let body='';
@@ -1465,7 +1517,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
   const tot={name:'Total', k:kpi(groups.flatMap(g=>g.rows||[]),m,S.ytdM,S.includeFC)};
   el.innerHTML=(title?`<h4>${esc(title)}</h4>`:'')+(subtitle?`<p class="subtitle">${esc(subtitle)}</p>`:'')+
     `<div class="rvwwrap slim"><table class="grid review">
-    <thead><tr><th>Line</th><th></th><th>YTD ${esc(m.yearCY)}</th><th>YTD ${esc(m.yearPY)}</th>
+    <thead><tr><th>Line</th><th></th><th>${esc(L.main)}</th><th>${esc(L.base)}</th>
     <th>Δ</th><th>Δ%</th><th style="text-align:left">RAG</th></tr></thead>
     <tbody>${body}${rowHtml(tot,'total','')}</tbody></table></div>`;
 }
@@ -1480,7 +1532,28 @@ const B={groupBy:[], splitBy:[], measure:'cy', type:'column', l2:''};
 
 function measureLabel(mea){
   const m=S.model;
-  return mea==='py'?`YTD ${m.yearPY}`:mea==='var'?'Variance vs PY':`YTD ${m.yearCY}`;
+  switch(mea){
+    case 'py': return `YTD ${m.yearPY}`;
+    case 'var': return 'Variance vs PY';
+    case 'outlook': return 'FY outlook (act + fc)';
+    case 'target': return 'FY target';
+    case 'vtgt': return 'Variance vs target';
+    default: return `YTD ${m.yearCY}`;
+  }
+}
+function measureOpts(){
+  const m=S.model;
+  if(m.pyMonths.length) return ['cy','py','var'];
+  const o=['cy','outlook'];
+  if(m.targetCols&&m.targetCols.length) o.push('target','vtgt');
+  return o;
+}
+function pickMeasure(k, mea){
+  switch(mea){
+    case 'py': return k.py; case 'var': return k.varAbs;
+    case 'outlook': return k.outlook; case 'target': return k.target;
+    case 'vtgt': return k.varTgt; default: return k.cy;
+  }
 }
 function gArr(v){ return Array.isArray(v)?v.filter(Boolean):(v?[v]:[]); }
 function fieldLabels(v){ return gArr(v).map(k=>FIELD_LABELS[k]||k).join(' + '); }
@@ -1504,14 +1577,13 @@ function chartData(cfg){
   const m=S.model;
   let rows=filteredRows();
   if(cfg.l2) rows=rows.filter(r=>r.d.micaL2===cfg.l2);
-  const mfn=rs=>{const k=kpi(rs,m,S.ytdM,S.includeFC);
-    return (cfg.measure==='py'?k.py:cfg.measure==='var'?k.varAbs:k.cy)||0;};
+  const mfn=rs=>pickMeasure(kpi(rs,m,S.ytdM,S.includeFC), cfg.measure)||0;
   const gks=gArr(cfg.groupBy);
   const gkey=r=>gks.map(k=>r.d[k]||'(blank)').join(' · ');
   let groups=[...groupByFn(rows,gkey).entries()].map(([name,rs])=>{
     const k=kpi(rs,m,S.ytdM,S.includeFC);
     return {name, rows:rs, cy:k.cy||0, py:k.py||0,
-      val:(cfg.measure==='py'?k.py:cfg.measure==='var'?k.varAbs:k.cy)||0};
+      val:pickMeasure(k,cfg.measure)||0};
   });
   groups.sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
   const TOP=(cfg.type==='donut'||cfg.type==='pie')?6 : cfg.type==='treemap'?12 : cfg.type==='scatter'?10 : 8;
@@ -1869,9 +1941,9 @@ function renderBuilder(){
   const sc=$('bScope'), keep=sc.value;
   sc.innerHTML=`<option value="">Total (all KPIs)</option>`+l2s.map(l2=>`<option value="${esc(l2)}">${esc(l2)}</option>`).join('');
   sc.value=[...sc.options].some(o=>o.value===B.l2)?B.l2:'';
-  $('bMeasure').innerHTML=`<option value="cy">${esc(measureLabel('cy'))}</option>
-    <option value="py">${esc(measureLabel('py'))}</option><option value="var">${esc(measureLabel('var'))}</option>`;
-  $('bMeasure').value=B.measure;
+  const bops=measureOpts();
+  if(!bops.includes(B.measure)) B.measure='cy';
+  $('bMeasure').innerHTML=bops.map(k2=>`<option value="${k2}"${B.measure===k2?' selected':''}>${esc(measureLabel(k2))}</option>`).join('');
   $('bType').innerHTML=typeOptions(B.type);
   // preview
   const pv=$('bPreview'); pv.innerHTML='';
@@ -2139,7 +2211,7 @@ function renderKpiNav(){
   const items=[...byL2.entries()].map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   $('kpiNav').innerHTML=items.map(it=>{
-    const rg=rag(it.k.varPct,S.thresh);
+    const rg=rag(it.k.cmpVarPct,S.thresh);
     const act=S.view==='summary'&&MX.l2===it.l2;
     return `<button class="${act?'active':''}" data-l2="${esc(it.l2)}" draggable="true"
       title="${esc(it.l2)} — ${rg.label}" aria-label="${esc(it.l2)}, ${rg.label}">
@@ -2273,9 +2345,14 @@ function renderCustom(){
     } else if(!rows.length){
       body='<p class="note">No rows for this KPI under the current filters.</p>';
     } else if(w.type==='card'){
+      const Lw=cmpLabels(m);
+      const rgw=rag(k.cmpVarPct,S.thresh);
+      const subw= Lw.mode==='tgt'
+        ? `Outlook ${fmt(k.outlook)} · ${fmtPct(k.cmpVarPct)} vs target`
+        : `${fmtPct(k.cmpVarPct)} vs ${esc(m.yearPY)} (${fmt(k.cmpVar)})`;
       body=`<div class="val${(k.cy||0)<0?' negnum':''}">${fmt(k.cy)}</div>
         <div class="row" style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span class="delta">${fmtPct(k.varPct)} vs ${esc(m.yearPY)} (${fmt(k.varAbs)})</span>${ragPill(rg)}</div>
+          <span class="delta">${subw}</span>${ragPill(rgw)}</div>
         <div style="margin-top:8px">${sparkline(k.cySeries,250,42)}</div>`;
     } else if(w.type==='trend'){
       body=`<div class="legend"><span><span class="sw" style="background:var(--series-1)"></span>${esc(m.yearCY)} actual</span>`+
@@ -2419,6 +2496,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     model.sheetName=sheetName;
     S.model=model; S.fileName=name;
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
+    S.showAllKpis=false;
     Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
     const dlh=document.getElementById('qDlHost'); if(dlh) dlh.dataset.done='';
     const l2s=new Set(model.rows.map(r=>r.d.micaL2).filter(Boolean));

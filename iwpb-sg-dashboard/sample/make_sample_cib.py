@@ -85,7 +85,17 @@ for mica, l3, l2, l1, sign in MICA_ROWS:
             base = random.uniform(1, 40)
             dims = [mica, l3, l2, l1, pcode, p3, p2, "Total Product",
                     SEG[0], SEG[1], SEG[2], fcode, f2, f1, ENTITY]
-            vals = [val(base, sign) for _ in PERIODS]
+            vals = []
+            for h, band in PERIODS:
+                if h.startswith("Q"):
+                    scale = 3
+                elif "YTD" in h:
+                    scale = 6
+                elif h.startswith("FY"):
+                    scale = 12
+                else:
+                    scale = 1
+                vals.append(val(base * scale, sign))
             ws.append(dims + vals)
 
 out = "IWPB_SG_Driller_CIB_style.xlsx"
