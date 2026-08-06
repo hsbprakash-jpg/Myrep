@@ -3594,9 +3594,10 @@ function driversDef(){
 }
 function driversSave(){ try{ localStorage.setItem('iwpbsg_drivers',JSON.stringify(driversDef())); }catch(e){} }
 function definedDrivers(){
+  // pane entries first so a local edit overrides a config note for the same line
   const out=[], cd=(CFG&&CFG.drivers)||{};
-  for(const [n,t] of Object.entries(cd)) if(n&&t&&!/^</.test(n)) out.push({name:n,text:t});
   for(const d of driversDef()) if(d&&d.name&&d.text) out.push({name:d.name,text:d.text});
+  for(const [n,t] of Object.entries(cd)) if(n&&t&&!/^</.test(n)) out.push({name:n,text:t});
   return out;
 }
 function driverFor(name){
