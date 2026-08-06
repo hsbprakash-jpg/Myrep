@@ -3589,10 +3589,9 @@ function simAOA(){
     r.type==='pct'?r.val+'% change on forecast months':r.type==='pctfy'?r.val+'% change on FY, spread over the months':
     r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
   const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote()],[ruleTxt||'No rules'],[],
-    [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast',
-     'FY target','vs tgt (prior)']];
+    [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast']];
   for(const g of [...a.groups, a.total])
-    aoa.push([g.name,g.baseOut,g.simOut,g.delta,g.target,g.baseVar]);
+    aoa.push([g.name,g.baseOut,g.simOut,g.delta]);
   return aoa;
 }
 function renderSim(){
@@ -3693,12 +3692,10 @@ function renderSim(){
     </div>
     <div class="chart-wrap" id="simChartEl"></div>
     <div id="simCom"></div>
-    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th><th class="num">FY target</th><th class="num">vs tgt prior</th></tr></thead>
+    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th></tr></thead>
     <tbody>${[...a.groups,t].map(g=>`<tr${g.name===cfgS('total_label')?' style="font-weight:700"':''}>
       <td>${esc(g.name)}</td><td class="num">${fmtCell(g.baseOut)}</td><td class="num">${fmtCell(g.simOut)}</td>
-      <td class="num">${fmtCell(g.delta)}</td>
-      <td class="num">${fmtCell(g.target)}</td>
-      <td class="num">${fmtCell(g.baseVar)}</td></tr>`).join('')}</tbody></table></div>`;
+      <td class="num">${fmtCell(g.delta)}</td></tr>`).join('')}</tbody></table></div>`;
   $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
   aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote()+'|'+(SIM.by||''), {noButtons:true}, ()=>{
