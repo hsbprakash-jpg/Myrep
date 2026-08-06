@@ -431,6 +431,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 #simSaved label{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px}
 #simSaved select{border:1px solid var(--border);border-radius:6px;padding:7px 10px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);min-width:240px}
 #simRules{overflow-x:auto}
+.cmppick{display:flex;flex-wrap:wrap;gap:10px 18px;margin:6px 0 4px}
+.cmppick label{font-size:12.5px;color:var(--text-secondary)}
 #simRules .rnote{grid-column:1 / -1;font-size:11px;color:var(--text-muted);margin:2px 0 0 40px}
 #simRules .rnote.warn{color:#b57a00;font-weight:600}
 #simRules .simrule{display:grid;grid-template-columns:40px 128px minmax(200px,var(--sim-val-w,50ch)) 72px 150px 96px 32px 74px 16px 74px 26px;justify-content:start;
@@ -838,6 +840,17 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       </div>
     </div>
     <div class="panel" id="simResults"></div>
+    <div class="panel" id="simComparePanel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div><h4 style="margin:0 0 4px">Compare scenarios <span class="unitsfx" data-unitsfx></span></h4>
+        <p class="subtitle">Tick the saved scenarios to run side by side against the prior forecast.</p></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-solid" id="btnSimCmpRun">▶ Run comparison</button>
+          <button class="btn-quiet" id="btnSimCmpXls">⤓ Excel</button></div>
+      </div>
+      <div id="simCmpPick"></div>
+      <div id="simCmpOut"></div>
+    </div>
   </div>
 
   <div id="assistView" hidden>
@@ -3512,6 +3525,46 @@ function simChart(el, act, base, sim, yearCY){
       <span><span class="sw" style="background:var(--series-1);opacity:.55"></span>Simulated forecast</span></div>
     <div class="scroll-x"><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;min-width:520px" role="img" aria-label="Prior vs simulated forecast">${svg}</svg></div>`;
 }
+let SIM_CMP={sel:[], last:null};
+function simCmpRun(names){
+  const m=S.model, out=[];
+  for(const n of names){
+    const v=simStore()[n];
+    const rules=Array.isArray(v)? v : ((v&&v.rules)||[]);
+    let a; try{ a=simAgg(rules); }catch(e){ continue; }
+    out.push({name:n, rules, total:a.total, simSeries:a.simSeries});
+  }
+  return out;
+}
+function simCmpAOA(){
+  const res=SIM_CMP.last||[];
+  const aoa=[['Simulation — scenario comparison'],[filterNote()],[],
+    ['Scenario','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY target','vs target']];
+  for(const r of res)
+    aoa.push([r.name, r.total.baseOut, r.total.simOut, r.total.delta, r.total.target, r.total.simVar]);
+  return aoa;
+}
+function simCmpChart(el, act, base, series){
+  const W=880,H=250,Lm=66,T=14,B=30,R=14;
+  const all=[...act,...base,...series.flatMap(s2=>s2.pts)].map(p=>p.val).filter(v=>v!=null);
+  if(!all.length){ el.innerHTML='<p class="note">Nothing to chart.</p>'; return; }
+  const lo=Math.min(0,...all), hi=Math.max(0,...all), span=(hi-lo)||1;
+  const months=[...new Set([...act,...base,...series.flatMap(s2=>s2.pts)].map(p=>p.m))].sort((a,b)=>a-b);
+  const x=mm=>Lm+months.indexOf(mm)*(W-Lm-R)/Math.max(1,months.length-1);
+  const y=v=>T+(H-T-B)-(v-lo)*(H-T-B)/span;
+  const path=pts=>pts.filter(p=>p.val!=null).map((p,i)=>`${i?'L':'M'}${x(p.m).toFixed(1)},${y(p.val).toFixed(1)}`).join(' ');
+  let svg='';
+  for(let i=0;i<=3;i++){ const v=lo+span*i/3, yy=y(v);
+    svg+=`<line x1="${Lm}" x2="${W-R}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`+
+      `<text x="${Lm-8}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-secondary)">${fmt(v)}</text>`; }
+  for(const mm of months) svg+=`<text x="${x(mm).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--text-secondary)">${MON_LBL[mm]}</text>`;
+  svg+=`<path d="${path(act)}" fill="none" stroke="var(--series-1)" stroke-width="2.2"/>`;
+  svg+=`<path d="${path(base)}" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-dasharray="5 3"/>`;
+  series.forEach((s2,i)=>{
+    svg+=`<path d="${path(s2.pts)}" fill="none" stroke="${CAT_COLORS[i%CAT_COLORS.length]}" stroke-width="2" stroke-dasharray="2 2"/>`;
+  });
+  el.innerHTML=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Scenario comparison">${svg}</svg></div>`;
+}
 function simAOA(){
   const rules=SIM_LAST||[];
   const a=simAgg(rules), m=S.model;
@@ -3592,6 +3645,7 @@ function renderSim(){
     el.querySelector('.rto').addEventListener('change',e=>{ r.to=+e.target.value; upd(); });
     el.querySelector('.rx').addEventListener('click',()=>{ SIM.rules.splice(i,1); saveSimCur(); renderSim(); });
   });
+  renderSimCompare();
   // results — only after Run, from the snapshot taken at run time
   if(!fc.length){ $('simResults').innerHTML=''; return; }
   if(!SIM_LAST){
@@ -3649,6 +3703,48 @@ function renderSim(){
       h2+=` It ${gapTxt} — the simulated position lands <b>${fmtPct(t.simVarPct)}</b> vs target <b>${fmt(t.target)}</b>.`;
     } else if(t.target!=null) h2+=` The simulated position lands <b>${fmtPct(t.simVarPct)}</b> vs the FY target of <b>${fmt(t.target)}</b>.`;
     return h2;
+  });
+}
+function renderSimCompare(){
+  const names=Object.keys(simStore()).sort();
+  SIM_CMP.sel=SIM_CMP.sel.filter(n=>names.includes(n));
+  $('simCmpPick').innerHTML= names.length?
+    `<div class="cmppick">${names.map(n=>`<label class="chk"><input type="checkbox" data-cmp="${esc(n)}"${
+      SIM_CMP.sel.includes(n)?' checked':''}> ${esc(n)}</label>`).join('')}</div>`
+    : '<p class="note">Save two or more scenarios above, then tick them here to compare.</p>';
+  $('simCmpPick').querySelectorAll('[data-cmp]').forEach(cb=>cb.addEventListener('change',()=>{
+    const n=cb.dataset.cmp;
+    if(cb.checked){ if(!SIM_CMP.sel.includes(n)) SIM_CMP.sel.push(n); }
+    else SIM_CMP.sel=SIM_CMP.sel.filter(x=>x!==n);
+  }));
+  const res=SIM_CMP.last;
+  const out=$('simCmpOut');
+  if(!res||!res.length){ out.innerHTML= names.length? '<p class="note">Tick scenarios and click <b>▶ Run comparison</b>.</p>':''; return; }
+  const a0=simAgg([]);            // prior forecast path, no rules
+  const best=[...res].filter(r=>r.total.simVar!=null).sort((x,y)=>y.total.simVar-x.total.simVar)[0];
+  out.innerHTML=`
+    <div class="legend" style="margin-top:8px"><span><span class="swl" style="border-top:3px solid var(--series-1)"></span>Actuals</span>
+      <span><span class="swl" style="border-top:3px dashed var(--series-2)"></span>Prior forecast</span>
+      ${res.map((r,i)=>`<span><span class="swl" style="border-top:3px dotted ${CAT_COLORS[i%CAT_COLORS.length]}"></span>${esc(r.name)}</span>`).join('')}</div>
+    <div class="chart-wrap" id="simCmpChart"></div>
+    <div class="scroll-x"><table class="ctable"><thead><tr><th>Scenario</th>
+      <th class="num">FY outlook (${esc(cfgUnit())})</th><th class="num">Δ vs prior forecast</th>
+      <th class="num">FY target</th><th class="num">vs target</th><th class="num">vs target %</th></tr></thead><tbody>
+      <tr><td>Prior forecast</td><td class="num">${fmtCell(a0.total.baseOut)}</td><td class="num">—</td>
+        <td class="num">${fmtCell(a0.total.target)}</td><td class="num">${fmtCell(a0.total.baseVar)}</td>
+        <td class="num">${a0.total.target?fmtPct((a0.total.baseOut-a0.total.target)/Math.abs(a0.total.target)):'—'}</td></tr>
+      ${res.map(r=>`<tr><td>${esc(r.name)}</td><td class="num">${fmtCell(r.total.simOut)}</td>
+        <td class="num">${fmtCell(r.total.delta)}</td><td class="num">${fmtCell(r.total.target)}</td>
+        <td class="num">${fmtCell(r.total.simVar)}</td><td class="num">${r.total.simVarPct!=null?fmtPct(r.total.simVarPct):'—'}</td></tr>`).join('')}
+      </tbody></table></div>
+    <div id="simCmpCom"></div>`;
+  simCmpChart($('simCmpChart'), a0.actSeries, a0.baseSeries, res.map(r=>({name:r.name, pts:r.simSeries})));
+  aiComment($('simCmpCom'), 'simcmp|'+res.map(r=>r.name).join(',')+'|'+filterNote(), ()=>{
+    let h=`Comparing <b>${res.length}</b> scenarios against a prior FY outlook of <b>${fmt(a0.total.baseOut)}</b>: `+
+      res.map(r=>`<b>${esc(r.name)}</b> lands <b>${fmt(r.total.simOut)}</b> (${r.total.delta>=0?'+':''}${fmt(r.total.delta)})`).join('; ')+'.';
+    if(best&&best.total.simVar!=null)
+      h+=` <b>${esc(best.name)}</b> is the strongest against the FY target at <b>${fmt(best.total.simVar)}</b> (${fmtPct(best.total.simVarPct)}).`;
+    return h;
   });
 }
 /* ================= MI Assistant — governed Q&A ================= */
@@ -4492,6 +4588,14 @@ function init(){
   });
   $('btnSimNew').addEventListener('click',()=>{ SIM={name:'',rules:[],by:'micaL1'}; SIM_LAST=null; saveSimCur(); renderSim(); });
   $('btnSimRun').addEventListener('click',()=>{ SIM_LAST=JSON.parse(JSON.stringify(SIM.rules)); renderSim(); });
+  $('btnSimCmpRun').addEventListener('click',()=>{
+    if(!SIM_CMP.sel.length){ alert('Tick at least one saved scenario to compare.'); return; }
+    SIM_CMP.last=simCmpRun(SIM_CMP.sel); renderSim();
+  });
+  $('btnSimCmpXls').addEventListener('click',()=>{
+    if(!SIM_CMP.last||!SIM_CMP.last.length){ alert('Run the comparison first.'); return; }
+    exportWB([{name:'Scenario comparison', aoa:simCmpAOA()}],'IWPB_SG_scenario_comparison');
+  });
   $('btnSimExport').addEventListener('click',()=>{
     if(!SIM_LAST){ alert('Run the simulation first.'); return; }
     exportWB([{name:'Simulation', aoa:simAOA()}],'IWPB_SG_simulation');
