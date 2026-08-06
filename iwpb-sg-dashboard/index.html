@@ -3420,13 +3420,15 @@ function simRuleNote(r){
     if(!match.length) return '<div class="rnote warn">⚠ no rows match this scope under the current filters — this rule changes nothing</div>';
     if(!months.length) return '<div class="rnote warn">⚠ no forecast months in this range — this rule changes nothing</div>';
     const base=sumCols(match, months.map(p=>p.col));
+    const fyNow=kpi(match, S.model, S.ytdM, S.includeFC).outlook;
     const eff= r.type==='pct'? base*(+r.val||0)/100
       : r.type==='amt'? (+r.val||0)
       : ((+r.val||0)*months.length - base);
     const dir= eff>0? 'raises the forecast' : eff<0? 'lowers the forecast' : 'no change';
     return `<div class="rnote">${match.length.toLocaleString()} row${match.length>1?'s':''} · `+
       `${esc(MON_LBL[months[0].m])}–${esc(MON_LBL[months[months.length-1].m])} forecast base ${fmt(base)} `+
-      `→ impact <b>${fmt(eff)}</b> ${esc(cfgUnit())} · ${dir}</div>`;
+      `→ impact <b>${fmt(eff)}</b> ${esc(cfgUnit())} · ${dir}`+
+      (fyNow!=null? ` · FY ${fmt(fyNow)} → <b>${fmt(fyNow+eff)}</b>`:'')+`</div>`;
   }catch(e){ return ''; }
 }
 function simNewRule(){
