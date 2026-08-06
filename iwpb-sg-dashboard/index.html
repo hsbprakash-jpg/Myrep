@@ -3488,7 +3488,10 @@ function simAgg(rules){
     const baseFc=sumBase(rs,fcMonths), simFc=sumSim(rs,fcMonths);
     const simOut=(k.outlook||0)-baseFc+simFc;
     return {name, k, baseOut:k.outlook, simOut, delta:simFc-baseFc,
-      target:k.target,
+      target:k.target, fyFc:k.fyFc,
+      baseVarFc:k.fyFc!=null? (k.outlook-k.fyFc) : null,
+      simVarFc:k.fyFc!=null? (simOut-k.fyFc) : null,
+      simVarFcPct:(k.fyFc!=null&&k.fyFc!==0)? (simOut-k.fyFc)/Math.abs(k.fyFc) : null,
       baseVar:k.target!=null? (k.outlook-k.target) : null,
       simVar:k.target!=null? (simOut-k.target) : null,
       simVarPct:(k.target!=null&&k.target!==0)? (simOut-k.target)/Math.abs(k.target) : null};
@@ -3575,9 +3578,10 @@ function simAOA(){
     r.type==='pct'?r.val+'% change on forecast months':r.type==='pctfy'?r.val+'% change on FY, spread over the months':
     r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
   const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote()],[ruleTxt||'No rules'],[],
-    [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY target','vs tgt (prior)','vs tgt (simulated)']];
+    [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast',
+     'FY forecast','vs FY forecast (simulated)','FY target','vs tgt (prior)','vs tgt (simulated)']];
   for(const g of [...a.groups, a.total])
-    aoa.push([g.name,g.baseOut,g.simOut,g.delta,g.target,g.baseVar,g.simVar]);
+    aoa.push([g.name,g.baseOut,g.simOut,g.delta,g.fyFc,g.simVarFc,g.target,g.baseVar,g.simVar]);
   return aoa;
 }
 function renderSim(){
@@ -3675,14 +3679,17 @@ function renderSim(){
       <div class="t"><div class="tv${(t.baseOut||0)<0?' negnum':''}">${fmt(t.baseOut)}</div><div class="tl">FY outlook · prior fcst</div></div>
       <div class="t"><div class="tv${(t.simOut||0)<0?' negnum':''}">${fmt(t.simOut)}</div><div class="tl">FY outlook · simulated</div></div>
       <div class="t"><div class="tv${dcls(t.delta)}">${t.delta>=0?'+':''}${fmt(t.delta)}</div><div class="tl">Δ forecast</div></div>
+      ${t.fyFc!=null?`<div class="t"><div class="tv${dcls(t.simVarFc)}">${t.simVarFc>=0?'+':''}${fmt(t.simVarFc)}</div><div class="tl">vs FY forecast · simulated</div></div>`:''}
       ${t.target!=null?`<div class="t"><div class="tv${dcls(t.simVar)}">${fmtPct(t.simVarPct)}</div><div class="tl">vs FY target · simulated</div></div>`:''}
     </div>
     <div class="chart-wrap" id="simChartEl"></div>
     <div id="simCom"></div>
-    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th><th class="num">FY target</th><th class="num">vs tgt prior</th><th class="num">vs tgt sim</th></tr></thead>
+    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th><th class="num">FY forecast</th><th class="num">vs fcst sim</th><th class="num">FY target</th><th class="num">vs tgt prior</th><th class="num">vs tgt sim</th></tr></thead>
     <tbody>${[...a.groups,t].map(g=>`<tr${g.name===cfgS('total_label')?' style="font-weight:700"':''}>
       <td>${esc(g.name)}</td><td class="num">${fmtCell(g.baseOut)}</td><td class="num">${fmtCell(g.simOut)}</td>
-      <td class="num">${fmtCell(g.delta)}</td><td class="num">${fmtCell(g.target)}</td>
+      <td class="num">${fmtCell(g.delta)}</td>
+      <td class="num">${fmtCell(g.fyFc)}</td><td class="num">${fmtCell(g.simVarFc)}</td>
+      <td class="num">${fmtCell(g.target)}</td>
       <td class="num">${fmtCell(g.baseVar)}</td><td class="num">${fmtCell(g.simVar)}</td></tr>`).join('')}</tbody></table></div>`;
   $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
