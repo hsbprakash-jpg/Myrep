@@ -3716,7 +3716,7 @@ function renderCustom(){
   S.widgets.slice(pStart,pStart+PPAGE).forEach((w,pi)=>{
     const idx=pStart+pi;
     const div=document.createElement('div');
-    div.className='widget'+((w.type!=='card')?' w2':'');
+    div.className='widget'+((w.type!=='card'||(w.ctype||'hbar')==='table')?' w2':'');
     div.dataset.idx=idx;
     const rows=widgetRows(w.l2);
     const k=kpi(rows,m,S.ytdM,S.includeFC);
