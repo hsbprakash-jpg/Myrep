@@ -1705,7 +1705,11 @@ function aiComment(host, sig, gen){
     comSave(st2); });
   host.querySelector('.aicom-k').addEventListener('click',()=>{
     const st2=comStore();
-    if(st2[base]&&st2[base].t!=null) delete st2[base];
+    if(st2[base]&&st2[base].t!=null){
+      if(!confirm('Stop retaining this commentary?\n\nIt will follow the data again and may be rewritten when filters, the period or the view change. A copy is kept — the Retrieve button can bring it back.')) return;
+      st2['prev:'+base]={t:st2[base].t, ts:Date.now()};
+      delete st2[base];
+    }
     else { st2[base]={t:t.innerHTML, ts:Date.now()}; st2[sig]={t:t.innerHTML, ts:Date.now()}; }
     comSave(st2); aiComment(host, sig, gen);
   });
