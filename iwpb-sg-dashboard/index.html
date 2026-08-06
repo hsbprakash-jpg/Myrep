@@ -462,9 +462,9 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom-h{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.5px;
   text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:5px;gap:8px;flex-wrap:wrap}
 .aicom-h>span:first-child{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.aicom-k,.aicom-p{background:var(--fold-bg);border:none;color:var(--fold-red);cursor:pointer;
+.aicom-r,.aicom-p{background:var(--fold-bg);border:none;color:var(--fold-red);cursor:pointer;
   font:inherit;font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;letter-spacing:.5px;text-transform:uppercase}
-.aicom-k:hover,.aicom-p:not([disabled]):hover{background:var(--fold-bg-h);text-decoration:none}
+.aicom-r:hover,.aicom-p:not([disabled]):hover{background:var(--fold-bg-h);text-decoration:none}
 .aicom-p[disabled]{opacity:.45;cursor:default}
 .aicom-btns{display:flex;gap:6px;flex:1 1 auto;min-width:0;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
 .aicom-t{font-size:12.5px;line-height:1.55;color:var(--text-secondary);outline:none;min-height:18px;
@@ -948,7 +948,7 @@ const CFG_DEFAULT={
     sect_config:'Configuration', sect_period:'Period & RAG',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
     btn_newfile:'Load new Driller', sect_drivers:'Drivers · AI commentary',
-    btn_retain:'Retain', btn_unretain:'Unretain', btn_retrieve:'Retrieve',
+    btn_regen:'Regenerate', btn_retrieve:'Retrieve',
     drv_hint:'Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.',
     lbl_ytd:'YTD through', lbl_fc:'Include forecast month', lbl_tol:'RAG tolerance',
     kpi_hint:'Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card'
@@ -1714,11 +1714,10 @@ function aiComment(host, sig, gen){
   if(!text){ host.innerHTML=''; return; }
   const prev=st['prev:'+base];
   const canRetrieve=!!(prev&&prev.t!=null&&prev.t!==text);
-  host.innerHTML=`<div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · retained':'AI commentary · click text to edit'}</span>
+  host.innerHTML=`<div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · kept':'AI commentary · click text to edit'}</span>
       <span class="aicom-btns">
       <button class="aicom-p" type="button"${canRetrieve?'':' disabled'} title="${canRetrieve?'Bring back the manual commentary that was written before':'Nothing to retrieve yet — a copy is kept whenever your text is replaced'}">⤺ ${esc(cfgL('btn_retrieve')||'Retrieve')}</button>
-      <button class="aicom-k" type="button" title="${locked?'Stop retaining this text — it will follow the data again':'Retain this text — it stays even when filters or the period change'}">${locked?'🔓 '+esc(cfgL('btn_unretain')||'Unretain'):'📌 '+esc(cfgL('btn_retain')||'Retain')}</button>
-</span></div>
+      <button class="aicom-r" type="button" title="Discard your edits and rebuild the AI commentary from the current data">↺ ${esc(cfgL('btn_regen')||'Regenerate')}</button></span></div>
     <div class="aicom-t" contenteditable="true" spellcheck="false">${text}</div></div>`;
   const pbtn=host.querySelector('.aicom-p');
   if(pbtn&&!pbtn.disabled) pbtn.addEventListener('click',()=>{
@@ -1730,20 +1729,21 @@ function aiComment(host, sig, gen){
   const t=host.querySelector('.aicom-t');
   let edited=false;
   t.addEventListener('input',()=>{ edited=true; });
-  t.addEventListener('blur',()=>{ const st2=comStore(); st2[sig]={t:t.innerHTML, ts:Date.now()};
-    if(st2[base]&&st2[base].t!=null) st2[base]={t:t.innerHTML, ts:Date.now()};
-    // every real manual edit becomes the retrievable copy
-    if(edited) st2['prev:'+base]={t:t.innerHTML, ts:Date.now()};
-    comSave(st2); });
-  host.querySelector('.aicom-k').addEventListener('click',()=>{
+  t.addEventListener('blur',()=>{ const st2=comStore(); const now=Date.now();
+    st2[sig]={t:t.innerHTML, ts:now};
+    // a manual edit is kept automatically and becomes the retrievable copy
+    if(edited||(st2[base]&&st2[base].t!=null)) st2[base]={t:t.innerHTML, ts:now};
+    if(edited) st2['prev:'+base]={t:t.innerHTML, ts:now};
+    comSave(st2);
+    if(edited){ edited=false; aiComment(host, sig, gen); } });
+  host.querySelector('.aicom-r').addEventListener('click',()=>{
     const st2=comStore();
-    if(st2[base]&&st2[base].t!=null){
-      if(!confirm('Stop retaining this commentary?\n\nThe AI commentary comes back and will follow the data again. A copy of your text is kept — the Retrieve button can bring it back.')) return;
-      st2['prev:'+base]={t:st2[base].t, ts:Date.now()};
-      delete st2[base]; delete st2[sig];        // fall straight back to the AI text
+    const manual=(st2[base]&&st2[base].t!=null)? st2[base].t : (st2[sig]&&st2[sig].t!=null? st2[sig].t : null);
+    if(manual!=null){
+      if(!confirm('Rebuild the AI commentary?\n\nYour edits are replaced by freshly generated text. A copy is kept — the Retrieve button brings it back.')) return;
+      st2['prev:'+base]={t:manual, ts:Date.now()};
     }
-    else { st2[base]={t:t.innerHTML, ts:Date.now()}; st2[sig]={t:t.innerHTML, ts:Date.now()};
-      st2['prev:'+base]={t:t.innerHTML, ts:Date.now()}; }   // retained text = the retrievable copy
+    delete st2[sig]; delete st2[base];
     comSave(st2); aiComment(host, sig, gen);
   });
 }
