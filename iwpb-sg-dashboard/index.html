@@ -1682,11 +1682,35 @@ function widgetComSig(w){
   const c=w.cfg||{};
   return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,c.measure,c.type])+'|'+filterNote()+'|'+S.ytdM+'|'+drvSig();
 }
+function widgetCommentaryHtml(w){
+  const m=S.model, rows=widgetRows(w.l2), L=cmpLabels(m);
+  if(!rows.length) return '';
+  if(w.type==='l3'||w.type==='products')
+    return chartCommentaryHtml({l2:w.l2||'', groupBy:w.type==='l3'?'micaL3':'prodL2', splitBy:'', measure:'cy', type:'hbar'});
+  const k=kpi(rows,m,S.ytdM,S.includeFC);
+  const nm=scopeName(w.l2)||'Total';
+  const pts=k.cySeries.filter(p2=>p2.val!=null&&!p2.fc);
+  let out=`<b>${esc(nm)}</b> YTD ${esc(m.yearCY)} actuals of <b>${fmt(k.cy)}</b>`;
+  if(k.cmpVarPct!=null) out+=` run <b>${fmtPct(k.cmpVarPct)}</b> ${esc(L.vs)} (${fmt(k.cmpVar)})`;
+  out+='.';
+  if(pts.length>1){
+    const hi=pts.reduce((a,b)=>b.val>a.val?b:a), lo2=pts.reduce((a,b)=>b.val<a.val?b:a);
+    out+=` Strongest month <b>${MON_LBL[hi.m]}</b> (${fmt(hi.val)}); softest <b>${MON_LBL[lo2.m]}</b> (${fmt(lo2.val)}).`;
+    if(pts.length>3){
+      const l3=pts.slice(-3), e3=pts.slice(0,-3);
+      const a3=l3.reduce((s2,p2)=>s2+p2.val,0)/l3.length, e0=e3.reduce((s2,p2)=>s2+p2.val,0)/e3.length;
+      out+=` The last three months average <b>${fmt(a3)}</b> against <b>${fmt(e0)}</b> before — momentum ${a3>=e0?'building':'softening'}.`;
+    }
+  }
+  if(k.outlook!=null&&L.mode!=='py') out+=` Full-year outlook <b>${fmt(k.outlook)}</b>${k.target!=null?` vs target ${fmt(k.target)} (${fmt(k.varTgt)})`:''}.`;
+  const dt=driverFor(nm);
+  if(dt) out=`<b>${esc(nm)}</b> — ${esc(dt)}. `+out;
+  return out+` <span class="aicom-note">${esc(filterNote())}</span>`;
+}
 function widgetCommentText(w){
-  if(w.type!=='chart') return '';
   const st=comStore(); const sig=widgetComSig(w);
   let html=st[sig]&&st[sig].t;
-  if(html==null){ try{ html=chartCommentaryHtml({...w.cfg}); }catch(e){ html=''; } }
+  if(html==null){ try{ html= w.type==='chart'? chartCommentaryHtml({...w.cfg}) : widgetCommentaryHtml(w); }catch(e){ html=''; } }
   const d=document.createElement('div'); d.innerHTML=html||'';
   return d.textContent.trim();
 }
@@ -3789,6 +3813,11 @@ function renderCustom(){
         .map(([name,rs])=>({name, rows:rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
         .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
       breakdownTable(div.querySelector('.wbody'),'','',groups,null);
+    }
+    if(rows.length && w.type!=='chart'){
+      const comDiv=document.createElement('div');
+      div.querySelector('.wbody').appendChild(comDiv);
+      aiComment(comDiv, widgetComSig(w), ()=>widgetCommentaryHtml(w));
     }
     // drag to reorder
     const headEl=div.querySelector('.whead');
