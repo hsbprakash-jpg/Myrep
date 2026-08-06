@@ -2182,10 +2182,20 @@ async function exportSummaryPPT(){
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const slide=p.addSlide(); slide.background={color:'FFFFFF'};
   slide.addText(`${cfgS('landing_title')} \u2014 ${MON_LBL[S.ytdM]} ${m.yearCY}`,
-    {x:0.4,y:0.2,w:12.5,h:0.5,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI'});
-  slide.addText(`${MON_LBL[S.ytdM]} YTD financial dashboard \u00b7 figures in ${cfgUnit()} as reported`,
-    {x:0.4,y:0.7,w:12.5,h:0.3,fontSize:11,color:'52514E',fontFace:'Segoe UI'});
+    {x:0.4,y:0.18,w:12.5,h:0.42,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI',valign:'top'});
   const COLS=4, TW=3.04, TH=1.42, GX=0.11, GY=0.13, X0=0.42, Y0=1.12;
+  const heroTxt=($('commentary')&&$('commentary').textContent.trim())||'';
+  const trajSvg=$('trajPanel')? $('trajPanel').querySelector('svg') : null;
+  const mixSvg=$('mixChart')? $('mixChart').querySelector('svg') : null;
+  const tilesBottom=Y0+Math.ceil(tiles.length/COLS)*(TH+GY);
+  const onePage= tiles.length<=8 && trajSvg && tilesBottom<=4.45;
+  // on the one-page layout the narrative takes the subtitle slot — no overlap
+  if(onePage&&heroTxt)
+    slide.addText(heroTxt,{x:0.4,y:0.66,w:12.5,h:0.42,fontSize:10,italic:true,color:'52514E',
+      fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
+  else
+    slide.addText(`${MON_LBL[S.ytdM]} YTD financial dashboard \u00b7 figures in ${cfgUnit()} as reported`,
+      {x:0.4,y:0.7,w:12.5,h:0.3,fontSize:11,color:'52514E',fontFace:'Segoe UI'});
   tiles.forEach((t,i)=>{
     const tx=X0+(i%COLS)*(TW+GX), ty=Y0+Math.floor(i/COLS)*(TH+GY);
     slide.addShape('rect',{x:tx,y:ty,w:TW,h:TH,fill:{color:'FFFFFF'},line:{color:'C8C7C3',width:1}});
@@ -2214,16 +2224,9 @@ async function exportSummaryPPT(){
         align:'right',fontFace:'Segoe UI',fit:'shrink'});
     });
   });
-  const heroTxt=($('commentary')&&$('commentary').textContent.trim())||'';
   const trajT=document.querySelector('#trajPanel h4');
   const trajTitle= trajT? trajT.textContent.trim().replace(/\s+/g,' ') : 'Performance trajectory';
-  const trajSvg=$('trajPanel')? $('trajPanel').querySelector('svg') : null;
-  const mixSvg=$('mixChart')? $('mixChart').querySelector('svg') : null;
-  const tilesBottom=Y0+Math.ceil(tiles.length/COLS)*(TH+GY);
-  // everything fits one widescreen slide when the tile grid stays within two rows
-  if(tiles.length<=8 && trajSvg && tilesBottom<=4.45){
-    if(heroTxt) slide.addText(heroTxt,{x:0.42,y:0.88,w:12.5,h:0.24,fontSize:9.5,italic:true,
-      color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
+  if(onePage){
     const bandY=tilesBottom+0.14, bandH=6.95-bandY;
     const half=async(x0,w0,title,svg,aoa,note)=>{
       slide.addText(title,{x:x0,y:bandY,w:w0,h:0.26,fontSize:10.5,bold:true,color:'1A1A19',
