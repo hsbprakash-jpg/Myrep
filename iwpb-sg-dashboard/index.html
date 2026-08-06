@@ -3908,6 +3908,7 @@ function applyCfgDom(){
     S.thresh=th;
   }
   if(!cfgViewOn(S.view)) S.view='summary';
+  drawDrivers();
 }
 function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
