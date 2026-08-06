@@ -1659,7 +1659,8 @@ function ragPill(r){ return `<span class="rag ${r.cls}"><span class="ic" aria-hi
 /* -------- editable AI commentary under charts -------- */
 function comStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_comments')||'{}'); }catch(e){ return {}; } }
 function comSave(st){
-  const ks=Object.keys(st);
+  // retained ('lock:') entries are permanent — only unpinned edits are evicted
+  const ks=Object.keys(st).filter(k=>!k.startsWith('lock:'));
   if(ks.length>80) ks.sort((a,b)=>(st[a].ts||0)-(st[b].ts||0)).slice(0,ks.length-80).forEach(k=>delete st[k]);
   try{ localStorage.setItem('iwpbsg_comments',JSON.stringify(st)); }catch(e){}
 }
@@ -1673,6 +1674,11 @@ function aiComment(host, sig, gen){
   const locked=!!(st[base]&&st[base].t!=null);
   const saved= locked? st[base].t : (st[sig]&&st[sig].t);
   let text; try{ text=saved!=null? saved : gen(); }catch(e){ text=''; }
+  const LEAD_RE=/<span class="drvlead">[\s\S]*?<\/span>\s*/;
+  if(locked&&text){
+    let fresh=''; try{ const g2=String(gen()); const m2=g2.match(LEAD_RE); fresh=m2? m2[0]:''; }catch(e){}
+    text=fresh+String(text).replace(LEAD_RE,'');
+  }
   if(!text){ host.innerHTML=''; return; }
   host.innerHTML=`<div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · retained':'AI commentary · click text to edit'}</span>
       <span class="aicom-btns">
@@ -1724,7 +1730,7 @@ function widgetCommentaryHtml(w){
   }
   if(k.outlook!=null&&L.mode!=='py') out+=` Full-year outlook <b>${fmt(k.outlook)}</b>${k.target!=null?` vs target ${fmt(k.target)} (${fmt(k.varTgt)})`:''}.`;
   const dt=driverFor(nm);
-  if(dt) out=`<b>${esc(nm)}</b> — ${esc(dt)}. `+out;
+  if(dt) out=`<span class="drvlead"><b>${esc(nm)}</b> — ${esc(dt)}.</span> `+out;
   return out+` <span class="aicom-note">${esc(filterNote())}</span>`;
 }
 function widgetCommentText(w){
@@ -1779,10 +1785,10 @@ function chartCommentaryHtml(cfg){
     .sort((a,b)=>Math.abs(v(b.c))-Math.abs(v(a.c))).slice(0,4);
   let drvLead='';
   if(dnotes.length){
-    drvLead=dnotes.map(x2=>{
+    drvLead='<span class="drvlead">'+dnotes.map(x2=>{
       const share= total&&Math.abs(total)>0.001? ` · ${(v(x2.c)/total*100).toFixed(0)}% of total`:'';
       return `<b>${esc(x2.c.name)}</b> (${fmt(v(x2.c))}${share}) — ${esc(x2.t)}`;
-    }).join('. ')+'. ';
+    }).join('. ')+'.</span> ';
   }
   return drvLead+out+` <span class="aicom-note">${esc(measureLabel(cfg.measure))} · ${esc(filterNote())}</span>`;
 }
