@@ -164,6 +164,9 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 #drvPanel input[type=text]:focus{border-color:var(--hsbc-red);box-shadow:0 0 0 2px var(--fold-bg)}
 #drvPanel .drv-x{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0}
 #drvPanel .drv-x:hover{color:var(--hsbc-red)}
+#simCmpOut .ctable{width:auto;min-width:min(100%,460px);max-width:100%}
+#simCmpOut .ctable td:first-child,#simCmpOut .ctable th:first-child{min-width:160px;padding-right:26px}
+#simCmpOut .ctable td.num,#simCmpOut .ctable th.num{white-space:nowrap}
 #drvPanel .drvhint{grid-column:1 / span 2;font-size:10px;color:var(--status-good);margin-top:1px}
 #drvPanel .drvhint.warn{color:#b57a00}
 #drvPanel .drv-dd{position:absolute;top:31px;left:0;right:28px;z-index:40;background:var(--surface-2);
@@ -443,12 +446,15 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .simrule .rlbl{color:var(--text-muted);font-size:11px}
 .simrule .rx{margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px}
 .simrule .rx:hover{color:var(--hsbc-red)}
-#simResults .atable{border-collapse:collapse;font-size:12px;width:100%;margin-top:10px;table-layout:auto}
-#simResults .atable th{background:var(--hsbc-red);color:#fff;padding:5px 7px;text-align:left;font-weight:700;white-space:normal;line-height:1.25}
-#simResults .atable td{padding:5px 7px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
-#simResults .atable td:first-child{overflow-wrap:anywhere;min-width:90px}
-#simResults .atable td.num{text-align:right;white-space:nowrap}
-#simResults .atable th.num{text-align:right;white-space:normal}
+#simResults .atable{border-collapse:collapse;font-size:12px;margin-top:10px;table-layout:auto;
+  width:auto;min-width:min(100%,560px);max-width:100%}
+#simResults .atable th{background:var(--hsbc-red);color:#fff;padding:5px 12px;text-align:left;font-weight:700;
+  white-space:nowrap;line-height:1.25}
+#simResults .atable td{padding:5px 12px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+#simResults .atable td:first-child,#simResults .atable th:first-child{min-width:150px;overflow-wrap:anywhere;
+  white-space:normal;padding-right:26px}
+#simResults .atable td.num,#simResults .atable th.num{text-align:right;white-space:nowrap}
 .card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:17px 19px 15px;min-height:150px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
 .card:hover{border-color:var(--hsbc-red)}
