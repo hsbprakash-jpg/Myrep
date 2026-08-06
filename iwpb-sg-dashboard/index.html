@@ -834,6 +834,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <input id="simName" type="text" placeholder="Scenario name (e.g. Rate cut -50bps on NII)" aria-label="Scenario name">
         <button class="btn-solid" id="btnSimSave">Save scenario</button>
         <button class="btn-quiet" id="btnSimNew">New</button>
+        <button class="btn-quiet" id="btnSimClear" title="Clear the rules, results and comparison from the screen — saved scenarios are kept">Clear screen</button>
         <button class="btn-quiet" id="btnSimExport">⤓ Excel</button>
       </div>
       <div id="simSaved"></div>
@@ -4587,6 +4588,12 @@ function init(){
     const st=simStore(); st[SIM.name]={rules:SIM.rules, by:SIM.by}; simStoreSet(st); saveSimCur(); renderSim();
   });
   $('btnSimNew').addEventListener('click',()=>{ SIM={name:'',rules:[],by:'micaL1'}; SIM_LAST=null; saveSimCur(); renderSim(); });
+  $('btnSimClear').addEventListener('click',()=>{
+    SIM={name:'',rules:[],by:'micaL1'}; SIM_LAST=null;
+    SIM_CMP={sel:[], last:null};
+    saveSimCur(); renderSim();
+    $('simView').scrollIntoView({behavior:'smooth',block:'start'});
+  });
   $('btnSimRun').addEventListener('click',()=>{ SIM_LAST=JSON.parse(JSON.stringify(SIM.rules)); renderSim(); });
   $('btnSimCmpRun').addEventListener('click',()=>{
     if(!SIM_CMP.sel.length){ alert('Tick at least one saved scenario to compare.'); return; }
