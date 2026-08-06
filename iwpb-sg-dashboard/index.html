@@ -448,7 +448,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom{margin-top:8px;border:1px dashed var(--border);border-left:3px solid var(--hsbc-red);border-radius:8px;background:var(--surface-2);padding:7px 11px}
 .aicom-h{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:5px;gap:10px}
 .aicom-r,.aicom-k{background:var(--fold-bg);border:none;color:var(--fold-red);cursor:pointer;
-  font:inherit;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:5px;letter-spacing:normal;text-transform:none}
+  font:inherit;font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;letter-spacing:.5px;text-transform:uppercase}
 .aicom-r:hover,.aicom-k:hover{background:var(--fold-bg-h);text-decoration:none}
 .aicom-btns{display:flex;gap:8px;flex-shrink:0}
 .aicom-t{font-size:12.5px;line-height:1.55;color:var(--text-secondary);outline:none;min-height:18px}
@@ -930,6 +930,7 @@ const CFG_DEFAULT={
     sect_config:'Configuration', sect_period:'Period & RAG',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
     btn_newfile:'Load new Driller', sect_drivers:'Drivers · AI commentary',
+    btn_retain:'Retain', btn_unretain:'Unretain', btn_regen:'Regenerate',
     drv_hint:'Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.',
     lbl_ytd:'YTD through', lbl_fc:'Include forecast month', lbl_tol:'RAG tolerance',
     kpi_hint:'Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card'
@@ -1675,8 +1676,8 @@ function aiComment(host, sig, gen){
   if(!text){ host.innerHTML=''; return; }
   host.innerHTML=`<div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · retained':'AI commentary · click text to edit'}</span>
       <span class="aicom-btns">
-      <button class="aicom-k" type="button" title="${locked?'Stop retaining this text — it will follow the data again':'Retain this text — it stays even when filters or the period change'}">${locked?'🔓 Unretain':'📌 Retain'}</button>
-      <button class="aicom-r" type="button" title="Discard edits and regenerate the AI commentary">↺ Regenerate</button></span></div>
+      <button class="aicom-k" type="button" title="${locked?'Stop retaining this text — it will follow the data again':'Retain this text — it stays even when filters or the period change'}">${locked?'🔓 '+esc(cfgL('btn_unretain')||'Unretain'):'📌 '+esc(cfgL('btn_retain')||'Retain')}</button>
+      <button class="aicom-r" type="button" title="Discard edits and regenerate the AI commentary">↺ ${esc(cfgL('btn_regen')||'Regenerate')}</button></span></div>
     <div class="aicom-t" contenteditable="true" spellcheck="false">${text}</div></div>`;
   const t=host.querySelector('.aicom-t');
   t.addEventListener('blur',()=>{ const st2=comStore(); st2[sig]={t:t.innerHTML, ts:Date.now()};
