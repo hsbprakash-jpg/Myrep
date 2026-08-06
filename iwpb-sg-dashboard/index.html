@@ -162,6 +162,10 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 #missionCtl input[type=text]{font:inherit;font-size:13px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:4px;min-width:230px;background:var(--surface-2);color:var(--text-primary)}
 #missionCtl select{font:inherit;font-size:12.5px;padding:4px 6px}
 #missionOut .mlist{margin:6px 0 2px 18px;font-size:13px;line-height:1.55}
+#mDrivers .mdrow{display:grid;grid-template-columns:minmax(150px,230px) 1fr 30px;gap:8px;margin-top:6px;align-items:center}
+#mDrivers .mdrv-x{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px}
+#mDrivers .mdrv-x:hover{color:var(--hsbc-red)}
+#missionCtl #mDrivers input[type=text]{min-width:0;width:100%}
 aside.side nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
   padding:8px 18px 8px 15px;font:inherit;font-size:13px;color:var(--text-secondary);cursor:pointer;
   border-left:3px solid transparent;text-align:left}
@@ -927,6 +931,7 @@ const CFG_DEFAULT={
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
+  drivers:{},
   views:{summary:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y',mission:'Y'},
   labels:{
     nav_summary:'KPI summary', nav_custom:'My dashboard', nav_builder:'Drag & drop charts',
@@ -1689,7 +1694,7 @@ function comText(hostId){
 }
 function widgetComSig(w){
   const c=w.cfg||{};
-  return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,c.measure,c.type])+'|'+filterNote()+'|'+S.ytdM;
+  return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,c.measure,c.type])+'|'+filterNote()+'|'+S.ytdM+'|'+drvSig();
 }
 function widgetCommentText(w){
   if(w.type!=='chart') return '';
@@ -1737,6 +1742,9 @@ function chartCommentaryHtml(cfg){
     const share=Math.abs(v(lead)/total);
     if(share>0.5) out+=` Concentration risk: over half the total sits in one line.`;
   }
+  const dnotes=cats.map(c=>({n:c.name,t:driverFor(c.name)})).filter(x2=>x2.t)
+    .filter((x2,i2,arr)=>arr.findIndex(y2=>y2.t===x2.t)===i2).slice(0,4);
+  if(dnotes.length) out+=` Drivers — ${dnotes.map(x2=>`<b>${esc(x2.n)}</b>: ${esc(x2.t)}`).join('; ')}.`;
   return out+` <span class="aicom-note">${esc(measureLabel(cfg.measure))} · ${esc(filterNote())}</span>`;
 }
 let TILE_DRAG=null, TILE_ALL=[];
@@ -2012,7 +2020,7 @@ function renderMix(){
   $('mixTitle').textContent=chartTitle(MX);
   $('mixSub').textContent=`YTD ${ytdLabel()} · ${cfgUnit()} · change the view with the dropdowns — it follows the filters in the left pane`;
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
-  aiComment($('mixCom'), 'mix|'+JSON.stringify([MX.l2,MX.groupBy,MX.measure,MX.type])+'|'+filterNote()+'|'+S.ytdM,
+  aiComment($('mixCom'), 'mix|'+JSON.stringify([MX.l2,MX.groupBy,MX.measure,MX.type])+'|'+filterNote()+'|'+S.ytdM+'|'+drvSig(),
     ()=>chartCommentaryHtml({...MX}));
 }
 function saveMix(){ try{ localStorage.setItem('iwpbsg_mix',JSON.stringify(MX)); }catch(e){} }
@@ -2842,7 +2850,7 @@ function renderBuilder(){
   $('bPrevTitle').textContent=chartTitle(cfg);
   $('bPrevSub').textContent=`YTD ${ytdLabel()} · respects the filters in the left pane · top ${cfg.type==='donut'?6:8} categories, rest folded into Other`;
   pv.appendChild(buildChartEl(cfg));
-  aiComment($('bCom'), 'bld|'+JSON.stringify([B.l2,B.groupBy,B.splitBy,B.measure,B.type])+'|'+filterNote()+'|'+S.ytdM,
+  aiComment($('bCom'), 'bld|'+JSON.stringify([B.l2,B.groupBy,B.splitBy,B.measure,B.type])+'|'+filterNote()+'|'+S.ytdM+'|'+drvSig(),
     ()=>chartCommentaryHtml(cfg));
 }
 
@@ -3576,6 +3584,7 @@ function missionDef(){
   if(!MISSION||typeof MISSION!=='object'||!MISSION.sec)
     MISSION={title:'FP&A Variance Analysis', by:'prodL2',
       sec:{exec:true,product:true,drivers:true,drill:true,concl:true}};
+  if(!Array.isArray(MISSION.drivers)) MISSION.drivers=[];
   return MISSION;
 }
 function missionSave(){ try{ localStorage.setItem('iwpbsg_mission',JSON.stringify(MISSION)); }catch(e){} }
@@ -3587,6 +3596,22 @@ function missionSecs(){
     ['drill',`4. Drill-Down: Top ${dim}`],
     ['concl','5. Executive Conclusion']];
 }
+function missionDrivers(){
+  const out=[], cd=(CFG&&CFG.drivers)||{};
+  for(const [n,t] of Object.entries(cd)) if(n&&t&&!/^</.test(n)) out.push({name:n,text:t});
+  for(const d of (missionDef().drivers||[])) if(d&&d.name&&d.text) out.push({name:d.name,text:d.text});
+  return out;
+}
+function driverFor(name){
+  if(name==null) return null;
+  const n=String(name).trim().toLowerCase(); if(!n) return null;
+  for(const d of missionDrivers()){
+    const dn=String(d.name).trim().toLowerCase();
+    if(dn&&(n===dn||n.includes(dn)||dn.includes(n))) return d.text;
+  }
+  return null;
+}
+function drvSig(){ return missionDrivers().map(d=>d.name+':'+d.text).join(';'); }
 function missionVarMeasure(){
   const L=cmpLabels(S.model);
   return L.mode==='fc'?'vfc':L.mode==='tgt'?'vtgt':'var';
@@ -3609,7 +3634,8 @@ function missionData(){
 }
 function missionConclusion(){
   const D=missionData(), L=D.L, out=[];
-  if(D.top) out.push(`Key insight — <b>${esc(D.top.name)}</b> is the largest mover at <b>${fmt(D.top.k.cmpVar)}</b> ${esc(L.vs)} (${fmtPct(D.top.k.cmpVarPct)}), ${(D.top.k.favVarPct||0)>=0?'supporting':'weighing on'} a total variance of ${fmt(D.kT.cmpVar)}.`);
+  if(D.top) out.push(`Key insight — <b>${esc(D.top.name)}</b> is the largest mover at <b>${fmt(D.top.k.cmpVar)}</b> ${esc(L.vs)} (${fmtPct(D.top.k.cmpVarPct)}), ${(D.top.k.favVarPct||0)>=0?'supporting':'weighing on'} a total variance of ${fmt(D.kT.cmpVar)}.`+
+    (driverFor(D.top.name)?` Attributed driver: ${esc(driverFor(D.top.name))}.`:''));
   const totSign=(D.kT.cmpVar||0)>=0?1:-1;
   const off=D.byAbs.find(g=>((g.k.cmpVar||0)>=0?1:-1)!==totSign);
   if(off) out.push(`Offsetting factor — <b>${esc(off.name)}</b> moves the other way at ${fmt(off.k.cmpVar)}, partially ${totSign>0?'eroding the favourable position':'cushioning the shortfall'}.`);
@@ -3633,7 +3659,28 @@ function renderMission(){
       <label>Mission title <input id="mTitle" type="text" value="${esc(MISSION.title)}" maxlength="80"></label>
       <label>Drill dimension <select id="mBy">${dims.map(k=>`<option value="${k}"${MISSION.by===k?' selected':''}>${esc(FIELD_LABELS[k])}</option>`).join('')}</select></label>
       <button class="btn-primary" id="btnMissionRun" style="padding:6px 16px;font-size:13px">↻ Regenerate report</button></div>
-    <div class="mrow">${missionSecs().map(([id,t])=>`<label class="chk"><input type="checkbox" data-sec="${id}"${MISSION.sec[id]?' checked':''}> ${esc(t)}</label>`).join('')}</div>`;
+    <div class="mrow">${missionSecs().map(([id,t])=>`<label class="chk"><input type="checkbox" data-sec="${id}"${MISSION.sec[id]?' checked':''}> ${esc(t)}</label>`).join('')}</div>
+    <div class="mrow" style="flex-direction:column;align-items:stretch;gap:4px">
+      <div style="font-size:10.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--text-muted);margin-top:4px">Drivers — known business drivers the AI weaves into commentary</div>
+      <div id="mDrivers"></div>
+      <div><button class="btn-quiet" id="btnMDrvAdd">+ Add driver</button></div></div>`;
+  const drawDrv=()=>{
+    const cfgN=Object.keys((CFG&&CFG.drivers)||{}).filter(n2=>!/^</.test(n2)).length;
+    $('mDrivers').innerHTML=(MISSION.drivers.map((d,i)=>`<div class="mdrow" data-i="${i}">
+        <input type="text" class="mdrv-n" placeholder="Line or value — e.g. Loans" value="${esc(d.name)}">
+        <input type="text" class="mdrv-t" placeholder="Driver — e.g. mortgage repricing +50bps carried the book" value="${esc(d.text)}">
+        <button class="mdrv-x" title="Remove driver">✕</button></div>`).join('')
+      ||'<p class="note" style="margin:4px 0">No drivers defined — add one, or ship them in the config file (Drivers section).</p>')
+      +(cfgN?`<p class="note" style="margin:4px 0">${cfgN} driver${cfgN>1?'s':''} also loaded from the config file.</p>`:'');
+    $('mDrivers').querySelectorAll('.mdrow').forEach(row=>{
+      const i=+row.dataset.i;
+      row.querySelector('.mdrv-n').addEventListener('change',e=>{ MISSION.drivers[i].name=e.target.value; missionSave(); });
+      row.querySelector('.mdrv-t').addEventListener('change',e=>{ MISSION.drivers[i].text=e.target.value; missionSave(); });
+      row.querySelector('.mdrv-x').addEventListener('click',()=>{ MISSION.drivers.splice(i,1); missionSave(); drawDrv(); });
+    });
+  };
+  drawDrv();
+  $('btnMDrvAdd').addEventListener('click',()=>{ missionDef().drivers.push({name:'',text:''}); missionSave(); drawDrv(); });
   $('mTitle').addEventListener('change',e=>{ MISSION.title=e.target.value.trim()||'FP&A Variance Analysis'; missionSave(); missionOutput(); });
   $('mBy').addEventListener('change',e=>{ MISSION.by=e.target.value; missionSave(); renderMission(); });
   ctl.querySelectorAll('[data-sec]').forEach(cb=>cb.addEventListener('change',()=>{ MISSION.sec[cb.dataset.sec]=!!cb.checked; missionSave(); missionOutput(); }));
@@ -3656,18 +3703,20 @@ function missionOutput(){
       <div class="scroll-x"><table class="ctable"><thead>${hdrH}</thead><tbody>
       ${D.gL1.map(g=>rowH(g)).join('')}${rowH({name:'',k:D.kT},cfgS('total_label')||'Total P&L','tot')}</tbody></table></div>
       <div id="mComExec"></div>`);
-    aiComment($('mComExec'),'mission|exec|'+filterNote()+'|'+S.ytdM+'|'+MISSION.by, ()=>{
+    aiComment($('mComExec'),'mission|exec|'+filterNote()+'|'+S.ytdM+'|'+MISSION.by+'|'+drvSig(), ()=>{
       const b1=D.gDim[0], b2=D.gDim[D.gDim.length-1];
       return `<b>Total P&L</b> ${esc(L.main)} of <b>${fmt(D.mainOf(D.kT))}</b> runs <b>${fmtPct(D.kT.cmpVarPct)}</b> ${esc(L.vs)} (${fmt(D.kT.cmpVar)})`+
         (D.kT.target!=null?`; the full-year outlook of ${fmt(D.kT.outlook)} stands against the FY target of ${fmt(D.kT.target)} (${fmt(D.kT.varTgt)})`:'')+`. `+
         (b1?`Best ${esc(D.dimL)}: <b>${esc(b1.name)}</b> at ${fmt(b1.k.cmpVar)} ${esc(L.vs)}`:'')+
-        (b2&&b2!==b1?`; largest drag: <b>${esc(b2.name)}</b> at ${fmt(b2.k.cmpVar)}.`:'.');
+        (b2&&b2!==b1?`; largest drag: <b>${esc(b2.name)}</b> at ${fmt(b2.k.cmpVar)}.`:'.')+
+        [b1,b2].filter((g2,i2)=>g2&&(i2===0||g2!==b1)&&driverFor(g2.name))
+          .map(g2=>` Driver — <b>${esc(g2.name)}</b>: ${esc(driverFor(g2.name))}.`).join('');
     });
   }
   if(secOn.product){
     const d=addPanel('product',`<p class="subtitle">${esc(measureLabel(D.cfgC.measure))} by ${esc(D.dimL)} — positive bars help, negative bars hurt</p><div class="mchart"></div><div id="mComProd"></div>`);
     d.querySelector('.mchart').appendChild(buildChartEl({...D.cfgC}));
-    aiComment($('mComProd'),'mission|prod|'+MISSION.by+'|'+filterNote()+'|'+S.ytdM, ()=>chartCommentaryHtml({...D.cfgC}));
+    aiComment($('mComProd'),'mission|prod|'+MISSION.by+'|'+filterNote()+'|'+S.ytdM+'|'+drvSig(), ()=>chartCommentaryHtml({...D.cfgC}));
   }
   if(secOn.drivers){
     const need=D.totAbs*0.5; let cum=0; const names=[];
@@ -3676,12 +3725,14 @@ function missionOutput(){
       <div class="scroll-x"><table class="ctable"><thead><tr><th>Line</th><th class="num">${esc(L.main)} (${esc(unit)})</th><th class="num">${esc(L.base)}</th><th class="num">Δ</th><th class="num">Δ%</th><th class="num">Share of Δ</th><th style="text-align:left">RAG</th></tr></thead><tbody>
       ${D.gL2.map(g=>{const rg=rag(g.k.favVarPct,S.thresh);return `<tr><td>${esc(g.name)}</td><td class="num">${fmtCell(D.mainOf(g.k))}</td><td class="num">${fmtCell(g.k.cmpBase)}</td><td class="num">${fmtCell(g.k.cmpVar)}</td><td class="num">${fmtPct(g.k.cmpVarPct)}</td><td class="num">${(Math.abs(g.k.cmpVar)/D.totAbs*100).toFixed(1)}%</td><td style="text-align:left">${ragPill(rg)}</td></tr>`;}).join('')}</tbody></table></div>
       <div id="mComDrv"></div>`);
-    aiComment($('mComDrv'),'mission|drv|'+filterNote()+'|'+S.ytdM, ()=>{
+    aiComment($('mComDrv'),'mission|drv|'+filterNote()+'|'+S.ytdM+'|'+drvSig(), ()=>{
       const shareTxt=names.length? `<b>${names.map(esc).join('</b>, <b>')}</b> explain ${Math.round(Math.min(cum,D.totAbs)/D.totAbs*100)}% of the overall variance. `:'';
       const s3=D.kT.cySeries.filter(p2=>p2.val!=null&&!p2.fc).map(p2=>p2.val);
       const l3=s3.slice(-3), e3=s3.slice(0,-3);
       const mom= l3.length&&e3.length? (l3.reduce((a,b)=>a+b,0)/l3.length)-(e3.reduce((a,b)=>a+b,0)/e3.length) : null;
-      return shareTxt+(mom!=null?`The monthly trend is ${mom>=0?'building — the last three actual months average above the earlier months':'softening — the last three actual months run below the earlier average'}.`:'');
+      const dn2=names.map(n2=>({n:n2,t:driverFor(n2)})).filter(x2=>x2.t);
+      const drvTxt=dn2.length? ` Management attribution — ${dn2.map(x2=>`<b>${esc(x2.n)}</b>: ${esc(x2.t)}`).join('; ')}.`:'';
+      return shareTxt+drvTxt+(mom!=null?`The monthly trend is ${mom>=0?'building — the last three actual months average above the earlier months':'softening — the last three actual months run below the earlier average'}.`:'');
     });
   }
   if(secOn.drill&&D.top){
@@ -3692,12 +3743,13 @@ function missionOutput(){
         <span class="delta">${fmtPct(g.k.cmpVarPct)} ${esc(L.vs)} (${fmt(g.k.cmpVar)})</span> ${ragPill(rg)}</div>
         <div style="flex:1;min-width:260px">${miniCol(g.k.cySeries)}</div></div>
       ${miniMonthTable(g.k.cySeries)}<div id="mComDrill"></div>`);
-    aiComment($('mComDrill'),'mission|drill|'+g.name+'|'+filterNote()+'|'+S.ytdM, ()=>
-      `<b>${esc(g.name)}</b> carries ${Math.round(Math.abs(g.k.cmpVar)/D.totAbsDim*100)}% of the total absolute variance across ${esc(D.dimL)} lines; at the current pace it lands the year at ${fmt(g.k.outlook)}.`);
+    aiComment($('mComDrill'),'mission|drill|'+g.name+'|'+filterNote()+'|'+S.ytdM+'|'+drvSig(), ()=>
+      `<b>${esc(g.name)}</b> carries ${Math.round(Math.abs(g.k.cmpVar)/D.totAbsDim*100)}% of the total absolute variance across ${esc(D.dimL)} lines; at the current pace it lands the year at ${fmt(g.k.outlook)}.`+
+      (driverFor(g.name)?` Management attributes this to: ${esc(driverFor(g.name))}.`:''));
   }
   if(secOn.concl){
     addPanel('concl',`<div id="mComConcl"></div>`);
-    aiComment($('mComConcl'),'mission|concl|'+filterNote()+'|'+S.ytdM+'|'+MISSION.by,
+    aiComment($('mComConcl'),'mission|concl|'+filterNote()+'|'+S.ytdM+'|'+MISSION.by+'|'+drvSig(),
       ()=>'<ul class="mlist">'+missionConclusion().map(b=>`<li>${b}</li>`).join('')+'</ul>');
   }
 }
@@ -4037,6 +4089,7 @@ function cfgFromWorkbook(wb){
       else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'N'}; }
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
       else if(sec==='labels'){ if(a) cfg.labels[a.toLowerCase()]=b2; }
+      else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
     }
   };
   const first=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null});
@@ -4076,7 +4129,8 @@ function cfgTemplateCSV(){
     ...CFG_DEFAULT.tilePriority.map((p2,i)=>['TilePriority',String(i+1),p2,'','']),
     ...Object.entries(CFG_DEFAULT.dimensions).map(([k,d])=>['Dimensions',k,ALL_DIM_LABELS[k]||k,d.filter,d.sim]),
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
-    ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'',''])];
+    ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
+    ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','','']];
   return rows.map(r=>r.map(q).join(',')).join('\r\n');
 }
 function downloadCfgTemplate(){

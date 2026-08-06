@@ -80,7 +80,13 @@ A single header row with:
   section carries editable AI commentary, and the whole report exports to
   Excel (a sheet per section) and PPT (a slide per section). Computed
   deterministically in the browser on the standard comparison basis; the
-  mission definition persists locally.
+  mission definition persists locally. The brief also holds **drivers** —
+  known business explanations keyed to a line or dimension value (e.g.
+  `Loans → mortgage repricing +50bps`) — which the AI commentary weaves
+  into its narrative wherever that line surfaces as a mover: in the
+  mission sections, Mix analysis, the chart builder and pinned dashboard
+  charts. Drivers can be typed in the brief or shipped in the config
+  file's `Drivers` section (Key = line or value, Value = driver note).
 - **Data** — the filtered source rows, paginated with search.
 
 Clicking a KPI card (or a KPI in the left pane) focuses the **Mix
