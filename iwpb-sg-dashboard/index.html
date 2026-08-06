@@ -360,14 +360,14 @@ main{flex:1;min-width:0;padding:14px 20px}
   background:var(--surface-2);font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
 /* ---------- KPI summary ---------- */
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,292px));gap:14px;justify-content:flex-start}
 .greet{font-size:13px;color:var(--text-secondary);margin:0 0 6px}
 .greet b{color:var(--text-primary)}
 .commentary{background:var(--surface-1);border:1px solid var(--border);border-left:4px solid var(--hsbc-red);
   border-radius:8px;padding:9px 13px;font-size:13px;line-height:1.5;color:var(--text-secondary)}
 .commentary b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-weight:750;letter-spacing:0}
-.card .vd{margin-top:8px;border-top:1px solid var(--border);padding-top:7px;font-size:12px;
+.card .vd{margin-top:10px;border-top:1px solid var(--border);padding-top:8px;font-size:12px;
   color:var(--hsbc-red);font-weight:700;text-align:right}
 .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px}
 .chip{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:4px 10px;
@@ -432,16 +432,16 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 #simResults .atable td:first-child{overflow-wrap:anywhere;min-width:90px}
 #simResults .atable td.num{text-align:right;white-space:nowrap}
 #simResults .atable th.num{text-align:right;white-space:normal}
-.card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:14px 18px 12px;
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:17px 19px 15px;min-height:150px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
 .card:hover{border-color:var(--hsbc-red)}
 .card .l1tag{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)}
 .card h3{margin:2px 0 7px;font-size:14px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card .val{font-size:27px;font-weight:750;font-variant-numeric:tabular-nums}
 .card.morecard{display:flex;align-items:center;justify-content:center;color:var(--series-1);
-  font-weight:700;font-size:12.5px;min-height:84px;border-style:dashed}
+  font-weight:700;font-size:12.5px;min-height:150px;border-style:dashed}
 .card.morecard:hover{background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
-.card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
 .card .tval.negnum,.trio .tv.negnum,#kpiNav .v,.widget .val.negnum{color:var(--text-primary)}
 .legend .swl{display:inline-block;width:20px;height:0;margin-right:6px;vertical-align:middle}
 .card.dragtgt{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
