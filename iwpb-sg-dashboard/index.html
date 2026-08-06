@@ -142,9 +142,9 @@ body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,san
   justify-content:center;font-weight:800;font-size:12.5px;border-radius:2px;flex:none;letter-spacing:.5px}
 .brand h1{font-size:13.5px;margin:0;font-weight:700;line-height:1.25}
 .brand .sub{font-size:10.5px;color:var(--text-muted)}
-.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:2px 0 18px;flex-wrap:wrap}
+.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:0 0 10px;flex-wrap:wrap}
 .pagehead .eyebrow{color:var(--hsbc-red);font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase}
-.pagehead h2{margin:3px 0 3px;font-size:23px;font-weight:650;letter-spacing:.4px;text-transform:uppercase}
+.pagehead h2{margin:2px 0 2px;font-size:21px;font-weight:650;letter-spacing:.4px;text-transform:uppercase}
 .pagehead .lede2{color:var(--text-secondary);font-size:12.5px;margin:0;max-width:640px}
 #layout{display:flex;min-height:calc(100vh - 56px)}
 /* left pane — light, red accents, pink active highlight */
@@ -293,7 +293,7 @@ aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var
 #sideFilters select{width:100%;padding:5px 8px;border:1px solid var(--border-strong);border-radius:4px;
   background:var(--surface-2);color:var(--text-primary);font-size:12.5px}
 #sideFilters .chk{flex-direction:row;align-items:center;gap:6px;font-weight:400;font-size:12px;color:var(--text-primary)}
-main{flex:1;min-width:0;padding:20px 26px}
+main{flex:1;min-width:0;padding:14px 20px}
 @media (max-width:960px){
   #layout{flex-direction:column}
   aside.side{width:100%;border-right:none;border-bottom:1px solid var(--border)}
@@ -360,24 +360,24 @@ main{flex:1;min-width:0;padding:20px 26px}
   background:var(--surface-2);font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
 /* ---------- KPI summary ---------- */
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:12px}
-.greet{font-size:13px;color:var(--text-secondary);margin:0 0 10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:10px}
+.greet{font-size:13px;color:var(--text-secondary);margin:0 0 6px}
 .greet b{color:var(--text-primary)}
 .commentary{background:var(--surface-1);border:1px solid var(--border);border-left:4px solid var(--hsbc-red);
-  border-radius:8px;padding:12px 16px;font-size:13.5px;line-height:1.6;color:var(--text-secondary)}
+  border-radius:8px;padding:9px 13px;font-size:13px;line-height:1.5;color:var(--text-secondary)}
 .commentary b{color:var(--text-primary);font-variant-numeric:tabular-nums}
-h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-weight:750;letter-spacing:0}
-.card .vd{margin-top:8px;border-top:1px solid var(--border);padding-top:7px;font-size:11.5px;
+h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-weight:750;letter-spacing:0}
+.card .vd{margin-top:6px;border-top:1px solid var(--border);padding-top:5px;font-size:11.5px;
   color:var(--hsbc-red);font-weight:700;text-align:right}
-.chiprow{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 16px}
-.chip{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:8px 14px;
-  font-size:12px;display:flex;gap:8px;align-items:center;color:var(--text-secondary)}
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px}
+.chip{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:4px 10px;
+  font-size:11.5px;display:flex;gap:7px;align-items:center;color:var(--text-secondary)}
 .chip b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 .chip .cdot{width:9px;height:9px;border-radius:50%;flex:none}
-.twocol{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;margin-bottom:16px}
+.twocol{display:grid;grid-template-columns:minmax(0,1fr) 232px;gap:12px;margin-bottom:12px}
 @media (max-width:1000px){.twocol{grid-template-columns:1fr}}
-.trio{display:flex;gap:28px;margin:10px 0 4px;flex-wrap:wrap}
-.trio .t .tv{font-size:22px;font-weight:750;font-variant-numeric:tabular-nums}
+.trio{display:flex;gap:20px;margin:6px 0 2px;flex-wrap:wrap}
+.trio .t .tv{font-size:17px;font-weight:750;font-variant-numeric:tabular-nums}
 .trio .t .tl{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);margin-top:2px}
 .attn{display:flex;flex-direction:column;gap:10px}
 .attn .aitem{border:1px solid var(--border);border-radius:6px;background:var(--surface-2);padding:10px 12px}
@@ -428,20 +428,20 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 #simResults .atable td:first-child{overflow-wrap:anywhere;min-width:90px}
 #simResults .atable td.num{text-align:right;white-space:nowrap}
 #simResults .atable th.num{text-align:right;white-space:normal}
-.card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:13px 16px 11px;
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:10px 13px 9px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
 .card:hover{border-color:var(--hsbc-red)}
 .card .l1tag{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)}
-.card h3{margin:2px 0 8px;font-size:13.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.card .val{font-size:23px;font-weight:750;font-variant-numeric:tabular-nums}
+.card h3{margin:2px 0 5px;font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .val{font-size:20px;font-weight:750;font-variant-numeric:tabular-nums}
 .card.morecard{display:flex;align-items:center;justify-content:center;color:var(--series-1);
-  font-weight:700;font-size:13px;min-height:120px;border-style:dashed}
+  font-weight:700;font-size:12.5px;min-height:84px;border-style:dashed}
 .card.morecard:hover{background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
 .card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
 .card .tval.negnum,.trio .tv.negnum,#kpiNav .v,.widget .val.negnum{color:var(--text-primary)}
 .legend .swl{display:inline-block;width:20px;height:0;margin-right:6px;vertical-align:middle}
 .card.dragtgt{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
-.aicom{margin-top:10px;border:1px dashed var(--border);border-left:3px solid var(--hsbc-red);border-radius:8px;background:var(--surface-2);padding:9px 12px}
+.aicom{margin-top:8px;border:1px dashed var(--border);border-left:3px solid var(--hsbc-red);border-radius:8px;background:var(--surface-2);padding:7px 11px}
 .aicom-h{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:5px;gap:10px}
 .aicom-r{background:none;border:none;color:var(--hsbc-red);cursor:pointer;font:inherit;font-size:10.5px;font-weight:700;padding:0}
 .aicom-r:hover{text-decoration:underline}
@@ -480,7 +480,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:27px;font-we
 .rag.n{color:var(--text-muted);background:color-mix(in srgb, var(--text-muted) 12%, transparent)}
 
 .panel{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;
-  box-shadow:var(--shadow);padding:16px 18px;margin-bottom:16px}
+  box-shadow:var(--shadow);padding:12px 14px;margin-bottom:12px}
 .panel h4{margin:0 0 3px;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
   color:var(--text-primary);display:flex;align-items:center;gap:8px}
 .rag{text-transform:none;letter-spacing:normal}
@@ -1421,7 +1421,7 @@ function trendChart(el, cySeries, pySeries, yearCY, yearPY, type, annots){
   el.innerHTML=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly trend ${type} chart">${svg}</svg></div>`;
 }
 function lineChart(el, cySeries, pySeries, yearCY, yearPY, area, annots){
-  const H=260, L=56, T=16, B=28;
+  const H=170, L=52, T=12, B=24;
   const R=Math.max(64, 10+7*Math.max(String(yearCY||'').length, String(yearPY||'').length));
   const W=760;
   const pts=[...cySeries,...pySeries].map(p=>p.val).filter(v=>v!=null);
