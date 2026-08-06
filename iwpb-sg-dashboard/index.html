@@ -973,7 +973,9 @@ const CFG_DEFAULT={
     calc_cmp_priority:'py,fc,tgt',
     calc_rag_green_at:'0',
     calc_rag_direction:'Y',
-    commentary_dim:''
+    commentary_dim:'',
+    commentary_levels:'micaL1,micaL2',
+    commentary_drivers:'5'
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
@@ -2162,23 +2164,36 @@ function houseDrivers(rows, dimKey, n){
   const m=S.model;
   return [...groupBy(rows,dimKey).entries()]
     .map(([name,rs])=>({name:name||'(blank)', k:kpi(rs,m,S.ytdM,S.includeFC)}))
-    .filter(g=>g.k.cmpVar!=null&&Math.abs(g.k.cmpVar)>0.05)
+    .filter(g=>g.k.cmpVar!=null&&Math.abs(g.k.cmpVar)>0)
     .sort((a,b)=>Math.abs(b.k.cmpVar)-Math.abs(a.k.cmpVar))
     .slice(0,n||5);
+}
+function houseLevels(){
+  const m=S.model;
+  const lv=String(cfgS('commentary_levels')||'').split(/[,;]/).map(x=>x.trim())
+    .filter(k=>k&&(k in m.dimCols));
+  if(lv.length) return lv.slice(0,2);
+  return ['micaL1','micaL2'].filter(k=>k in m.dimCols);
+}
+function houseDrvCount(){
+  const n=parseInt(cfgS('commentary_drivers'),10);
+  return isFinite(n)&&n>0? Math.min(n,12) : 5;
 }
 function houseCommentaryHtml(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
   if(!rows.length) return '';
   const dimKey=houseDimKey(), dimLbl=FIELD_LABELS[dimKey]||dimKey;
+  const LV=houseLevels(), NDRV=houseDrvCount();
+  if(!LV.length) return '';
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
   const mainOf=k=>L.mode==='tgt'? k.outlook : k.cy;
   const per=(name,rs,depth)=>{
     const k=kpi(rs,m,S.ytdM,S.includeFC);
-    const dr=houseDrivers(rs,dimKey,depth===1?5:4);
+    const dr=houseDrivers(rs,dimKey,depth===1?NDRV:Math.max(2,NDRV-1));
     const drTxt=dr.length? ` driven by ${dr.map(g=>`${esc(g.name)} (${faTxt(g.k)})`).join(', ')}` : '';
     return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}</li>`;
   };
-  const l1=[...groupBy(rows,'micaL1').entries()]
+  const l1=[...groupBy(rows,LV[0]).entries()]
     .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .filter(g=>g.name)
     .sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
@@ -2188,12 +2203,12 @@ function houseCommentaryHtml(){
   h+='.</p>';
   for(const g of l1){
     h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${fmt(mainOf(g.k))}</b> is ${faTxt(g.k)}</p><ul class="houselist">`;
-    const kids=[...groupBy(g.rs,'micaL2').entries()]
+    const kids=(LV.length>1? [...groupBy(g.rs,LV[1]).entries()] : [])
       .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
       .filter(x=>x.name)
       .sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
     if(kids.length>1) for(const c of kids) h+=per(c.name,c.rs,2);
-    else for(const d of houseDrivers(g.rs,dimKey,5)) h+=`<li><b>${esc(d.name)}</b> ${faTxt(d.k)}</li>`;
+    else for(const d of houseDrivers(g.rs,dimKey,NDRV)) h+=`<li><b>${esc(d.name)}</b> ${faTxt(d.k)}</li>`;
     h+='</ul>';
   }
   return h;
