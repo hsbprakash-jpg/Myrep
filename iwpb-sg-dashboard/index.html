@@ -484,6 +484,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom-t:focus{background:var(--surface-1);border-radius:4px}
 .aicom-note{color:var(--text-muted);font-size:10.5px}
 .ctxnote{color:var(--text-muted);font-size:10.5px;margin:6px 0 0;font-style:italic}
+.houselist{margin:2px 0 0 20px;padding:0}
+.houselist li{margin:3px 0;line-height:1.5}
 .ctable{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:4px}
 .ctable.autofit{width:auto;min-width:380px;max-width:100%}
 .ctable.autofit td:first-child{min-width:120px;padding-right:40px}
@@ -706,6 +708,18 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <div id="mixChart" class="chart-wrap"></div>
       <div id="mixCom"></div>
     </div>
+    </div>
+    <div class="panel" id="housePanel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div><h4 style="margin:0 0 4px">Management commentary <span class="unitsfx" data-unitsfx></span></h4>
+        <p class="subtitle" id="houseSub"></p></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:12px;color:var(--text-muted)">Driven by
+            <select id="houseDim" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)"></select></label>
+          <button class="btn-quiet" id="btnHouseCopy">⧉ Copy</button>
+        </div>
+      </div>
+      <div id="houseCom"></div>
     </div>
   </div>
 
@@ -958,7 +972,8 @@ const CFG_DEFAULT={
     calc_forecast_weights:'',
     calc_cmp_priority:'py,fc,tgt',
     calc_rag_green_at:'0',
-    calc_rag_direction:'Y'
+    calc_rag_direction:'Y',
+    commentary_dim:''
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
@@ -2107,8 +2122,82 @@ function renderSummary(){
     b.addEventListener('click',()=>{ MX.l2=b.dataset.l2; saveMix(); render(); }));
 
   renderMix();
+  renderHouse();
+}
+function renderHouse(){
+  const m=S.model, L=cmpLabels(m);
+  const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
+  const cur=houseDimKey();
+  $('houseDim').innerHTML=dims.map(k=>`<option value="${k}"${cur===k?' selected':''}>${esc(FIELD_LABELS[k])}</option>`).join('');
+  $('houseSub').textContent=`${L.main} vs ${L.base} — house-style narrative, cascading to ${FIELD_LABELS[cur]||cur} · ${cfgUnit()}`;
+  aiComment($('houseCom'), 'house|'+filterNote()+'|'+S.ytdM+'|'+cur+'|'+L.mode+'|'+drvSig(),
+    ()=>houseCommentaryHtml());
 }
 
+/* house-style management commentary: cascading actuals-vs-baseline narrative */
+function houseDimKey(){
+  const m=S.model, want=cfgS('commentary_dim');
+  if(want&&want in m.dimCols) return want;
+  if(HOUSE_DIM&&HOUSE_DIM in m.dimCols) return HOUSE_DIM;
+  return ['cgL2','entity','funcL2','prodL2','prodL3','micaL3']
+    .find(k=>k in m.dimCols) || Object.keys(FIELD_LABELS).find(k=>k in m.dimCols);
+}
+let HOUSE_DIM=null;
+/* variance in house notation: 200 A / 21.2%  (F favourable, A adverse) */
+function faTxt(k){
+  if(k.cmpVar==null) return 'n/a';
+  const fav=(k.favVarPct==null? (k.cmpVar>=0) : k.favVarPct>=0);
+  const pctTxt=k.cmpVarPct==null? '' : ' / '+fmtPct(Math.abs(k.cmpVarPct)).replace('+','');
+  return `<b>${fmt(Math.abs(k.cmpVar))}${fav?'F':'A'}</b>${pctTxt}`;
+}
+/* movement of the line itself: a bigger cost charge reads as "higher" even
+   though the value is stored as a larger negative */
+function faWord(k, mainVal){
+  if(k.cmpVar==null) return 'flat';
+  const base=(mainVal!=null? mainVal : (k.cy||k.outlook||0));
+  const up= base>=0? k.cmpVar>=0 : k.cmpVar<=0;
+  return up? 'higher' : 'lower';
+}
+function houseDrivers(rows, dimKey, n){
+  const m=S.model;
+  return [...groupBy(rows,dimKey).entries()]
+    .map(([name,rs])=>({name:name||'(blank)', k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .filter(g=>g.k.cmpVar!=null&&Math.abs(g.k.cmpVar)>0.05)
+    .sort((a,b)=>Math.abs(b.k.cmpVar)-Math.abs(a.k.cmpVar))
+    .slice(0,n||5);
+}
+function houseCommentaryHtml(){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  if(!rows.length) return '';
+  const dimKey=houseDimKey(), dimLbl=FIELD_LABELS[dimKey]||dimKey;
+  const kT=kpi(rows,m,S.ytdM,S.includeFC);
+  const mainOf=k=>L.mode==='tgt'? k.outlook : k.cy;
+  const per=(name,rs,depth)=>{
+    const k=kpi(rs,m,S.ytdM,S.includeFC);
+    const dr=houseDrivers(rs,dimKey,depth===1?5:4);
+    const drTxt=dr.length? ` driven by ${dr.map(g=>`${esc(g.name)} (${faTxt(g.k)})`).join(', ')}` : '';
+    return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}</li>`;
+  };
+  const l1=[...groupBy(rows,'micaL1').entries()]
+    .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .filter(g=>g.name)
+    .sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
+  const totLbl=cfgS('total_label')||'PBT';
+  let h=`<p>(${MON_LBL[S.ytdM]} YTD) <b>${esc(totLbl)}</b> of <b>${fmt(mainOf(kT))}</b> is ${faTxt(kT)} vs ${esc(L.base)}`;
+  if(l1.length) h+=` driven by ${l1.map(g=>`${faWord(g.k, mainOf(g.k))} ${esc(g.name)} (${faTxt(g.k)})`).join(', ')}`;
+  h+='.</p>';
+  for(const g of l1){
+    h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${fmt(mainOf(g.k))}</b> is ${faTxt(g.k)}</p><ul class="houselist">`;
+    const kids=[...groupBy(g.rs,'micaL2').entries()]
+      .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+      .filter(x=>x.name)
+      .sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
+    if(kids.length>1) for(const c of kids) h+=per(c.name,c.rs,2);
+    else for(const d of houseDrivers(g.rs,dimKey,5)) h+=`<li><b>${esc(d.name)}</b> ${faTxt(d.k)}</li>`;
+    h+='</ul>';
+  }
+  return h;
+}
 /* flexible dropdown-driven chart on the summary page */
 const MX=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_mix')||'null');
   if(v&&v.groupBy) return v; }catch(e){}
@@ -4609,6 +4698,15 @@ function init(){
   });
   $('btnAiAsk').addEventListener('click',()=>{ aiAsk($('aiInput').value); $('aiInput').value=''; });
   $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ aiAsk($('aiInput').value); $('aiInput').value=''; } });
+  $('houseDim').addEventListener('change',e=>{ HOUSE_DIM=e.target.value; renderHouse(); });
+  $('btnHouseCopy').addEventListener('click',()=>{
+    const el=$('houseCom').querySelector('.aicom-t'); if(!el) return;
+    const txt=el.innerText.replace(/\n{3,}/g,'\n\n');
+    const done=()=>{ const b=$('btnHouseCopy'), t0=b.textContent; b.textContent='Copied ✓'; setTimeout(()=>{b.textContent=t0;},1200); };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done,done);
+    else { const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); }catch(e){} ta.remove(); done(); }
+  });
   $('mxScope').addEventListener('change',e=>{ MX.l2=e.target.value; saveMix(); renderMix(); });
   $('mxDim').addEventListener('change',e=>{ MX.groupBy=e.target.value; saveMix(); renderMix(); });
   $('mxMeasure').addEventListener('change',e=>{ MX.measure=e.target.value; saveMix(); renderMix(); });
