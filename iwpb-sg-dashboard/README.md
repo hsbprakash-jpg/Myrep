@@ -60,7 +60,7 @@ A single header row with:
   answered deterministically in the browser from the filtered data on the
   standard comparison basis. Free-text questions are matched to the
   governed set; anything outside it is declined. Nothing leaves the page.
-- **Simulation Agent** — what-if scenarios on the forecast months. Build
+- **Simulation Assistant** — what-if scenarios on the forecast months. Build
   any number of ordered rules, each scoped to any dimension value (or all
   rows) with three adjustment types: % change, add amount (spread over the
   chosen months, pro-rata across matching rows), or set the monthly total.

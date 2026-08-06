@@ -606,7 +606,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <span data-lbl="nav_assist">MI Assistant</span></button>
     <button id="navSim">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 13 L5 8 L8 10.5 L15 2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1 15 L5 11.5 L8 13 L15 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2" opacity=".6"/></svg>
-      <span data-lbl="nav_sim">Simulation agent</span></button>
+      <span data-lbl="nav_sim">Simulation Assistant</span></button>
   </nav>
   <div class="sect sect-fold" id="sectKpisRow" title="Collapse / expand the KPI list" style="display:flex;align-items:center;gap:6px;cursor:pointer">
     <span data-lbl="sect_kpis">KPIs · MICA Level 2</span><span id="kpiCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
@@ -826,7 +826,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="simView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>Simulation Agent <span class="unitsfx" data-unitsfx></span></h2>
+      <h2>Simulation Assistant <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2">Build what-if scenarios on the forecast months — the prior forecast stays untouched, the simulated path is recomputed live under the current filters, and scenarios can be saved for reuse.</p>
     </div></div>
     <div class="panel">
@@ -966,7 +966,7 @@ const CFG_DEFAULT={
   labels:{
     nav_summary:'KPI summary', nav_custom:'My dashboard', nav_builder:'Drag & drop charts',
     nav_query:'Query builder', nav_table:'Data drill down', nav_assist:'MI Assistant',
-    nav_sim:'Simulation agent',
+    nav_sim:'Simulation Assistant',
     sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
     sect_config:'Configuration', sect_period:'Period & RAG',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
@@ -3414,7 +3414,7 @@ function renderKpiNav(){
     });
   });
 }
-/* ================= Simulation agent — what-if on the forecast ================= */
+/* ================= Simulation assistant — what-if on the forecast ================= */
 let SIM=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_sim_cur')||'null');
   if(v&&Array.isArray(v.rules)){ if(!v.by) v.by='micaL1'; return v; } }catch(e){}
   return {name:'', rules:[], by:'micaL1'}; })();
