@@ -1812,10 +1812,8 @@ function chartCommentaryHtml(cfg){
     .sort((a,b)=>Math.abs(v(b.c))-Math.abs(v(a.c))).slice(0,4);
   let drvLead='';
   if(dnotes.length){
-    drvLead='<span class="drvlead">'+dnotes.map(x2=>{
-      const share= total&&Math.abs(total)>0.001? ` · ${(v(x2.c)/total*100).toFixed(0)}% of total`:'';
-      return `<b>${esc(x2.c.name)}</b> (${fmt(v(x2.c))}${share}) — ${esc(x2.t)}`;
-    }).join('. ')+'.</span> ';
+    drvLead='<span class="drvlead">'+dnotes.map(x2=>
+      `<b>${esc(x2.c.name)}</b> — ${esc(x2.t)}`).join('. ')+'.</span> ';
   }
   return drvLead+out+` <span class="aicom-note">${esc(measureLabel(cfg.measure))} · ${esc(filterNote())}</span>`;
 }
@@ -3746,17 +3744,12 @@ function drawDrivers(){
       : !d.text? '<div class="drvhint warn">add the driver note below — the driver is inactive without it</div>'
       : mt.length? `<div class="drvhint">✓ matches: ${mt.map(esc).join(' · ')}</div>`
       : '<div class="drvhint warn">⚠ no line in the loaded data matches this name</div>';
-    const groups=driverOptions();
-    const known=groups.some(g=>g[1].includes(d.name));
     return `<div class="drvrow" data-i="${i}">
-      <select class="drv-n" title="Line or value the driver applies to">
-        <option value=""${d.name?'':' selected'}>— pick the line / value —</option>
-        ${groups.map(g=>`<optgroup label="${esc(g[0])}">${g[1].map(v=>`<option value="${esc(v)}"${d.name===v?' selected':''}>${esc(v)}</option>`).join('')}</optgroup>`).join('')}
-        ${d.name&&!known?`<option value="${esc(d.name)}" selected>(custom) ${esc(d.name)}</option>`:''}
-      </select>
+      <input type="text" class="drv-n" list="drvValues" placeholder="Type to search the line / value…" value="${esc(d.name)}" title="Line or value the driver applies to — type to search">
       <button class="drv-x" title="Remove driver">✕</button>
       <input type="text" class="drv-t" placeholder="Driver note — e.g. mortgage repricing +50bps" value="${esc(d.text)}">
       ${hint}</div>`;}).join('')
+    +`<datalist id="drvValues">${driverOptions().map(g=>g[1].map(v=>`<option value="${esc(v)}" label="${esc(g[0])}"></option>`).join('')).join('')}</datalist>`
     +(cfgN?`<p class="note" style="margin:5px 18px 0">${cfgN} driver${cfgN>1?'s':''} loaded from the config file.</p>`:'');
   host.querySelectorAll('.drvrow').forEach(row=>{
     const i=+row.dataset.i;
