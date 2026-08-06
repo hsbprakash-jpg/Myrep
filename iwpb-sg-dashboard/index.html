@@ -1715,7 +1715,8 @@ function aiComment(host, sig, gen){
       st2['prev:'+base]={t:st2[base].t, ts:Date.now()};
       delete st2[base];
     }
-    else { st2[base]={t:t.innerHTML, ts:Date.now()}; st2[sig]={t:t.innerHTML, ts:Date.now()}; }
+    else { st2[base]={t:t.innerHTML, ts:Date.now()}; st2[sig]={t:t.innerHTML, ts:Date.now()};
+      st2['prev:'+base]={t:t.innerHTML, ts:Date.now()}; }   // retained text = the retrievable copy
     comSave(st2); aiComment(host, sig, gen);
   });
   host.querySelector('.aicom-r').addEventListener('click',()=>{
