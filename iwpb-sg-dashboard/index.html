@@ -2197,14 +2197,45 @@ async function exportSummaryPPT(){
     });
   });
   const heroTxt=($('commentary')&&$('commentary').textContent.trim())||'';
-  if(heroTxt) slide.addText(heroTxt,{x:0.42,y:6.52,w:12.5,h:0.5,fontSize:10.5,italic:true,
-    color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
-  slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
-    {x:0.42,y:7.08,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
   const trajT=document.querySelector('#trajPanel h4');
-  await pptChartSlide(p,{title:(trajT? trajT.textContent.trim().replace(/\s+/g,' ') : 'Performance trajectory'),
-    el:$('trajPanel'), aoa:null, note:comText('trajCom')});
-  await pptChartSlide(p,{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')});
+  const trajTitle= trajT? trajT.textContent.trim().replace(/\s+/g,' ') : 'Performance trajectory';
+  const trajSvg=$('trajPanel')? $('trajPanel').querySelector('svg') : null;
+  const mixSvg=$('mixChart')? $('mixChart').querySelector('svg') : null;
+  const tilesBottom=Y0+Math.ceil(tiles.length/COLS)*(TH+GY);
+  // everything fits one widescreen slide when the tile grid stays within two rows
+  if(tiles.length<=8 && trajSvg && tilesBottom<=4.45){
+    if(heroTxt) slide.addText(heroTxt,{x:0.42,y:0.88,w:12.5,h:0.24,fontSize:9.5,italic:true,
+      color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
+    const bandY=tilesBottom+0.14, bandH=6.95-bandY;
+    const half=async(x0,w0,title,svg,aoa,note)=>{
+      slide.addText(title,{x:x0,y:bandY,w:w0,h:0.26,fontSize:10.5,bold:true,color:'1A1A19',
+        fontFace:'Segoe UI',fit:'shrink'});
+      const imgMaxH=bandH-0.26-0.72;
+      let drawn=false;
+      if(svg){ const png=await svgToPngData(svg);
+        if(png){ let w=w0, h=w*png.h/png.w;
+          if(h>imgMaxH){ h=imgMaxH; w=h*png.w/png.h; }
+          slide.addImage({data:png.data,x:x0,y:bandY+0.3,w,h}); drawn=true; } }
+      if(!drawn&&aoa){ const rows2=aoa.filter(r=>r&&r.filter(x2=>x2!=null&&x2!=='').length>=2).slice(0,8)
+          .map((r,i2)=>r.map(v=>({text:v==null?'':(typeof v==='number'?fmtFull(v):String(v)),
+            options:i2===0?{bold:true,color:'FFFFFF',fill:{color:'DB0011'}}:{}})));
+        if(rows2.length) slide.addTable(rows2,{x:x0,y:bandY+0.3,w:w0,fontSize:8,fontFace:'Segoe UI',
+          border:{pt:0.5,color:'DDDCD8'},autoPage:false}); }
+      if(note) slide.addText(note,{x:x0,y:bandY+bandH-0.68,w:w0,h:0.68,fontSize:8.5,italic:true,
+        color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
+    };
+    await half(0.42,6.05,trajTitle,trajSvg,null,comText('trajCom'));
+    await half(6.87,6.05,chartTitle(MX),mixSvg,chartAOA({...MX}),comText('mixCom'));
+    slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
+      {x:0.42,y:7.08,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
+  } else {
+    if(heroTxt) slide.addText(heroTxt,{x:0.42,y:6.52,w:12.5,h:0.5,fontSize:10.5,italic:true,
+      color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
+    slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
+      {x:0.42,y:7.08,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
+    await pptChartSlide(p,{title:trajTitle, el:$('trajPanel'), aoa:null, note:comText('trajCom')});
+    await pptChartSlide(p,{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')});
+  }
   await p.writeFile({fileName:'IWPB_SG_financial_dashboard_'+new Date().toISOString().slice(0,10)+'.pptx'});
 }
 async function exportPPT(items, name){
