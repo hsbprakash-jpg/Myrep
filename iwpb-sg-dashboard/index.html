@@ -431,6 +431,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 #simSaved label{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px}
 #simSaved select{border:1px solid var(--border);border-radius:6px;padding:7px 10px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);min-width:240px}
 #simRules{overflow-x:auto}
+#simRules .rnote{grid-column:1 / -1;font-size:11px;color:var(--text-muted);margin:2px 0 0 40px}
+#simRules .rnote.warn{color:#b57a00;font-weight:600}
 #simRules .simrule{display:grid;grid-template-columns:40px 128px minmax(200px,var(--sim-val-w,50ch)) 72px 150px 96px 32px 74px 16px 74px 26px;justify-content:start;
   gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface-2);margin-bottom:8px;font-size:12.5px;min-width:920px}
@@ -3396,6 +3398,23 @@ function saveSimCur(){ try{ localStorage.setItem('iwpbsg_sim_cur',JSON.stringify
 function simStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_sims')||'{}'); }catch(e){ return {}; } }
 function simStoreSet(o){ try{ localStorage.setItem('iwpbsg_sims',JSON.stringify(o)); }catch(e){} }
 function simFcMonths(){ return S.model? S.model.cyMonths.filter(p=>p.fc) : []; }
+/* what a rule actually touches — makes a small or zero impact self-explanatory */
+function simRuleNote(r){
+  try{
+    const rows=filteredRows(), fc=simFcMonths();
+    const months=fc.filter(p=>p.m>=+r.from&&p.m<=+r.to);
+    const match=r.dim? rows.filter(x=>String(x.d[r.dim]||'')===String(r.val2)) : rows;
+    if(!match.length) return '<div class="rnote warn">⚠ no rows match this scope under the current filters — this rule changes nothing</div>';
+    if(!months.length) return '<div class="rnote warn">⚠ no forecast months in this range — this rule changes nothing</div>';
+    const base=sumCols(match, months.map(p=>p.col));
+    const eff= r.type==='pct'? base*(+r.val||0)/100
+      : r.type==='amt'? (+r.val||0)
+      : ((+r.val||0)*months.length - base);
+    return `<div class="rnote">${match.length.toLocaleString()} row${match.length>1?'s':''} · `+
+      `${esc(MON_LBL[months[0].m])}–${esc(MON_LBL[months[months.length-1].m])} base ${fmt(base)} `+
+      `→ impact <b>${fmt(eff)}</b> ${esc(cfgUnit())}</div>`;
+  }catch(e){ return ''; }
+}
 function simNewRule(){
   const fc=simFcMonths();
   return {dim:'micaL1', val2:'', type:'pct', val:10,
@@ -3532,7 +3551,9 @@ function renderSim(){
       <span class="rlbl">Scope</span>
       <select class="rdim"><option value=""${!r.dim?' selected':''}>All rows</option>${
         dims.map(d=>`<option value="${d}"${r.dim===d?' selected':''}>${esc(ALL_DIM_LABELS[d])}</option>`).join('')}</select>
-      ${r.dim?`<select class="rval">${vals(r.dim).map(v=>`<option${r.val2===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`:'<span class="note">all rows</span>'}
+      ${r.dim?`<select class="rval">${
+        (vals(r.dim).includes(String(r.val2))?'':`<option value="${esc(r.val2)}" selected>(not in this file) ${esc(r.val2)||'—'}</option>`)+
+        vals(r.dim).map(v=>`<option${r.val2===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`:'<span class="note">all rows</span>'}
       <span class="rlbl">Adjustment</span>
       <select class="rtype">
         <option value="pct"${r.type==='pct'?' selected':''}>% change</option>
@@ -3543,6 +3564,7 @@ function renderSim(){
       <span class="rlbl">from</span><select class="rfrom">${mOpt(r.from)}</select>
       <span class="rlbl">to</span><select class="rto">${mOpt(r.to)}</select>
       <button class="rx" title="Remove rule" aria-label="Remove rule">✕</button>
+      ${simRuleNote(r)}
     </div>`).join('')||'<p class="note">No rules yet — add one to start simulating. With no rules the simulated forecast equals the prior forecast.</p>'
     : '<p class="note">This file has no forecast months, so there is nothing to simulate.</p>';
   $('simRules').querySelectorAll('.simrule').forEach(el=>{
