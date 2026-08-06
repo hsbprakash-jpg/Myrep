@@ -1725,10 +1725,18 @@ function chartCommentaryHtml(cfg){
     const share=Math.abs(v(lead)/total);
     if(share>0.5) out+=` Concentration risk: over half the total sits in one line.`;
   }
-  const dnotes=cats.map(c=>({n:c.name,t:driverFor(c.name)})).filter(x2=>x2.t)
-    .filter((x2,i2,arr)=>arr.findIndex(y2=>y2.t===x2.t)===i2).slice(0,4);
-  if(dnotes.length) out+=` Drivers — ${dnotes.map(x2=>`<b>${esc(x2.n)}</b>: ${esc(x2.t)}`).join('; ')}.`;
-  return out+` <span class="aicom-note">${esc(measureLabel(cfg.measure))} · ${esc(filterNote())}</span>`;
+  // user-defined drivers lead the commentary; the built analytics follow.
+  const dnotes=cats.map(c=>({c, t:driverFor(c.name)})).filter(x2=>x2.t)
+    .filter((x2,i2,arr)=>arr.findIndex(y2=>y2.t===x2.t)===i2)
+    .sort((a,b)=>Math.abs(v(b.c))-Math.abs(v(a.c))).slice(0,4);
+  let drvLead='';
+  if(dnotes.length){
+    drvLead=dnotes.map(x2=>{
+      const share= total&&Math.abs(total)>0.001? ` · ${(v(x2.c)/total*100).toFixed(0)}% of total`:'';
+      return `<b>${esc(x2.c.name)}</b> (${fmt(v(x2.c))}${share}) — ${esc(x2.t)}`;
+    }).join('. ')+'. ';
+  }
+  return drvLead+out+` <span class="aicom-note">${esc(measureLabel(cfg.measure))} · ${esc(filterNote())}</span>`;
 }
 let TILE_DRAG=null, TILE_ALL=[];
 function tileOrderGet(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_tileorder')||'[]'); }catch(e){ return []; } }
