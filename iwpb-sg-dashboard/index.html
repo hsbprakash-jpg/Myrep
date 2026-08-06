@@ -2311,13 +2311,9 @@ async function exportSummaryPPT(){
     };
     await half(0.42,6.05,trajTitle,trajSvg,null,comText('trajCom'));
     await half(6.87,6.05,chartTitle(MX),mixSvg,chartAOA({...MX}),comText('mixCom'));
-    slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
-      {x:0.42,y:7.08,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
   } else {
     if(heroTxt) slide.addText(heroTxt,{x:0.42,y:6.52,w:12.5,h:0.5,fontSize:10.5,italic:true,
       color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
-    slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
-      {x:0.42,y:7.08,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
     await pptChartSlide(p,{title:trajTitle, el:$('trajPanel'), aoa:null, note:comText('trajCom')});
     await pptChartSlide(p,{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')});
   }
@@ -2363,8 +2359,6 @@ async function pptChartSlide(p, it){
       slide.addText(it.note,{x:0.42,y:Math.min(contentBottom+0.14,6.9-nh),w:12.5,h:nh,fontSize:10.5,italic:true,
         color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
     }
-    slide.addText('IWPB Singapore Driller · '+filterNote(),
-      {x:0.42,y:7.05,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
 }
 function filterNote(){
   const parts=[];
@@ -4532,8 +4526,6 @@ function init(){
     let slide=null, cells=null;
     const newGrid=()=>{ slide=p.addSlide(); slide.background={color:'FFFFFF'};
       slide.addShape('rect',{x:0.35,y:0.3,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
-      slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
-        {x:0.35,y:7.12,w:12.6,h:0.28,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
       cells=[false,false,false,false]; };
     // commentary renders at 10pt — never smaller; height comes from the text length
     const noteHof=t=>{ if(!t) return 0; const lines=Math.ceil(String(t).length/92);
@@ -4584,8 +4576,6 @@ function init(){
         ts.addText(it.note,{x:0.42,y:Math.min(tBottom+0.14,6.9-nh),w:12.5,h:nh,fontSize:10.5,italic:true,
           color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
       }
-      ts.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
-        {x:0.42,y:7.05,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
     };
     for(const it of items){
       if(it.png) addChart(it);
