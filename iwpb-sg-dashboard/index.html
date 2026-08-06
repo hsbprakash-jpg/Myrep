@@ -162,6 +162,8 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 #drvPanel input[type=text]{font:inherit;font-size:11.5px;padding:4px 7px;border:1px solid var(--border-strong);border-radius:4px;background:var(--surface-2);color:var(--text-primary);min-width:0;width:100%}
 #drvPanel .drv-x{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0}
 #drvPanel .drv-x:hover{color:var(--hsbc-red)}
+#drvPanel .drvhint{grid-column:1 / span 2;font-size:10px;color:var(--status-good);margin-top:1px}
+#drvPanel .drvhint.warn{color:#b57a00}
 aside.side nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
   padding:8px 18px 8px 15px;font:inherit;font-size:13px;color:var(--text-secondary);cursor:pointer;
   border-left:3px solid transparent;text-align:left}
@@ -3685,20 +3687,39 @@ function driverFor(name){
   return null;
 }
 function drvSig(){ return definedDrivers().map(d=>d.name+':'+d.text).join(';'); }
+function driverMatches(name){
+  const m=S.model; if(!m||!name||!String(name).trim()) return [];
+  const n=String(name).trim().toLowerCase(), set=new Set();
+  for(const r of m.rows){
+    for(const key of Object.keys(m.dimCols)){
+      const v=r.d[key]; if(!v) continue;
+      const lv=String(v).toLowerCase();
+      if(lv===n||lv.includes(n)||n.includes(lv)) set.add(String(v));
+    }
+    if(set.size>3) break;
+  }
+  return [...set].slice(0,3);
+}
 function drawDrivers(){
   const host=$('drvList'); if(!host) return;
   const ds=driversDef();
   const cfgN=Object.keys((CFG&&CFG.drivers)||{}).filter(n2=>!/^</.test(n2)).length;
-  host.innerHTML=ds.map((d,i)=>`<div class="drvrow" data-i="${i}">
+  host.innerHTML=ds.map((d,i)=>{
+    const mt=d.name? driverMatches(d.name) : [];
+    const hint= !d.name? ''
+      : !d.text? '<div class="drvhint warn">add the driver note below — the driver is inactive without it</div>'
+      : mt.length? `<div class="drvhint">✓ matches: ${mt.map(esc).join(' · ')}</div>`
+      : '<div class="drvhint warn">⚠ no line in the loaded data matches this name</div>';
+    return `<div class="drvrow" data-i="${i}">
       <input type="text" class="drv-n" placeholder="Line or value — e.g. Loans" value="${esc(d.name)}">
       <button class="drv-x" title="Remove driver">✕</button>
       <input type="text" class="drv-t" placeholder="Driver note — e.g. mortgage repricing +50bps" value="${esc(d.text)}">
-    </div>`).join('')
+      ${hint}</div>`;}).join('')
     +(cfgN?`<p class="note" style="margin:5px 18px 0">${cfgN} driver${cfgN>1?'s':''} loaded from the config file.</p>`:'');
   host.querySelectorAll('.drvrow').forEach(row=>{
     const i=+row.dataset.i;
-    row.querySelector('.drv-n').addEventListener('change',e=>{ ds[i].name=e.target.value; driversSave(); render(); });
-    row.querySelector('.drv-t').addEventListener('change',e=>{ ds[i].text=e.target.value; driversSave(); render(); });
+    row.querySelector('.drv-n').addEventListener('change',e=>{ ds[i].name=e.target.value; driversSave(); drawDrivers(); render(); });
+    row.querySelector('.drv-t').addEventListener('change',e=>{ ds[i].text=e.target.value; driversSave(); drawDrivers(); render(); });
     row.querySelector('.drv-x').addEventListener('click',()=>{ ds.splice(i,1); driversSave(); drawDrivers(); render(); });
   });
 }
