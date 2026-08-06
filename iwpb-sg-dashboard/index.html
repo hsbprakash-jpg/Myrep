@@ -3420,8 +3420,9 @@ function simRuleNote(r){
     if(!match.length) return '<div class="rnote warn">⚠ no rows match this scope under the current filters — this rule changes nothing</div>';
     if(!months.length) return '<div class="rnote warn">⚠ no forecast months in this range — this rule changes nothing</div>';
     const base=sumCols(match, months.map(p=>p.col));
-    const fyNow=kpi(match, S.model, S.ytdM, S.includeFC).outlook;
+    const fyNow=sumCols(match, S.model.cyMonths.map(q=>q.col));
     const eff= r.type==='pct'? base*(+r.val||0)/100
+      : r.type==='pctfy'? (fyNow||0)*(+r.val||0)/100
       : r.type==='amt'? (+r.val||0)
       : ((+r.val||0)*months.length - base);
     const dir= eff>0? 'raises the forecast' : eff<0? 'lowers the forecast' : 'no change';
@@ -3458,7 +3459,13 @@ function computeSim(rules){
         for(const r of match) sv.get(r)[p.col]*=(1+val/100);
       } else {
         const tot=match.reduce((s2,r)=>s2+(sv.get(r)[p.col]||0),0);
-        if(ru.type==='amt'){
+        if(ru.type==='pctfy'){
+          // percentage of the full-year figure, spread across the selected months
+          const fyBase=sumCols(match, m.cyMonths.map(q=>q.col));
+          const per=fyBase*val/100/months.length;
+          for(const r of match){ const cur=sv.get(r)[p.col]||0;
+            sv.get(r)[p.col]=cur+(tot? per*cur/tot : per/match.length); }
+        } else if(ru.type==='amt'){
           const per=val/months.length;
           for(const r of match){ const cur=sv.get(r)[p.col]||0;
             sv.get(r)[p.col]=cur+(tot? per*cur/tot : per/match.length); }
@@ -3565,7 +3572,8 @@ function simAOA(){
   const rules=SIM_LAST||[];
   const a=simAgg(rules), m=S.model;
   const ruleTxt=rules.map((r,i)=>`Rule ${i+1}: ${r.dim?(ALL_DIM_LABELS[r.dim]||r.dim)+' = '+r.val2:'All rows'} · ${
-    r.type==='pct'?r.val+'% change':r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
+    r.type==='pct'?r.val+'% change on forecast months':r.type==='pctfy'?r.val+'% change on FY, spread over the months':
+    r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
   const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote()],[ruleTxt||'No rules'],[],
     [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY target','vs tgt (prior)','vs tgt (simulated)']];
   for(const g of [...a.groups, a.total])
@@ -3618,11 +3626,12 @@ function renderSim(){
         vals(r.dim).map(v=>`<option${r.val2===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`:'<span class="note">all rows</span>'}
       <span class="rlbl">Adjustment</span>
       <select class="rtype">
-        <option value="pct"${r.type==='pct'?' selected':''}>% change</option>
+        <option value="pct"${r.type==='pct'?' selected':''}>% change (forecast months)</option>
+        <option value="pctfy"${r.type==='pctfy'?' selected':''}>% change on FY (spread)</option>
         <option value="amt"${r.type==='amt'?' selected':''}>Add amount (${esc(cfgUnit())})</option>
         <option value="setm"${r.type==='setm'?' selected':''}>Set monthly total (${esc(cfgUnit())})</option>
       </select>
-      <input class="rv" type="number" step="any" value="${r.val}" title="${r.type==='pct'?'Percentage change':'Amount in '+esc(cfgUnit())+' — the same units as the figures in the file'}">
+      <input class="rv" type="number" step="any" value="${r.val}" title="${(r.type==='pct'||r.type==='pctfy')?'Percentage change':'Amount in '+esc(cfgUnit())+' — the same units as the figures in the file'}">
       <span class="rlbl">from</span><select class="rfrom">${mOpt(r.from)}</select>
       <span class="rlbl">to</span><select class="rto">${mOpt(r.to)}</select>
       <button class="rx" title="Remove rule" aria-label="Remove rule">✕</button>
