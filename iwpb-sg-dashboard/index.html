@@ -3545,9 +3545,9 @@ function simCmpRun(names){
 function simCmpAOA(){
   const res=SIM_CMP.last||[];
   const aoa=[['Simulation — scenario comparison'],[filterNote()],[],
-    ['Scenario','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY target','vs target']];
+    ['Scenario','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY forecast','vs FY forecast']];
   for(const r of res)
-    aoa.push([r.name, r.total.baseOut, r.total.simOut, r.total.delta, r.total.target, r.total.simVar]);
+    aoa.push([r.name, r.total.baseOut, r.total.simOut, r.total.delta, r.total.fyFc, r.total.simVarFc]);
   return aoa;
 }
 function simCmpChart(el, act, base, series){
@@ -3579,9 +3579,9 @@ function simAOA(){
     r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
   const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote()],[ruleTxt||'No rules'],[],
     [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast',
-     'FY forecast','vs FY forecast (simulated)','FY target','vs tgt (prior)','vs tgt (simulated)']];
+     'FY forecast','vs FY forecast (simulated)','FY target','vs tgt (prior)']];
   for(const g of [...a.groups, a.total])
-    aoa.push([g.name,g.baseOut,g.simOut,g.delta,g.fyFc,g.simVarFc,g.target,g.baseVar,g.simVar]);
+    aoa.push([g.name,g.baseOut,g.simOut,g.delta,g.fyFc,g.simVarFc,g.target,g.baseVar]);
   return aoa;
 }
 function renderSim(){
@@ -3680,17 +3680,16 @@ function renderSim(){
       <div class="t"><div class="tv${(t.simOut||0)<0?' negnum':''}">${fmt(t.simOut)}</div><div class="tl">FY outlook · simulated</div></div>
       <div class="t"><div class="tv${dcls(t.delta)}">${t.delta>=0?'+':''}${fmt(t.delta)}</div><div class="tl">Δ forecast</div></div>
       ${t.fyFc!=null?`<div class="t"><div class="tv${dcls(t.simVarFc)}">${t.simVarFc>=0?'+':''}${fmt(t.simVarFc)}</div><div class="tl">vs FY forecast · simulated</div></div>`:''}
-      ${t.target!=null?`<div class="t"><div class="tv${dcls(t.simVar)}">${fmtPct(t.simVarPct)}</div><div class="tl">vs FY target · simulated</div></div>`:''}
     </div>
     <div class="chart-wrap" id="simChartEl"></div>
     <div id="simCom"></div>
-    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th><th class="num">FY forecast</th><th class="num">vs fcst sim</th><th class="num">FY target</th><th class="num">vs tgt prior</th><th class="num">vs tgt sim</th></tr></thead>
+    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th><th class="num">FY forecast</th><th class="num">vs fcst sim</th><th class="num">FY target</th><th class="num">vs tgt prior</th></tr></thead>
     <tbody>${[...a.groups,t].map(g=>`<tr${g.name===cfgS('total_label')?' style="font-weight:700"':''}>
       <td>${esc(g.name)}</td><td class="num">${fmtCell(g.baseOut)}</td><td class="num">${fmtCell(g.simOut)}</td>
       <td class="num">${fmtCell(g.delta)}</td>
       <td class="num">${fmtCell(g.fyFc)}</td><td class="num">${fmtCell(g.simVarFc)}</td>
       <td class="num">${fmtCell(g.target)}</td>
-      <td class="num">${fmtCell(g.baseVar)}</td><td class="num">${fmtCell(g.simVar)}</td></tr>`).join('')}</tbody></table></div>`;
+      <td class="num">${fmtCell(g.baseVar)}</td></tr>`).join('')}</tbody></table></div>`;
   $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
   aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote()+'|'+(SIM.by||''), ()=>{
@@ -3702,18 +3701,8 @@ function renderSim(){
       h2+=`, with the largest impact in <b>${esc(mv.name)}</b> (<b>${mv.delta>=0?'+':''}${fmt(mv.delta)}</b>${shr!=null&&isFinite(shr)?`, ${shr.toFixed(0)}% of the move`:''})`;
     }
     h2+='.';
-    if(t.target!=null&&t.baseVar!=null&&t.simVar!=null){
-      let gapTxt;
-      if(t.baseVar>=0&&t.simVar>=0)
-        gapTxt=t.simVar>=t.baseVar? `extends the surplus above the FY target from <b>${fmt(t.baseVar)}</b> to <b>${fmt(t.simVar)}</b>`
-          : `trims the surplus above the FY target from <b>${fmt(t.baseVar)}</b> to <b>${fmt(t.simVar)}</b>`;
-      else if(t.baseVar<0&&t.simVar<0)
-        gapTxt=Math.abs(t.simVar)<Math.abs(t.baseVar)? `narrows the shortfall to the FY target from <b>${fmt(t.baseVar)}</b> to <b>${fmt(t.simVar)}</b>`
-          : `deepens the shortfall to the FY target from <b>${fmt(t.baseVar)}</b> to <b>${fmt(t.simVar)}</b>`;
-      else gapTxt=t.simVar>=0? `swings the position vs the FY target from a <b>${fmt(t.baseVar)}</b> shortfall to a <b>${fmt(t.simVar)}</b> surplus`
-        : `swings the position vs the FY target from a <b>${fmt(t.baseVar)}</b> surplus to a <b>${fmt(t.simVar)}</b> shortfall`;
-      h2+=` It ${gapTxt} — the simulated position lands <b>${fmtPct(t.simVarPct)}</b> vs target <b>${fmt(t.target)}</b>.`;
-    } else if(t.target!=null) h2+=` The simulated position lands <b>${fmtPct(t.simVarPct)}</b> vs the FY target of <b>${fmt(t.target)}</b>.`;
+    if(t.fyFc!=null&&t.simVarFc!=null)
+      h2+=` Against the FY forecast of <b>${fmt(t.fyFc)}</b> the simulated year lands <b>${t.simVarFc>=0?'+':''}${fmt(t.simVarFc)}</b>.`;
     return h2;
   });
 }
@@ -3733,7 +3722,7 @@ function renderSimCompare(){
   const out=$('simCmpOut');
   if(!res||!res.length){ out.innerHTML= names.length? '<p class="note">Tick scenarios and click <b>▶ Run comparison</b>.</p>':''; return; }
   const a0=simAgg([]);            // prior forecast path, no rules
-  const best=[...res].filter(r=>r.total.simVar!=null).sort((x,y)=>y.total.simVar-x.total.simVar)[0];
+  const best=[...res].filter(r=>r.total.simVarFc!=null).sort((x,y)=>y.total.simVarFc-x.total.simVarFc)[0];
   out.innerHTML=`
     <div class="legend" style="margin-top:8px"><span><span class="swl" style="border-top:3px solid var(--series-1)"></span>Actuals</span>
       <span><span class="swl" style="border-top:3px dashed var(--series-2)"></span>Prior forecast</span>
@@ -3741,21 +3730,20 @@ function renderSimCompare(){
     <div class="chart-wrap" id="simCmpChart"></div>
     <div class="scroll-x"><table class="ctable"><thead><tr><th>Scenario</th>
       <th class="num">FY outlook (${esc(cfgUnit())})</th><th class="num">Δ vs prior forecast</th>
-      <th class="num">FY target</th><th class="num">vs target</th><th class="num">vs target %</th></tr></thead><tbody>
+      <th class="num">FY forecast</th><th class="num">vs FY forecast</th></tr></thead><tbody>
       <tr><td>Prior forecast</td><td class="num">${fmtCell(a0.total.baseOut)}</td><td class="num">—</td>
-        <td class="num">${fmtCell(a0.total.target)}</td><td class="num">${fmtCell(a0.total.baseVar)}</td>
-        <td class="num">${a0.total.target?fmtPct((a0.total.baseOut-a0.total.target)/Math.abs(a0.total.target)):'—'}</td></tr>
+        <td class="num">${fmtCell(a0.total.fyFc)}</td><td class="num">${fmtCell(a0.total.baseVarFc)}</td></tr>
       ${res.map(r=>`<tr><td>${esc(r.name)}</td><td class="num">${fmtCell(r.total.simOut)}</td>
-        <td class="num">${fmtCell(r.total.delta)}</td><td class="num">${fmtCell(r.total.target)}</td>
-        <td class="num">${fmtCell(r.total.simVar)}</td><td class="num">${r.total.simVarPct!=null?fmtPct(r.total.simVarPct):'—'}</td></tr>`).join('')}
+        <td class="num">${fmtCell(r.total.delta)}</td><td class="num">${fmtCell(r.total.fyFc)}</td>
+        <td class="num">${fmtCell(r.total.simVarFc)}</td></tr>`).join('')}
       </tbody></table></div>
     <div id="simCmpCom"></div>`;
   simCmpChart($('simCmpChart'), a0.actSeries, a0.baseSeries, res.map(r=>({name:r.name, pts:r.simSeries})));
   aiComment($('simCmpCom'), 'simcmp|'+res.map(r=>r.name).join(',')+'|'+filterNote(), ()=>{
     let h=`Comparing <b>${res.length}</b> scenarios against a prior FY outlook of <b>${fmt(a0.total.baseOut)}</b>: `+
       res.map(r=>`<b>${esc(r.name)}</b> lands <b>${fmt(r.total.simOut)}</b> (${r.total.delta>=0?'+':''}${fmt(r.total.delta)})`).join('; ')+'.';
-    if(best&&best.total.simVar!=null)
-      h+=` <b>${esc(best.name)}</b> is the strongest against the FY target at <b>${fmt(best.total.simVar)}</b> (${fmtPct(best.total.simVarPct)}).`;
+    if(best&&best.total.simVarFc!=null)
+      h+=` <b>${esc(best.name)}</b> is the strongest against the FY forecast at <b>${best.total.simVarFc>=0?'+':''}${fmt(best.total.simVarFc)}</b>.`;
     return h;
   });
 }
