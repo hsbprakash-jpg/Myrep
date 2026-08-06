@@ -1791,7 +1791,7 @@ function widgetCommentText(w){
   return d.textContent.trim();
 }
 function chartCommentaryHtml(cfg){
-  const {cats, segNames, paired}=chartData(cfg);
+  const {cats, segNames, paired, cmpName}=chartData(cfg);
   if(!cats.length) return '';
   const dim=fieldLabels(cfg.groupBy);
   const v=c=>(segNames? c.segTotal : c.val)||0;
@@ -1811,7 +1811,7 @@ function chartCommentaryHtml(cfg){
   if(paired){
     const ahead=cats.filter(c=>(c.varFc||0)>0).length;
     const worst=cats.filter(c=>c.varFcPct!=null).sort((a,b)=>a.varFcPct-b.varFcPct)[0];
-    out+=` Against the YTD forecast, ${ahead} of ${cats.length} lines run ahead`;
+    out+=` Against the ${esc(cmpName||'baseline')}, ${ahead} of ${cats.length} lines run ahead`;
     out+= worst? `; <b>${esc(worst.name)}</b> is furthest behind at <b>${fmtPct(worst.varFcPct)}</b> (<b>${fmt(worst.varFc)}</b>).` : '.';
   }
   else if(segNames&&segNames.length) out+=` Mix split by ${esc(fieldLabels(cfg.splitBy))}, led by <b>${esc(segNames[0])}</b>.`;
@@ -2518,6 +2518,13 @@ const FIELD_LABELS={micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA L
 const CAT_COLORS=['var(--cat1)','var(--cat2)','var(--cat3)','var(--cat4)','var(--cat5)','var(--cat6)','var(--cat7)'];
 const B={groupBy:[], splitBy:[], measure:'cy', type:'column', l2:''};
 
+function cmpPairs(){
+  const m=S.model;
+  return {
+    cmpfc:{a:k=>k.cy, b:k=>k.ytdFc, an:`YTD ${m.yearCY} actual`, bn:'YTD forecast'},
+    cmpfy:{a:k=>k.fyPrior, b:k=>k.fyFc, an:`FY-${m.fyPriorLabel||'PY'} actuals`, bn:'FY forecast'}
+  };
+}
 function measureLabel(mea){
   const m=S.model;
   switch(mea){
@@ -2530,6 +2537,7 @@ function measureLabel(mea){
     case 'ytdfc': return 'YTD forecast (phased)';
     case 'vfc': return 'Variance vs YTD forecast';
     case 'cmpfc': return 'YTD actual vs YTD forecast';
+    case 'cmpfy': return `FY-${m.fyPriorLabel||'PY'} actuals vs FY forecast`;
     default: return `YTD ${m.yearCY}`;
   }
 }
@@ -2538,6 +2546,7 @@ function measureOpts(){
   if(m.pyMonths.length) return ['cy','py','var'];
   const o=['cy'];
   if(m.fyFcCols&&m.fyFcCols.length) o.push('cmpfc','ytdfc','vfc');
+  if(m.fyFcCols&&m.fyFcCols.length&&m.fyPriorCols&&m.fyPriorCols.length) o.push('cmpfy');
   o.push('outlook');
   if(m.targetCols&&m.targetCols.length) o.push('target','vtgt');
   if(m.fyPriorCols&&m.fyPriorCols.length) o.push('fypy');
@@ -2549,7 +2558,8 @@ function pickMeasure(k, mea){
     case 'outlook': return k.outlook; case 'target': return k.target;
     case 'vtgt': return k.varTgt; case 'fypy': return k.fyPrior;
     case 'ytdfc': return k.ytdFc; case 'vfc': return k.varFc;
-    case 'cmpfc': return k.cy; default: return k.cy;
+    case 'cmpfc': return k.cy; case 'cmpfy': return k.fyPrior;
+    default: return k.cy;
   }
 }
 function gArr(v){ return Array.isArray(v)?v.filter(Boolean):(v?[v]:[]); }
@@ -2584,7 +2594,7 @@ function suitableTypes(cfg){
   const m=S.model;
   const hasBase=!!(m&&(m.pyMonths.length||fcBasis(m)||(m.targetCols&&m.targetCols.length)));
   return CHART_TYPES.map(([v])=>v).filter(v=>{
-    if(cfg.measure==='cmpfc'&&!SPLIT_TYPES.has(v)) return false;
+    if(cmpPairs()[cfg.measure]&&!SPLIT_TYPES.has(v)) return false;
     if(hasSplit&&!SPLIT_TYPES.has(v)) return false;
     if(neg&&['pie','donut','treemap','pareto'].includes(v)) return false;
     if(v==='scatter'&&(!hasBase||hasSplit)) return false;
@@ -2621,17 +2631,20 @@ function chartData(cfg){
     cy:rest.reduce((s,g)=>s+g.cy,0), py:rest.reduce((s,g)=>s+g.py,0),
     val:rest.reduce((s,g)=>s+g.val,0)});
   let segNames=null, clamped=false, paired=false;
-  if(cfg.measure==='cmpfc'){
-    // actual vs forecast as two comparable series per category
-    paired=true; segNames=[`YTD ${m.yearCY} actual`,'YTD forecast'];
+  const pair=cmpPairs()[cfg.measure];
+  if(pair){
+    // two comparable series per category — actuals against their baseline
+    paired=true; segNames=[pair.an,pair.bn];
     for(const c of cats){
       const k2=kpi(c.rows,m,S.ytdM,S.includeFC);
-      c.segs={[segNames[0]]:k2.cy||0, [segNames[1]]:k2.ytdFc||0};
-      c.segTotal=k2.cy||0;                 // headline stays the actual
-      c.varFc=(k2.cy||0)-(k2.ytdFc||0);
-      c.varFcPct=(k2.ytdFc&&Math.abs(k2.ytdFc)>0.0001)? c.varFc/Math.abs(k2.ytdFc) : null;
+      const av=pair.a(k2)||0, bv=pair.b(k2)||0;
+      c.segs={[segNames[0]]:av, [segNames[1]]:bv};
+      c.segTotal=av;                       // headline stays the actual
+      c.varFc=av-bv;
+      c.varFcPct=Math.abs(bv)>0.0001? c.varFc/Math.abs(bv) : null;
     }
-    return {cats, segNames, clamped:false, paired};
+    cats.sort((a,b)=>Math.abs(b.segTotal)-Math.abs(a.segTotal));
+    return {cats, segNames, clamped:false, paired, cmpName:pair.bn};
   }
   const sks=gArr(cfg.splitBy).filter(k=>!gks.includes(k));
   const skey=r=>sks.map(k=>r.d[k]||'(blank)').join(' · ');
