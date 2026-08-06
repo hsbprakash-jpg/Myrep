@@ -4307,10 +4307,15 @@ function init(){
       slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
         {x:0.35,y:7.12,w:12.6,h:0.28,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
       cells=[false,false,false,false]; };
+    // commentary renders at 10pt — never smaller; height comes from the text length
+    const noteHof=t=>{ if(!t) return 0; const lines=Math.ceil(String(t).length/92);
+      return Math.min(2.2, 0.08+lines*0.17); };
     const addChart=it=>{
       const hAt=CW*it.png.h/it.png.w;
-      const big=hAt>CH+0.15;                       // needs a full column: 2 per slide
-      const noteH=it.note?0.4:0;
+      const noteH=noteHof(it.note);
+      // long commentary earns a full column; when both columns are taken the
+      // widget moves to the next slide instead of overprinting its neighbour
+      const big=hAt>CH+0.15 || noteH>0.62;
       if(big){
         let col=(!cells||cells[0]||cells[2])? ((!cells||cells[1]||cells[3])? -1 : 1) : 0;
         if(!slide||col<0){ newGrid(); col=0; }
@@ -4319,7 +4324,7 @@ function init(){
         slide.addText(it.title,{x:X[col],y:Y[0]-0.34,w:CW,h:0.3,fontSize:11,bold:true,
           color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
         slide.addImage({data:it.png.data,x:X[col],y:Y[0],w:w2,h:h2});
-        if(it.note) slide.addText(it.note,{x:X[col],y:Y[0]+h2+0.02,w:CW,h:0.38,fontSize:8.5,italic:true,
+        if(it.note) slide.addText(it.note,{x:X[col],y:Y[0]+h2+0.02,w:CW,h:noteH,fontSize:10,italic:true,
           color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
       } else {
         let q=cells? cells.findIndex(c=>!c) : -1;
@@ -4329,7 +4334,7 @@ function init(){
         slide.addText(it.title,{x:X[q%2],y:Y[Math.floor(q/2)]-0.34,w:CW,h:0.3,fontSize:11,bold:true,
           color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
         slide.addImage({data:it.png.data,x:X[q%2],y:Y[Math.floor(q/2)],w:w2,h:h2});
-        if(it.note) slide.addText(it.note,{x:X[q%2],y:Y[Math.floor(q/2)]+h2+0.02,w:CW,h:0.38,fontSize:8.5,italic:true,
+        if(it.note) slide.addText(it.note,{x:X[q%2],y:Y[Math.floor(q/2)]+h2+0.02,w:CW,h:noteH,fontSize:10,italic:true,
           color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
       }
     };
