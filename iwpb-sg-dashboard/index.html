@@ -471,6 +471,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom-r:hover,.aicom-p:not([disabled]):hover{background:var(--fold-bg-h);text-decoration:none}
 .aicom-p[disabled]{opacity:.45;cursor:default}
 .aicom-btns{display:flex;gap:6px;flex:1 1 auto;min-width:0;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.aicom-btns[hidden]{display:none}
 .aicom-t{font-size:12.5px;line-height:1.55;color:var(--text-secondary);outline:none;min-height:18px;
   overflow-wrap:anywhere;word-break:normal;white-space:normal}
 .aicom-t b{color:var(--text-primary);font-variant-numeric:tabular-nums}
@@ -1713,7 +1714,10 @@ function comSave(st){
 function comLockKey(sig){
   return 'lock:'+(sig.startsWith('wid|')? sig.split('|').slice(0,2).join('|') : sig.split('|')[0]);
 }
-function aiComment(host, sig, gen){
+function aiComment(host, sig, a, b){
+  // accepts (host, sig, gen) or (host, sig, opts, gen)
+  const gen = typeof a==='function'? a : b;
+  const opts = typeof a==='function'? b : a;
   if(!host) return;
   const base=comLockKey(sig);
   const st=comStore();
@@ -1730,12 +1734,13 @@ function aiComment(host, sig, gen){
   if(!text){ host.innerHTML=''; return; }
   const prev=st['prev:'+base];
   const canRetrieve=!!(prev&&prev.t!=null&&prev.t!==text);
+  const noBtns=!!(opts&&opts.noButtons);
   host.innerHTML=`<p class="ctxnote">${esc(filterNote())}</p><div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · kept':'AI commentary · click text to edit'}</span>
-      <span class="aicom-btns">
+      <span class="aicom-btns"${noBtns?' hidden':''}>
       <button class="aicom-p" type="button"${canRetrieve?'':' disabled'} title="${canRetrieve?'Bring back the manual commentary that was written before':'Nothing to retrieve yet — a copy is kept whenever your text is replaced'}">⤺ ${esc(cfgL('btn_retrieve')||'Retrieve')}</button>
       <button class="aicom-r" type="button" title="Discard your edits and rebuild the AI commentary from the current data">↺ ${esc(cfgL('btn_regen')||'Regenerate')}</button></span></div>
     <div class="aicom-t" contenteditable="true" spellcheck="false">${text}</div></div>`;
-  const pbtn=host.querySelector('.aicom-p');
+  const pbtn=noBtns? null : host.querySelector('.aicom-p');
   if(pbtn&&!pbtn.disabled) pbtn.addEventListener('click',()=>{
     const st2=comStore();
     const pv=st2['prev:'+base]; if(!pv||pv.t==null) return;
@@ -1752,7 +1757,7 @@ function aiComment(host, sig, gen){
     if(edited) st2['prev:'+base]={t:t.innerHTML, ts:now};
     comSave(st2);
     if(edited){ edited=false; aiComment(host, sig, gen); } });
-  host.querySelector('.aicom-r').addEventListener('click',()=>{
+  if(!noBtns) host.querySelector('.aicom-r').addEventListener('click',()=>{
     const st2=comStore();
     const manual=(st2[base]&&st2[base].t!=null)? st2[base].t : (st2[sig]&&st2[sig].t!=null? st2[sig].t : null);
     if(manual!=null){
@@ -3545,9 +3550,9 @@ function simCmpRun(names){
 function simCmpAOA(){
   const res=SIM_CMP.last||[];
   const aoa=[['Simulation — scenario comparison'],[filterNote()],[],
-    ['Scenario','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast','FY forecast','vs FY forecast']];
+    ['Scenario','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast']];
   for(const r of res)
-    aoa.push([r.name, r.total.baseOut, r.total.simOut, r.total.delta, r.total.fyFc, r.total.simVarFc]);
+    aoa.push([r.name, r.total.baseOut, r.total.simOut, r.total.delta]);
   return aoa;
 }
 function simCmpChart(el, act, base, series){
@@ -3579,9 +3584,9 @@ function simAOA(){
     r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
   const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote()],[ruleTxt||'No rules'],[],
     [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast',
-     'FY forecast','vs FY forecast (simulated)','FY target','vs tgt (prior)']];
+     'FY target','vs tgt (prior)']];
   for(const g of [...a.groups, a.total])
-    aoa.push([g.name,g.baseOut,g.simOut,g.delta,g.fyFc,g.simVarFc,g.target,g.baseVar]);
+    aoa.push([g.name,g.baseOut,g.simOut,g.delta,g.target,g.baseVar]);
   return aoa;
 }
 function renderSim(){
@@ -3679,20 +3684,18 @@ function renderSim(){
       <div class="t"><div class="tv${(t.baseOut||0)<0?' negnum':''}">${fmt(t.baseOut)}</div><div class="tl">FY outlook · prior fcst</div></div>
       <div class="t"><div class="tv${(t.simOut||0)<0?' negnum':''}">${fmt(t.simOut)}</div><div class="tl">FY outlook · simulated</div></div>
       <div class="t"><div class="tv${dcls(t.delta)}">${t.delta>=0?'+':''}${fmt(t.delta)}</div><div class="tl">Δ forecast</div></div>
-      ${t.fyFc!=null?`<div class="t"><div class="tv${dcls(t.simVarFc)}">${t.simVarFc>=0?'+':''}${fmt(t.simVarFc)}</div><div class="tl">vs FY forecast · simulated</div></div>`:''}
     </div>
     <div class="chart-wrap" id="simChartEl"></div>
     <div id="simCom"></div>
-    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th><th class="num">FY forecast</th><th class="num">vs fcst sim</th><th class="num">FY target</th><th class="num">vs tgt prior</th></tr></thead>
+    <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th><th class="num">FY target</th><th class="num">vs tgt prior</th></tr></thead>
     <tbody>${[...a.groups,t].map(g=>`<tr${g.name===cfgS('total_label')?' style="font-weight:700"':''}>
       <td>${esc(g.name)}</td><td class="num">${fmtCell(g.baseOut)}</td><td class="num">${fmtCell(g.simOut)}</td>
       <td class="num">${fmtCell(g.delta)}</td>
-      <td class="num">${fmtCell(g.fyFc)}</td><td class="num">${fmtCell(g.simVarFc)}</td>
       <td class="num">${fmtCell(g.target)}</td>
       <td class="num">${fmtCell(g.baseVar)}</td></tr>`).join('')}</tbody></table></div>`;
   $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
-  aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote()+'|'+(SIM.by||''), ()=>{
+  aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote()+'|'+(SIM.by||''), {noButtons:true}, ()=>{
     const mv=[...a.groups].sort((x,y)=>Math.abs(y.delta)-Math.abs(x.delta))[0];
     const upl=t.baseOut? t.delta/Math.abs(t.baseOut) : null;
     let h2=`The scenario moves the FY outlook from <b>${fmt(t.baseOut)}</b> to <b>${fmt(t.simOut)}</b> (<b>${t.delta>=0?'+':''}${fmt(t.delta)}</b>${upl!=null?`, <b>${fmtPct(upl)}</b> on the prior forecast path`:''})`;
@@ -3701,8 +3704,6 @@ function renderSim(){
       h2+=`, with the largest impact in <b>${esc(mv.name)}</b> (<b>${mv.delta>=0?'+':''}${fmt(mv.delta)}</b>${shr!=null&&isFinite(shr)?`, ${shr.toFixed(0)}% of the move`:''})`;
     }
     h2+='.';
-    if(t.fyFc!=null&&t.simVarFc!=null)
-      h2+=` Against the FY forecast of <b>${fmt(t.fyFc)}</b> the simulated year lands <b>${t.simVarFc>=0?'+':''}${fmt(t.simVarFc)}</b>.`;
     return h2;
   });
 }
@@ -3722,28 +3723,24 @@ function renderSimCompare(){
   const out=$('simCmpOut');
   if(!res||!res.length){ out.innerHTML= names.length? '<p class="note">Tick scenarios and click <b>▶ Run comparison</b>.</p>':''; return; }
   const a0=simAgg([]);            // prior forecast path, no rules
-  const best=[...res].filter(r=>r.total.simVarFc!=null).sort((x,y)=>y.total.simVarFc-x.total.simVarFc)[0];
+  const best=[...res].sort((x,y)=>(y.total.delta||0)-(x.total.delta||0))[0];
   out.innerHTML=`
     <div class="legend" style="margin-top:8px"><span><span class="swl" style="border-top:3px solid var(--series-1)"></span>Actuals</span>
       <span><span class="swl" style="border-top:3px dashed var(--series-2)"></span>Prior forecast</span>
       ${res.map((r,i)=>`<span><span class="swl" style="border-top:3px dotted ${CAT_COLORS[i%CAT_COLORS.length]}"></span>${esc(r.name)}</span>`).join('')}</div>
     <div class="chart-wrap" id="simCmpChart"></div>
     <div class="scroll-x"><table class="ctable"><thead><tr><th>Scenario</th>
-      <th class="num">FY outlook (${esc(cfgUnit())})</th><th class="num">Δ vs prior forecast</th>
-      <th class="num">FY forecast</th><th class="num">vs FY forecast</th></tr></thead><tbody>
-      <tr><td>Prior forecast</td><td class="num">${fmtCell(a0.total.baseOut)}</td><td class="num">—</td>
-        <td class="num">${fmtCell(a0.total.fyFc)}</td><td class="num">${fmtCell(a0.total.baseVarFc)}</td></tr>
+      <th class="num">FY outlook (${esc(cfgUnit())})</th><th class="num">Δ vs prior forecast</th></tr></thead><tbody>
+      <tr><td>Prior forecast</td><td class="num">${fmtCell(a0.total.baseOut)}</td><td class="num">—</td></tr>
       ${res.map(r=>`<tr><td>${esc(r.name)}</td><td class="num">${fmtCell(r.total.simOut)}</td>
-        <td class="num">${fmtCell(r.total.delta)}</td><td class="num">${fmtCell(r.total.fyFc)}</td>
-        <td class="num">${fmtCell(r.total.simVarFc)}</td></tr>`).join('')}
+        <td class="num">${fmtCell(r.total.delta)}</td></tr>`).join('')}
       </tbody></table></div>
     <div id="simCmpCom"></div>`;
   simCmpChart($('simCmpChart'), a0.actSeries, a0.baseSeries, res.map(r=>({name:r.name, pts:r.simSeries})));
-  aiComment($('simCmpCom'), 'simcmp|'+res.map(r=>r.name).join(',')+'|'+filterNote(), ()=>{
+  aiComment($('simCmpCom'), 'simcmp|'+res.map(r=>r.name).join(',')+'|'+filterNote(), {noButtons:true}, ()=>{
     let h=`Comparing <b>${res.length}</b> scenarios against a prior FY outlook of <b>${fmt(a0.total.baseOut)}</b>: `+
       res.map(r=>`<b>${esc(r.name)}</b> lands <b>${fmt(r.total.simOut)}</b> (${r.total.delta>=0?'+':''}${fmt(r.total.delta)})`).join('; ')+'.';
-    if(best&&best.total.simVarFc!=null)
-      h+=` <b>${esc(best.name)}</b> is the strongest against the FY forecast at <b>${best.total.simVarFc>=0?'+':''}${fmt(best.total.simVarFc)}</b>.`;
+    if(best) h+=` <b>${esc(best.name)}</b> lifts the outlook most, at <b>${best.total.delta>=0?'+':''}${fmt(best.total.delta)}</b>.`;
     return h;
   });
 }
