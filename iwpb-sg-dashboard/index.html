@@ -3425,7 +3425,7 @@ function simRuleNote(r){
       : ((+r.val||0)*months.length - base);
     const dir= eff>0? 'raises the forecast' : eff<0? 'lowers the forecast' : 'no change';
     return `<div class="rnote">${match.length.toLocaleString()} row${match.length>1?'s':''} · `+
-      `${esc(MON_LBL[months[0].m])}–${esc(MON_LBL[months[months.length-1].m])} base ${fmt(base)} `+
+      `${esc(MON_LBL[months[0].m])}–${esc(MON_LBL[months[months.length-1].m])} forecast base ${fmt(base)} `+
       `→ impact <b>${fmt(eff)}</b> ${esc(cfgUnit())} · ${dir}</div>`;
   }catch(e){ return ''; }
 }
