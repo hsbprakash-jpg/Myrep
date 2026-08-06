@@ -360,22 +360,26 @@ main{flex:1;min-width:0;padding:14px 20px}
   background:var(--surface-2);font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
 /* ---------- KPI summary ---------- */
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
 .greet{font-size:13px;color:var(--text-secondary);margin:0 0 6px}
 .greet b{color:var(--text-primary)}
 .commentary{background:var(--surface-1);border:1px solid var(--border);border-left:4px solid var(--hsbc-red);
   border-radius:8px;padding:9px 13px;font-size:13px;line-height:1.5;color:var(--text-secondary)}
 .commentary b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-weight:750;letter-spacing:0}
-.card .vd{margin-top:6px;border-top:1px solid var(--border);padding-top:5px;font-size:11.5px;
+.card .vd{margin-top:8px;border-top:1px solid var(--border);padding-top:7px;font-size:12px;
   color:var(--hsbc-red);font-weight:700;text-align:right}
 .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px}
 .chip{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:4px 10px;
   font-size:11.5px;display:flex;gap:7px;align-items:center;color:var(--text-secondary)}
+.attnchip{cursor:pointer;font:inherit;font-size:11.5px}
+.attnchip.attn-r{border-color:color-mix(in srgb, var(--status-critical) 45%, var(--border));color:var(--status-critical)}
+.attnchip.attn-a{border-color:color-mix(in srgb, var(--status-warning) 55%, var(--border));color:#8a6100}
+.attnchip:hover{background:color-mix(in srgb, var(--hsbc-red) 5%, var(--surface-1))}
 .chip b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 .chip .cdot{width:9px;height:9px;border-radius:50%;flex:none}
-.twocol{display:grid;grid-template-columns:minmax(0,1fr) 232px;gap:12px;margin-bottom:12px}
-@media (max-width:1000px){.twocol{grid-template-columns:1fr}}
+.twocol{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:12px;margin-bottom:12px;align-items:start}
+@media (max-width:1180px){.twocol{grid-template-columns:1fr}}
 .trio{display:flex;gap:20px;margin:6px 0 2px;flex-wrap:wrap}
 .trio .t .tv{font-size:17px;font-weight:750;font-variant-numeric:tabular-nums}
 .trio .t .tl{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);margin-top:2px}
@@ -428,12 +432,12 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 #simResults .atable td:first-child{overflow-wrap:anywhere;min-width:90px}
 #simResults .atable td.num{text-align:right;white-space:nowrap}
 #simResults .atable th.num{text-align:right;white-space:normal}
-.card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:10px 13px 9px;
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:14px 18px 12px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
 .card:hover{border-color:var(--hsbc-red)}
 .card .l1tag{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)}
-.card h3{margin:2px 0 5px;font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.card .val{font-size:20px;font-weight:750;font-variant-numeric:tabular-nums}
+.card h3{margin:2px 0 7px;font-size:14px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .val{font-size:27px;font-weight:750;font-variant-numeric:tabular-nums}
 .card.morecard{display:flex;align-items:center;justify-content:center;color:var(--series-1);
   font-weight:700;font-size:12.5px;min-height:84px;border-style:dashed}
 .card.morecard:hover{background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
@@ -650,9 +654,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="chiprow" id="chipRow"></div>
     <div class="twocol">
       <div class="panel" id="trajPanel" style="margin-bottom:0"></div>
-      <div class="panel" id="attnPanel" style="margin-bottom:0"></div>
-    </div>
-    <div class="panel" id="mixPanel" style="margin-top:16px">
+    <div class="panel" id="mixPanel" style="margin-bottom:0">
       <div class="panel-head">
         <div><h4 id="mixTitle">Mix analysis</h4><p class="subtitle" id="mixSub"></p></div>
         <div id="mixCtl">
@@ -670,6 +672,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       </div>
       <div id="mixChart" class="chart-wrap"></div>
       <div id="mixCom"></div>
+    </div>
     </div>
   </div>
 
@@ -1421,7 +1424,7 @@ function trendChart(el, cySeries, pySeries, yearCY, yearPY, type, annots){
   el.innerHTML=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly trend ${type} chart">${svg}</svg></div>`;
 }
 function lineChart(el, cySeries, pySeries, yearCY, yearPY, area, annots){
-  const H=170, L=52, T=12, B=24;
+  const H=150, L=52, T=12, B=24;
   const R=Math.max(64, 10+7*Math.max(String(yearCY||'').length, String(yearPY||'').length));
   const W=760;
   const pts=[...cySeries,...pySeries].map(p=>p.val).filter(v=>v!=null);
@@ -1963,29 +1966,15 @@ function renderSummary(){
   // attention required — anything not green
   const attn=cards.filter(c=>!cmpHidden(c.l2)&&['a','r'].includes(rag(c.k.favVarPct,S.thresh).cls))
     .sort((a,b)=>(a.k.favVarPct??0)-(b.k.favVarPct??0)).slice(0,4);
-  const aItem=c=>{
+  const aChip=c=>{
     const rg=rag(c.k.favVarPct,S.thresh);
-    const col=rg.cls==='r'?'var(--status-critical)':'var(--status-warning)';
-    const desc= L.mode==='tgt'
-      ? `Outlook ${fmt(c.k.outlook)} vs target ${fmt(c.k.target)} · ${fmtPct(c.k.cmpVarPct)}`
-      : L.mode==='fc'
-      ? `YTD ${fmt(c.k.cy)} vs ${fmt(c.k.ytdFc)} YTD forecast · ${fmtPct(c.k.cmpVarPct)}`
-      : `YTD ${fmt(c.k.cy)} vs ${fmt(c.k.cmpBase)} prior yr · ${fmtPct(c.k.cmpVarPct)}`;
-    return `<div class="aitem">
-      <div class="ahead"><span class="aic" style="color:${col}">${rg.cls==='r'?'▼':'●'}</span>${esc(c.l2)}
-        <span style="margin-left:auto">${ragPill(rg)}</span></div>
-      <div class="adesc">${desc}</div>
-      <button class="abtn" data-l2="${scPfx}${esc(c.l2)}">Review in Mix analysis →</button>
-    </div>`;
+    const cls=rg.cls==='r'?'attn-r':'attn-a';
+    return `<button class="chip attnchip ${cls}" data-l2="${scPfx}${esc(c.l2)}" title="Review in Mix analysis">
+      ${rg.cls==='r'?'▼':'●'} <b>${esc(c.l2)}</b> ${fmtPct(c.k.cmpVarPct)} ${esc(L.vs)} →</button>`;
   };
-  $('attnPanel').innerHTML=`<h4>Attention required</h4>
-    <p class="subtitle">${attn.length?`${attn.length} KPI${attn.length>1?'s':''} behind the ${L.mode==='tgt'?'FY target':L.mode==='fc'?'YTD forecast':'prior year'}`:'All KPIs at or above the baseline'}</p>
-    <div class="attn">${attn.length?attn.map(aItem).join(''):`<div class="allgood">▲ Nothing unfavourable under the current filters.</div>`}</div>`;
-  $('attnPanel').querySelectorAll('.abtn').forEach(b=>
-    b.addEventListener('click',()=>{
-      MX.l2=b.dataset.l2; saveMix(); render();
-      $('mixPanel').scrollIntoView({behavior:'smooth',block:'start'});
-    }));
+  $('chipRow').insertAdjacentHTML('beforeend', attn.map(aChip).join(''));
+  $('chipRow').querySelectorAll('.attnchip').forEach(b=>
+    b.addEventListener('click',()=>{ MX.l2=b.dataset.l2; saveMix(); render(); }));
 
   renderMix();
 }
