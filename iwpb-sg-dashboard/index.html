@@ -453,7 +453,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom-h{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:5px;gap:10px}
 .aicom-r,.aicom-k,.aicom-p{background:var(--fold-bg);border:none;color:var(--fold-red);cursor:pointer;
   font:inherit;font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;letter-spacing:.5px;text-transform:uppercase}
-.aicom-r:hover,.aicom-k:hover,.aicom-p:hover{background:var(--fold-bg-h);text-decoration:none}
+.aicom-r:hover,.aicom-k:hover,.aicom-p:not([disabled]):hover{background:var(--fold-bg-h);text-decoration:none}
+.aicom-p[disabled]{opacity:.45;cursor:default}
 .aicom-btns{display:flex;gap:8px;flex-shrink:0}
 .aicom-t{font-size:12.5px;line-height:1.55;color:var(--text-secondary);outline:none;min-height:18px}
 .aicom-t b{color:var(--text-primary);font-variant-numeric:tabular-nums}
@@ -1688,12 +1689,12 @@ function aiComment(host, sig, gen){
   const canRetrieve=!!(prev&&prev.t!=null&&prev.t!==text);
   host.innerHTML=`<div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · retained':'AI commentary · click text to edit'}</span>
       <span class="aicom-btns">
-      ${canRetrieve?`<button class="aicom-p" type="button" title="Bring back the manual commentary that was written before">⤺ ${esc(cfgL('btn_retrieve')||'Retrieve')}</button>`:''}
+      <button class="aicom-p" type="button"${canRetrieve?'':' disabled'} title="${canRetrieve?'Bring back the manual commentary that was written before':'Nothing to retrieve yet — a copy is kept when you Regenerate or Unretain over manual text'}">⤺ ${esc(cfgL('btn_retrieve')||'Retrieve')}</button>
       <button class="aicom-k" type="button" title="${locked?'Stop retaining this text — it will follow the data again':'Retain this text — it stays even when filters or the period change'}">${locked?'🔓 '+esc(cfgL('btn_unretain')||'Unretain'):'📌 '+esc(cfgL('btn_retain')||'Retain')}</button>
       <button class="aicom-r" type="button" title="Discard edits and regenerate the AI commentary">↺ ${esc(cfgL('btn_regen')||'Regenerate')}</button></span></div>
     <div class="aicom-t" contenteditable="true" spellcheck="false">${text}</div></div>`;
   const pbtn=host.querySelector('.aicom-p');
-  if(pbtn) pbtn.addEventListener('click',()=>{
+  if(pbtn&&!pbtn.disabled) pbtn.addEventListener('click',()=>{
     const st2=comStore();
     const pv=st2['prev:'+base]; if(!pv||pv.t==null) return;
     st2[base]={t:pv.t, ts:Date.now()}; st2[sig]={t:pv.t, ts:Date.now()};
