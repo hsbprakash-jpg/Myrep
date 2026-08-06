@@ -164,6 +164,8 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 #drvPanel .drv-x:hover{color:var(--hsbc-red)}
 #drvPanel .drvhint{grid-column:1 / span 2;font-size:10px;color:var(--status-good);margin-top:1px}
 #drvPanel .drvhint.warn{color:#b57a00}
+#drvPanel select.drv-n{font:inherit;font-size:11.5px;padding:4px 5px;border:1px solid var(--border-strong);
+  border-radius:4px;background:var(--surface-2);color:var(--text-primary);min-width:0;width:100%}
 aside.side nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
   padding:8px 18px 8px 15px;font:inherit;font-size:13px;color:var(--text-secondary);cursor:pointer;
   border-left:3px solid transparent;text-align:left}
@@ -3687,6 +3689,17 @@ function driverFor(name){
   return null;
 }
 function drvSig(){ return definedDrivers().map(d=>d.name+':'+d.text).join(';'); }
+let DRV_OPT_CACHE=null, DRV_OPT_CACHE_M=null;
+function driverOptions(){
+  const m=S.model; if(!m) return [];
+  if(DRV_OPT_CACHE&&DRV_OPT_CACHE_M===m) return DRV_OPT_CACHE;
+  const keys=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
+  const sets={}; keys.forEach(k=>sets[k]=new Set());
+  for(const r of m.rows) for(const k of keys){ const v=r.d[k]; if(v) sets[k].add(String(v)); }
+  DRV_OPT_CACHE=keys.map(k=>[FIELD_LABELS[k],[...sets[k]].sort()]).filter(g=>g[1].length&&g[1].length<=300);
+  DRV_OPT_CACHE_M=m;
+  return DRV_OPT_CACHE;
+}
 function driverMatches(name){
   const m=S.model; if(!m||!name||!String(name).trim()) return [];
   const n=String(name).trim().toLowerCase(), set=new Set();
@@ -3710,8 +3723,14 @@ function drawDrivers(){
       : !d.text? '<div class="drvhint warn">add the driver note below — the driver is inactive without it</div>'
       : mt.length? `<div class="drvhint">✓ matches: ${mt.map(esc).join(' · ')}</div>`
       : '<div class="drvhint warn">⚠ no line in the loaded data matches this name</div>';
+    const groups=driverOptions();
+    const known=groups.some(g=>g[1].includes(d.name));
     return `<div class="drvrow" data-i="${i}">
-      <input type="text" class="drv-n" placeholder="Line or value — e.g. Loans" value="${esc(d.name)}">
+      <select class="drv-n" title="Line or value the driver applies to">
+        <option value=""${d.name?'':' selected'}>— pick the line / value —</option>
+        ${groups.map(g=>`<optgroup label="${esc(g[0])}">${g[1].map(v=>`<option value="${esc(v)}"${d.name===v?' selected':''}>${esc(v)}</option>`).join('')}</optgroup>`).join('')}
+        ${d.name&&!known?`<option value="${esc(d.name)}" selected>(custom) ${esc(d.name)}</option>`:''}
+      </select>
       <button class="drv-x" title="Remove driver">✕</button>
       <input type="text" class="drv-t" placeholder="Driver note — e.g. mortgage repricing +50bps" value="${esc(d.text)}">
       ${hint}</div>`;}).join('')
