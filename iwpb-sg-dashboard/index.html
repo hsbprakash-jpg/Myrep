@@ -2274,24 +2274,31 @@ async function pptChartSlide(p, it){
     const svg=it.el? it.el.querySelector('svg') : null;
     let png=null;
     if(svg) png=await svgToPngData(svg);
+    let contentBottom=1.12;
     if(png){
       const maxW=12.5, maxH=5.4;
       let w=maxW, h=w*png.h/png.w;
       if(h>maxH){ h=maxH; w=h*png.w/png.h; }
       slide.addImage({data:png.data, x:0.42, y:1.12, w, h});
+      contentBottom=1.12+h;
       const leg=it.el?it.el.querySelector('.legend'):null;
-      if(leg&&leg.textContent.trim())
+      if(leg&&leg.textContent.trim()){
         slide.addText(leg.textContent.trim().replace(/\s+/g,'  '),
-          {x:0.42, y:1.12+h+0.08, w:12.4, h:0.32, fontSize:10, color:'52514E', fontFace:'Segoe UI'});
+          {x:0.42, y:contentBottom+0.08, w:12.4, h:0.32, fontSize:10, color:'52514E', fontFace:'Segoe UI'});
+        contentBottom+=0.4;
+      }
     } else if(it.aoa){
       const rows=it.aoa.filter(r=>r&&r.filter(x=>x!=null&&x!=='').length>=2).slice(0,16)
         .map((r,i)=>r.map(v=>({text:v==null?'':(typeof v==='number'?fmtFull(v):String(v)),
           options:i===0?{bold:true,color:'FFFFFF',fill:{color:'DB0011'}}:{}})));
-      if(rows.length) slide.addTable(rows,{x:0.42,y:1.05,w:12.4,fontSize:11,fontFace:'Segoe UI',
+      if(rows.length){ slide.addTable(rows,{x:0.42,y:1.05,w:12.4,fontSize:11,fontFace:'Segoe UI',
         border:{pt:0.5,color:'DDDCD8'},autoPage:false});
+        contentBottom=1.05+rows.length*0.31; }
     }
-    if(it.note) slide.addText(it.note,{x:0.42,y:6.5,w:12.5,h:0.5,fontSize:10.5,italic:true,
-      color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
+    if(it.note){ const nh=Math.min(1.4, 0.1+Math.ceil(String(it.note).length/180)*0.2);
+      slide.addText(it.note,{x:0.42,y:Math.min(contentBottom+0.14,6.9-nh),w:12.5,h:nh,fontSize:10.5,italic:true,
+        color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
+    }
     slide.addText('IWPB Singapore Driller · '+filterNote(),
       {x:0.42,y:7.05,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
 }
@@ -4343,15 +4350,19 @@ function init(){
       ts.addText(it.title,{x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',
         fontFace:'Segoe UI',fit:'shrink',wrap:true});
       ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
+      let tBottom=1.05;
       if(it.aoa){
         const rows2=it.aoa.filter(r=>r&&r.filter(x=>x!=null&&x!=='').length>=2).slice(0,16)
           .map((r,i)=>r.map(v=>({text:v==null?'':(typeof v==='number'?fmtFull(v):String(v)),
             options:i===0?{bold:true,color:'FFFFFF',fill:{color:'DB0011'}}:{}})));
-        if(rows2.length) ts.addTable(rows2,{x:0.42,y:1.05,w:12.4,fontSize:11,fontFace:'Segoe UI',
+        if(rows2.length){ ts.addTable(rows2,{x:0.42,y:1.05,w:12.4,fontSize:11,fontFace:'Segoe UI',
           border:{pt:0.5,color:'DDDCD8'},autoPage:false});
+          tBottom=1.05+rows2.length*0.31; }
       }
-      if(it.note) ts.addText(it.note,{x:0.42,y:6.5,w:12.5,h:0.5,fontSize:10.5,italic:true,
-        color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
+      if(it.note){ const nh=Math.min(1.4, 0.1+Math.ceil(String(it.note).length/180)*0.2);
+        ts.addText(it.note,{x:0.42,y:Math.min(tBottom+0.14,6.9-nh),w:12.5,h:nh,fontSize:10.5,italic:true,
+          color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
+      }
       ts.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
         {x:0.42,y:7.05,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
     };
