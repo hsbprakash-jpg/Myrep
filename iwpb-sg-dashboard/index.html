@@ -454,6 +454,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom-t:focus{background:var(--surface-1);border-radius:4px}
 .aicom-note{color:var(--text-muted);font-size:10.5px}
 .ctable{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:4px}
+.ctable.autofit{width:auto;min-width:380px;max-width:100%}
+.ctable.autofit td:first-child{min-width:120px;padding-right:40px}
 .ctable th{background:var(--hsbc-red);color:#fff;padding:5px 9px;text-align:left;font-weight:700}
 .ctable th.num{text-align:right}
 .ctable td{padding:5px 9px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
@@ -1339,7 +1341,7 @@ function miniMonthTable(series){
   const pts=series.filter(p2=>p2.val!=null);
   if(!pts.length) return '';
   const tot=pts.reduce((s2,p2)=>s2+p2.val,0);
-  return `<div class="scroll-x"><table class="ctable" style="font-size:11px"><thead><tr><th>Month</th><th class="num">Value (${esc(cfgUnit())})</th></tr></thead><tbody>${
+  return `<div class="scroll-x"><table class="ctable autofit" style="font-size:11px"><thead><tr><th>Month</th><th class="num">Value (${esc(cfgUnit())})</th></tr></thead><tbody>${
     pts.map(p2=>`<tr><td>${MON_LBL[p2.m]}${p2.fc?' (FC)':''}</td><td class="num">${fmtCell(p2.val)}</td></tr>`).join('')}<tr class="tot"><td>Total</td><td class="num">${fmtCell(tot)}</td></tr></tbody></table></div>`;
 }
 function sparkline(series, w, h){
@@ -3796,7 +3798,7 @@ function renderCustom(){
         const aoa=trendAOA(rows, widgetTitle(w));
         const hdr=(aoa[3]||[]).map((h,i)=>i? `${h} (${cfgUnit()})` : h), body=aoa.slice(4);
         const trTot=hdr.slice(1).map((_,i)=>body.reduce((s2,r)=>s2+(typeof r[i+1]==='number'? r[i+1]:0),0));
-        div.querySelector('.wchart').innerHTML=`<div class="scroll-x"><table class="ctable">
+        div.querySelector('.wchart').innerHTML=`<div class="scroll-x"><table class="ctable autofit">
           <thead><tr>${hdr.map((h,i)=>`<th${i?' class="num"':''}>${esc(h)}</th>`).join('')}</tr></thead>
           <tbody>${body.map(r=>`<tr>${r.map((v,i)=>`<td${i?' class="num"':''}>${i?fmtCell(v):esc(v)}</td>`).join('')}</tr>`).join('')}
           <tr class="tot"><td>Total</td>${trTot.map(v=>`<td class="num">${fmtCell(v)}</td>`).join('')}</tr></tbody></table></div>`;
