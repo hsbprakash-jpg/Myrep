@@ -1704,8 +1704,10 @@ function aiComment(host, sig, gen){
   const locked=!!(st[base]&&st[base].t!=null);
   const saved= locked? st[base].t : (st[sig]&&st[sig].t);
   let text; try{ text=saved!=null? saved : gen(); }catch(e){ text=''; }
+  // a retained text that still carries the generated driver opening keeps it in
+  // step with the Drivers section; text the user has fully rewritten is left alone
   const LEAD_RE=/<span class="drvlead">[\s\S]*?<\/span>\s*/;
-  if(locked&&text){
+  if(locked&&text&&LEAD_RE.test(text)){
     let fresh=''; try{ const g2=String(gen()); const m2=g2.match(LEAD_RE); fresh=m2? m2[0]:''; }catch(e){}
     text=fresh+String(text).replace(LEAD_RE,'');
   }
