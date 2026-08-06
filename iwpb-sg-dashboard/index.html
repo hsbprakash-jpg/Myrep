@@ -447,7 +447,9 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .card.dragtgt{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
 .aicom{margin-top:8px;border:1px dashed var(--border);border-left:3px solid var(--hsbc-red);border-radius:8px;background:var(--surface-2);padding:7px 11px}
 .aicom-h{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:5px;gap:10px}
-.aicom-r{background:none;border:none;color:var(--hsbc-red);cursor:pointer;font:inherit;font-size:10.5px;font-weight:700;padding:0}
+.aicom-r,.aicom-k{background:none;border:none;color:var(--hsbc-red);cursor:pointer;font:inherit;font-size:10.5px;font-weight:700;padding:0}
+.aicom-btns{display:flex;gap:12px;flex-shrink:0}
+.aicom-k:hover{text-decoration:underline}
 .aicom-r:hover{text-decoration:underline}
 .aicom-t{font-size:12.5px;line-height:1.55;color:var(--text-secondary);outline:none;min-height:18px}
 .aicom-t b{color:var(--text-primary);font-variant-numeric:tabular-nums}
@@ -1660,20 +1662,35 @@ function comSave(st){
   if(ks.length>80) ks.sort((a,b)=>(st[a].ts||0)-(st[b].ts||0)).slice(0,ks.length-80).forEach(k=>delete st[k]);
   try{ localStorage.setItem('iwpbsg_comments',JSON.stringify(st)); }catch(e){}
 }
+function comLockKey(sig){
+  return 'lock:'+(sig.startsWith('wid|')? sig.split('|').slice(0,2).join('|') : sig.split('|')[0]);
+}
 function aiComment(host, sig, gen){
   if(!host) return;
+  const base=comLockKey(sig);
   const st=comStore();
-  const saved=st[sig]&&st[sig].t;
+  const locked=!!(st[base]&&st[base].t!=null);
+  const saved= locked? st[base].t : (st[sig]&&st[sig].t);
   let text; try{ text=saved!=null? saved : gen(); }catch(e){ text=''; }
   if(!text){ host.innerHTML=''; return; }
-  host.innerHTML=`<div class="aicom"><div class="aicom-h"><span>AI commentary · click text to edit</span>
-      <button class="aicom-r" type="button" title="Discard edits and regenerate">↺ Regenerate</button></div>
+  host.innerHTML=`<div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · kept':'AI commentary · click text to edit'}</span>
+      <span class="aicom-btns">
+      <button class="aicom-k" type="button" title="${locked?'Stop keeping this text — it will follow the data again':'Keep this text — it stays even when filters or the period change'}">${locked?'🔓 Unkeep':'📌 Keep'}</button>
+      <button class="aicom-r" type="button" title="Discard edits and regenerate the AI commentary">↺ Regenerate</button></span></div>
     <div class="aicom-t" contenteditable="true" spellcheck="false">${text}</div></div>`;
   const t=host.querySelector('.aicom-t');
-  t.addEventListener('blur',()=>{ const st2=comStore(); st2[sig]={t:t.innerHTML, ts:Date.now()}; comSave(st2); });
+  t.addEventListener('blur',()=>{ const st2=comStore(); st2[sig]={t:t.innerHTML, ts:Date.now()};
+    if(st2[base]&&st2[base].t!=null) st2[base]={t:t.innerHTML, ts:Date.now()};
+    comSave(st2); });
+  host.querySelector('.aicom-k').addEventListener('click',()=>{
+    const st2=comStore();
+    if(st2[base]&&st2[base].t!=null) delete st2[base];
+    else { st2[base]={t:t.innerHTML, ts:Date.now()}; st2[sig]={t:t.innerHTML, ts:Date.now()}; }
+    comSave(st2); aiComment(host, sig, gen);
+  });
   host.querySelector('.aicom-r').addEventListener('click',()=>{
-    const st2=comStore(); delete st2[sig]; comSave(st2);
-    try{ t.innerHTML=gen(); }catch(e){}
+    const st2=comStore(); delete st2[sig]; delete st2[base]; comSave(st2);
+    aiComment(host, sig, gen);
   });
 }
 function comText(hostId){
@@ -1711,7 +1728,8 @@ function widgetCommentaryHtml(w){
 }
 function widgetCommentText(w){
   const st=comStore(); const sig=widgetComSig(w);
-  let html=st[sig]&&st[sig].t;
+  const lk=st[comLockKey(sig)];
+  let html=(lk&&lk.t!=null)? lk.t : (st[sig]&&st[sig].t);
   if(html==null){ try{ html= w.type==='chart'? chartCommentaryHtml({...w.cfg}) : widgetCommentaryHtml(w); }catch(e){ html=''; } }
   const d=document.createElement('div'); d.innerHTML=html||'';
   return d.textContent.trim();
