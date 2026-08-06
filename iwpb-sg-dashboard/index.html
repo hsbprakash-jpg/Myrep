@@ -3415,9 +3415,12 @@ function simRuleNote(r){
       : r.type==='amt'? (+r.val||0)*sgn
       : ((+r.val||0)*sgn*months.length - base);
     const dir= eff>0? 'raises the forecast' : eff<0? 'lowers the forecast' : 'no change';
-    return `<div class="rnote">${match.length.toLocaleString()} row${match.length>1?'s':''} · `+
+    const oddSign= simCostScope(r) && base>0;
+    return `<div class="rnote${oddSign?' warn':''}">${match.length.toLocaleString()} row${match.length>1?'s':''} · `+
       `${esc(MON_LBL[months[0].m])}–${esc(MON_LBL[months[months.length-1].m])} base ${fmt(base)} `+
-      `→ impact <b>${fmt(eff)}</b> ${esc(cfgUnit())} · ${dir}</div>`;
+      `→ impact <b>${fmt(eff)}</b> ${esc(cfgUnit())} · ${dir}`+
+      (oddSign?' · ⚠ this cost line is stored as a positive number in the file, so an increase adds to the total':'')+
+      `</div>`;
   }catch(e){ return ''; }
 }
 function simNewRule(){
