@@ -328,7 +328,7 @@ main{flex:1;min-width:0;padding:14px 20px}
 .whead h5{margin:0;font-size:12.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .whead button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:1px 5px;border-radius:3px}
 .whead button:hover{color:var(--text-primary);background:color-mix(in srgb, var(--text-primary) 8%, transparent)}
-.wbody{padding:12px 14px;position:relative;overflow-x:auto}
+.wbody{padding:12px 14px;position:relative;min-width:0}
 .wbody .val{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
 .widget.dragging{opacity:.4}
 .widget.dropover{outline:2px dashed var(--hsbc-red);outline-offset:2px}
@@ -458,14 +458,15 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .card .tval.negnum,.trio .tv.negnum,#kpiNav .v,.widget .val.negnum{color:var(--text-primary)}
 .legend .swl{display:inline-block;width:20px;height:0;margin-right:6px;vertical-align:middle}
 .card.dragtgt{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
-.aicom{margin-top:8px;border:1px dashed var(--border);border-left:3px solid var(--hsbc-red);border-radius:8px;background:var(--surface-2);padding:7px 11px}
+.aicom{margin-top:8px;border:1px dashed var(--border);border-left:3px solid var(--hsbc-red);border-radius:8px;background:var(--surface-2);padding:7px 11px;max-width:100%;overflow:hidden}
 .aicom-h{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:5px;gap:10px}
 .aicom-r,.aicom-k,.aicom-p{background:var(--fold-bg);border:none;color:var(--fold-red);cursor:pointer;
   font:inherit;font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;letter-spacing:.5px;text-transform:uppercase}
 .aicom-r:hover,.aicom-k:hover,.aicom-p:not([disabled]):hover{background:var(--fold-bg-h);text-decoration:none}
 .aicom-p[disabled]{opacity:.45;cursor:default}
 .aicom-btns{display:flex;gap:8px;flex-shrink:0}
-.aicom-t{font-size:12.5px;line-height:1.55;color:var(--text-secondary);outline:none;min-height:18px}
+.aicom-t{font-size:12.5px;line-height:1.55;color:var(--text-secondary);outline:none;min-height:18px;
+  overflow-wrap:anywhere;word-break:normal;white-space:normal}
 .aicom-t b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 .aicom-t:focus{background:var(--surface-1);border-radius:4px}
 .aicom-note{color:var(--text-muted);font-size:10.5px}
@@ -2988,6 +2989,10 @@ function buildChartEl(cfg){
     html=`<div class="scroll-x"><svg width="${W+P}" height="${H}" viewBox="${-P} 0 ${W+P} ${H}" role="img" aria-label="Column chart">${svg}</svg></div>`+segLegend(segNames);
   }
 
+  // charts scale down to the container: no horizontal scrolling until they would
+  // become unreadable, at which point .scroll-x takes over
+  html=html.replace(/<svg width="(\d+(?:\.\d+)?)" height="(\d+(?:\.\d+)?)"/g,
+    (mm,w0,h0)=>`<svg width="${w0}" height="${h0}" style="width:100%;height:auto;max-width:${w0}px;min-width:${Math.min(+w0,430)}px"`);
   wrap.innerHTML=html+notes.map(n=>`<p class="note">${esc(n)}</p>`).join('');
   return wrap;
 }
