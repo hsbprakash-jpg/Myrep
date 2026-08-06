@@ -472,6 +472,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom-t b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 .aicom-t:focus{background:var(--surface-1);border-radius:4px}
 .aicom-note{color:var(--text-muted);font-size:10.5px}
+.ctxnote{color:var(--text-muted);font-size:10.5px;margin:6px 0 0;font-style:italic}
 .ctable{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:4px}
 .ctable.autofit{width:auto;min-width:380px;max-width:100%}
 .ctable.autofit td:first-child{min-width:120px;padding-right:40px}
@@ -1714,7 +1715,7 @@ function aiComment(host, sig, gen){
   if(!text){ host.innerHTML=''; return; }
   const prev=st['prev:'+base];
   const canRetrieve=!!(prev&&prev.t!=null&&prev.t!==text);
-  host.innerHTML=`<div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · kept':'AI commentary · click text to edit'}</span>
+  host.innerHTML=`<p class="ctxnote">${esc(filterNote())}</p><div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · kept':'AI commentary · click text to edit'}</span>
       <span class="aicom-btns">
       <button class="aicom-p" type="button"${canRetrieve?'':' disabled'} title="${canRetrieve?'Bring back the manual commentary that was written before':'Nothing to retrieve yet — a copy is kept whenever your text is replaced'}">⤺ ${esc(cfgL('btn_retrieve')||'Retrieve')}</button>
       <button class="aicom-r" type="button" title="Discard your edits and rebuild the AI commentary from the current data">↺ ${esc(cfgL('btn_regen')||'Regenerate')}</button></span></div>
@@ -1778,7 +1779,7 @@ function widgetCommentaryHtml(w){
   if(k.outlook!=null&&L.mode!=='py') out+=` Full-year outlook <b>${fmt(k.outlook)}</b>${k.target!=null?` vs target ${fmt(k.target)} (${fmt(k.varTgt)})`:''}.`;
   const dt=driverFor(nm);
   if(dt) out=`<span class="drvlead"><b>${esc(nm)}</b> — ${esc(dt)}.</span> `+out;
-  return out+` <span class="aicom-note">${esc(filterNote())}</span>`;
+  return out;
 }
 function widgetCommentText(w){
   const st=comStore(); const sig=widgetComSig(w);
@@ -1841,7 +1842,7 @@ function chartCommentaryHtml(cfg){
     drvLead='<span class="drvlead">'+dnotes.map(x2=>
       `<b>${esc(x2.c.name)}</b> — ${esc(x2.t)}`).join('. ')+'.</span> ';
   }
-  return drvLead+out+` <span class="aicom-note">${esc(measureLabel(cfg.measure))} · ${esc(filterNote())}</span>`;
+  return drvLead+out;
 }
 let TILE_DRAG=null, TILE_ALL=[];
 function tileOrderGet(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_tileorder')||'[]'); }catch(e){ return []; } }
@@ -2062,7 +2063,7 @@ function renderSummary(){
         h2+=` Hitting target needs the remaining <b>${rem}</b> months to average <b>${fmt(req)}</b> — <b>${fmtPct(gap)}</b> vs the current run-rate of <b>${fmt(cur)}</b>/month.`;
       }
     }
-    return h2+` <span class="aicom-note">${esc(filterNote())}</span>`;
+    return h2;
   });
 
   // attention required — anything not green
@@ -3612,7 +3613,7 @@ function renderSim(){
         : `swings the position vs the FY target from a <b>${fmt(t.baseVar)}</b> surplus to a <b>${fmt(t.simVar)}</b> shortfall`;
       h2+=` It ${gapTxt} — the simulated position lands <b>${fmtPct(t.simVarPct)}</b> vs target <b>${fmt(t.target)}</b>.`;
     } else if(t.target!=null) h2+=` The simulated position lands <b>${fmtPct(t.simVarPct)}</b> vs the FY target of <b>${fmt(t.target)}</b>.`;
-    return h2+` <span class="aicom-note">${esc(filterNote())}</span>`;
+    return h2;
   });
 }
 /* ================= MI Assistant — governed Q&A ================= */
