@@ -3398,6 +3398,9 @@ function saveSimCur(){ try{ localStorage.setItem('iwpbsg_sim_cur',JSON.stringify
 function simStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_sims')||'{}'); }catch(e){ return {}; } }
 function simStoreSet(o){ try{ localStorage.setItem('iwpbsg_sims',JSON.stringify(o)); }catch(e){} }
 function simFcMonths(){ return S.model? S.model.cyMonths.filter(p=>p.fc) : []; }
+function simCostScope(ru){
+  try{ return !!(ru&&ru.dim&&ru.val2&&RE_COST.test(String(ru.val2))); }catch(e){ return false; }
+}
 /* what a rule actually touches — makes a small or zero impact self-explanatory */
 function simRuleNote(r){
   try{
@@ -3407,12 +3410,14 @@ function simRuleNote(r){
     if(!match.length) return '<div class="rnote warn">⚠ no rows match this scope under the current filters — this rule changes nothing</div>';
     if(!months.length) return '<div class="rnote warn">⚠ no forecast months in this range — this rule changes nothing</div>';
     const base=sumCols(match, months.map(p=>p.col));
+    const sgn=(simCostScope(r)&&base<0)? -1 : 1;
     const eff= r.type==='pct'? base*(+r.val||0)/100
-      : r.type==='amt'? (+r.val||0)
-      : ((+r.val||0)*months.length - base);
+      : r.type==='amt'? (+r.val||0)*sgn
+      : ((+r.val||0)*sgn*months.length - base);
+    const dir= eff>0? 'raises the forecast' : eff<0? 'lowers the forecast' : 'no change';
     return `<div class="rnote">${match.length.toLocaleString()} row${match.length>1?'s':''} · `+
       `${esc(MON_LBL[months[0].m])}–${esc(MON_LBL[months[months.length-1].m])} base ${fmt(base)} `+
-      `→ impact <b>${fmt(eff)}</b> ${esc(cfgUnit())}</div>`;
+      `→ impact <b>${fmt(eff)}</b> ${esc(cfgUnit())} · ${dir}</div>`;
   }catch(e){ return ''; }
 }
 function simNewRule(){
@@ -3438,13 +3443,16 @@ function computeSim(rules){
         for(const r of match) sv.get(r)[p.col]*=(1+val/100);
       } else {
         const tot=match.reduce((s2,r)=>s2+(sv.get(r)[p.col]||0),0);
+        // a cost line stored as a negative takes the amount in its own direction
+        const sgn=(simCostScope(ru)&&tot<0)? -1 : 1;
         if(ru.type==='amt'){
-          const per=val/months.length;
+          const per=val*sgn/months.length;
           for(const r of match){ const cur=sv.get(r)[p.col]||0;
             sv.get(r)[p.col]=cur+(tot? per*cur/tot : per/match.length); }
         } else if(ru.type==='setm'){
+          const tgt=val*sgn;
           for(const r of match){ const cur=sv.get(r)[p.col]||0;
-            sv.get(r)[p.col]= tot? val*cur/tot : val/match.length; }
+            sv.get(r)[p.col]= tot? tgt*cur/tot : tgt/match.length; }
         }
       }
     }
