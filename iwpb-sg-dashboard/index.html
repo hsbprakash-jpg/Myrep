@@ -3425,9 +3425,13 @@ function simRuleNote(r){
       : r.type==='amt'? (+r.val||0)
       : ((+r.val||0)*months.length - base);
     const dir= eff>0? 'raises the forecast' : eff<0? 'lowers the forecast' : 'no change';
+    const fmtS=v=>{ if(v==null) return '\u2013';
+      if(Math.abs(v)>0&&Math.abs(v)<10){ const t=(Math.round(Math.abs(v)*10)/10).toFixed(1);
+        return v<0? '('+t+')' : t; }
+      return fmt(v); };
     return `<div class="rnote">${match.length.toLocaleString()} row${match.length>1?'s':''} · `+
       `${esc(MON_LBL[months[0].m])}–${esc(MON_LBL[months[months.length-1].m])} forecast base ${fmt(base)} `+
-      `→ impact <b>${fmt(eff)}</b> ${esc(cfgUnit())} · ${dir}`+
+      `→ impact <b>${fmtS(eff)}</b> ${esc(cfgUnit())} · ${dir}`+
       (fyNow!=null? ` · FY ${fmt(fyNow)} → <b>${fmt(fyNow+eff)}</b>`:'')+`</div>`;
   }catch(e){ return ''; }
 }
@@ -3615,10 +3619,10 @@ function renderSim(){
       <span class="rlbl">Adjustment</span>
       <select class="rtype">
         <option value="pct"${r.type==='pct'?' selected':''}>% change</option>
-        <option value="amt"${r.type==='amt'?' selected':''}>Add amount (total)</option>
-        <option value="setm"${r.type==='setm'?' selected':''}>Set monthly total</option>
+        <option value="amt"${r.type==='amt'?' selected':''}>Add amount (${esc(cfgUnit())})</option>
+        <option value="setm"${r.type==='setm'?' selected':''}>Set monthly total (${esc(cfgUnit())})</option>
       </select>
-      <input class="rv" type="number" step="any" value="${r.val}">
+      <input class="rv" type="number" step="any" value="${r.val}" title="${r.type==='pct'?'Percentage change':'Amount in '+esc(cfgUnit())+' — the same units as the figures in the file'}">
       <span class="rlbl">from</span><select class="rfrom">${mOpt(r.from)}</select>
       <span class="rlbl">to</span><select class="rto">${mOpt(r.to)}</select>
       <button class="rx" title="Remove rule" aria-label="Remove rule">✕</button>
