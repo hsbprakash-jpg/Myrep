@@ -69,24 +69,6 @@ A single header row with:
   (actuals, prior forecast, simulated forecast) and a per-Level-1 impact
   table, with Excel export. Scenarios save by name (localStorage) for
   reload; the work-in-progress scenario survives refreshes.
-- **Report Mission** — a saved reporting brief the agent executes on
-  demand, in the AI-agent "mission" pattern: an editable mission (title,
-  drill dimension, section toggles) generates a five-section executive
-  variance report — Executive Summary (Level-1 KPI table with RAG),
-  Variance by product line (chart), Revenue and Cost Drivers Overview
-  (ranked variance table with share-of-variance), Drill-Down on the top
-  mover (monthly profile), and an Executive Conclusion (key insight,
-  offsetting factor, recommended focus with required run-rate). Every
-  section carries editable AI commentary, and the whole report exports to
-  Excel (a sheet per section) and PPT (a slide per section). Computed
-  deterministically in the browser on the standard comparison basis; the
-  mission definition persists locally. The brief also holds **drivers** —
-  known business explanations keyed to a line or dimension value (e.g.
-  `Loans → mortgage repricing +50bps`) — which the AI commentary weaves
-  into its narrative wherever that line surfaces as a mover: in the
-  mission sections, Mix analysis, the chart builder and pinned dashboard
-  charts. Drivers can be typed in the brief or shipped in the config
-  file's `Drivers` section (Key = line or value, Value = driver note).
 - **Data** — the filtered source rows, paginated with search.
 
 Clicking a KPI card (or a KPI in the left pane) focuses the **Mix
@@ -119,7 +101,13 @@ filter for EVERY dimension column in the file — each column expands to its dis
 with All/None shortcuts and a search box for long lists, and any
 combination applies to every view, chart and export. Below that, an
 Output fields section with checkboxes chooses which dimension columns and
-period column groups appear in the Data view and in Excel exports. RAG compares YTD actuals with the same
+period column groups appear in the Data view and in Excel exports, and a
+**Drivers** section holds known business drivers — a line or dimension
+value plus its explanation (e.g. `Loans → mortgage repricing +50bps`) —
+which the AI commentary weaves into its narrative wherever that line
+surfaces as a mover (Mix analysis, chart builder, pinned dashboard
+charts). Drivers can be typed in the pane or shipped in the config file's
+`Drivers` section (Key = line or value, Value = driver note). RAG compares YTD actuals with the same
 prior-year months: green at or above prior year, amber within the selected
 tolerance below, red beyond it. Ratings are direction-aware — an increase
 in revenue rates Favourable while an increase in costs or ECL rates
@@ -162,7 +150,7 @@ What each section governs:
   appears in the left-pane filters (`Extra1` = Y/N) and whether it is
   offered as a simulation rule scope (`Extra2` = Y/N).
 - **Views** — enable/disable each page (summary, custom, builder, query,
-  table, assist, sim, mission).
+  table, assist, sim).
 
 The applied config persists in the browser and re-parses the cached data
 file immediately; **Reset to defaults** reverts everything. Blank values
