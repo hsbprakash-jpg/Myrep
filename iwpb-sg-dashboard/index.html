@@ -704,6 +704,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <select id="wType" aria-label="Widget type">
         <option value="card">KPI card</option>
         <option value="trend">Monthly trend</option>
+        <option value="traj">YTD actuals vs forecast</option>
         <option value="l3">MICA L3 breakdown</option>
         <option value="products">Product breakdown</option>
       </select>
@@ -1277,6 +1278,18 @@ function fcBasis(m){
 }
 /* comparison series for monthly trend visuals — same basis everywhere:
    prior year when present, else the phased forecast, else the phased target */
+function trajSeries(k,m){
+  const cum=ser=>{ let acc=0; return ser.map(p2=>({m:p2.m, fc:p2.fc, val:(acc+=(p2.val||0))})); };
+  const act=cum(k.cySeries);
+  let cmp=[], name='';
+  if(m.pyMonths.length&&k.pySeries.length){ cmp=cum(k.pySeries); name=`YTD ${m.yearPY}`; }
+  else if(k.fyFc!=null){
+    let accW=0;
+    cmp=m.cyMonths.map(p2=>{ accW+=fcWeight(m,p2.m); return {m:p2.m, fc:false, val:k.fyFc*accW}; });
+    name='YTD forecast';
+  }
+  return {act, cmp, name};
+}
 function cmpTrend(k,m){
   // only a real prior-year series is drawn as a comparison line — the phased
   // forecast/target reference lines are intentionally omitted
@@ -2432,6 +2445,19 @@ function widgetAOA(w){
   }
   const rows=widgetRows(w.l2), name=w.l2||'Total (all KPIs)';
   if(w.type==='trend') return trendAOA(rows, name+' — monthly trend');
+  if(w.type==='traj'){
+    const m2=S.model, k2=kpi(rows,m2,S.ytdM,S.includeFC), tj=trajSeries(k2,m2);
+    const aoa=[[name+' — YTD actuals vs forecast'],[filterNote()],[],
+      ['Month',`Cumulative YTD ${m2.yearCY}`,...(tj.cmp.length?[`Cumulative ${tj.name}`]:[])]];
+    for(let mi=0;mi<12;mi++){
+      const a=tj.act.find(p2=>p2.m===mi), c=tj.cmp.find(p2=>p2.m===mi);
+      if(!a&&!c) continue;
+      aoa.push([MON_LBL[mi]+(a&&a.fc?' (FC)':''), a?a.val:null, ...(tj.cmp.length?[c?c.val:null]:[])]);
+    }
+    const txt=widgetCommentText(w);
+    if(txt){ aoa.push([]); aoa.push(['AI commentary']); aoa.push([txt]); }
+    return aoa;
+  }
   if(w.type==='l3') return breakdownAOA(rows,'micaL3', name+' — MICA Level 3 breakdown');
   if(w.type==='products') return breakdownAOA(rows,'prodL2', name+' — product breakdown');
   const m=S.model, k=kpi(rows,m,S.ytdM,S.includeFC);
@@ -3815,7 +3841,7 @@ function render(){
 }
 
 /* ================= dynamic dashboard (drag & drop) ================= */
-const WTYPES={card:'KPI card', trend:'Monthly trend', l3:'MICA L3 breakdown', products:'Product breakdown', chart:'Custom chart'};
+const WTYPES={card:'KPI card', trend:'Monthly trend', traj:'YTD actuals vs forecast', l3:'MICA L3 breakdown', products:'Product breakdown', chart:'Custom chart'};
 let widgetSeq=0;
 let dashPage=1;
 function newWidgetId(){ return 'w'+(++widgetSeq)+'_'+Math.floor(Math.random()*1e6); }
@@ -3928,6 +3954,13 @@ function renderCustom(){
         <div class="row" style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
           <span class="delta">${subw}</span>${hidew?'':ragPill(rgw)}</div>
         <div style="margin-top:8px">${cviz}</div>`;
+    } else if(w.type==='traj'){
+      const tj=trajSeries(k,m);
+      const hasFCw=k.cySeries.some(p2=>p2.fc);
+      body=`<div class="legend"><span><span class="swl" style="border-top:3px solid var(--series-1)"></span>YTD actuals</span>`+
+        (hasFCw?`<span><span class="swl" style="border-top:3px dashed var(--series-1)"></span>YTD outlook (forecast months)</span>`:'')+
+        (tj.cmp.length?`<span><span class="swl" style="border-top:3px solid var(--series-2)"></span>${esc(tj.name)}</span>`:'')+
+        `</div><div class="chart-wrap wchart"></div>`;
     } else if(w.type==='trend'){
       const ct=cmpTrend(k,m);
       body=`<div class="legend"><span><span class="sw" style="background:var(--series-1)"></span>${esc(m.yearCY)} actual</span>`+
@@ -3960,6 +3993,14 @@ function renderCustom(){
       csel.addEventListener('pointerup',()=>headC.setAttribute('draggable','true'));
       csel.addEventListener('mouseleave',()=>headC.setAttribute('draggable','true'));
       csel.addEventListener('change',()=>{ w.ctype=csel.value; saveWidgets(); renderCustom(); });
+    }
+    if(rows.length && w.type==='traj'){
+      const tj=trajSeries(k,m), Lw=cmpLabels(m), annW=[];
+      const lastA=tj.act.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM).pop();
+      if(lastA&&k.cmpVar!=null)
+        annW.push({m:lastA.m, val:lastA.val, color:(k.favVarPct==null?0:k.favVarPct)>=0?'#0b7a0b':'#c21a1a',
+          text:`${k.cmpVar>=0?'+':''}${fmt(k.cmpVar)} (${fmtPct(k.cmpVarPct)})\nvs ${Lw.mode==='py'?'PY':'Fcst'}`});
+      trendChart(div.querySelector('.wchart'), tj.act, tj.cmp, m.yearCY, tj.name, 'line', annW);
     }
     if(rows.length && w.type==='trend'){
       const ctw=cmpTrend(k,m);
@@ -4389,11 +4430,16 @@ function init(){
     for(const w of widgets){
       try{
         let png=null;
-        if(w.type==='chart'||w.type==='trend'){
+        if(w.type==='chart'||w.type==='trend'||w.type==='traj'){
           const host=document.createElement('div');
           host.style.cssText='position:absolute;left:-10000px;top:0;width:820px';
           document.body.appendChild(host); hosts.push(host);
           if(w.type==='chart') host.appendChild(buildChartEl(w.cfg));
+          else if(w.type==='traj'){
+            const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC), tj=trajSeries(k,m);
+            const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
+            trendChart(div, tj.act, tj.cmp, m.yearCY, tj.name, 'line');
+          }
           else if((w.ttype||'line')!=='table'){
             const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
             const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
