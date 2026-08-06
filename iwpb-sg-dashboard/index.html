@@ -157,15 +157,24 @@ aside.side .sect.sect-fold{color:var(--fold-red);background:var(--fold-bg);
   border-left:3px solid var(--hsbc-red);transition:background .15s}
 aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 .unitsfx{font-weight:600;color:var(--text-muted);font-size:.72em}
-#drvPanel .drvrow{display:grid;grid-template-columns:1fr 24px;gap:4px 4px;margin:7px 14px 0 18px;align-items:center}
+#drvPanel .drvrow{display:grid;grid-template-columns:1fr 24px;gap:4px 4px;margin:7px 14px 0 18px;align-items:center;position:relative}
 #drvPanel .drvrow .drv-t{grid-column:1 / span 2}
-#drvPanel input[type=text]{font:inherit;font-size:11.5px;padding:4px 7px;border:1px solid var(--border-strong);border-radius:4px;background:var(--surface-2);color:var(--text-primary);min-width:0;width:100%}
+#drvPanel input[type=text]{font:inherit;font-size:11.5px;padding:5px 8px;border:1px solid var(--border-strong);
+  border-radius:5px;background:var(--surface-2);color:var(--text-primary);min-width:0;width:100%;outline:none}
+#drvPanel input[type=text]:focus{border-color:var(--hsbc-red);box-shadow:0 0 0 2px var(--fold-bg)}
 #drvPanel .drv-x{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0}
 #drvPanel .drv-x:hover{color:var(--hsbc-red)}
 #drvPanel .drvhint{grid-column:1 / span 2;font-size:10px;color:var(--status-good);margin-top:1px}
 #drvPanel .drvhint.warn{color:#b57a00}
-#drvPanel select.drv-n{font:inherit;font-size:11.5px;padding:4px 5px;border:1px solid var(--border-strong);
-  border-radius:4px;background:var(--surface-2);color:var(--text-primary);min-width:0;width:100%}
+#drvPanel .drv-dd{position:absolute;top:31px;left:0;right:28px;z-index:40;background:var(--surface-2);
+  border:1px solid var(--border-strong);border-radius:7px;box-shadow:0 8px 22px rgba(0,0,0,.16);
+  max-height:250px;overflow-y:auto;padding:3px 0}
+#drvPanel .drv-dg{font-size:9.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+  color:var(--fold-red);background:var(--fold-bg);padding:3px 10px;margin-top:2px}
+#drvPanel .drv-dg:first-child{margin-top:0}
+#drvPanel .drv-di{font-size:11.5px;padding:5px 10px 5px 14px;cursor:pointer;color:var(--text-primary);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#drvPanel .drv-di:hover,#drvPanel .drv-di.act{background:color-mix(in srgb, var(--hsbc-red) 8%, var(--surface-2))}
 aside.side nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
   padding:8px 18px 8px 15px;font:inherit;font-size:13px;color:var(--text-secondary);cursor:pointer;
   border-left:3px solid transparent;text-align:left}
@@ -3745,15 +3754,46 @@ function drawDrivers(){
       : mt.length? `<div class="drvhint">✓ matches: ${mt.map(esc).join(' · ')}</div>`
       : '<div class="drvhint warn">⚠ no line in the loaded data matches this name</div>';
     return `<div class="drvrow" data-i="${i}">
-      <input type="text" class="drv-n" list="drvValues" placeholder="Type to search the line / value…" value="${esc(d.name)}" title="Line or value the driver applies to — type to search">
+      <input type="text" class="drv-n" placeholder="Type to search the line / value…" value="${esc(d.name)}" autocomplete="off" title="Line or value the driver applies to — type to search">
+      <div class="drv-dd" hidden></div>
       <button class="drv-x" title="Remove driver">✕</button>
       <input type="text" class="drv-t" placeholder="Driver note — e.g. mortgage repricing +50bps" value="${esc(d.text)}">
       ${hint}</div>`;}).join('')
-    +`<datalist id="drvValues">${driverOptions().map(g=>g[1].map(v=>`<option value="${esc(v)}" label="${esc(g[0])}"></option>`).join('')).join('')}</datalist>`
     +(cfgN?`<p class="note" style="margin:5px 18px 0">${cfgN} driver${cfgN>1?'s':''} loaded from the config file.</p>`:'');
   host.querySelectorAll('.drvrow').forEach(row=>{
     const i=+row.dataset.i;
-    row.querySelector('.drv-n').addEventListener('change',e=>{ ds[i].name=e.target.value; driversSave(); drawDrivers(); render(); });
+    const inp=row.querySelector('.drv-n'), dd=row.querySelector('.drv-dd');
+    const commit=v=>{ ds[i].name=v; driversSave(); drawDrivers(); render(); };
+    const build=q=>{
+      const ql=String(q||'').trim().toLowerCase();
+      let html='', count=0;
+      for(const g of driverOptions()){
+        const hit=g[1].filter(v=>!ql||v.toLowerCase().includes(ql)).slice(0,15);
+        if(!hit.length) continue;
+        html+=`<div class="drv-dg">${esc(g[0])}</div>`+hit.map(v=>`<div class="drv-di" data-v="${esc(v)}">${esc(v)}</div>`).join('');
+        count+=hit.length; if(count>=45) break;
+      }
+      dd.innerHTML=html||'<div class="drv-dg">no matching line in the loaded data</div>';
+      dd.hidden=false; dd._act=-1;
+      dd.querySelectorAll('.drv-di').forEach(el=>el.addEventListener('mousedown',e2=>{
+        e2.preventDefault(); dd.hidden=true; inp.value=el.dataset.v; commit(el.dataset.v); }));
+    };
+    inp.addEventListener('focus',()=>build(inp.value));
+    inp.addEventListener('input',()=>build(inp.value));
+    inp.addEventListener('keydown',e2=>{
+      if(dd.hidden) return;
+      const items=[...dd.querySelectorAll('.drv-di')];
+      if(e2.key==='ArrowDown'||e2.key==='ArrowUp'){
+        e2.preventDefault();
+        dd._act=Math.max(0,Math.min(items.length-1,(dd._act<0?-1:dd._act)+(e2.key==='ArrowDown'?1:-1)));
+        items.forEach((el,ix)=>el.classList.toggle('act',ix===dd._act));
+        if(items[dd._act]) items[dd._act].scrollIntoView({block:'nearest'});
+      } else if(e2.key==='Enter'&&dd._act>=0&&items[dd._act]){
+        e2.preventDefault(); dd.hidden=true; inp.value=items[dd._act].dataset.v; commit(inp.value);
+      } else if(e2.key==='Escape'){ dd.hidden=true; }
+    });
+    inp.addEventListener('blur',()=>{ setTimeout(()=>{ dd.hidden=true; },120);
+      if(inp.value!==ds[i].name) commit(inp.value); });
     row.querySelector('.drv-t').addEventListener('change',e=>{ ds[i].text=e.target.value; driversSave(); drawDrivers(); render(); });
     row.querySelector('.drv-x').addEventListener('click',()=>{ ds.splice(i,1); driversSave(); drawDrivers(); render(); });
   });
