@@ -1701,8 +1701,12 @@ function aiComment(host, sig, gen){
     comSave(st2); aiComment(host, sig, gen);
   });
   const t=host.querySelector('.aicom-t');
+  let edited=false;
+  t.addEventListener('input',()=>{ edited=true; });
   t.addEventListener('blur',()=>{ const st2=comStore(); st2[sig]={t:t.innerHTML, ts:Date.now()};
     if(st2[base]&&st2[base].t!=null) st2[base]={t:t.innerHTML, ts:Date.now()};
+    // every real manual edit becomes the retrievable copy
+    if(edited) st2['prev:'+base]={t:t.innerHTML, ts:Date.now()};
     comSave(st2); });
   host.querySelector('.aicom-k').addEventListener('click',()=>{
     const st2=comStore();
