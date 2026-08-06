@@ -2196,14 +2196,24 @@ async function exportSummaryPPT(){
         align:'right',fontFace:'Segoe UI',fit:'shrink'});
     });
   });
+  const heroTxt=($('commentary')&&$('commentary').textContent.trim())||'';
+  if(heroTxt) slide.addText(heroTxt,{x:0.42,y:6.52,w:12.5,h:0.5,fontSize:10.5,italic:true,
+    color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
   slide.addText('IWPB Singapore Driller \u00b7 '+filterNote(),
     {x:0.42,y:7.08,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
+  const trajT=document.querySelector('#trajPanel h4');
+  await pptChartSlide(p,{title:(trajT? trajT.textContent.trim().replace(/\s+/g,' ') : 'Performance trajectory'),
+    el:$('trajPanel'), aoa:null, note:comText('trajCom')});
+  await pptChartSlide(p,{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')});
   await p.writeFile({fileName:'IWPB_SG_financial_dashboard_'+new Date().toISOString().slice(0,10)+'.pptx'});
 }
 async function exportPPT(items, name){
   const p=new PptxGenJS();
   p.layout='LAYOUT_WIDE';
-  for(const it of items){
+  for(const it of items) await pptChartSlide(p, it);
+  await p.writeFile({fileName:name+'_'+new Date().toISOString().slice(0,10)+'.pptx'});
+}
+async function pptChartSlide(p, it){
     const slide=p.addSlide();
     slide.background={color:'FFFFFF'};
     slide.addText(it.title,{x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',
@@ -2232,8 +2242,6 @@ async function exportPPT(items, name){
       color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
     slide.addText('IWPB Singapore Driller · '+filterNote(),
       {x:0.42,y:7.05,w:12.5,h:0.3,fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
-  }
-  await p.writeFile({fileName:name+'_'+new Date().toISOString().slice(0,10)+'.pptx'});
 }
 function filterNote(){
   const parts=[];
