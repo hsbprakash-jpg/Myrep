@@ -54,6 +54,14 @@ A single header row with:
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
   widescreen slide, built natively in PowerPoint.
+- **Variance period** — a left-pane selector (Period & RAG) that sets the
+  comparison every view is rated on: YTD vs PY, MoM, Month vs Target, YTD
+  vs Target, YTD vs Forecast, FY vs Target, FY vs PY. The option labels
+  are built from the selected YTD-through month, so they re-date
+  themselves — pick MAY and MoM reads *MAY-26 vs APR-26*. Tiles,
+  trajectory, Mix analysis, breakdowns, dashboard cards, the management
+  commentary, the MI Assistant and both exports all follow the selection;
+  **Auto** keeps the file's default basis (`calc_cmp_priority`).
 - **MI Assistant** — a governed Q&A page (left-pane entry): ten approved
   questions (performance, lines behind forecast, FY target, top/dragging
   products, costs, ECL, required run-rate, prior year, contribution mix)
@@ -132,8 +140,11 @@ What each section governs:
   tile label, tile grouping level (`auto`/`level1`/`level2`), collapse of
   non-priority tiles, default RAG tolerance, the regex patterns that
   recognise Forecast and Target columns, the cost/ECL direction patterns,
-  the hidden-comparison patterns for target-only files, and the My
-  dashboard page size.
+  the hidden-comparison patterns for target-only files, the My
+  dashboard page size, and `variance_periods` — the ordered list of
+  comparison bases offered in the left pane (any of `auto`, `ytd_py`,
+  `ytd_fc`, `ytd_tgt`, `mom`, `mth_py`, `mth_tgt`, `mth_fc`, `fy_tgt`,
+  `fy_py`; entries a file cannot serve are hidden automatically).
 - **Calculations** — the calculation rules themselves:
   `calc_ytd_actuals` (`column` = as-of YTD column authoritative /
   `months` = always sum months), `calc_fy_forecast` (`column` = FY
@@ -142,7 +153,9 @@ What each section governs:
   file's own monthly shape / `weights` = custom), `calc_forecast_weights`
   (12 comma-separated weights for `weights` mode, also drives the trend
   reference lines), `calc_cmp_priority` (ordered comparison basis, e.g.
-  `py,fc,tgt`), `calc_rag_green_at` (variance needed to rate Favourable,
+  `py,fc,tgt`, used when the variance period is `auto`),
+  `calc_variance_period` (the basis selected on load, e.g. `ytd_py`),
+  `calc_rag_green_at` (variance needed to rate Favourable,
   e.g. `0.02` requires +2%), `calc_rag_direction` (Y/N — direction-aware
   cost/ECL rating).
 - **TilePriority** — the ordered name patterns pinning the top KPI tiles.
