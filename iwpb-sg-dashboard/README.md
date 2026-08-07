@@ -125,6 +125,12 @@ A single header row with:
   commentary follows the same split, writing one narrative per block.
   `fsum_section_dim` on its own (without `fsum_sections`) still bands the
   table by every value of a column, ordered by `fsum_section_order`.
+
+  Without declaring statements, two simpler keys do the same job in one
+  block: `fsum_line_order` fixes the order of the top-level lines
+  (`PBT,Deposits,Loans` puts the balance-sheet lines below the P&L), and
+  `fsum_total` set to `N` removes every total row from the table, the
+  commentary and both exports.
 - **Variance period** — a left-pane selector (Period & RAG) that sets the
   comparison every view is rated on: YTD vs PY, MoM, Month vs Target, YTD
   vs Target, YTD vs Forecast, FY vs Target, FY vs PY. The option labels

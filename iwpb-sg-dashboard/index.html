@@ -1053,6 +1053,8 @@ const CFG_DEFAULT={
     fsum_sections:'',
     fsum_no_total:'',
     fsum_other_label:'Other',
+    fsum_total:'Y',
+    fsum_line_order:'',
     fsum_levels:'',
     fsum_ow:'Y',
     fsum_total_label:''
@@ -3974,14 +3976,22 @@ function fsumTree(rows){
   const ow=cfgYes('fsum_ow')? 'o/w ' : '';
   const m=S.model, out=[];
   const size=rs=>Math.abs(kpi(rs,m,S.ytdM,S.includeFC).cy||0);
-  const ordered=map=>{
+  const ordered=(map,top)=>{
     const arr=[...map.entries()];
+    const want=top? cfgS('fsum_line_order').split(/[,;|]/).map(x=>x.trim().toLowerCase()).filter(Boolean) : [];
+    if(want.length){
+      const named=[], rest2=[...arr];
+      for(const w of want){ const i=rest2.findIndex(([n])=>String(n).trim().toLowerCase()===w);
+        if(i>=0) named.push(rest2.splice(i,1)[0]); }
+      rest2.sort((a,b)=>size(b[1])-size(a[1]));
+      return [...named,...rest2];
+    }
     const prio=[], rest=[...arr];
     for(const rx of PRIO_RES){ const i=rest.findIndex(([n])=>rx.test(n)); if(i>=0) prio.push(rest.splice(i,1)[0]); }
     rest.sort((a,b)=>size(b[1])-size(a[1]));
     return [...prio,...rest];
   };
-  for(const [n1,rs1] of ordered(groupBy(rows,L1))){
+  for(const [n1,rs1] of ordered(groupBy(rows,L1), true)){
     const g2=L2? ordered(groupBy(rs1,L2)) : [];
     const skip2=g2.length<=1;   // a lone child repeats its parent — show it once
     if(!skip2) for(const [n2,rs2] of g2){
@@ -4092,7 +4102,7 @@ function renderFsum(){
   const nCols=1+nMon+4+4+5;
   const secs=fsumSections(rows);
   const tree=secs.flatMap(sec=>[{band:sec.label}, ...fsumTree(sec.rows),
-    ...((!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
+    ...((cfgYes('fsum_total')&&!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
       name:secs.length>1? `Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`
         : (cfgS('fsum_total_label')||totalLabel(l1Names(sec.rows)))}] : [])]);
   let body='';
@@ -4145,7 +4155,7 @@ function fsumCommentary(rows,m,P){
     const one=fsumTopCount(sec.rows)===1;
     // a block of one line speaks as that line; a block of several as itself,
     // unless adding its lines together would mean nothing
-    if(one||!sec.noTotal){
+    if(one||(!sec.noTotal&&cfgYes('fsum_total'))){
       const nm=one? [...groupBy(sec.rows, fsumLevels()[0]).keys()][0] : `Total ${sec.name}`;
       return fsumBlockText(nm, sec.rows, m, P, fsumMovers(sec.rows,m,P));
     }
@@ -4175,7 +4185,7 @@ function fsumAOA(){
   for(const sec of fsumSections(rows)){
     aoa.push([sec.label]);
     for(const r of fsumTree(sec.rows)) aoa.push(fsumAoaRow(r,m,P));
-    if(!sec.noTotal&&fsumTopCount(sec.rows)>1)
+    if(cfgYes('fsum_total')&&!sec.noTotal&&fsumTopCount(sec.rows)>1)
       aoa.push(fsumAoaRow({name:`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`, rows:sec.rows, lvl:0},m,P));
   }
   return aoa;
