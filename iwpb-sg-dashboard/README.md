@@ -136,7 +136,11 @@ A single header row with:
   matched by `balance_sheet_patterns` are treated as stocks throughout:
   month, QTD, YTD and FY are closing balances, and target/forecast
   baselines are the full-year columns as-is, never phased fractions or
-  summed months. A **Full Year band** closes the table — the live FY
+  summed months, and they read in **billions** while the P&L stays in the
+  file's unit — the table splits into a `P&L (US$m)` and a
+  `Balance Sheet (US$bn)` band automatically, and the commentary, Excel,
+  PPT and Word exports follow (`bs_unit` names the balance unit, blank
+  switches it off; `fsum_bs_label` names the band). A **Full Year band** closes the table — the live FY
   forecast (Jan–Dec actuals + forecast months) with variance in currency
   and percent vs the prior forecast column, the FY target and prior-year
   actuals — so once the selected month crosses the last actual and the
