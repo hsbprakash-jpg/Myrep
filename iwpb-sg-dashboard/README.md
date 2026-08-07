@@ -82,7 +82,11 @@ A single header row with:
   performance trajectory redraws with it: a month-level basis (MoM, Month
   vs Target) plots the monthly shape, a YTD or FY basis the cumulative
   path, each against the base the period names — prior-year, phased
-  forecast or phased target.
+  forecast or phased target. Mix analysis, the chart builder and pinned
+  dashboard charts re-size on the period too, until a measure is picked by
+  hand — that choice then sticks. Month-by-month visuals (the Monthly
+  trend widget, the mini-charts under KPI cards, the YTD actuals vs
+  forecast widget) stay monthly by definition and do not re-base.
 - **MI Assistant** — a governed Q&A page (left-pane entry): ten approved
   questions (performance, lines behind forecast, FY target, top/dragging
   products, costs, ECL, required run-rate, prior year, contribution mix)

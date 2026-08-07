@@ -2008,7 +2008,7 @@ function comText(hostId){
 }
 function widgetComSig(w){
   const c=w.cfg||{};
-  return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,c.measure,c.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig();
+  return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,effMeasure(c),c.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig();
 }
 function widgetCommentaryHtml(w){
   const m=S.model, rows=widgetRows(w.l2), L=cmpLabels(m);
@@ -2044,6 +2044,7 @@ function widgetCommentText(w){
   return d.textContent.trim();
 }
 function chartCommentaryHtml(cfg){
+  cfg=cfgEff(cfg);
   const {cats, segNames, paired, cmpName}=chartData(cfg);
   if(!cats.length) return '';
   const dim=fieldLabels(cfg.groupBy);
@@ -2742,6 +2743,7 @@ function breakdownAOA(rows, key, label){
   return aoa;
 }
 function chartAOA(cfg){
+  cfg=cfgEff(cfg);
   const {cats, segNames, paired}=chartData(cfg);
   const dim=fieldLabels(cfg.groupBy);
   const aoa=[[chartTitle(cfg)],[filterNote()],[]];
@@ -2905,7 +2907,7 @@ function scopeFilter(rows, sc){
 }
 function scopeName(sc){ return !sc? 'Total (all KPIs)' : String(sc).startsWith('l1:')? String(sc).slice(3) : String(sc); }
 function chartTitleBase(cfg){
-  return `${cfg.l2?scopeName(cfg.l2):'Total'} · ${measureLabel(cfg.measure)} by ${fieldLabels(cfg.groupBy)}`+
+  return `${cfg.l2?scopeName(cfg.l2):'Total'} · ${measureLabel(effMeasure(cfg))} by ${fieldLabels(cfg.groupBy)}`+
     (gArr(cfg.splitBy).length?` / ${fieldLabels(cfg.splitBy)}`:'');
 }
 function chartTitle(cfg){ return chartTitleBase(cfg)+` (${cfgUnit()})`; }
@@ -2939,7 +2941,13 @@ function typeOptions(cur, allowed){
     .map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('');
 }
 const SPLIT_TYPES=new Set(['column','hbar','table']);
+function effMeasure(cfg){
+  if(cfg&&cfg.mUser) return cfg.measure;
+  return measureOpts().includes('basis')? 'basis' : ((cfg&&cfg.measure)||'cy');
+}
+function cfgEff(cfg){ return {...cfg, measure:effMeasure(cfg)}; }
 function chartData(cfg){
+  cfg=cfgEff(cfg);
   const m=S.model;
   let rows=filteredRows();
   rows=scopeFilter(rows,cfg.l2);
