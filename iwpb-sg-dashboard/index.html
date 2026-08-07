@@ -583,6 +583,8 @@ table.fsum tr.band td{background:var(--hsbc-red);color:#fff;font-weight:700;text
 table.fsum tr.band td.nm{background:var(--hsbc-red);color:#fff}
 table.fsum tr:hover td:not(.nm){background:color-mix(in srgb, var(--series-1) 7%, transparent)}
 table.fsum .mut{color:var(--text-muted)}
+.aicom-t .fa-f{color:var(--status-good)}
+.aicom-t .fa-a{color:var(--status-critical)}
 table.fsum .up{color:#0b7a0b}
 table.fsum .dn{color:#c21a1a}
 .rvwwrap{max-height:600px;overflow:auto;border:1px solid var(--border);border-radius:6px}
@@ -1053,6 +1055,7 @@ const CFG_DEFAULT={
     commentary_format:'slide',
     commentary_note:'ex notables',
     commentary_headline:'FY Forecast',
+    commentary_fa_colours:'Y',
     commentary_drivers:'5',
     fsum_title:'Singapore: Financial Summary',
     fsum_section_label:'P&L',
@@ -2538,7 +2541,7 @@ function slVar(k){
   if(k.cmpVar==null) return 'n/a';
   const fav=(k.favVarPct==null? (k.cmpVar>=0) : k.favVarPct>=0);
   const p=k.cmpVarPct==null? '' : ' / '+fmtPct(Math.abs(k.cmpVarPct)).replace('+','');
-  return `<b>${slAmt(k.cmpVar)}${fav?'F':'A'}</b>${p}`;
+  return `<b${faCls(fav)}>${slAmt(k.cmpVar)}${fav?'F':'A'}</b>${p}`;
 }
 function slDrivers(rows, dimKey, n){
   const ds=houseDrivers(rows, dimKey, n);
@@ -2608,11 +2611,14 @@ function houseDimKey(){
 }
 let HOUSE_DIM=null;
 /* variance in house notation: 200 A / 21.2%  (F favourable, A adverse) */
+function faCls(fav){
+  return cfgYes('commentary_fa_colours')? ` class="${fav?'fa-f':'fa-a'}"` : '';
+}
 function faTxt(k){
   if(k.cmpVar==null) return 'n/a';
   const fav=(k.favVarPct==null? (k.cmpVar>=0) : k.favVarPct>=0);
   const pctTxt=k.cmpVarPct==null? '' : ' / '+fmtPct(Math.abs(k.cmpVarPct)).replace('+','');
-  return `<b>${fmt(Math.abs(k.cmpVar))}${fav?'F':'A'}</b>${pctTxt}`;
+  return `<b${faCls(fav)}>${fmt(Math.abs(k.cmpVar))}${fav?'F':'A'}</b>${pctTxt}`;
 }
 /* movement of the line itself: a bigger cost charge reads as "higher" even
    though the value is stored as a larger negative */
@@ -2870,7 +2876,9 @@ function docBlocks(el){
       if(n.nodeType!==1) continue;
       const tag=n.tagName.toLowerCase();
       const st2={b:st.b||tag==='b'||tag==='strong', i:st.i||tag==='i'||tag==='em',
-        u:st.u||tag==='u'};
+        u:st.u||tag==='u',
+        c:(n.classList&&n.classList.contains('fa-f'))?'0B7A0B'
+          :(n.classList&&n.classList.contains('fa-a'))?'C21A1A':st.c};
       if(tag==='br'){ acc.push({t:'\n', ...st}); continue; }
       runsOf(n, st2, acc);
     }
@@ -2905,6 +2913,7 @@ function docBlocks(el){
 }
 function docxRunXml(r){
   const props=(r.b?'<w:b/>':'')+(r.i?'<w:i/>':'')+(r.u?'<w:u w:val="single"/>':'')+
+    (r.c?`<w:color w:val="${r.c}"/>`:'')+
     '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI"/><w:sz w:val="20"/>';
   return `<w:r><w:rPr>${props}</w:rPr><w:t xml:space="preserve">${xmlEsc(r.t)}</w:t></w:r>`;
 }
@@ -4483,11 +4492,11 @@ function faOK(k, v){ return (k&&k.dirFlip)? v<=0 : v>=0; }
 /* a variance is written with its direction: 18F, (346)A */
 function faAmt(k, v){
   if(v==null) return '–';
-  return `<b>${fmtFull(Math.abs(Math.round(v)))}${faOK(k,v)?'F':'A'}</b>`;
+  return `<b${faCls(faOK(k,v))}>${fmtFull(Math.abs(Math.round(v)))}${faOK(k,v)?'F':'A'}</b>`;
 }
 function faPctTxt(k, v){
   if(v==null) return '–';
-  return `<b>${fsumPctTxt(Math.abs(v))}${faOK(k,v)?'F':'A'}</b>`;
+  return `<b${faCls(faOK(k,v))}>${fsumPctTxt(Math.abs(v))}${faOK(k,v)?'F':'A'}</b>`;
 }
 function fsumBlockText(name, rows, m, P, sub){
   const f=fsumFigs(rows,m,P,S.ytdM), k=f.k;

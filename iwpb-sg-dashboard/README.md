@@ -187,7 +187,9 @@ A single header row with:
   cascading style), `commentary_levels` sets the cascade,
   `commentary_dim` the dimension the "driven by" clauses cut by,
   `commentary_drivers` how many are named, and `commentary_headline` /
-  `commentary_note` the wording of the heading. **⤓ Word** writes the
+  `commentary_note` the wording of the heading. Every F/A figure is
+  coloured by favourability — F green, A red — in the page and in the Word
+  export alike (`commentary_fa_colours` switches it off). **⤓ Word** writes the
   commentary as it stands on the page — your edits included — to a real
   .docx, keeping the bold figures, the underlined heading and the bullets.
   The Financial Summary's own **⤓ Word** puts that page's commentary and
