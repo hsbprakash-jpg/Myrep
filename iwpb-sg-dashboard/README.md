@@ -54,6 +54,17 @@ A single header row with:
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
   widescreen slide, built natively in PowerPoint.
+- **Units** — a strip at the top of every page declaring the unit every
+  figure is stated in, with a selector. The file's own unit comes from
+  `unit_label` (e.g. `US$m`); *as reported* leaves the figures alone, and
+  `mm` / `bn` restate every figure against the chosen unit — a line of
+  11,489 US$m reads as 11.5 US$bn. Figures never carry their own `m`/`bn`
+  suffix on top of the file's unit, which would scale the same number
+  twice. Excel and PowerPoint exports follow the selection (percentages
+  and the raw driller-row export are never restated), and simulation
+  amounts are typed in whatever unit is on screen. Configurable via
+  `display_units` (the unit selected on load), `unit_options` (which are
+  offered) and `unit_decimals` (blank = 0 as reported, 1 when restated).
 - **Financial Summary** — the management-reporting layout: three column
   bands over the P&L cascade taken from the driller's own hierarchy.
   *Month* (the three months ending at the selected one, then Variance vs

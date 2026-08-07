@@ -483,6 +483,13 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom-t b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 .aicom-t:focus{background:var(--surface-1);border-radius:4px}
 .aicom-note{color:var(--text-muted);font-size:10.5px}
+.unitbar{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:5px 10px;
+  background:var(--fold-bg);border:1px solid var(--border);border-radius:5px}
+.unitbar .unitlbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;
+  font-weight:700;color:var(--fold-red)}
+.unitbar select{padding:2px 6px;border:1px solid var(--border-strong);border-radius:4px;
+  background:var(--surface-2);color:var(--text-primary);font-size:12px}
+.unitbar .unitnote{font-size:10.5px;color:var(--text-muted);font-style:italic}
 .ctxnote{color:var(--text-muted);font-size:10.5px;margin:6px 0 0;font-style:italic}
 .houselist{margin:2px 0 0 20px;padding:0}
 .houselist li{margin:3px 0;line-height:1.5}
@@ -707,6 +714,11 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 </section>
 
 <section id="dashView" hidden>
+  <div class="unitbar">
+    <span class="unitlbl" data-lbl="lbl_units">Units</span>
+    <select id="fUnits" aria-label="Units"></select>
+    <span class="unitnote" id="unitNote"></span>
+  </div>
   <div id="summaryView">
     <p class="greet" id="greetLine"></p>
     <div class="commentary" id="commentary"></div>
@@ -1015,6 +1027,9 @@ const CFG_DEFAULT={
     sim_value_width:'50',
     month_case:'upper',
     unit_label:'US$m',
+    display_units:'as',
+    unit_options:'as,mm,bn',
+    unit_decimals:'',
     calc_ytd_actuals:'column',
     calc_fy_forecast:'column',
     calc_ytd_forecast:'even',
@@ -1050,7 +1065,7 @@ const CFG_DEFAULT={
     btn_regen:'Regenerate', btn_retrieve:'Retrieve',
     drv_hint:'Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.',
     lbl_ytd:'YTD through', lbl_fc:'Include forecast month', lbl_tol:'RAG tolerance',
-    lbl_varper:'Variance period',
+    lbl_varper:'Variance period', lbl_units:'Units',
     kpi_hint:'Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card'
   }
 };
@@ -1087,7 +1102,53 @@ function deMoji(x){ return String(x)
 function cfgL(k){ const v=CFG.labels&&CFG.labels[k]; return (v==null||v==='')? (CFG_DEFAULT.labels[k]||null) : deMoji(v).trim()||null; }
 function cfgViewOn(v){ return String((CFG.views&&CFG.views[v])==null?'Y':CFG.views[v]).toUpperCase()!=='N'; }
 function cfgPage(){ return Math.max(1,parseInt(cfgS('dashboard_page_size'))||6); }
-function cfgUnit(){ const u=cfgS('unit_label'); return u&&u.trim()? u.trim() : 'US$'; }
+/* ---- units -------------------------------------------------------------
+   The file is already stated in some unit (unit_label, e.g. US$m). Figures
+   are therefore printed as they stand — no per-number "m"/"bn" suffixing on
+   top of that, which would scale the same number twice. The unit is declared
+   once at the top of the page, and switching it there restates every figure
+   against the new unit. */
+const UNIT_EXP={as:null, units:0, k:3, th:3, m:6, mm:6, bn:9, b:9};
+function unitNative(){
+  const raw=(cfgS('unit_label')||'').trim();
+  const t=raw.match(/(bn|b|mm|m|k|th)\s*$/i);
+  const tok=t? t[1].toLowerCase() : '';
+  const head=t? raw.slice(0,t.index) : raw;
+  return {raw, cur:head.trim(), sep:/\s$/.test(head)?' ':'', tok,
+    exp:(tok&&UNIT_EXP[tok]!=null)? UNIT_EXP[tok] : 0};
+}
+/* the label as written in the config for 'as reported', rebuilt on the same
+   pattern (currency, spacing) for a restated unit */
+function unitLabelFor(id){
+  const nat=unitNative();
+  if(id==='as') return nat.raw||'US$';
+  return ((nat.cur||'US$')+nat.sep+id);
+}
+function unitSel(){
+  const opts=unitOptions().map(o=>o.id);
+  const want=(typeof S!=='undefined'&&S.units)? S.units : cfgS('display_units').trim().toLowerCase();
+  return opts.includes(want)? want : 'as';
+}
+function unitOptions(){
+  const nat=unitNative();
+  const want=cfgS('unit_options').split(/[,;\s]+/).map(x=>x.trim().toLowerCase()).filter(x=>x&&UNIT_EXP[x]!==undefined);
+  const ids=want.length? want : ['as'];
+  return ids.map(id=>({id, label:id==='as'? `${unitLabelFor('as')} (as reported)` : unitLabelFor(id)}));
+}
+/* how much a figure is divided by to restate it in the selected unit */
+function unitDiv(){
+  const sel=unitSel(); if(sel==='as') return 1;
+  const nat=unitNative(), e=UNIT_EXP[sel];
+  if(e==null) return 1;
+  return Math.pow(10, e-nat.exp);
+}
+function unitDec(){
+  const d=parseInt(cfgS('unit_decimals'));
+  if(isFinite(d)&&d>=0&&d<=4) return d;
+  return unitDiv()>1? 1 : 0;   // a restated figure keeps one decimal
+}
+function uval(v){ const d=unitDiv(); return (v==null||d===1)? v : v/d; }
+function cfgUnit(){ return unitLabelFor(unitSel()); }
 /* monthly phasing weight for forecast/target: even 1/12, the file's own
    monthly profile, or custom weights from the config */
 function fcWeight(model, mi){
@@ -1555,19 +1616,13 @@ function rag(varPct, thresh){
 }
 
 /* ================= formatting ================= */
-function fmt(v){
-  if(v==null) return '–';
-  const a=Math.abs(v); let s;
-  if(a>=1e9) s=(a/1e9).toFixed(1)+'bn';
-  else if(a>=1e6) s=(a/1e6).toFixed(1)+'m';
-  else s=a.toLocaleString(undefined,{maximumFractionDigits:0});
-  return v<0? '('+s+')' : s;
+function fmtNum(v){
+  const d=unitDec(), x=uval(v);
+  const s=Math.abs(x).toLocaleString(undefined,{maximumFractionDigits:d, minimumFractionDigits:d});
+  return x<0? '('+s+')' : s;
 }
-function fmtFull(v){
-  if(v==null) return '–';
-  const s=Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:0});
-  return v<0? '('+s+')' : s;
-}
+function fmt(v){ return v==null? '–' : fmtNum(v); }
+function fmtFull(v){ return v==null? '–' : fmtNum(v); }
 function fmtCell(v){ return `<span${v!=null&&v<0?' class="negnum"':''}>${fmtFull(v)}</span>`; }
 function fmtPct(v){
   if(v==null) return '–';
@@ -1804,7 +1859,7 @@ const S = {
   model:null, fileName:'',
   filters:{},                 // dimKey -> Set of selected values (absent = all)
   outDims:new Set(), outPeriods:new Set(['pyMonths','cyMonths','quarters','ytd']),
-  ytdM:0, includeFC:false, thresh:0.05, varPeriod:'',
+  ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'',
   view:'summary', widgets:[],
 };
 const ALL_DIM_LABELS={mica:'MICA code', micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
@@ -1823,6 +1878,16 @@ function filteredRows(){
 }
 /* the variance-period selector — options and labels are rebuilt from the
    selected YTD-through month, so they re-date as the actuals month moves */
+function fillUnits(){
+  const sel=$('fUnits'); if(!sel) return;
+  const opts=unitOptions(), cur=unitSel();
+  sel.innerHTML=opts.map(o=>`<option value="${esc(o.id)}"${o.id===cur?' selected':''}>${esc(o.label)}</option>`).join('');
+  S.units=cur;
+  $('unitNote').textContent= unitDiv()===1
+    ? `all figures shown in ${cfgUnit()}, as reported in the file`
+    : `file is in ${unitLabelFor('as')} — every figure restated in ${cfgUnit()}`;
+  document.querySelectorAll('[data-unitsfx]').forEach(el=>el.textContent='('+cfgUnit()+')');
+}
 function fillVarPeriod(){
   const sel=$('fVarPer');
   if(!sel||!S.model) return;
@@ -1856,7 +1921,8 @@ function fillFilters(){
   mSel.innerHTML=opts.join('');
   S.ytdM=lastData; mSel.value=String(lastData);
   S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
-  fillVarPeriod();
+  S.units=cfgS('display_units').trim().toLowerCase()||'as';
+  fillUnits(); fillVarPeriod();
   const hasFC=m.cyMonths.some(p=>p.fc);
   $('fFC').parentElement.style.display=hasFC?'':'none';
 
@@ -2475,7 +2541,8 @@ function styleSheet(ws, aoa){
       for(let c=0;c<(aoa[r]||[]).length;c++){
         const addr=XLSX.utils.encode_cell({r,c});
         if(typeof aoa[r][c]==='number'){
-          if(ws[addr]) ws[addr].z=pctCols.has(c)?'#,##0.0"%";[Red](#,##0.0"%")':'#,##0;[Red](#,##0)';
+          if(ws[addr]) ws[addr].z=pctCols.has(c)?'#,##0.0"%";[Red](#,##0.0"%")'
+            :(unitDec()>0?'#,##0.0;[Red](#,##0.0)':'#,##0;[Red](#,##0)');
           continue;
         }
         const t=String(aoa[r][c]==null?'':aoa[r][c]).trim().toLowerCase();
@@ -2497,10 +2564,22 @@ function styleSheet(ws, aoa){
 }
 function exportWB(sheets, name){
   const wb=XLSX.utils.book_new();
+  const div=unitDiv();
   for(const s of sheets){
     const nm=String(s.name).replace(/[\[\]:*?\/\\]/g,' ').slice(0,31)||'Sheet';
-    const ws=XLSX.utils.aoa_to_sheet(s.aoa);
-    styleSheet(ws, s.aoa);
+    // analytical sheets are money throughout — restate them in the unit on
+    // screen so the sheet and the header agree. Percentage columns (header
+    // carries a %) and the raw driller rows are never restated.
+    const hr=s.aoa.findIndex(r=>r&&r.filter(x=>x!=null&&x!=='').length>=2);
+    const pctc=new Set();
+    if(hr>=0) (s.aoa[hr]||[]).forEach((h,c)=>{ if(/%/.test(String(h||''))) pctc.add(c); });
+    const isPctRow=r=>/%/.test(String((r&&r[0])||''));   // vertical layouts label the row
+    const aoa=(div!==1&&s.money!==false)
+      ? s.aoa.map((r,ri)=>(Array.isArray(r)&&ri>hr&&!isPctRow(r))
+          ? r.map((c,ci)=>(typeof c==='number'&&!pctc.has(ci))? Math.round(c/div*1e6)/1e6 : c) : r)
+      : s.aoa;
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    styleSheet(ws, aoa);
     XLSX.utils.book_append_sheet(wb, ws, nm);
   }
   XLSX.writeFile(wb, name+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
@@ -4192,7 +4271,7 @@ function renderSim(){
         <option value="amt"${r.type==='amt'?' selected':''}>Add amount (${esc(cfgUnit())})</option>
         <option value="setm"${r.type==='setm'?' selected':''}>Set monthly total (${esc(cfgUnit())})</option>
       </select>
-      <input class="rv" type="number" step="any" value="${r.val}" title="${(r.type==='pct'||r.type==='pctfy')?'Percentage change':'Amount in '+esc(cfgUnit())+' — the same units as the figures in the file'}">
+      <input class="rv" type="number" step="any" value="${simValIn(r)}" title="${(r.type==='pct'||r.type==='pctfy')?'Percentage change':'Amount in '+esc(cfgUnit())+' — the same units as the figures in the file'}">
       <span class="rlbl">from</span><select class="rfrom">${mOpt(r.from)}</select>
       <span class="rlbl">to</span><select class="rto">${mOpt(r.to)}</select>
       <button class="rx" title="Remove rule" aria-label="Remove rule">✕</button>
@@ -4206,7 +4285,7 @@ function renderSim(){
       r.val2=r.dim? (vals(r.dim)[0]||'') : ''; upd(); });
     const rv=el.querySelector('.rval'); if(rv) rv.addEventListener('change',e=>{ r.val2=e.target.value; upd(); });
     el.querySelector('.rtype').addEventListener('change',e=>{ r.type=e.target.value; upd(); });
-    el.querySelector('.rv').addEventListener('change',e=>{ r.val=e.target.value; upd(); });
+    el.querySelector('.rv').addEventListener('change',e=>{ r.val=simValOut(r,e.target.value); upd(); });
     el.querySelector('.rfrom').addEventListener('change',e=>{ r.from=+e.target.value; upd(); });
     el.querySelector('.rto').addEventListener('change',e=>{ r.to=+e.target.value; upd(); });
     el.querySelector('.rx').addEventListener('click',()=>{ SIM.rules.splice(i,1); saveSimCur(); renderSim(); });
@@ -4256,6 +4335,19 @@ function renderSim(){
     h2+='.';
     return h2;
   });
+}
+/* a rule's amount is stored in the file's own units and typed in the unit
+   selected at the top; percentages are never restated */
+function simIsAmt(r){ return r&&(r.type==='amt'||r.type==='setm'); }
+function simValIn(r){
+  if(!simIsAmt(r)||unitDiv()===1) return r.val;
+  const n=parseFloat(r.val);
+  return isFinite(n)? +(n/unitDiv()).toFixed(6) : r.val;
+}
+function simValOut(r,v){
+  if(!simIsAmt(r)||unitDiv()===1) return v;
+  const n=parseFloat(v);
+  return isFinite(n)? n*unitDiv() : v;
 }
 function renderSimCompare(){
   const names=Object.keys(simStore()).sort();
@@ -4876,7 +4968,8 @@ function applyCfgDom(){
     S.thresh=th;
   }
   if(!cfgViewOn(S.view)) S.view='summary';
-  if(S.model){ S.varPeriod=cfgS('calc_variance_period').trim()||'auto'; fillVarPeriod(); }
+  if(S.model){ S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
+    S.units=cfgS('display_units').trim().toLowerCase()||'as'; fillUnits(); fillVarPeriod(); }
   drawDrivers();
 }
 function cfgFromWorkbook(wb){
@@ -5035,6 +5128,7 @@ function init(){
     render();
   });
   $('fVarPer').addEventListener('change',e=>{ S.varPeriod=e.target.value; fillVarPeriod(); render(); });
+  $('fUnits').addEventListener('change',e=>{ S.units=e.target.value; fillUnits(); render(); renderKpiNav(); });
   $('fFC').addEventListener('change',e=>{
     S.includeFC=e.target.checked;
     // unticking FC while an FC month is selected falls back to the last actual month
@@ -5057,7 +5151,7 @@ function init(){
   $('btnQClear').addEventListener('click',()=>{ Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
     $('qResults').hidden=true; renderQuery(); });
   $('btnQExport').addEventListener('click',()=>{
-    if(qLastResult&&qLastResult.viewAoa) exportWB([{name:'Query results', aoa:qLastResult.viewAoa}],'IWPB_SG_query');
+    if(qLastResult&&qLastResult.viewAoa) exportWB([{name:'Query results', aoa:qLastResult.viewAoa, money:false}],'IWPB_SG_query');
   });
   $('btnQMonths').addEventListener('click',()=>{ qExpandMonths=!qExpandMonths; renderQueryResults(); });
   $('btnMonthsToggle').addEventListener('click',()=>{
@@ -5182,7 +5276,7 @@ function init(){
   $('btnExportChart').addEventListener('click',()=>{
     if(B.groupBy.length) exportWB([{name:'Chart data', aoa:chartAOA({...B})}],'IWPB_SG_chart');
   });
-  $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA()}],'IWPB_SG_data'));
+  $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA(), money:false}],'IWPB_SG_data'));
   $('dataSearch').addEventListener('input',e=>{ S.dataQ=e.target.value; dataPager.page=1; renderTable(); });
   $('btnPptMix').addEventListener('click',()=>exportPPT([{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')}],'IWPB_SG_mix'));
   $('btnPptSummary').addEventListener('click',()=>exportSummaryPPT());
