@@ -54,6 +54,16 @@ A single header row with:
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
   widescreen slide, built natively in PowerPoint.
+- **Naming the tiles** — `tile_lines` lists exactly which lines become KPI
+  tiles, in the order given: `Revenue,PBT,Loans,Deposits,Costs`. Each name
+  is looked up across the file's dimensions and taken from the first level
+  that carries it, so a summary can mix a Level 1 rollup with Level 2 lines
+  inside it without forcing everything to one level. The list is shown as
+  given — no priority reordering, no collapsing behind "show all" — a name
+  the file does not carry is called out rather than silently dropped, and
+  the grand-total tile is left off because the lines were chosen by hand.
+  The PowerPoint tile grid and the landing narrative follow the same list.
+  Leave it blank for the default behaviour (`tile_level` + `tilePriority`).
 - **The total tile** — the first KPI tile adds up every row in scope. If a
   line in the file carries the same name as `total_label` the tile takes
   `total_all_label` instead ("Total (all lines)"), so the grand total and

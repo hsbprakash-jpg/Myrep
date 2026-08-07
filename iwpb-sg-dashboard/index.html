@@ -1016,6 +1016,7 @@ const CFG_DEFAULT={
     total_label:'Total P&L',
     total_all_label:'Total (all lines)',
     total_tile:'Y',
+    tile_lines:'',
     tile_level:'auto',
     collapse_rest:'Y',
     rag_tolerance:'0.05',
@@ -2202,11 +2203,24 @@ function renderSummary(){
   // a single Level 1 value keeps the Level 2 tiles
   const byL1g=groupBy(rows,'micaL1');
   const tileL1=cfgTileL1(byL1g.size);
-  const cards=[...(tileL1?byL1g:groupBy(rows,'micaL2')).entries()].map(([nm,rs])=>{
-    const k=kpi(rs,m,S.ytdM,S.includeFC);
-    return {l2:nm, l1:tileL1?nm:rs[0].d.micaL1, rows:rs, k};
-  }).sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
-  const scPfx=tileL1?'l1:':'';
+  const named=tileLineDefs();
+  const missingLines=[];
+  let cards, scPfx;
+  if(named.length){
+    cards=named.map(nm=>{
+      const f=tileFindLine(rows,nm);
+      if(!f){ missingLines.push(nm); return null; }
+      return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:'d:'+f.key+':'+f.name,
+        k:kpi(f.rows,m,S.ytdM,S.includeFC)};
+    }).filter(Boolean);
+    scPfx='';
+  } else {
+    cards=[...(tileL1?byL1g:groupBy(rows,'micaL2')).entries()].map(([nm,rs])=>{
+      const k=kpi(rs,m,S.ytdM,S.includeFC);
+      return {l2:nm, l1:tileL1?nm:rs[0].d.micaL1, rows:rs, k};
+    }).sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+    scPfx=tileL1?'l1:':'';
+  }
 
   // auto-written commentary with bold figures
   const withVar=cards.filter(c=>c.k.favVarPct!=null && !cmpHidden(c.l2));
@@ -2215,12 +2229,15 @@ function renderSummary(){
   const l1name=[...byL1g.keys()][0]||'Revenue';
   const tileNames=cards.map(c=>c.l2);
   const totName=tileL1? totalLabel(tileNames) : `Total ${l1name}`;
-  let cm=`${esc(tileL1?totName:l1name)} of <b>${fmt(kT.cmpMain)}</b> for ${esc(L.main)}`;
-  if(kT.cmpVarPct!=null){
-    cm+=` runs <b>${fmtPct(kT.cmpVarPct)}</b> ${kT.cmpVarPct>=0?'ahead of':'behind'} ${esc(L.base)}`;
-    if(kT.cmpBase!=null) cm+=` of <b>${fmt(kT.cmpBase)}</b>`;
-    if(kT.outlook!=null&&kT.target!=null&&L.mode!=='tgt')
-      cm+=`, with a full-year outlook of <b>${fmt(kT.outlook)}</b> against a target of <b>${fmt(kT.target)}</b>`;
+  const lead=(named.length&&cards.length)? cards[0] : null;
+  const kH=lead? lead.k : kT;
+  const hName=lead? lead.l2 : (tileL1? totName : l1name);
+  let cm=`${esc(hName)} of <b>${fmt(kH.cmpMain)}</b> for ${esc(L.main)}`;
+  if(kH.cmpVarPct!=null){
+    cm+=` runs <b>${fmtPct(kH.cmpVarPct)}</b> ${kH.cmpVarPct>=0?'ahead of':'behind'} ${esc(L.base)}`;
+    if(kH.cmpBase!=null) cm+=` of <b>${fmt(kH.cmpBase)}</b>`;
+    if(kH.outlook!=null&&kH.target!=null&&L.mode!=='tgt')
+      cm+=`, with a full-year outlook of <b>${fmt(kH.outlook)}</b> against a target of <b>${fmt(kH.target)}</b>`;
     cm+='.';
     if(best&&worst&&best!==worst)
       cm+=` <b>${esc(best.l2)}</b> leads at <b>${fmtPct(best.k.cmpVarPct)}</b>; <b>${esc(worst.l2)}</b> is the weakest line at <b>${fmtPct(worst.k.cmpVarPct)}</b>.`;
@@ -2260,18 +2277,21 @@ function renderSummary(){
   // top KPIs first (Total, NII, Trading, Fees, Direct Costs, ECL); collapse the rest
   const PRIORITY=PRIO_RES;
   const prio=[], rest=[...cards];
-  for(const rx of PRIORITY){
+  if(!named.length) for(const rx of PRIORITY){
     const i=rest.findIndex(c=>rx.test(c.l2));
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const orderedAll=applyTileOrder([...prio,...rest]);
+  const orderedAll=named.length? cards : applyTileOrder([...prio,...rest]);
   TILE_ALL=orderedAll.map(c=>c.l2);
-  const shown=(S.showAllKpis||!cfgYes('collapse_rest'))? orderedAll : orderedAll.slice(0,Math.max(1,prio.length));
+  const shown=(named.length||S.showAllKpis||!cfgYes('collapse_rest'))
+    ? orderedAll : orderedAll.slice(0,Math.max(1,prio.length));
   $('cardGrid').innerHTML=
-    (cfgYes('total_tile')? cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false) : '')+
-    shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${scPfx}${esc(c.l2)}" data-name="${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
-    (rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
-      S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'');
+    ((cfgYes('total_tile')&&!named.length)? cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false) : '')+
+    shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${esc(c.scope||(scPfx+c.l2))}" data-name="${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
+    (!named.length&&rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
+      S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'')+
+    (missingLines.length?`<div class="card morecard" style="cursor:default">Not found in this file: ${
+      esc(missingLines.join(', '))}</div>`:'');
   const moreBtn=$('btnMoreKpis');
   if(moreBtn) moreBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showAllKpis=!S.showAllKpis; renderSummary(); });
   $('cardGrid').querySelectorAll('.card[data-l2]').forEach(el=>
@@ -2640,19 +2660,26 @@ async function exportSummaryPPT(){
   const m=S.model, rows=filteredRows();
   const l1g=groupBy(rows,'micaL1');
   const tileL1=cfgTileL1(l1g.size);
-  const byL2=[...(tileL1?l1g:groupBy(rows,'micaL2')).entries()]
-    .map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
-    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  const named=tileLineDefs();
+  const byL2=named.length
+    ? named.map(nm=>tileFindLine(rows,nm)).filter(Boolean)
+        .map(f=>({l2:f.name, k:kpi(f.rows,m,S.ytdM,S.includeFC)}))
+    : [...(tileL1?l1g:groupBy(rows,'micaL2')).entries()]
+        .map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+        .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
   const l1name=[...l1g.keys()][0]||'Revenue';
   const PRIORITY=PRIO_RES;
   const prio=[], rest=[...byL2];
-  for(const rx of PRIORITY){
+  if(!named.length) for(const rx of PRIORITY){
     const i=rest.findIndex(c=>rx.test(c.l2));
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const tiles=[{name:tileL1?totalLabel(byL2.map(c=>c.l2)):`Total ${l1name}`,k:kT,hide:false},
-    ...applyTileOrder([...prio,...rest]).map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
+  const ordered=named.length? byL2 : applyTileOrder([...prio,...rest]);
+  const tiles=[
+    ...((cfgYes('total_tile')&&!named.length)
+      ? [{name:tileL1?totalLabel(byL2.map(c=>c.l2)):`Total ${l1name}`,k:kT,hide:false}] : []),
+    ...ordered.map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
   const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
     return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
   // font sizes step down with content length so nothing overflows its box
@@ -2993,10 +3020,39 @@ function groupByFn(rows, fn){
 function scopeFilter(rows, sc){
   if(!sc) return rows;
   const t=String(sc);
+  if(t.startsWith('d:')){ const i=t.indexOf(':',2); const k=t.slice(2,i), v=t.slice(i+1);
+    return rows.filter(r=>(r.d[k]||'')===v); }
   if(t.startsWith('l1:')){ const v=t.slice(3); return rows.filter(r=>r.d.micaL1===v); }
   return rows.filter(r=>r.d.micaL2===t);
 }
-function scopeName(sc){ return !sc? 'Total (all KPIs)' : String(sc).startsWith('l1:')? String(sc).slice(3) : String(sc); }
+function scopeName(sc){
+  if(!sc) return 'Total (all KPIs)';
+  const t=String(sc);
+  if(t.startsWith('d:')){ const i=t.indexOf(':',2); return t.slice(i+1); }
+  return t.startsWith('l1:')? t.slice(3) : t;
+}
+/* Named tiles: the lines to show, in the order given, each found at whichever
+   level of the file actually carries it — so a summary can mix a Level 1
+   rollup (PBT, Loans, Deposits) with Level 2 lines inside it (Revenue,
+   Costs) without either being forced to one level. */
+function tileLineDefs(){
+  return cfgS('tile_lines').split(/[,;|]/).map(x=>x.trim()).filter(Boolean);
+}
+function tileDimOrder(){
+  const m=S.model;
+  const pref=['micaL1','micaL2','micaL3','prodL1','prodL2','prodL3','cgL1','cgL2',
+    'funcL1','funcL2','entity'];
+  return pref.filter(k=>k in m.dimCols);
+}
+/* find a named line: first dimension that carries the value wins */
+function tileFindLine(rows, name){
+  const want=String(name).trim().toLowerCase();
+  for(const k of tileDimOrder()){
+    const rs=rows.filter(r=>String(r.d[k]||'').trim().toLowerCase()===want);
+    if(rs.length) return {key:k, name:rs[0].d[k], rows:rs};
+  }
+  return null;
+}
 function chartTitleBase(cfg){
   return `${cfg.l2?scopeName(cfg.l2):'Total'} · ${measureLabel(effMeasure(cfg))} by ${fieldLabels(cfg.groupBy)}`+
     (gArr(cfg.splitBy).length?` / ${fieldLabels(cfg.splitBy)}`:'');
