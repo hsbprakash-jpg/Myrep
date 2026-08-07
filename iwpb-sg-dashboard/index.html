@@ -2232,10 +2232,6 @@ function renderSummary(){
     scPfx=tileL1?'l1:':'';
   }
 
-  // auto-written commentary with bold figures
-  const withVar=cards.filter(c=>c.k.favVarPct!=null && !cmpHidden(c.l2));
-  const best=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct>=b.k.favVarPct?a:b):null;
-  const worst=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct<=b.k.favVarPct?a:b):null;
   const l1name=[...byL1g.keys()][0]||'Revenue';
   const tileNames=cards.map(c=>c.l2);
   const totName=tileL1? totalLabel(tileNames) : `Total ${l1name}`;
@@ -2259,6 +2255,16 @@ function renderSummary(){
     : ((noTotal&&cards.length)? cards[0] : null);
   const kH=lead? lead.k : kT;
   const hName=lead? lead.l2 : (tileL1? totName : l1name);
+  // auto-written commentary with bold figures
+  const rankRows=(subj&&subj.rows)? subj.rows : rows;
+  const rankKey=(subj&&subj.key.startsWith('l1:'))? 'micaL2' : (tileL1?'micaL1':'micaL2');
+  const rankSet=(subj&&rankKey==='micaL2')
+    ? [...groupBy(rankRows,'micaL2').entries()].filter(([n])=>n&&n!=='(blank)')
+        .map(([nm,rs])=>({l2:nm, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    : cards;
+  const withVar=rankSet.filter(c=>c.k.favVarPct!=null && !cmpHidden(c.l2));
+  const best=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct>=b.k.favVarPct?a:b):null;
+  const worst=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct<=b.k.favVarPct?a:b):null;
   let cm=`${esc(hName)} of <b>${fmt(kH.cmpMain)}</b> for ${esc(L.main)}`;
   if(kH.cmpVarPct!=null){
     cm+=` runs <b>${fmtPct(kH.cmpVarPct)}</b> ${kH.cmpVarPct>=0?'ahead of':'behind'} ${esc(L.base)}`;
@@ -2462,6 +2468,7 @@ function renderSummary(){
   $('chipRow').querySelectorAll('.attnchip').forEach(b=>
     b.addEventListener('click',()=>{ MX.l2=b.dataset.l2; saveMix(); render(); }));
 
+  if(subj&&!MX.sUser&&!MX.l2) MX.l2=subj.key;
   renderMix();
   renderHouse();
 }
@@ -2523,9 +2530,19 @@ function houseDrvCount(){
 function houseCommentaryHtml(){
   const all=filteredRows();
   if(!all.length) return '';
-  const secs=fsumSectionDefs().length? fsumSections(all) : null;
-  if(!secs||secs.length<2) return houseBlock(all, null);
-  return secs.map(sec=>houseBlock(sec.rows, sec.name)).filter(Boolean).join('');
+  if(fsumSectionDefs().length){
+    const secs=fsumSections(all);
+    if(secs.length>1) return secs.map(sec=>houseBlock(sec.rows, sec.name)).filter(Boolean).join('');
+    return houseBlock(all, null);
+  }
+  // no statements declared, but no total is allowed either — each top line
+  // gets its own narrative rather than being summed into one
+  if(!fsumTotalOK(all)){
+    const key=fsumLevels()[0];
+    const gs=[...groupBy(all,key).entries()].filter(([n])=>n&&n!=='(blank)');
+    if(gs.length>1) return gs.map(([n,rs])=>houseBlock(rs, n)).filter(Boolean).join('');
+  }
+  return houseBlock(all, null);
 }
 function houseBlock(rows, secName){
   const m=S.model, L=cmpLabels(m);
@@ -2549,7 +2566,8 @@ function houseBlock(rows, secName){
   // own name, and never a total across blocks
   const single=l1.length===1;
   const totLbl=single? l1[0].name : (secName||totalLabel(l1Names(rows)));
-  const noTot=secName? fsumNoTotal().has(String(secName).toLowerCase()) : false;
+  const noTot=(secName? fsumNoTotal().has(String(secName).toLowerCase()) : false)
+    || (!single&&!fsumTotalOK(rows));
   let h='';
   if(!(noTot&&!single)){
     h=`<p>(${esc(L.main)}) <b>${esc(totLbl)}</b> of <b>${fmt(mainOf(kT))}</b> is ${faTxt(kT)} vs ${esc(L.base)}`;
@@ -5503,7 +5521,7 @@ function init(){
     else { const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select();
       try{ document.execCommand('copy'); }catch(e){} ta.remove(); done(); }
   });
-  $('mxScope').addEventListener('change',e=>{ MX.l2=e.target.value; saveMix(); renderMix(); });
+  $('mxScope').addEventListener('change',e=>{ MX.l2=e.target.value; MX.sUser=true; saveMix(); renderMix(); });
   $('mxDim').addEventListener('change',e=>{ MX.groupBy=e.target.value; saveMix(); renderMix(); });
   $('mxMeasure').addEventListener('change',e=>{ MX.measure=e.target.value; MX.mUser=true; saveMix(); renderMix(); });
   $('mxType').addEventListener('change',e=>{ MX.type=e.target.value; saveMix(); renderMix(); });

@@ -76,7 +76,12 @@ A single header row with:
   `tile_lines` or declaring statements in `fsum_sections` also drops it.
   Lines the priority patterns do not recognise are ordered as they appear
   in the driller rather than by size, so a balance-sheet line is not
-  hoisted above the P&L. With no total, the landing narrative and the
+  hoisted above the P&L. With no total, the whole KPI summary follows the
+  same line: the tiles carry the Level 1 lines only, the narrative and the
+  trajectory open on the first of them, leader and laggard are ranked
+  inside that line rather than across statements, Mix analysis opens scoped
+  to it, and the Management commentary writes one narrative per Level 1
+  line instead of one led by a total. With no total, the landing narrative and the
   performance trajectory are about a **MICA line** instead: a picker on the
   trajectory panel lists Level 1 and Level 2 lines, and the page opens on
   the first declared statement's line (the P&L result) — the trio, the
