@@ -130,7 +130,10 @@ A single header row with:
   order. Everything moves with the YTD-through month — pick MAY and the
   months become Mar/Apr/May, the quarter Q226 to date, the year-to-date
   Jan–May. Comparisons a file cannot serve show as `–` with a note saying
-  which and why. Excel and PowerPoint exports carry the same headers and
+  which and why. Every variance in the page's commentary is written the way
+  the pack writes it — `18F`, `346A`, `14%A` — favourable or adverse taken
+  from the line's own direction, so a smaller cost reads F and a deeper loss
+  reads A. Excel and PowerPoint exports carry the same headers and
   figures. The page is deliberately independent of the **Variance period**
   selector — it shows every basis side by side already, so only the
   YTD-through month moves it. Configurable via `fsum_title`, `fsum_section_label`,

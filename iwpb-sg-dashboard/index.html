@@ -4292,20 +4292,33 @@ function renderFsum(){
   aiComment($('fsumCom'), 'fsum|'+filterNote(true)+'|'+S.ytdM+'|'+drvSig(),
     {ctx:filterNote(true)}, ()=>fsumCommentary(rows,m,P));
 }
+/* Is a variance favourable for this line? Costs and ECL are stored as
+   negatives, so a positive variance is favourable on every line; a file that
+   stores cost magnitudes as positives sets dirFlip and reverses it. */
+function faOK(k, v){ return (k&&k.dirFlip)? v<=0 : v>=0; }
+/* a variance is written with its direction: 18F, (346)A */
+function faAmt(k, v){
+  if(v==null) return '–';
+  return `<b>${fmtFull(Math.abs(Math.round(v)))}${faOK(k,v)?'F':'A'}</b>`;
+}
+function faPctTxt(k, v){
+  if(v==null) return '–';
+  return `<b>${fsumPctTxt(Math.abs(v))}${faOK(k,v)?'F':'A'}</b>`;
+}
 function fsumBlockText(name, rows, m, P, sub){
-  const f=fsumFigs(rows,m,P,S.ytdM);
+  const f=fsumFigs(rows,m,P,S.ytdM), k=f.k;
   const mon=MON_LBL[S.ytdM]+"'"+P.yy;
   let h=`<b>${esc(name)}</b> for <b>${mon}</b> is <b>${fmtFull(Math.round(f.k.mth==null?0:f.k.mth))}</b>`;
-  if(f.mVsFc!=null) h+=`, <b>${fmtFull(Math.round(f.mVsFc))}</b> vs forecast`;
-  if(f.mVsTgt!=null) h+=` and <b>${fmtFull(Math.round(f.mVsTgt))}</b> vs target`;
+  if(f.mVsFc!=null) h+=`, ${faAmt(k,f.mVsFc)} vs forecast`;
+  if(f.mVsTgt!=null) h+=` and ${faAmt(k,f.mVsTgt)} vs target`;
   h+=`. ${esc(P.qLbl)} stands at <b>${fmtFull(Math.round(f.qtd||0))}</b>`;
-  if(f.qVsPQ!=null) h+=` (<b>${fmtFull(Math.round(f.qVsPQ))}</b> vs prior quarter)`;
+  if(f.qVsPQ!=null) h+=` (${faAmt(k,f.qVsPQ)} vs prior quarter)`;
   h+=`; ${esc(P.ytdLbl)} at <b>${fmtFull(Math.round(f.ytd||0))}</b>`;
-  if(f.yVsTgtP!=null) h+=` — <b>${fsumPctTxt(f.yVsTgtP)}</b> vs target`;
-  if(f.yVsPYP!=null) h+=` and <b>${fsumPctTxt(f.yVsPYP)}</b> vs prior year`;
+  if(f.yVsTgtP!=null) h+=` — ${faPctTxt(k,f.yVsTgtP)} vs target`;
+  if(f.yVsPYP!=null) h+=` and ${faPctTxt(k,f.yVsPYP)} vs prior year`;
   h+='.';
   if(sub&&sub.length) h+=` Movement against forecast is led by `+
-    sub.map(x=>`<b>${esc(x.name)}</b> (${fmtFull(Math.round(x.f.mVsFc))})`).join(', ')+'.';
+    sub.map(x=>`<b>${esc(x.name)}</b> (${faAmt(x.f.k,x.f.mVsFc)})`).join(', ')+'.';
   return h;
 }
 function fsumMovers(rows,m,P){
