@@ -81,7 +81,11 @@ A single header row with:
   `tile_lines` or declaring statements in `fsum_sections` also drops it.
   Lines the priority patterns do not recognise are ordered as they appear
   in the driller rather than by size, so a balance-sheet line is not
-  hoisted above the P&L. With no total, the whole KPI summary follows the
+  hoisted above the P&L. Lines *within* a statement — the Level 2 lines
+  under a rollup — always read in the driller's own sequence, so revenue
+  sits with the cost lines in statement order rather than being reshuffled
+  by whichever moved most; the "driven by" openers still name the biggest
+  movers first. With no total, the whole KPI summary follows the
   same line: the tiles carry the Level 1 lines only, the narrative and the
   trajectory open on the first of them, leader and laggard are ranked
   inside that line rather than across statements, Mix analysis opens scoped

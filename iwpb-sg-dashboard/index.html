@@ -2550,9 +2550,13 @@ function houseCommentaryHtml(){
   }
   return houseBlock(all, null);
 }
+function fileOrder(m){
+  return rs=>{ let i=Infinity; for(const r of rs){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
+}
 function houseBlock(rows, secName){
   const m=S.model, L=cmpLabels(m);
   if(!rows.length) return '';
+  const atF=fileOrder(m);
   const dimKey=houseDimKey(), dimLbl=FIELD_LABELS[dimKey]||dimKey;
   const LV=houseLevels(), NDRV=houseDrvCount();
   if(!LV.length) return '';
@@ -2567,7 +2571,9 @@ function houseBlock(rows, secName){
   const l1=[...groupBy(rows,LV[0]).entries()]
     .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .filter(g=>g.name)
-    .sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
+    .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0) || atF(a.rs)-atF(b.rs));
+  // the headline still names the biggest movers first
+  const movers=[...l1].sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
   // a block of one line speaks as that line; several lines take the block's
   // own name, and never a total across blocks
   const single=l1.length===1;
@@ -2577,7 +2583,7 @@ function houseBlock(rows, secName){
   let h='';
   if(!(noTot&&!single)){
     h=`<p>(${esc(L.main)}) <b>${esc(totLbl)}</b> of <b>${fmt(mainOf(kT))}</b> is ${faTxt(kT)} vs ${esc(L.base)}`;
-    if(l1.length>1) h+=` driven by ${l1.map(g=>`${faWord(g.k, mainOf(g.k))} ${esc(g.name)} (${faTxt(g.k)})`).join(', ')}`;
+    if(l1.length>1) h+=` driven by ${movers.map(g=>`${faWord(g.k, mainOf(g.k))} ${esc(g.name)} (${faTxt(g.k)})`).join(', ')}`;
     h+='.</p>';
   } else if(secName){
     h=`<p><b>${esc(secName)}</b> — ${esc(L.main)} vs ${esc(L.base)}</p>`;
@@ -2589,7 +2595,7 @@ function houseBlock(rows, secName){
     const kids=(LV.length>1? [...groupBy(g.rs,LV[1]).entries()] : [])
       .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
       .filter(x=>x.name)
-      .sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
+      .sort((a,b)=>atF(a.rs)-atF(b.rs));
     if(kids.length>1) for(const c of kids) h+=per(c.name,c.rs,2);
     else for(const d of houseDrivers(g.rs,dimKey,NDRV)) h+=`<li><b>${esc(d.name)}</b> ${faTxt(d.k)}</li>`;
     h+='</ul>';
@@ -4022,12 +4028,13 @@ function fsumTree(rows){
       rest2.sort((a,b)=>firstAt(a[1])-firstAt(b[1]));
       return [...named,...rest2];
     }
+    // lines within a statement read in the driller's own sequence
+    if(!top) return arr.sort((a,b)=>firstAt(a[1])-firstAt(b[1]));
     const prio=[], rest=[...arr];
-    for(const rx of PRIO_RES){ const i=rest.findIndex(([n])=>rx.test(n)&&!(top&&isBSLine(n)));
+    for(const rx of PRIO_RES){ const i=rest.findIndex(([n])=>rx.test(n)&&!isBSLine(n));
       if(i>=0) prio.push(rest.splice(i,1)[0]); }
-    rest.sort((a,b)=>top? firstAt(a[1])-firstAt(b[1]) : size(b[1])-size(a[1]));
-    const out2=[...prio,...rest];
-    return top? out2.sort((a,b)=>(isBSLine(a[0])?1:0)-(isBSLine(b[0])?1:0)) : out2;
+    rest.sort((a,b)=>firstAt(a[1])-firstAt(b[1]));
+    return [...prio,...rest].sort((a,b)=>(isBSLine(a[0])?1:0)-(isBSLine(b[0])?1:0));
   };
   for(const [n1,rs1] of ordered(groupBy(rows,L1), true)){
     const g2=L2? ordered(groupBy(rs1,L2)) : [];
