@@ -182,7 +182,13 @@ A single header row with:
   cascading style), `commentary_levels` sets the cascade,
   `commentary_dim` the dimension the "driven by" clauses cut by,
   `commentary_drivers` how many are named, and `commentary_headline` /
-  `commentary_note` the wording of the heading.
+  `commentary_note` the wording of the heading. **⤓ Word** writes the
+  commentary as it stands on the page — your edits included — to a real
+  .docx, keeping the bold figures, the underlined heading and the bullets.
+  The Financial Summary's own **⤓ Word** puts that page's commentary and
+  the management commentary in one document. The file is assembled in the
+  browser (a .docx is a zip of XML parts, written uncompressed), so it
+  needs no library and nothing leaves the page.
 - **Variance period** — a left-pane selector (Period & RAG) that sets the
   comparison every view is rated on: YTD vs PY, MoM, Month vs Target, YTD
   vs Target, YTD vs Forecast, FY vs Target, FY vs PY. The option labels
