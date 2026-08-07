@@ -98,9 +98,25 @@ A single header row with:
   figures. The page is deliberately independent of the **Variance period**
   selector — it shows every basis side by side already, so only the
   YTD-through month moves it. Configurable via `fsum_title`, `fsum_section_label`,
-  `fsum_section_dim` / `fsum_section_order` (band the table by a column,
-  e.g. P&L / Balance Sheet / Key Metrics), `fsum_levels`, `fsum_ow` (the
-  "o/w" prefix on the deepest level) and `fsum_total_label`.
+  `fsum_levels`, `fsum_ow` (the "o/w" prefix on the deepest level) and
+  `fsum_total_label`.
+- **Keeping statements apart** — a driller carrying both a P&L and balance
+  sheet must not add them together. `fsum_sections` assigns the lines of a
+  column (`fsum_section_dim`, MICA Level 1 by default) to named blocks:
+
+  ```
+  Settings,fsum_sections,"P&L=PBT | Balance Sheet=Deposits,Loans",,
+  Settings,fsum_no_total,Balance Sheet,,
+  ```
+
+  The Financial Summary then shows the P&L lines cascading into PBT, and
+  Deposits and Loans as separate balance-sheet lines beneath — with no
+  total across the two, and none within a block named in `fsum_no_total`
+  where adding the lines together would mean nothing. Lines in no block
+  fall into a trailing block named by `fsum_other_label`. The Management
+  commentary follows the same split, writing one narrative per block.
+  `fsum_section_dim` on its own (without `fsum_sections`) still bands the
+  table by every value of a column, ordered by `fsum_section_order`.
 - **Variance period** — a left-pane selector (Period & RAG) that sets the
   comparison every view is rated on: YTD vs PY, MoM, Month vs Target, YTD
   vs Target, YTD vs Forecast, FY vs Target, FY vs PY. The option labels

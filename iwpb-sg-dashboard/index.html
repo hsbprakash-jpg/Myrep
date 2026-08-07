@@ -1050,6 +1050,9 @@ const CFG_DEFAULT={
     fsum_section_label:'P&L',
     fsum_section_dim:'',
     fsum_section_order:'',
+    fsum_sections:'',
+    fsum_no_total:'',
+    fsum_other_label:'Other',
     fsum_levels:'',
     fsum_ow:'Y',
     fsum_total_label:''
@@ -2478,8 +2481,17 @@ function houseDrvCount(){
   const n=parseInt(cfgS('commentary_drivers'),10);
   return isFinite(n)&&n>0? Math.min(n,12) : 5;
 }
+/* one narrative per statement when the Financial Summary defines blocks —
+   a P&L result and a balance-sheet line are never spoken of as one figure */
 function houseCommentaryHtml(){
-  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  const all=filteredRows();
+  if(!all.length) return '';
+  const secs=fsumSectionDefs().length? fsumSections(all) : null;
+  if(!secs||secs.length<2) return houseBlock(all, null);
+  return secs.map(sec=>houseBlock(sec.rows, sec.name)).filter(Boolean).join('');
+}
+function houseBlock(rows, secName){
+  const m=S.model, L=cmpLabels(m);
   if(!rows.length) return '';
   const dimKey=houseDimKey(), dimLbl=FIELD_LABELS[dimKey]||dimKey;
   const LV=houseLevels(), NDRV=houseDrvCount();
@@ -2496,12 +2508,23 @@ function houseCommentaryHtml(){
     .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .filter(g=>g.name)
     .sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
-  const totLbl=totalLabel(l1Names(rows));
-  let h=`<p>(${esc(L.main)}) <b>${esc(totLbl)}</b> of <b>${fmt(mainOf(kT))}</b> is ${faTxt(kT)} vs ${esc(L.base)}`;
-  if(l1.length) h+=` driven by ${l1.map(g=>`${faWord(g.k, mainOf(g.k))} ${esc(g.name)} (${faTxt(g.k)})`).join(', ')}`;
-  h+='.</p>';
+  // a block of one line speaks as that line; several lines take the block's
+  // own name, and never a total across blocks
+  const single=l1.length===1;
+  const totLbl=single? l1[0].name : (secName||totalLabel(l1Names(rows)));
+  const noTot=secName? fsumNoTotal().has(String(secName).toLowerCase()) : false;
+  let h='';
+  if(!(noTot&&!single)){
+    h=`<p>(${esc(L.main)}) <b>${esc(totLbl)}</b> of <b>${fmt(mainOf(kT))}</b> is ${faTxt(kT)} vs ${esc(L.base)}`;
+    if(l1.length>1) h+=` driven by ${l1.map(g=>`${faWord(g.k, mainOf(g.k))} ${esc(g.name)} (${faTxt(g.k)})`).join(', ')}`;
+    h+='.</p>';
+  } else if(secName){
+    h=`<p><b>${esc(secName)}</b> — ${esc(L.main)} vs ${esc(L.base)}</p>`;
+  }
   for(const g of l1){
-    h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${fmt(mainOf(g.k))}</b> is ${faTxt(g.k)}</p><ul class="houselist">`;
+    // a lone line is already the headline — go straight to what drove it
+    if(!single) h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${fmt(mainOf(g.k))}</b> is ${faTxt(g.k)}</p>`;
+    h+=`<ul class="houselist">`;
     const kids=(LV.length>1? [...groupBy(g.rs,LV[1]).entries()] : [])
       .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
       .filter(x=>x.name)
@@ -3917,16 +3940,54 @@ function fsumTree(rows){
   return out;
 }
 /* the section bands the table is split into */
+/* Statements are kept apart. fsum_sections assigns the lines of a column
+   (fsum_section_dim, MICA Level 1 by default) to named blocks —
+   "P&L=PBT | Balance Sheet=Deposits,Loans" — so a balance-sheet line is never
+   added into a P&L result. A block named in fsum_no_total prints no total,
+   for the blocks where adding the lines together means nothing. */
+function fsumSectionDefs(){
+  const raw=cfgS('fsum_sections').trim();
+  if(!raw) return [];
+  return raw.split(/[;|]/).map(p2=>p2.trim()).filter(Boolean).map(p2=>{
+    const i=p2.indexOf('=');
+    if(i<0) return {label:p2.trim(), vals:[p2.trim()]};
+    return {label:p2.slice(0,i).trim(),
+      vals:p2.slice(i+1).split(',').map(x=>x.trim()).filter(Boolean)};
+  }).filter(d=>d.label&&d.vals.length);
+}
+function fsumNoTotal(){
+  return new Set(cfgS('fsum_no_total').split(/[,;|]/).map(x=>x.trim().toLowerCase()).filter(Boolean));
+}
 function fsumSections(rows){
-  const m=S.model, dim=cfgS('fsum_section_dim').trim();
-  const u=cfgUnit();
-  if(!dim||!(dim in m.dimCols))
-    return [{label:`${cfgS('fsum_section_label')} (${u})`, rows}];
-  const g=groupBy(rows,dim);
+  const m=S.model, u=cfgUnit();
+  const defs=fsumSectionDefs();
+  const noTot=fsumNoTotal();
+  const dimCfg=cfgS('fsum_section_dim').trim();
+  if(defs.length){
+    const dim=(dimCfg&&dimCfg in m.dimCols)? dimCfg : (('micaL1' in m.dimCols)? 'micaL1' : dimCfg);
+    if(dim&&dim in m.dimCols){
+      const out=[], taken=new Set();
+      for(const d of defs){
+        const want=new Set(d.vals.map(v=>v.toLowerCase()));
+        const rs=rows.filter(r=>want.has(String(r.d[dim]||'').trim().toLowerCase()));
+        rs.forEach(r=>taken.add(r));
+        if(rs.length) out.push({label:`${d.label} (${u})`, name:d.label, rows:rs,
+          noTotal:noTot.has(d.label.toLowerCase())});
+      }
+      const rest=rows.filter(r=>!taken.has(r));
+      if(rest.length){ const lb=cfgS('fsum_other_label')||'Other';
+        out.push({label:`${lb} (${u})`, name:lb, rows:rest, noTotal:noTot.has(lb.toLowerCase())}); }
+      if(out.length) return out;
+    }
+  }
+  if(!dimCfg||!(dimCfg in m.dimCols))
+    return [{label:`${cfgS('fsum_section_label')} (${u})`, name:cfgS('fsum_section_label'), rows,
+      noTotal:noTot.has(String(cfgS('fsum_section_label')).toLowerCase())}];
+  const g=groupBy(rows,dimCfg);
   const want=cfgS('fsum_section_order').split(/[,;]/).map(x=>x.trim()).filter(Boolean);
   const names=want.length? want.filter(n=>g.has(n)).concat([...g.keys()].filter(n=>!want.includes(n)))
     : [...g.keys()];
-  return names.map(n=>({label:`${n} (${u})`, rows:g.get(n)}));
+  return names.map(n=>({label:`${n} (${u})`, name:n, rows:g.get(n), noTotal:noTot.has(String(n).toLowerCase())}));
 }
 /* management-report number styling: parentheses for negatives, whole percents,
    >100% past the scale, and the sign carried in the colour */
@@ -3977,7 +4038,7 @@ function renderFsum(){
   const nCols=1+nMon+4+4+5;
   const secs=fsumSections(rows);
   const tree=secs.flatMap(sec=>[{band:sec.label}, ...fsumTree(sec.rows),
-    ...(fsumTopCount(sec.rows)>1? [{rows:sec.rows, lvl:0, tot:true,
+    ...((!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
       name:secs.length>1? `Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`
         : (cfgS('fsum_total_label')||totalLabel(l1Names(sec.rows)))}] : [])]);
   let body='';
@@ -4003,24 +4064,43 @@ function renderFsum(){
   aiComment($('fsumCom'), 'fsum|'+filterNote(true)+'|'+S.ytdM+'|'+drvSig(),
     {ctx:filterNote(true)}, ()=>fsumCommentary(rows,m,P));
 }
-function fsumCommentary(rows,m,P){
-  const tot=fsumFigs(rows,m,P,S.ytdM);
+function fsumBlockText(name, rows, m, P, sub){
+  const f=fsumFigs(rows,m,P,S.ytdM);
   const mon=MON_LBL[S.ytdM]+"'"+P.yy;
-  let h=`<b>${esc(cfgS('fsum_total_label')||totalLabel(l1Names(rows)))}</b> for <b>${mon}</b> is <b>${fmtFull(Math.round(tot.k.mth==null?0:tot.k.mth))}</b>`;
-  if(tot.mVsFc!=null) h+=`, <b>${fmtFull(Math.round(tot.mVsFc))}</b> vs forecast`;
-  if(tot.mVsTgt!=null) h+=` and <b>${fmtFull(Math.round(tot.mVsTgt))}</b> vs target`;
-  h+=`. ${esc(P.qLbl)} stands at <b>${fmtFull(Math.round(tot.qtd||0))}</b>`;
-  if(tot.qVsPQ!=null) h+=` (<b>${fmtFull(Math.round(tot.qVsPQ))}</b> vs prior quarter)`;
-  h+=`; ${esc(P.ytdLbl)} at <b>${fmtFull(Math.round(tot.ytd||0))}</b>`;
-  if(tot.yVsTgtP!=null) h+=` — <b>${fsumPctTxt(tot.yVsTgtP)}</b> vs target`;
-  if(tot.yVsPYP!=null) h+=` and <b>${fsumPctTxt(tot.yVsPYP)}</b> vs prior year`;
+  let h=`<b>${esc(name)}</b> for <b>${mon}</b> is <b>${fmtFull(Math.round(f.k.mth==null?0:f.k.mth))}</b>`;
+  if(f.mVsFc!=null) h+=`, <b>${fmtFull(Math.round(f.mVsFc))}</b> vs forecast`;
+  if(f.mVsTgt!=null) h+=` and <b>${fmtFull(Math.round(f.mVsTgt))}</b> vs target`;
+  h+=`. ${esc(P.qLbl)} stands at <b>${fmtFull(Math.round(f.qtd||0))}</b>`;
+  if(f.qVsPQ!=null) h+=` (<b>${fmtFull(Math.round(f.qVsPQ))}</b> vs prior quarter)`;
+  h+=`; ${esc(P.ytdLbl)} at <b>${fmtFull(Math.round(f.ytd||0))}</b>`;
+  if(f.yVsTgtP!=null) h+=` — <b>${fsumPctTxt(f.yVsTgtP)}</b> vs target`;
+  if(f.yVsPYP!=null) h+=` and <b>${fsumPctTxt(f.yVsPYP)}</b> vs prior year`;
   h+='.';
-  // the biggest movers of the month, on the same basis the table shows
-  const lines=fsumTree(rows).filter(r=>r.sub&&!r.band).map(r=>({name:r.name, f:fsumFigs(r.rows,m,P,S.ytdM)}))
+  if(sub&&sub.length) h+=` Movement against forecast is led by `+
+    sub.map(x=>`<b>${esc(x.name)}</b> (${fmtFull(Math.round(x.f.mVsFc))})`).join(', ')+'.';
+  return h;
+}
+function fsumMovers(rows,m,P){
+  return fsumTree(rows).filter(r=>r.sub&&!r.band)
+    .map(r=>({name:r.name, f:fsumFigs(r.rows,m,P,S.ytdM)}))
     .filter(x=>x.f.mVsFc!=null).sort((a,b)=>Math.abs(b.f.mVsFc)-Math.abs(a.f.mVsFc)).slice(0,3);
-  if(lines.length) h+=` Movement against forecast is led by `+
-    lines.map(x=>`<b>${esc(x.name)}</b> (${fmtFull(Math.round(x.f.mVsFc))})`).join(', ')+'.';
-  const dt=lines.map(x=>driverFor(x.name)).filter(Boolean);
+}
+function fsumCommentary(rows,m,P){
+  const secs=fsumSections(rows);
+  const parts=secs.map(sec=>{
+    const one=fsumTopCount(sec.rows)===1;
+    // a block of one line speaks as that line; a block of several as itself,
+    // unless adding its lines together would mean nothing
+    if(one||!sec.noTotal){
+      const nm=one? [...groupBy(sec.rows, fsumLevels()[0]).keys()][0] : `Total ${sec.name}`;
+      return fsumBlockText(nm, sec.rows, m, P, fsumMovers(sec.rows,m,P));
+    }
+    return [...groupBy(sec.rows, fsumLevels()[0]).entries()]
+      .map(([nm,rs])=>fsumBlockText(nm, rs, m, P, null)).join(' ');
+  });
+  let h=parts.join('<br><br>');
+  const movers=fsumMovers(rows,m,P);
+  const dt=movers.map(x=>driverFor(x.name)).filter(Boolean);
   if(dt.length) h=`<span class="drvlead">${esc(dt[0])}.</span> `+h;
   return h;
 }
@@ -4041,7 +4121,7 @@ function fsumAOA(){
   for(const sec of fsumSections(rows)){
     aoa.push([sec.label]);
     for(const r of fsumTree(sec.rows)) aoa.push(fsumAoaRow(r,m,P));
-    if(fsumTopCount(sec.rows)>1)
+    if(!sec.noTotal&&fsumTopCount(sec.rows)>1)
       aoa.push(fsumAoaRow({name:`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`, rows:sec.rows, lvl:0},m,P));
   }
   return aoa;
