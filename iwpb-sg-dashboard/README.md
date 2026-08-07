@@ -66,6 +66,14 @@ A single header row with:
   the grand-total tile is left off because the lines were chosen by hand.
   The PowerPoint tile grid and the landing narrative follow the same list.
   Leave it blank for the default behaviour (`tile_level` + `tilePriority`).
+- **No total when a total means nothing** — the grand-total tile is dropped
+  automatically whenever the lines were named in `tile_lines` or the file's
+  statements were declared in `fsum_sections`, and can be dropped on any
+  file with `total_tile`. With no total, the landing narrative and the
+  performance trajectory are about a **MICA line** instead: a picker on the
+  trajectory panel lists Level 1 and Level 2 lines, and the page opens on
+  the first declared statement's line (the P&L result) — the trio, the
+  chart, the RAG pill and the commentary all follow the chosen line.
 - **The total tile** — the first KPI tile adds up every row in scope. If a
   line in the file carries the same name as `total_label` the tile takes
   `total_all_label` instead ("Total (all lines)"), so the grand total and

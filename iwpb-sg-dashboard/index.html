@@ -1875,7 +1875,7 @@ const S = {
   model:null, fileName:'',
   filters:{},                 // dimKey -> Set of selected values (absent = all)
   outDims:new Set(), outPeriods:new Set(['pyMonths','cyMonths','quarters','ytd']),
-  ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'',
+  ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'', trajLine:'',
   view:'summary', widgets:[],
 };
 const ALL_DIM_LABELS={mica:'MICA code', micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
@@ -2233,7 +2233,24 @@ function renderSummary(){
   const l1name=[...byL1g.keys()][0]||'Revenue';
   const tileNames=cards.map(c=>c.l2);
   const totName=tileL1? totalLabel(tileNames) : `Total ${l1name}`;
-  const lead=(named.length&&cards.length)? cards[0] : null;
+  const noTotal=summaryNoTotal(named);
+  // subject of the page when there is no meaningful total: a MICA line —
+  // the user's pick, else the first declared statement's line, else the
+  // biggest tile. The narrative and the trajectory speak about the same one.
+  const lineOpts=summaryLineOptions(rows);
+  let subj=null;
+  if(noTotal&&lineOpts.length){
+    const secFirst=fsumSectionDefs()[0];
+    const secLine=secFirst? secFirst.vals.map(v=>lineOpts.find(o=>
+      o.name.toLowerCase()===v.toLowerCase())).find(Boolean) : null;
+    subj=lineOpts.find(o=>o.key===S.trajLine)
+      || secLine
+      || (cards.length? lineOpts.find(o=>o.name===cards[0].l2) : null)
+      || lineOpts[0];
+    S.trajLine=subj.key;
+  }
+  const lead=subj? {l2:subj.name, k:kpi(subj.rows,m,S.ytdM,S.includeFC)}
+    : ((noTotal&&cards.length)? cards[0] : null);
   const kH=lead? lead.k : kT;
   const hName=lead? lead.l2 : (tileL1? totName : l1name);
   let cm=`${esc(hName)} of <b>${fmt(kH.cmpMain)}</b> for ${esc(L.main)}`;
@@ -2287,12 +2304,12 @@ function renderSummary(){
   }
   const orderedAll=named.length? cards : applyTileOrder([...prio,...rest]);
   TILE_ALL=orderedAll.map(c=>c.l2);
-  const shown=(named.length||S.showAllKpis||!cfgYes('collapse_rest'))
-    ? orderedAll : orderedAll.slice(0,Math.max(1,prio.length));
+  const shown=(named.length||S.showAllKpis||!cfgYes('collapse_rest')||!prio.length)
+    ? orderedAll : orderedAll.slice(0,prio.length);
   $('cardGrid').innerHTML=
-    ((cfgYes('total_tile')&&!named.length)? cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false) : '')+
+    (noTotal? '' : cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false))+
     shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${esc(c.scope||(scPfx+c.l2))}" data-name="${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
-    (!named.length&&rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
+    (!named.length&&prio.length&&rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'')+
     (missingLines.length?`<div class="card morecard" style="cursor:default">Not found in ${
       esc(tileLevelNames())}: ${esc(missingLines.join(', '))}</div>`:'');
@@ -2343,25 +2360,36 @@ function renderSummary(){
 
   // performance trajectory — total, monthly, against the comparison basis
   const traj=$('trajPanel');
+  const kJ=subj? kH : kT;
+  const jName=subj? subj.name : totName;
+  const rgJ=rag(kJ.favVarPct,S.thresh);
+  const lineSel=lineOpts.length? `<select id="trajLine" aria-label="Line" style="max-width:230px">${
+    ['micaL1','micaL2'].map(dk=>{
+      const grp=FIELD_LABELS[dk]||ALL_DIM_LABELS[dk]||dk;
+      const os=lineOpts.filter(o=>o.grp===grp);
+      return os.length? `<optgroup label="${esc(grp)}">${os.map(o=>
+        `<option value="${esc(o.key)}"${subj&&o.key===subj.key?' selected':''}>${esc(o.name)}</option>`).join('')}</optgroup>` : '';
+    }).join('')}</select>` : '';
   // the selected basis leads, then whatever else the file can add for context
-  const trioAll=[[L.main,fmt(kT.cmpMain)]];
-  if(kT.cmpBase!=null) trioAll.push([L.base,fmt(kT.cmpBase)]);
-  if(kT.cmpVarPct!=null) trioAll.push([L.vs,fmtPct(kT.cmpVarPct)]);
-  if(kT.cy!=null) trioAll.push([`${MON_LBL[S.ytdM]} YTD actuals`,fmt(kT.cy)]);
-  if(kT.outlook!=null) trioAll.push(['FY outlook',fmt(kT.outlook)]);
-  if(kT.target!=null) trioAll.push(['FY target',fmt(kT.target)]);
-  if(kT.fyPrior!=null) trioAll.push([`FY-${m.fyPriorLabel} actuals`,fmt(kT.fyPrior)]);
+  const trioAll=[[L.main,fmt(kJ.cmpMain)]];
+  if(kJ.cmpBase!=null) trioAll.push([L.base,fmt(kJ.cmpBase)]);
+  if(kJ.cmpVarPct!=null) trioAll.push([L.vs,fmtPct(kJ.cmpVarPct)]);
+  if(kJ.cy!=null) trioAll.push([`${MON_LBL[S.ytdM]} YTD actuals`,fmt(kJ.cy)]);
+  if(kJ.outlook!=null) trioAll.push(['FY outlook',fmt(kJ.outlook)]);
+  if(kJ.target!=null) trioAll.push(['FY target',fmt(kJ.target)]);
+  if(kJ.fyPrior!=null) trioAll.push([`FY-${m.fyPriorLabel} actuals`,fmt(kJ.fyPrior)]);
   const seenT=new Set();
   const trio=trioAll.filter(([tl])=>{ const kx=String(tl).toLowerCase();
     if(seenT.has(kx)) return false; seenT.add(kx); return true; }).slice(0,6);
   // the chart itself follows the period: monthly shape for a month-level
   // basis, the cumulative path otherwise, against the base the period names
-  const TJ=trajFor(kT,m,L);
+  const TJ=trajFor(kJ,m,L);
   const cumAct=TJ.act, cmpCum=TJ.cmp, cmpName=TJ.name;
   const actLbl=TJ.mth? 'Monthly actuals' : 'YTD actuals';
   traj.innerHTML=`<div class="panel-head">
-      <div><h4>Performance trajectory <span class="unitsfx">(${esc(cfgUnit())})</span> ${ragPill(rgT)}</h4>
-      <p class="subtitle">${esc(totName)} — ${TJ.mth?'monthly':'cumulative YTD'} actuals${hasFC?' + outlook':''}${cmpName?` vs ${esc(cmpName)}`:''} · rated on <b>${esc(L.period)}</b> · ${esc(cfgUnit())}</p></div>
+      <div><h4>Performance trajectory <span class="unitsfx">(${esc(cfgUnit())})</span> ${ragPill(rgJ)}</h4>
+      <p class="subtitle">${esc(jName)} — ${TJ.mth?'monthly':'cumulative YTD'} actuals${hasFC?' + outlook':''}${cmpName?` vs ${esc(cmpName)}`:''} · rated on <b>${esc(L.period)}</b> · ${esc(cfgUnit())}</p></div>
+      ${lineSel}
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
     <div class="legend">
@@ -2373,24 +2401,24 @@ function renderSummary(){
     <div id="trajCom"></div>`;
   const annots=[];
   const lastAct=cumAct.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM).pop();
-  if(lastAct&&kT.cmpVar!=null){
-    const favA=(kT.favVarPct==null?0:kT.favVarPct)>=0;
+  if(lastAct&&kJ.cmpVar!=null){
+    const favA=(kJ.favVarPct==null?0:kJ.favVarPct)>=0;
     annots.push({m:lastAct.m, val:lastAct.val, color:favA?'#0b7a0b':'#c21a1a',
-      text:`${kT.cmpVar>=0?'+':''}${fmt(kT.cmpVar)} (${fmtPct(kT.cmpVarPct)})\n${L.vs}`});
+      text:`${kJ.cmpVar>=0?'+':''}${fmt(kJ.cmpVar)} (${fmtPct(kJ.cmpVarPct)})\n${L.vs}`});
   }
   const endPt=(!TJ.mth&&cumAct.length)? cumAct[cumAct.length-1] : null;
-  if(endPt&&endPt.val!=null&&kT.varTgt!=null&&(!lastAct||endPt.m!==lastAct.m)){
-    const favT=kT.varTgt>=0;
+  if(endPt&&endPt.val!=null&&kJ.varTgt!=null&&(!lastAct||endPt.m!==lastAct.m)){
+    const favT=kJ.varTgt>=0;
     annots.push({m:endPt.m, val:endPt.val, color:favT?'#0b7a0b':'#c21a1a',
-      text:`${kT.varTgt>=0?'+':''}${fmt(kT.varTgt)} (${fmtPct(kT.varTgtPct)})\nvs Target`});
+      text:`${kJ.varTgt>=0?'+':''}${fmt(kJ.varTgt)} (${fmtPct(kJ.varTgtPct)})\nvs Target`});
   }
   trendChart($('trajChart'), cumAct, cmpCum, m.yearCY, cmpName, 'line', annots);
-  aiComment($('trajCom'), 'traj|'+filterNote()+'|'+S.ytdM+'|'+L.vp+'|'+L.mode, ()=>{
-    const act=kT.cySeries.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
+  aiComment($('trajCom'), 'traj|'+filterNote()+'|'+S.ytdM+'|'+L.vp+'|'+L.mode+'|'+(subj?subj.key:''), ()=>{
+    const act=kJ.cySeries.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
     const best=act.length? act.reduce((a,b)=>b.val>a.val?b:a) : null;
     const avg=arr=>arr.reduce((s2,p2)=>s2+p2.val,0)/arr.length;
-    let h2=`${esc(L.main)} of <b>${fmt(kT.cmpMain)}</b> runs <b>${fmtPct(kT.cmpVarPct)}</b> ${esc(L.vs)}`;
-    if(kT.cmpBase!=null) h2+=` (baseline <b>${fmt(kT.cmpBase)}</b>)`;
+    let h2=`<b>${esc(jName)}</b> — ${esc(L.main)} of <b>${fmt(kJ.cmpMain)}</b> runs <b>${fmtPct(kJ.cmpVarPct)}</b> ${esc(L.vs)}`;
+    if(kJ.cmpBase!=null) h2+=` (baseline <b>${fmt(kJ.cmpBase)}</b>)`;
     h2+='.';
     if(act.length>=4){
       const l3=avg(act.slice(-3)), e3=avg(act.slice(0,act.length-3));
@@ -2399,11 +2427,11 @@ function renderSummary(){
         h2+=` Momentum is ${mom>=0.02?'building':mom<=-0.02?'fading':'flat'}: the last three actual months average <b>${fmt(l3)}</b> against <b>${fmt(e3)}</b> before (<b>${fmtPct(mom)}</b>).`;
       }
     } else if(best) h2+=` The strongest actual month is <b>${MON_LBL[best.m]}</b> at <b>${fmt(best.val)}</b>.`;
-    if(kT.outlook!=null&&kT.target!=null)
-      h2+=` The full-year outlook of <b>${fmt(kT.outlook)}</b> lands <b>${fmtPct(kT.varTgtPct)}</b> vs the FY target of <b>${fmt(kT.target)}</b>.`;
+    if(kJ.outlook!=null&&kJ.target!=null)
+      h2+=` The full-year outlook of <b>${fmt(kJ.outlook)}</b> lands <b>${fmtPct(kJ.varTgtPct)}</b> vs the FY target of <b>${fmt(kJ.target)}</b>.`;
     const rem=12-(S.ytdM+1);
-    if(kT.target!=null&&rem>0&&act.length){
-      const req=(kT.target-kT.cy)/rem, cur=kT.cy/act.length;
+    if(kJ.target!=null&&rem>0&&act.length){
+      const req=(kJ.target-kJ.cy)/rem, cur=kJ.cy/act.length;
       if(cur!==0){
         const gap=(req-cur)/Math.abs(cur);
         h2+=` Hitting target needs the remaining <b>${rem}</b> months to average <b>${fmt(req)}</b> — <b>${fmtPct(gap)}</b> vs the current run-rate of <b>${fmt(cur)}</b>/month.`;
@@ -2411,6 +2439,9 @@ function renderSummary(){
     }
     return h2;
   });
+
+  const tls=$('trajLine');
+  if(tls) tls.addEventListener('change',e=>{ S.trajLine=e.target.value; renderSummary(); });
 
   // attention required — anything not green
   const attn=cards.filter(c=>!cmpHidden(c.l2)&&['a','r'].includes(rag(c.k.favVarPct,S.thresh).cls))
@@ -3059,6 +3090,29 @@ function scopeName(sc){
    level of the file actually carries it — so a summary can mix a Level 1
    rollup (PBT, Loans, Deposits) with Level 2 lines inside it (Revenue,
    Costs) without either being forced to one level. */
+/* Every line the summary can be about, taken from the MICA hierarchy. A file
+   that mixes statements has no meaningful grand total, so the trajectory and
+   the landing narrative are about a chosen line rather than the sum of all. */
+function summaryLineOptions(rows){
+  const m=S.model, out=[], seen=new Set();
+  for(const k of ['micaL1','micaL2']){
+    if(!(k in m.dimCols)) continue;
+    const lbl=FIELD_LABELS[k]||ALL_DIM_LABELS[k]||k;
+    for(const [n,rs] of groupBy(rows,k)){
+      if(!n||n==='(blank)') continue;
+      const key=(k==='micaL1'?'l1:':'')+n;
+      if(seen.has(key)) continue;
+      seen.add(key);
+      out.push({key, name:n, rows:rs, grp:lbl});
+    }
+  }
+  return out;
+}
+/* no grand total when the lines were named by hand, or when the file's
+   statements have been declared, or when the total tile is switched off */
+function summaryNoTotal(named){
+  return !cfgYes('total_tile') || (named&&named.length>0) || fsumSectionDefs().length>0;
+}
 function tileLineDefs(){
   return cfgS('tile_lines').split(/[,;|]/).map(x=>x.trim()).filter(Boolean);
 }
