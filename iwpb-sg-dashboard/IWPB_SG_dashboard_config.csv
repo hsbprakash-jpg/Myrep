@@ -152,7 +152,7 @@ AccountHierarchy,A24,Balance Sheet,NNM,Deposits Flow,,,
 AccountHierarchy,A25,Balance Sheet,NNM,NNIA,,,
 ProductHierarchy,B1,IWPB,,,,,
 ProductHierarchy,B2,IWPB,Retail,,,,
-ProductHierarchy,B3,IWPB,Retail,Retail Lending,,,
+ProductHierarchy,B3,IWPB,Retail,Retail Lending,,,Total Consumer Assets excl Wealth Lending|Total Consumer Assets|Consumer Assets
 ProductHierarchy,B4,IWPB,Retail,Retail Lending,Mortgages,,Mortgages (Real Estate Secured)
 ProductHierarchy,B5,IWPB,Retail,Retail Lending,Cards,,Credit Cards
 ProductHierarchy,B6,IWPB,Retail,Retail Lending,Other Personal Lending,,
@@ -160,7 +160,7 @@ ProductHierarchy,B7,IWPB,Retail,Retail Lending,Other Personal Lending,Payroll,
 ProductHierarchy,B8,IWPB,Retail,Retail Lending,Other Personal Lending,Personal Loans,
 ProductHierarchy,B9,IWPB,Retail,Retail Lending,Other Personal Lending,Auto,
 ProductHierarchy,B10,IWPB,Retail,Retail Lending,Other Personal Lending,RBB,
-ProductHierarchy,B11,IWPB,Retail,Retail Deposits,,,
+ProductHierarchy,B11,IWPB,Retail,Retail Deposits,,,Consumer Liabilities
 ProductHierarchy,B12,IWPB,Retail,Retail Deposits,CASAs,,
 ProductHierarchy,B13,IWPB,Retail,Retail Deposits,CASAs,Current Accounts,Current Accounts Total
 ProductHierarchy,B14,IWPB,Retail,Retail Deposits,CASAs,Saving Accounts,Savings and Deposit Accounts
@@ -180,7 +180,7 @@ ProductHierarchy,B27,IWPB,Wealth,Insurance,Insurance Manufacturing,,
 ProductHierarchy,B28,IWPB,Wealth,Insurance,Wealth Ins Distn,,
 ProductHierarchy,B29,IWPB,Wealth,Asset Management,,,
 ProductHierarchy,B30,IWPB,Wealth,Private Bank,,,
-ProductHierarchy,B31,IWPB,Others,,,,
+ProductHierarchy,B31,IWPB,Others,,,,Not Used in Report
 ProductHierarchy,B32,IWPB,Others,Allocs of Corp Centre (RBWM),,,
 ProductHierarchy,B33,IWPB,Others,Allocs of Corp Centre (RBWM),BSM,,
 ProductHierarchy,B34,IWPB,Others,Allocs of Corp Centre (RBWM),UK Bank Levy,,
