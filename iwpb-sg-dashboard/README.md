@@ -79,6 +79,11 @@ A single header row with:
   in `US$bn`, dashboard cards and breakdown tables restate to closings in
   bn, and the MI Assistant's tables show each line in its own unit. A
   chart over a mixed scope (the whole file) stays in the file's unit.
+- **Collapsible commentary** — the Management commentary folds behind its
+  header: click the caret (or the title) to collapse it to a single line
+  and click again to reopen. The state is remembered in the browser, and
+  `commentary_collapsed: Y` starts it folded for everyone. Folding is
+  display-only — the text, edits and Word/Copy exports are untouched.
 - **A calmer landing page** — the KPI summary leads with one narrative
   line, the tile grid, a single row of RAG-and-attention chips, then the
   two analysis panels. The greeting line is off by default

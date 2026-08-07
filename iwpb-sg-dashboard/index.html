@@ -778,9 +778,11 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     </div>
     <div class="panel" id="housePanel">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-        <div><h4 style="margin:0 0 4px">Management commentary <span class="unitsfx" data-unitsfx></span></h4>
+        <div class="foldhead" id="houseFoldHead" role="button" tabindex="0" title="Collapse / expand the commentary"
+          style="cursor:pointer"><h4 style="margin:0 0 4px"><span id="houseCaret" style="font-size:11px;color:var(--fold-red)">▾</span>
+          Management commentary <span class="unitsfx" data-unitsfx></span></h4>
         <p class="subtitle" id="houseSub"></p></div>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center" id="houseCtl">
           <label style="font-size:12px;color:var(--text-muted)">Driven by
             <select id="houseDim" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)"></select></label>
           <button class="btn-quiet" id="btnHouseCopy">⧉ Copy</button>
@@ -1099,7 +1101,8 @@ const CFG_DEFAULT={
     fsum_detail:'',
     bs_unit:'bn',
     fsum_bs_label:'Balance Sheet',
-    show_greeting:'N'
+    show_greeting:'N',
+    commentary_collapsed:'N'
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
@@ -2598,7 +2601,20 @@ function renderSummary(){
   renderMix();
   renderHouse();
 }
+function houseCollapsed(){
+  const v=localStorage.getItem('iwpbsg_house_fold');
+  return v!=null? v==='1' : cfgYes('commentary_collapsed');
+}
+function applyHouseFold(){
+  const c=houseCollapsed();
+  const com=$('houseCom'), ctl=$('houseCtl'), car=$('houseCaret'), sub=$('houseSub');
+  if(com) com.style.display=c?'none':'';
+  if(ctl) ctl.style.display=c?'none':'';
+  if(sub) sub.style.display=c?'none':'';
+  if(car) car.textContent=c?'▸':'▾';
+}
 function renderHouse(){
+  applyHouseFold();
   const m=S.model, L=cmpLabels(m);
   const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
   const cur=houseDimKey();
@@ -6238,6 +6254,11 @@ function init(){
   $('btnAiAsk').addEventListener('click',()=>{ aiAsk($('aiInput').value); $('aiInput').value=''; });
   $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ aiAsk($('aiInput').value); $('aiInput').value=''; } });
   $('houseDim').addEventListener('change',e=>{ HOUSE_DIM=e.target.value; renderHouse(); });
+  const hf=$('houseFoldHead');
+  const hToggle=()=>{ try{ localStorage.setItem('iwpbsg_house_fold', houseCollapsed()?'0':'1'); }catch(e){}
+    applyHouseFold(); };
+  hf.addEventListener('click',hToggle);
+  hf.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); hToggle(); } });
   $('btnHouseWord').addEventListener('click',()=>comDocx(
     [{id:'houseCom', heading:cmpLabels(S.model).period, note:filterNote()}],
     `${cfgS('app_title')} — management commentary`));
