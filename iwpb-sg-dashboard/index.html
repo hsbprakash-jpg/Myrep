@@ -6173,7 +6173,17 @@ function cfgFromWorkbook(wb){
       else if(sec==='accounthierarchy'||sec==='producthierarchy'){
         const hk=sec==='accounthierarchy'?'account':'product';
         if(hb[hk]!==true){ cfg.hierarchies[hk]=[]; hb[hk]=true; }   // uploaded rows replace the defaults wholesale
-        if(b2) cfg.hierarchies[hk].push({id:a||String(cfg.hierarchies[hk].length+1), levels:[b2,c,d,e2,f2], match:g2||''});
+        if(b2){
+          let mt=g2||'';
+          if(!mt){
+            const lvs=[b2,c,d,e2,f2].filter(Boolean);
+            const deep=(lvs[lvs.length-1]||'').toLowerCase();
+            const df=(CFG_DEFAULT.hierarchies[hk]||[]).find(x=>x.id===a&&x.match&&
+              String((x.levels||[]).filter(Boolean).slice(-1)[0]||'').toLowerCase()===deep);
+            if(df) mt=df.match;
+          }
+          cfg.hierarchies[hk].push({id:a||String(cfg.hierarchies[hk].length+1), levels:[b2,c,d,e2,f2], match:mt});
+        }
       }
     }
   };
