@@ -135,8 +135,11 @@ A single header row with:
   and percent vs the prior forecast column, the FY target and prior-year
   actuals — so once the selected month crosses the last actual and the
   month columns read Forecast, the comparison that matters is on the page,
-  and the commentary reports it with numbers and percentages. A
-  **roll-up selector** beside the export buttons sets how
+  and the commentary reports it with numbers and percentages. The **PPT
+  export** is a single aligned slide: banded headers, a fixed column grid,
+  rows sized to fit the page, favourability colours in the variance cells,
+  and the commentary — coloured F/A figures included — beneath the table.
+  A **roll-up selector** beside the export buttons sets how
   deep the cascade reads — Level 1 rollups only, to Level 2, or the full
   o/w Level 3 detail — and the Excel, PPT and Word exports follow it
   (`fsum_detail` sets the level on load). Variance colours follow

@@ -4599,22 +4599,82 @@ function fsumAoaRow(r,m,P){
   }
 }
 async function fsumPptx(){
-  const m=S.model, P=fsumPlan(m,S.ytdM);
-  const aoa=fsumAOA();
+  // one widescreen slide, laid out like the page: banded header, the cascade,
+  // and the commentary — with its colours — beneath. Everything is sized to
+  // fit rather than allowed to spill onto a second slide.
+  const m=S.model, rows=filteredRows(), P=fsumPlan(m,S.ytdM), u=cfgUnit();
+  const H=fsumHeadRows(P,m);
+  const nMon=P.monCols.length, nNum=nMon+4+4+5+7;
+  const RED='DB0011', INK='1A1A19', GRY='52514E', BRD='DDDCD8';
+  const GOOD='0B7A0B', BAD='C21A1A';
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const sl=p.addSlide(); sl.background={color:'FFFFFF'};
-  sl.addText(`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`,
-    {x:0.4,y:0.22,w:12.6,h:0.4,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI'});
-  sl.addText(filterNote(true),{x:0.4,y:0.62,w:12.6,h:0.24,fontSize:9.5,italic:true,color:'52514E',fontFace:'Segoe UI'});
-  const body=aoa.slice(3).filter(r=>r&&r.length);
-  const rows2=body.map((r,i)=>r.map(v=>({
-    text:v==null?'':(typeof v==='number'? fmtFull(v):String(v)),
-    options:i<2?{bold:true,color:'FFFFFF',fill:{color:'DB0011'},align:'center'}
-      :{align:typeof v==='number'?'right':'left'}})));
-  sl.addTable(rows2,{x:0.3,y:0.95,w:12.8,fontSize:7.5,fontFace:'Segoe UI',
-    border:{pt:0.4,color:'DDDCD8'},autoPage:true,autoPageRepeatHeader:true});
-  const txt=comText('fsumCom');
-  if(txt) sl.addText(txt,{x:0.3,y:6.9,w:12.8,h:0.5,fontSize:10,italic:true,color:'52514E',fontFace:'Segoe UI',wrap:true});
+  sl.addText(`${cfgS('fsum_title')} \u2014 ${MON_LBL[S.ytdM]}'${P.yy} Actuals`,
+    {x:0.3,y:0.16,w:12.7,h:0.36,fontSize:18,bold:true,color:RED,fontFace:'Segoe UI'});
+  sl.addText(filterNote(true),{x:0.3,y:0.52,w:12.7,h:0.2,fontSize:8.5,italic:true,color:GRY,fontFace:'Segoe UI'});
+
+  // rows first, so the font and row height can be chosen to fit
+  const secs=fsumSections(rows);
+  const body=[];   // {cells:[{t,align,color,bold}], kind}
+  const hd=(t,span)=>({text:t, options:{bold:true,color:'FFFFFF',fill:{color:RED},align:'center',
+    colspan:span>1?span:undefined, valign:'middle'}});
+  const head1=[hd('',1),hd('Month',nMon+4),hd('QTD',4),hd('YTD',5),hd('Full Year',7)];
+  const head2=[hd('',1),
+    ...H.mh.map(h=>hd(h,1)),hd('vs Fcst',1),hd('vs Target',1),hd('vs PM',1),hd('vs PY',1),
+    hd(H.qh,1),hd('vs Target',1),hd('vs PQ',1),hd('vs PY',1),
+    hd(H.yh,1),hd('vs Tgt $',1),hd('vs PY $',1),hd('vs Tgt %',1),hd('vs PY %',1),
+    hd(`FY'${P.yy} Fcst`,1),hd('vs Pr Fcst',1),hd('vs Target',1),hd('vs PY',1),
+    hd('vs PrF %',1),hd('vs Tgt %',1),hd('vs PY %',1)];
+  const num=v=>({text:v==null?'\u2013':fmtFull(Math.round(v)), options:{align:'right',color:INK}});
+  const fav=(k,v)=>({text:v==null?'\u2013':fmtFull(Math.round(v)),
+    options:{align:'right',color:v==null?GRY:(faOK(k,v)?GOOD:BAD)}});
+  const favP=(k,v)=>({text:v==null?'\u2013':fsumPctTxt(v),
+    options:{align:'right',color:v==null?GRY:(faOK(k,v)?GOOD:BAD)}});
+  const tblRows=[head1,head2];
+  for(const sec of secs){
+    tblRows.push([{text:sec.label, options:{bold:true,color:'FFFFFF',fill:{color:RED},colspan:nNum+1,align:'left'}}]);
+    const tree=[...fsumTree(sec.rows),
+      ...((fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)?
+        [{name:secs.length>1?`Total ${sec.name}`:(cfgS('fsum_total_label')||totalLabel(l1Names(sec.rows))), rows:sec.rows, lvl:0, tot:true}]:[])];
+    for(const r of tree){
+      const f=fsumFigs(r.rows,m,P,S.ytdM), k=f.k;
+      const bold=!!(r.tot||r.sub);
+      const nm={text:('  '.repeat(r.lvl))+r.name, options:{align:'left',bold,color:INK}};
+      tblRows.push([nm,
+        ...f.mon.map(num),
+        fav(k,f.mVsFc),fav(k,f.mVsTgt),fav(k,f.mVsPM),fav(k,f.mVsPY),
+        num(f.qtd),fav(k,f.qVsTgt),fav(k,f.qVsPQ),fav(k,f.qVsPY),
+        num(f.ytd),fav(k,f.yVsTgt),fav(k,f.yVsPY),favP(k,f.yVsTgtP),favP(k,f.yVsPYP),
+        num(f.fy),fav(k,f.fVsPrF),fav(k,f.fVsTgt),fav(k,f.fVsPY),
+        favP(k,f.fVsPrFP),favP(k,f.fVsTgtP),favP(k,f.fVsPYP)
+      ].map(c=>{ if(bold&&c.options) c.options.bold=true; return c; }));
+    }
+  }
+  // commentary as coloured runs, straight from the page
+  const comEl=document.querySelector('#fsumCom .aicom-t');
+  const blocks=comEl? docBlocks(comEl) : [];
+  const comRuns=[];
+  blocks.forEach((b2,bi)=>{
+    if(b2.style==='LI') comRuns.push({text:'\u2022 ', options:{color:GRY}});
+    b2.runs.forEach(r2=>comRuns.push({text:r2.t.replace(/\n/g,' '),
+      options:{bold:!!r2.b, italic:!!r2.i, color:r2.c||INK}}));
+    if(bi<blocks.length-1) comRuns.push({text:'', options:{breakLine:true}});
+  });
+  const comLines=Math.max(2, Math.ceil(comRuns.reduce((a,r2)=>a+r2.text.length,0)/170)+blocks.length-1);
+  const comH=Math.min(1.9, 0.16*comLines+0.12);
+  // fit: everything between the note and the commentary
+  const tblY=0.78, avail=7.5-tblY-comH-0.22;
+  const n=tblRows.length;
+  const rowH=Math.max(0.14, Math.min(0.3, avail/n));
+  const fs=rowH>=0.26?8 : rowH>=0.2?7 : rowH>=0.17?6.5 : 6;
+  const wAll=12.73, wName=2.0, wNum=(wAll-wName)/nNum;
+  sl.addTable(tblRows,{x:0.3, y:tblY, w:wAll,
+    colW:[wName, ...Array(nNum).fill(wNum)],
+    rowH, fontSize:fs, fontFace:'Segoe UI',
+    border:{pt:0.4,color:BRD}, margin:0.015, valign:'middle', autoPage:false});
+  if(comRuns.length)
+    sl.addText(comRuns,{x:0.3, y:7.5-comH-0.08, w:12.73, h:comH, fontSize:8.5,
+      fontFace:'Segoe UI', valign:'top', wrap:true, fit:'shrink'});
   await p.writeFile({fileName:`IWPB_SG_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
 }
 
