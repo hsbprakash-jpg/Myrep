@@ -4617,14 +4617,17 @@ async function fsumPptx(){
   const secs=fsumSections(rows);
   const body=[];   // {cells:[{t,align,color,bold}], kind}
   const hd=(t,span)=>({text:t, options:{bold:true,color:'FFFFFF',fill:{color:RED},align:'center',
-    colspan:span>1?span:undefined, valign:'middle'}});
+    colspan:span>1?span:undefined, valign:'middle', fontSize:6.5}});
   const head1=[hd('',1),hd('Month',nMon+4),hd('QTD',4),hd('YTD',5),hd('Full Year',7)];
+  // short single-purpose labels so nothing has to wrap unpredictably; the
+  // month row carries Act / Fcst since the band already says Month
+  const mShort=P.monCols.map(p2=>`${MON_LBL[p2.m]} ${p2.fc?'Fcst':'Act'}`);
   const head2=[hd('',1),
-    ...H.mh.map(h=>hd(h,1)),hd('vs Fcst',1),hd('vs Target',1),hd('vs PM',1),hd('vs PY',1),
-    hd(H.qh,1),hd('vs Target',1),hd('vs PQ',1),hd('vs PY',1),
-    hd(H.yh,1),hd('vs Tgt $',1),hd('vs PY $',1),hd('vs Tgt %',1),hd('vs PY %',1),
-    hd(`FY'${P.yy} Fcst`,1),hd('vs Pr Fcst',1),hd('vs Target',1),hd('vs PY',1),
-    hd('vs PrF %',1),hd('vs Tgt %',1),hd('vs PY %',1)];
+    ...mShort.map(h=>hd(h,1)),hd('vs Fcst',1),hd('vs Tgt',1),hd('vs PM',1),hd('vs PY',1),
+    hd(P.qLbl,1),hd('vs Tgt',1),hd('vs PQ',1),hd('vs PY',1),
+    hd('YTD',1),hd('vs Tgt',1),hd('vs PY',1),hd('Tgt %',1),hd('PY %',1),
+    hd(`FY Fcst`,1),hd('vs PrF',1),hd('vs Tgt',1),hd('vs PY',1),
+    hd('PrF %',1),hd('Tgt %',1),hd('PY %',1)];
   const num=v=>({text:v==null?'\u2013':fmtFull(Math.round(v)), options:{align:'right',color:INK}});
   const fav=(k,v)=>({text:v==null?'\u2013':fmtFull(Math.round(v)),
     options:{align:'right',color:v==null?GRY:(faOK(k,v)?GOOD:BAD)}});
@@ -4656,24 +4659,29 @@ async function fsumPptx(){
   const comRuns=[];
   blocks.forEach((b2,bi)=>{
     if(b2.style==='LI') comRuns.push({text:'\u2022 ', options:{color:GRY}});
-    b2.runs.forEach(r2=>comRuns.push({text:r2.t.replace(/\n/g,' '),
-      options:{bold:!!r2.b, italic:!!r2.i, color:r2.c||INK}}));
-    if(bi<blocks.length-1) comRuns.push({text:'', options:{breakLine:true}});
+    b2.runs.forEach((r2,ri)=>comRuns.push({text:r2.t.replace(/\n/g,' '),
+      options:{bold:!!r2.b, italic:!!r2.i, color:r2.c||INK,
+        breakLine:(bi<blocks.length-1&&ri===b2.runs.length-1)||undefined}}));
   });
   const comLines=Math.max(2, Math.ceil(comRuns.reduce((a,r2)=>a+r2.text.length,0)/170)+blocks.length-1);
-  const comH=Math.min(1.9, 0.16*comLines+0.12);
-  // fit: everything between the note and the commentary
-  const tblY=0.78, avail=7.5-tblY-comH-0.22;
+  const comH=Math.min(1.6, 0.16*comLines+0.1);
+  // fit: rows never wrap (short labels, capped font), so the height is exact —
+  // two header rows, then the body split over what remains above the commentary
+  const tblY=0.76, avail=7.5-tblY-comH-0.3;
   const n=tblRows.length;
-  const rowH=Math.max(0.14, Math.min(0.3, avail/n));
-  const fs=rowH>=0.26?8 : rowH>=0.2?7 : rowH>=0.17?6.5 : 6;
+  const hHdr=0.24;
+  const hBody=Math.max(0.15, Math.min(0.28, (avail-2*hHdr)/(n-2)));
   const wAll=12.73, wName=2.0, wNum=(wAll-wName)/nNum;
+  // the largest font the narrow columns can hold on one line, capped by row height
+  const fs=Math.max(5.5, Math.min(hBody>=0.24?8:7.5, Math.floor(wNum*72/(0.52*8)*2)/2));
+  const rowHs=[hHdr,hHdr,...Array(n-2).fill(hBody)];
+  const tblH=rowHs.reduce((a,x)=>a+x,0);
   sl.addTable(tblRows,{x:0.3, y:tblY, w:wAll,
     colW:[wName, ...Array(nNum).fill(wNum)],
-    rowH, fontSize:fs, fontFace:'Segoe UI',
-    border:{pt:0.4,color:BRD}, margin:0.015, valign:'middle', autoPage:false});
+    rowH:rowHs, fontSize:fs, fontFace:'Segoe UI',
+    border:{pt:0.4,color:BRD}, margin:0.012, valign:'middle', autoPage:false});
   if(comRuns.length)
-    sl.addText(comRuns,{x:0.3, y:7.5-comH-0.08, w:12.73, h:comH, fontSize:8.5,
+    sl.addText(comRuns,{x:0.3, y:tblY+tblH+0.12, w:12.73, h:Math.min(comH,7.5-(tblY+tblH+0.18)), fontSize:8.5,
       fontFace:'Segoe UI', valign:'top', wrap:true, fit:'shrink'});
   await p.writeFile({fileName:`IWPB_SG_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
 }
