@@ -94,7 +94,9 @@ A single header row with:
   carrying them never collapses its tile grid. A driller carrying Deposits or Loans beside a result gets no
   total tile, no total row and no total in its commentary, because adding a
   balance to a result is not a figure; a P&L-only driller keeps its bottom
-  line as before. `Y` or `N` force it either way, and naming the lines in
+  line as before. `Y` or `N` force it either way (though `Y` can never force a
+  total on a scope mixing balance-sheet and P&L lines — that guard is
+  absolute), and naming the lines in
   `tile_lines` or declaring statements in `fsum_sections` also drops it.
   Lines the priority patterns do not recognise are ordered as they appear
   in the driller rather than by size, so a balance-sheet line is not
