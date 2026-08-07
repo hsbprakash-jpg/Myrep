@@ -5675,7 +5675,9 @@ function renderCustom(){
     div.className='widget'+((w.type!=='card'||(w.ctype||'hbar')==='table')?' w2':'');
     div.dataset.idx=idx;
     const rows=widgetRows(w.l2);
-    const k=kpi(rows,m,S.ytdM,S.includeFC);
+    let k=kpi(rows,m,S.ytdM,S.includeFC);
+    if(rows.length&&isBSLine(rows[0].d.micaL1||'')) k=bsRecast(k);
+    const wu=(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
     const rg=rag(k.favVarPct,S.thresh);
     const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
       Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
@@ -5688,7 +5690,7 @@ function renderCustom(){
         [['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar'],['table','Table']].map(([v,l])=>
           `<option value="${v}"${(w.ttype||'line')===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
     let head=`<div class="whead" draggable="true" title="Drag to rearrange">
-      <span class="grip" aria-hidden="true">⠿</span><h5 title="${esc(widgetTitle(w))}">${esc(widgetTitleBase(w))}</h5><span class="wunit">(${esc(cfgUnit())})</span>${typeSel}
+      <span class="grip" aria-hidden="true">⠿</span><h5 title="${esc(widgetTitle(w))}">${esc(widgetTitleBase(w))}</h5><span class="wunit">(${esc(wu)})</span>${typeSel}
       <button class="wexport" title="Export data to Excel" aria-label="Export data to Excel">⤓</button>
       <button class="wremove" title="Remove widget" aria-label="Remove widget">✕</button></div>`;
     let body='';
@@ -5701,12 +5703,12 @@ function renderCustom(){
       const hidew=cmpHidden(w.l2);
       const rgw=rag(k.favVarPct,S.thresh);
       const subw= hidew? `${esc(Lw.main)} actuals`
-        : `${fmtPct(k.cmpVarPct)} ${esc(Lw.vs)} (${fmt(k.cmpVar)})`;
+        : `${fmtPct(k.cmpVarPct)} ${esc(k.isBS? 'vs '+bsBaseLbl(Lw.mode).toLowerCase() : Lw.vs)} (${fmtK(k,Math.abs(k.cmpVar??0))})`;
       const cviz=(w.ctype||'hbar')==='line'? sparkline(k.cySeries,250,42)
         : (w.ctype||'hbar')==='column'? miniCol(k.cySeries)
         : (w.ctype||'hbar')==='table'? miniMonthTable(k.cySeries)
         : miniHBar(k.cySeries);
-      body=`<div class="val${(k.cmpMain||0)<0?' negnum':''}">${fmt(k.cmpMain)}</div>
+      body=`<div class="val${(k.cmpMain||0)<0?' negnum':''}">${(k.isBS&&bsUnit())? fmtBS(k.cmpMain) : fmt(k.cmpMain)}</div>
         <div class="row" style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
           <span class="delta">${subw}</span>${hidew?'':ragPill(rgw)}</div>
         <div style="margin-top:8px">${cviz}</div>`;
