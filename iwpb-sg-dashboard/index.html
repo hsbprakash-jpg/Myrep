@@ -1968,7 +1968,8 @@ function aiComment(host, sig, a, b){
   const prev=st['prev:'+base];
   const canRetrieve=!!(prev&&prev.t!=null&&prev.t!==text);
   const noBtns=!!(opts&&opts.noButtons);
-  host.innerHTML=`<p class="ctxnote">${esc(filterNote())}</p><div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · kept':'AI commentary · click text to edit'}</span>
+  const ctxTxt=(opts&&opts.ctx!=null)? opts.ctx : filterNote();
+  host.innerHTML=`<p class="ctxnote">${esc(ctxTxt)}</p><div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · kept':'AI commentary · click text to edit'}</span>
       <span class="aicom-btns"${noBtns?' hidden':''}>
       <button class="aicom-p" type="button"${canRetrieve?'':' disabled'} title="${canRetrieve?'Bring back the manual commentary that was written before':'Nothing to retrieve yet — a copy is kept whenever your text is replaced'}">⤺ ${esc(cfgL('btn_retrieve')||'Retrieve')}</button>
       <button class="aicom-r" type="button" title="Discard your edits and rebuild the AI commentary from the current data">↺ ${esc(cfgL('btn_regen')||'Regenerate')}</button></span></div>
@@ -2684,13 +2685,13 @@ async function pptChartSlide(p, it){
         color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
     }
 }
-function filterNote(){
+function filterNote(noPeriod){
   const parts=[];
   for(const [k,set] of Object.entries(S.filters)){
     if(!set||!set.size) continue;
     parts.push(`${ALL_DIM_LABELS[k]||k}: ${set.size<=3?[...set].join(' / '):set.size+' selected'}`);
   }
-  const per=S.model? cmpLabels(S.model).period : '';
+  const per=(!noPeriod&&S.model)? cmpLabels(S.model).period : '';
   return `Filters: ${parts.length?parts.join(' · '):'none'} · YTD ${ytdLabel()}${per?' · '+per:''}`;
 }
 function kpiSummaryAOA(){
@@ -3840,7 +3841,8 @@ function renderFsum(){
   if(!(m.targetCols&&m.targetCols.length)) gaps.push('vs Target (no FY target column)');
   if(kpi(rows,m,S.ytdM,S.includeFC).fyFc==null) gaps.push('vs Fcst (no forecast column or months)');
   $('fsumNote').textContent=gaps.length? 'Shown as – : '+gaps.join(' · ') : '';
-  aiComment($('fsumCom'), 'fsum|'+filterNote()+'|'+S.ytdM+'|'+drvSig(), ()=>fsumCommentary(rows,m,P));
+  aiComment($('fsumCom'), 'fsum|'+filterNote(true)+'|'+S.ytdM+'|'+drvSig(),
+    {ctx:filterNote(true)}, ()=>fsumCommentary(rows,m,P));
 }
 function fsumCommentary(rows,m,P){
   const tot=fsumFigs(rows,m,P,S.ytdM);
@@ -3867,7 +3869,7 @@ function fsumCommentary(rows,m,P){
 function fsumAOA(){
   const m=S.model, rows=filteredRows(), P=fsumPlan(m,S.ytdM), u=cfgUnit();
   const H=fsumHeadRows(P,m);
-  const aoa=[[`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`],[filterNote()],[]];
+  const aoa=[[`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`],[filterNote(true)],[]];
   const r1=[''], r2=[''];
   H.mh.forEach(h=>{ r1.push('Month'); r2.push(h); });
   ['vs Fcst','vs Target','vs PM','vs PY'].forEach(h=>{ r1.push(`Month · Variance (${u})`); r2.push(h); });
@@ -3903,7 +3905,7 @@ async function fsumPptx(){
   const sl=p.addSlide(); sl.background={color:'FFFFFF'};
   sl.addText(`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`,
     {x:0.4,y:0.22,w:12.6,h:0.4,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI'});
-  sl.addText(filterNote(),{x:0.4,y:0.62,w:12.6,h:0.24,fontSize:9.5,italic:true,color:'52514E',fontFace:'Segoe UI'});
+  sl.addText(filterNote(true),{x:0.4,y:0.62,w:12.6,h:0.24,fontSize:9.5,italic:true,color:'52514E',fontFace:'Segoe UI'});
   const body=aoa.slice(3).filter(r=>r&&r.length);
   const rows2=body.map((r,i)=>r.map(v=>({
     text:v==null?'':(typeof v==='number'? fmtFull(v):String(v)),
@@ -4092,7 +4094,7 @@ function simCmpRun(names){
 }
 function simCmpAOA(){
   const res=SIM_CMP.last||[];
-  const aoa=[['Simulation — scenario comparison'],[filterNote()],[],
+  const aoa=[['Simulation — scenario comparison'],[filterNote(true)],[],
     ['Scenario','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast']];
   for(const r of res)
     aoa.push([r.name, r.total.baseOut, r.total.simOut, r.total.delta]);
@@ -4125,7 +4127,7 @@ function simAOA(){
   const ruleTxt=rules.map((r,i)=>`Rule ${i+1}: ${r.dim?(ALL_DIM_LABELS[r.dim]||r.dim)+' = '+r.val2:'All rows'} · ${
     r.type==='pct'?r.val+'% change on forecast months':r.type==='pctfy'?r.val+'% change on FY, spread over the months':
     r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
-  const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote()],[ruleTxt||'No rules'],[],
+  const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote(true)],[ruleTxt||'No rules'],[],
     [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast']];
   for(const g of [...a.groups, a.total])
     aoa.push([g.name,g.baseOut,g.simOut,g.delta]);
@@ -4235,7 +4237,7 @@ function renderSim(){
       <td class="num">${fmtCell(g.delta)}</td></tr>`).join('')}</tbody></table></div>`;
   $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
-  aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote()+'|'+(SIM.by||''), {noButtons:true}, ()=>{
+  aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote(true)+'|'+(SIM.by||''), {noButtons:true, ctx:filterNote(true)}, ()=>{
     const mv=[...a.groups].sort((x,y)=>Math.abs(y.delta)-Math.abs(x.delta))[0];
     const upl=t.baseOut? t.delta/Math.abs(t.baseOut) : null;
     let h2=`The scenario moves the FY outlook from <b>${fmt(t.baseOut)}</b> to <b>${fmt(t.simOut)}</b> (<b>${t.delta>=0?'+':''}${fmt(t.delta)}</b>${upl!=null?`, <b>${fmtPct(upl)}</b> on the prior forecast path`:''})`;
@@ -4277,7 +4279,7 @@ function renderSimCompare(){
       </tbody></table></div>
     <div id="simCmpCom"></div>`;
   simCmpChart($('simCmpChart'), a0.actSeries, a0.baseSeries, res.map(r=>({name:r.name, pts:r.simSeries})));
-  aiComment($('simCmpCom'), 'simcmp|'+res.map(r=>r.name).join(',')+'|'+filterNote(), {noButtons:true}, ()=>{
+  aiComment($('simCmpCom'), 'simcmp|'+res.map(r=>r.name).join(',')+'|'+filterNote(true), {noButtons:true, ctx:filterNote(true)}, ()=>{
     let h=`Comparing <b>${res.length}</b> scenarios against a prior FY outlook of <b>${fmt(a0.total.baseOut)}</b>: `+
       res.map(r=>`<b>${esc(r.name)}</b> lands <b>${fmt(r.total.simOut)}</b> (${r.total.delta>=0?'+':''}${fmt(r.total.delta)})`).join('; ')+'.';
     if(best) h+=` <b>${esc(best.name)}</b> lifts the outlook most, at <b>${best.total.delta>=0?'+':''}${fmt(best.total.delta)}</b>.`;
