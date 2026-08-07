@@ -61,7 +61,11 @@ A single header row with:
   themselves — pick MAY and MoM reads *MAY-26 vs APR-26*. Tiles,
   trajectory, Mix analysis, breakdowns, dashboard cards, the management
   commentary, the MI Assistant and both exports all follow the selection;
-  **Auto** keeps the file's default basis (`calc_cmp_priority`).
+  **Auto** keeps the file's default basis (`calc_cmp_priority`). The
+  performance trajectory redraws with it: a month-level basis (MoM, Month
+  vs Target) plots the monthly shape, a YTD or FY basis the cumulative
+  path, each against the base the period names — prior-year, phased
+  forecast or phased target.
 - **MI Assistant** — a governed Q&A page (left-pane entry): ten approved
   questions (performance, lines behind forecast, FY target, top/dragging
   products, costs, ECL, required run-rate, prior year, contribution mix)

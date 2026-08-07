@@ -1065,39 +1065,39 @@ function cfgCmpOrder(){
    calc_variance_period) — nothing here is fixed in code. */
 const VP_DEFS={
   auto:{lbl:()=>'Auto — file default basis', avail:()=>true},
-  ytd_py:{mode:'py',
+  ytd_py:{mode:'py', grain:'ytd', line:'py',
     lbl:c=>`YTD vs PY (${c.mon}-${c.cyy} YTD vs ${c.mon}-${c.pyy} YTD)`,
     main:c=>`${c.mon}-${c.cyy} YTD`, base:c=>`${c.mon}-${c.pyy} YTD`, vs:c=>`vs ${c.mon}-${c.pyy} YTD`,
     avail:m=>!!m.pyMonths.length, pick:v=>[v.cy, v.py]},
-  ytd_fc:{mode:'fc',
+  ytd_fc:{mode:'fc', grain:'ytd', line:'fc',
     lbl:c=>`YTD vs Forecast (${c.mon}-${c.cyy} YTD vs ${c.mon}-${c.cyy} YTD forecast)`,
     main:c=>`${c.mon}-${c.cyy} YTD`, base:c=>`${c.mon}-${c.cyy} YTD forecast`, vs:()=>'vs YTD forecast',
     avail:m=>fcBasis(m)||!!(m.ytdFcAsOfCols&&m.ytdFcAsOfCols.length), pick:v=>[v.cy, v.ytdFc]},
-  ytd_tgt:{mode:'tgt',
+  ytd_tgt:{mode:'tgt', grain:'ytd', line:'tgt',
     lbl:c=>`YTD vs Target (${c.mon}-${c.cyy} YTD vs ${c.mon}-${c.cyy} YTD target)`,
     main:c=>`${c.mon}-${c.cyy} YTD`, base:c=>`${c.mon}-${c.cyy} YTD target`, vs:()=>'vs YTD target',
     avail:m=>!!(m.targetCols&&m.targetCols.length), pick:v=>[v.cy, v.ytdTgt]},
-  mom:{mode:'py',
+  mom:{mode:'py', grain:'month', line:'none',
     lbl:c=>`MoM (${c.mon}-${c.cyy} vs ${c.pmon}-${c.pmyy})`,
     main:c=>`${c.mon}-${c.cyy}`, base:c=>`${c.pmon}-${c.pmyy}`, vs:c=>`vs ${c.pmon}-${c.pmyy}`,
     avail:(m,ytdM)=>ytdM>0||!!m.pyMonths.length, pick:v=>[v.mth, v.mthPrev]},
-  mth_py:{mode:'py',
+  mth_py:{mode:'py', grain:'month', line:'py',
     lbl:c=>`Month vs PY (${c.mon}-${c.cyy} vs ${c.mon}-${c.pyy})`,
     main:c=>`${c.mon}-${c.cyy}`, base:c=>`${c.mon}-${c.pyy}`, vs:c=>`vs ${c.mon}-${c.pyy}`,
     avail:m=>!!m.pyMonths.length, pick:v=>[v.mth, v.mthPy]},
-  mth_tgt:{mode:'tgt',
+  mth_tgt:{mode:'tgt', grain:'month', line:'tgt',
     lbl:c=>`Month vs Target (${c.mon}-${c.cyy} vs ${c.mon}-${c.cyy} target)`,
     main:c=>`${c.mon}-${c.cyy}`, base:c=>`${c.mon}-${c.cyy} target`, vs:c=>`vs ${c.mon}-${c.cyy} target`,
     avail:m=>!!(m.targetCols&&m.targetCols.length), pick:v=>[v.mth, v.mthTgt]},
-  mth_fc:{mode:'fc',
+  mth_fc:{mode:'fc', grain:'month', line:'fc',
     lbl:c=>`Month vs Forecast (${c.mon}-${c.cyy} vs ${c.mon}-${c.cyy} forecast)`,
     main:c=>`${c.mon}-${c.cyy}`, base:c=>`${c.mon}-${c.cyy} forecast`, vs:c=>`vs ${c.mon}-${c.cyy} forecast`,
     avail:m=>fcBasis(m), pick:v=>[v.mth, v.mthFc]},
-  fy_tgt:{mode:'tgt',
+  fy_tgt:{mode:'tgt', grain:'ytd', line:'tgt',
     lbl:c=>`FY${c.cyy} vs Target (${c.cy4} forecast vs ${c.cy4} target)`,
     main:c=>`FY${c.cyy} forecast`, base:c=>`FY${c.cyy} target`, vs:c=>`vs FY${c.cyy} target`,
     avail:m=>!!(m.targetCols&&m.targetCols.length), pick:v=>[v.fyMain, v.target]},
-  fy_py:{mode:'py',
+  fy_py:{mode:'py', grain:'ytd', line:'py',
     lbl:c=>`FY${c.cyy} vs PY (${c.cy4} forecast vs ${c.py4})`,
     main:c=>`FY${c.cyy} forecast`, base:c=>`FY${c.pyy} actuals`, vs:c=>`vs FY${c.pyy}`,
     avail:m=>!!m.pyMonths.length||!!(m.fyPriorCols&&m.fyPriorCols.length), pick:v=>[v.fyMain, v.fyBase]}
@@ -1452,6 +1452,22 @@ function trajSeries(k,m){
   }
   return {act, cmp, name};
 }
+/* the trajectory's two series for the selected variance period: month-level
+   bases draw the monthly shape, YTD and FY bases the cumulative path, each
+   against the base the period names */
+function trajFor(k, m, L){
+  const cum=ser=>{ let acc=0; return ser.map(p=>({m:p.m, fc:p.fc, val:(acc+=(p.val||0))})); };
+  const mth=(L.grain||'ytd')==='month';
+  const act=mth? k.cySeries.map(p=>({m:p.m, fc:p.fc, val:p.val})) : cum(k.cySeries);
+  const phased=(tot)=>{ let acc=0; return m.cyMonths.map(p=>{ const w=fcWeight(m,p.m); acc+=w;
+    return {m:p.m, fc:false, val:tot*(mth? w : acc)}; }); };
+  const yr=mth? String(m.yearPY) : `YTD ${m.yearPY}`;
+  let cmp=[], name='';
+  if(L.line==='py'&&m.pyMonths.length&&k.pySeries.length){ cmp=mth? k.pySeries : cum(k.pySeries); name=yr; }
+  else if(L.line==='fc'&&k.fyFc!=null){ cmp=phased(k.fyFc); name=mth?'Monthly forecast':'YTD forecast'; }
+  else if(L.line==='tgt'&&k.target!=null){ cmp=phased(k.target); name=mth?'Monthly target':'YTD target'; }
+  return {act, cmp, name, mth};
+}
 function cmpTrend(k,m){
   // only a real prior-year series is drawn as a comparison line — the phased
   // forecast/target reference lines are intentionally omitted
@@ -1465,14 +1481,15 @@ function cmpLabels(m){
   const id=vpSel(m), d=VP_DEFS[id];
   if(d&&d.pick){
     const c=vpCtx(m, (typeof S!=='undefined'? S.ytdM : 0));
-    return {mode:d.mode, main:d.main(c), base:d.base(c), vs:d.vs(c), mainKey:'cmpMain', vp:id, period:d.lbl(c)};
+    return {mode:d.mode, main:d.main(c), base:d.base(c), vs:d.vs(c), mainKey:'cmpMain', vp:id,
+      period:d.lbl(c), grain:d.grain, line:d.line};
   }
   for(const mth of cfgCmpOrder()){
-    if(mth==='py'&&m.pyMonths.length) return {mode:'py', main:`YTD ${m.yearCY}`, base:`YTD ${m.yearPY}`, vs:`vs ${m.yearPY}`, mainKey:'cmpMain', vp:'auto', period:`YTD vs PY`};
-    if(mth==='fc'&&fcBasis(m)) return {mode:'fc', main:`YTD ${m.yearCY}`, base:'YTD forecast', vs:'vs YTD forecast', mainKey:'cmpMain', vp:'auto', period:'YTD vs forecast'};
-    if(mth==='tgt'&&m.targetCols&&m.targetCols.length) return {mode:'tgt', main:'FY Outlook', base:'FY Target', vs:'vs FY target', mainKey:'cmpMain', vp:'auto', period:'FY vs target'};
+    if(mth==='py'&&m.pyMonths.length) return {mode:'py', main:`YTD ${m.yearCY}`, base:`YTD ${m.yearPY}`, vs:`vs ${m.yearPY}`, mainKey:'cmpMain', vp:'auto', period:`YTD vs PY`, grain:'ytd', line:'py'};
+    if(mth==='fc'&&fcBasis(m)) return {mode:'fc', main:`YTD ${m.yearCY}`, base:'YTD forecast', vs:'vs YTD forecast', mainKey:'cmpMain', vp:'auto', period:'YTD vs forecast', grain:'ytd', line:'fc'};
+    if(mth==='tgt'&&m.targetCols&&m.targetCols.length) return {mode:'tgt', main:'FY Outlook', base:'FY Target', vs:'vs FY target', mainKey:'cmpMain', vp:'auto', period:'FY vs target', grain:'ytd', line:'fc'};
   }
-  return {mode:'none', main:`YTD ${m.yearCY}`, base:'Prior year', vs:'vs prior year', mainKey:'cmpMain', vp:'auto', period:'No baseline'};
+  return {mode:'none', main:`YTD ${m.yearCY}`, base:'Prior year', vs:'vs prior year', mainKey:'cmpMain', vp:'auto', period:'No baseline', grain:'ytd', line:'none'};
 }
 function rag(varPct, thresh){
   if(varPct==null) return {cls:'n', ic:'○', label:'No baseline'};
@@ -2178,30 +2195,23 @@ function renderSummary(){
   const seenT=new Set();
   const trio=trioAll.filter(([tl])=>{ const kx=String(tl).toLowerCase();
     if(seenT.has(kx)) return false; seenT.add(kx); return true; }).slice(0,6);
+  // the chart itself follows the period: monthly shape for a month-level
+  // basis, the cumulative path otherwise, against the base the period names
+  const TJ=trajFor(kT,m,L);
+  const cumAct=TJ.act, cmpCum=TJ.cmp, cmpName=TJ.name;
+  const actLbl=TJ.mth? 'Monthly actuals' : 'YTD actuals';
   traj.innerHTML=`<div class="panel-head">
       <div><h4>Performance trajectory <span class="unitsfx">(${esc(cfgUnit())})</span> ${ragPill(rgT)}</h4>
-      <p class="subtitle">${esc(totName)} — cumulative YTD actuals${hasFC?' + outlook':''}${L.mode==='py'&&m.pyMonths.length?` vs YTD ${esc(m.yearPY)}`:' vs YTD forecast'} · rated on <b>${esc(L.period)}</b> · ${esc(cfgUnit())}</p></div>
+      <p class="subtitle">${esc(totName)} — ${TJ.mth?'monthly':'cumulative YTD'} actuals${hasFC?' + outlook':''}${cmpName?` vs ${esc(cmpName)}`:''} · rated on <b>${esc(L.period)}</b> · ${esc(cfgUnit())}</p></div>
     </div>
     <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
     <div class="legend">
-      <span><span class="swl" style="border-top:3px solid var(--series-1)"></span>YTD actuals</span>
-      ${hasFC?`<span><span class="swl" style="border-top:3px dashed var(--series-1)"></span>YTD outlook (forecast months)</span>`:''}
-      ${L.mode==='py'&&m.pyMonths.length?`<span><span class="swl" style="border-top:3px solid var(--series-2)"></span>YTD ${esc(m.yearPY)}</span>`
-        :`<span><span class="swl" style="border-top:3px solid var(--series-2)"></span>YTD forecast</span>`}
+      <span><span class="swl" style="border-top:3px solid var(--series-1)"></span>${esc(actLbl)}</span>
+      ${hasFC?`<span><span class="swl" style="border-top:3px dashed var(--series-1)"></span>${esc(TJ.mth?'Forecast months':'YTD outlook (forecast months)')}</span>`:''}
+      ${cmpName?`<span><span class="swl" style="border-top:3px solid var(--series-2)"></span>${esc(cmpName)}</span>`:''}
     </div>
     <div class="chart-wrap" id="trajChart"></div>
     <div id="trajCom"></div>`;
-  // cumulative view: YTD actuals building through the year (dashed once the
-  // months are forecast) against the cumulative YTD forecast path
-  const cum=ser=>{ let acc=0; return ser.map(p2=>({m:p2.m, fc:p2.fc, val:(acc+=(p2.val||0))})); };
-  const cumAct=cum(kT.cySeries);
-  let cmpCum=[], cmpName='';
-  if(L.mode==='py'&&kT.pySeries.length&&m.pyMonths.length){ cmpCum=cum(kT.pySeries); cmpName=`YTD ${m.yearPY}`; }
-  else if(kT.fyFc!=null){
-    let accW=0;
-    cmpCum=m.cyMonths.map(p2=>{ accW+=fcWeight(m,p2.m); return {m:p2.m, fc:false, val:kT.fyFc*accW}; });
-    cmpName='YTD forecast';
-  }
   const annots=[];
   const lastAct=cumAct.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM).pop();
   if(lastAct&&kT.cmpVar!=null){
@@ -2209,7 +2219,7 @@ function renderSummary(){
     annots.push({m:lastAct.m, val:lastAct.val, color:favA?'#0b7a0b':'#c21a1a',
       text:`${kT.cmpVar>=0?'+':''}${fmt(kT.cmpVar)} (${fmtPct(kT.cmpVarPct)})\n${L.vs}`});
   }
-  const endPt=cumAct.length? cumAct[cumAct.length-1] : null;
+  const endPt=(!TJ.mth&&cumAct.length)? cumAct[cumAct.length-1] : null;
   if(endPt&&endPt.val!=null&&kT.varTgt!=null&&(!lastAct||endPt.m!==lastAct.m)){
     const favT=kT.varTgt>=0;
     annots.push({m:endPt.m, val:endPt.val, color:favT?'#0b7a0b':'#c21a1a',
