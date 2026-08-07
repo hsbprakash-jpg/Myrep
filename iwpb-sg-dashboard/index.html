@@ -1181,6 +1181,27 @@ function bsUnitDiv(){
   return Math.pow(10, UNIT_EXP[u2]-unitNative().exp);
 }
 function bsUnitLabel(){ const u2=bsUnit(); return u2? unitLabelFor(u2) : cfgUnit(); }
+function bsRecast(k){
+  const L=cmpLabels(S.model);
+  const bal=k.mth!=null? k.mth : k.cy;
+  const base=L.mode==='tgt'? k.target : L.mode==='py'? (k.mthPy!=null?k.mthPy:k.fyPrior) : k.fyFc;
+  const v=(bal!=null&&base!=null)? bal-base : null;
+  const pct=(v!=null&&base)? v/Math.abs(base) : null;
+  const decV=k.cySeries.length? k.cySeries[k.cySeries.length-1].val : null;
+  const vT=(decV!=null&&k.target!=null)? decV-k.target : null;
+  return {...k, isBS:true, cy:bal, cmpMain:bal, cmpBase:base, cmpVar:v, cmpVarPct:pct,
+    favVarPct:pct, dirFlip:false, costLike:false, outlook:decV, fyFc:decV,
+    ytdFc:base, varFc:(L.mode==='fc'? v : (k.fyFc!=null&&bal!=null? bal-k.fyFc : null)),
+    varFcPct:(L.mode==='fc'? pct : (k.fyFc? (bal-k.fyFc)/Math.abs(k.fyFc) : null)),
+    varTgt:vT, varTgtPct:(vT!=null&&k.target)? vT/Math.abs(k.target) : null};
+}
+function bsBaseLbl(mode){
+  return mode==='tgt'? 'Target balance' : mode==='py'? 'PY closing' : 'Closing forecast';
+}
+function fmtK(k, v){
+  const x=v!==undefined? v : k.cmpMain;
+  return (k&&k.isBS&&bsUnit())? fmtBS(x)+bsUnit() : fmt(x);
+}
 function fmtBS(v){
   if(v==null) return '–';
   const dv=bsUnitDiv();
@@ -1589,6 +1610,11 @@ function tileRows(k,m){
   const rows=[];
   // the selected variance period always leads; the standard rows follow
   const L=cmpLabels(m);
+  if(k.isBS){
+    if(k.cmpVar!=null) rows.push({lbl:L.vs.replace('YTD ',''), v:k.cmpVar, p:k.cmpVarPct});
+    if(k.varTgt!=null) rows.push({lbl:'FY vs Tgt', v:k.varTgt, p:k.varTgtPct});
+    return rows;
+  }
   if(L.vp&&L.vp!=='auto'&&k.cmpVar!=null) rows.push({lbl:L.vs, v:k.cmpVar, p:k.cmpVarPct, lead:true});
   if(m.pyMonths.length&&k.py!=null) rows.push({lbl:'vs PY', v:k.varAbs, p:k.varPct});
   if(k.ytdFc!=null) rows.push({lbl:'vs Fcst', v:k.varFc, p:k.varFcPct});
@@ -2247,13 +2273,15 @@ function renderSummary(){
     cards=named.map(nm=>{
       const f=tileFindLine(rows,nm);
       if(!f){ missingLines.push(nm); return null; }
-      return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:'d:'+f.key+':'+f.name,
-        k:kpi(f.rows,m,S.ytdM,S.includeFC)};
+      let k=kpi(f.rows,m,S.ytdM,S.includeFC);
+      if(isBSLine(f.rows[0].d.micaL1||'')) k=bsRecast(k);
+      return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:'d:'+f.key+':'+f.name, k};
     }).filter(Boolean);
     scPfx='';
   } else {
     cards=[...(tileL1?byL1g:groupBy(rows,'micaL2')).entries()].map(([nm,rs])=>{
-      const k=kpi(rs,m,S.ytdM,S.includeFC);
+      let k=kpi(rs,m,S.ytdM,S.includeFC);
+      if(isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
       return {l2:nm, l1:tileL1?nm:rs[0].d.micaL1, rows:rs, k};
     });
     const anyPrio=cards.some(c=>PRIO_RES.some(rx=>rx.test(c.l2)));
@@ -2300,7 +2328,8 @@ function renderSummary(){
       || lineOpts[0];
     S.trajLine=subj.key;
   }
-  const lead=subj? {l2:subj.name, k:kpi(subj.rows,m,S.ytdM,S.includeFC)}
+  const lead=subj? {l2:subj.name, k:(subj.rows.length&&isBSLine(subj.rows[0].d.micaL1||''))
+      ? bsRecast(kpi(subj.rows,m,S.ytdM,S.includeFC)) : kpi(subj.rows,m,S.ytdM,S.includeFC)}
     : ((noTotal&&cards.length)? cards[0] : null);
   const kH=lead? lead.k : kT;
   const hName=lead? lead.l2 : (tileL1? totName : l1name);
@@ -2314,12 +2343,12 @@ function renderSummary(){
   const withVar=rankSet.filter(c=>c.k.favVarPct!=null && !cmpHidden(c.l2));
   const best=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct>=b.k.favVarPct?a:b):null;
   const worst=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct<=b.k.favVarPct?a:b):null;
-  let cm=`${esc(hName)} of <b>${fmt(kH.cmpMain)}</b> for ${esc(L.main)}`;
+  let cm=`${esc(hName)} of <b>${fmtK(kH)}</b> for ${esc(kH.isBS? MON_LBL[S.ytdM]+' closing' : L.main)}`;
   if(kH.cmpVarPct!=null){
-    cm+=` runs <b>${fmtPct(kH.cmpVarPct)}</b> ${kH.cmpVarPct>=0?'ahead of':'behind'} ${esc(L.base)}`;
-    if(kH.cmpBase!=null) cm+=` of <b>${fmt(kH.cmpBase)}</b>`;
+    cm+=` runs <b>${fmtPct(kH.cmpVarPct)}</b> ${kH.cmpVarPct>=0?'ahead of':'behind'} ${esc(kH.isBS? bsBaseLbl(L.mode).toLowerCase() : L.base)}`;
+    if(kH.cmpBase!=null) cm+=` of <b>${fmtK(kH,kH.cmpBase)}</b>`;
     if(kH.outlook!=null&&kH.target!=null&&L.mode!=='tgt')
-      cm+=`, with a full-year outlook of <b>${fmt(kH.outlook)}</b> against a target of <b>${fmt(kH.target)}</b>`;
+      cm+=`, with ${kH.isBS?'a December closing':'a full-year outlook'} of <b>${fmtK(kH,kH.outlook)}</b> against a target of <b>${fmtK(kH,kH.target)}</b>`;
     cm+='.';
     if(best&&worst&&best!==worst)
       cm+=` <b>${esc(best.l2)}</b> leads at <b>${fmtPct(best.k.cmpVarPct)}</b>; <b>${esc(worst.l2)}</b> is the weakest line at <b>${fmtPct(worst.k.cmpVarPct)}</b>.`;
@@ -2342,7 +2371,7 @@ function renderSummary(){
     const up=((k.costLike&&!k.dirFlip)? -raw : raw)>=0;
     const c=fav?'fav':'unfav', tri=up?'\u25B2':'\u25BC';
     return `<div class="krow"><span class="kl">${esc(r.lbl)}</span>
-      <span class="kv ${c}">${r.v==null?'\u2013':tri+fmt(Math.abs(r.v))}</span>
+      <span class="kv ${c}">${r.v==null?'\u2013':tri+fmtK(k,Math.abs(r.v))}</span>
       <span class="kv ${c}">${r.p==null?'':tri+pctAbs(r.p)}</span></div>`;
   };
   const cardHtml=(name,l1,k,l2attr,hideCmp)=>{
@@ -2350,7 +2379,7 @@ function renderSummary(){
     return `
     <button class="card" ${l2attr} title="View this line in Mix analysis">
       <div class="thead"><span class="tname">${esc(name)}</span>
-        <span class="tval${(k.cmpMain||0)<0?' negnum':''}">${fmt(k.cmpMain)}</span></div>
+        <span class="tval${(k.cmpMain||0)<0?' negnum':''}">${fmtK(k)}</span></div>
       ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
         :`<div class="krow actonly"><span class="kl">${esc(L.main)} actuals</span></div>`}
       <div class="vd">View detail →</div>
@@ -2436,21 +2465,26 @@ function renderSummary(){
         `<option value="${esc(o.key)}"${subj&&o.key===subj.key?' selected':''}>${esc(o.name)}</option>`).join('')}</optgroup>` : '';
     }).join('')}</select>` : '';
   // the selected basis leads, then whatever else the file can add for context
-  const trioAll=[[L.main,fmt(kJ.cmpMain)]];
-  if(kJ.cmpBase!=null) trioAll.push([L.base,fmt(kJ.cmpBase)]);
-  if(kJ.cmpVarPct!=null) trioAll.push([L.vs,fmtPct(kJ.cmpVarPct)]);
-  if(kJ.cy!=null) trioAll.push([`${MON_LBL[S.ytdM]} YTD actuals`,fmt(kJ.cy)]);
-  if(kJ.outlook!=null) trioAll.push(['FY outlook',fmt(kJ.outlook)]);
-  if(kJ.target!=null) trioAll.push(['FY target',fmt(kJ.target)]);
-  if(kJ.fyPrior!=null) trioAll.push([`FY-${m.fyPriorLabel} actuals`,fmt(kJ.fyPrior)]);
+  const fj=v=>fmtK(kJ,v);
+  const baseLblJ=kJ.isBS? bsBaseLbl(L.mode) : L.base;
+  const trioAll=[[kJ.isBS? `${MON_LBL[S.ytdM]} closing` : L.main, fj(kJ.cmpMain)]];
+  if(kJ.cmpBase!=null) trioAll.push([baseLblJ,fj(kJ.cmpBase)]);
+  if(kJ.cmpVarPct!=null) trioAll.push([kJ.isBS? 'vs '+baseLblJ.toLowerCase() : L.vs,fmtPct(kJ.cmpVarPct)]);
+  if(!kJ.isBS&&kJ.cy!=null) trioAll.push([`${MON_LBL[S.ytdM]} YTD actuals`,fj(kJ.cy)]);
+  if(kJ.outlook!=null) trioAll.push([kJ.isBS?'Dec closing (fcst)':'FY outlook',fj(kJ.outlook)]);
+  if(kJ.target!=null) trioAll.push(['FY target',fj(kJ.target)]);
+  if(kJ.fyPrior!=null) trioAll.push([`FY-${m.fyPriorLabel} actuals`,fj(kJ.fyPrior)]);
   const seenT=new Set();
   const trio=trioAll.filter(([tl])=>{ const kx=String(tl).toLowerCase();
     if(seenT.has(kx)) return false; seenT.add(kx); return true; }).slice(0,6);
   // the chart itself follows the period: monthly shape for a month-level
   // basis, the cumulative path otherwise, against the base the period names
-  const TJ=trajFor(kJ,m,L);
+  const TJ=kJ.isBS? {act:kJ.cySeries.map(p2=>({m:p2.m, fc:p2.fc, val:p2.val})),
+      cmp:(kJ.cmpBase!=null? m.cyMonths.map(p2=>({m:p2.m, fc:false, val:kJ.cmpBase})) : []),
+      name:kJ.cmpBase!=null? bsBaseLbl(L.mode) : '', mth:true}
+    : trajFor(kJ,m,L);
   const cumAct=TJ.act, cmpCum=TJ.cmp, cmpName=TJ.name;
-  const actLbl=TJ.mth? 'Monthly actuals' : 'YTD actuals';
+  const actLbl=kJ.isBS? 'Closing balance' : (TJ.mth? 'Monthly actuals' : 'YTD actuals');
   traj.innerHTML=`<div class="panel-head">
       <div><h4>Performance trajectory <span class="unitsfx">(${esc(cfgUnit())})</span> ${ragPill(rgJ)}</h4>
       <p class="subtitle">${esc(jName)} — ${TJ.mth?'monthly':'cumulative YTD'} actuals${hasFC?' + outlook':''}${cmpName?` vs ${esc(cmpName)}`:''} · rated on <b>${esc(L.period)}</b> · ${esc(cfgUnit())}</p></div>
@@ -2469,7 +2503,7 @@ function renderSummary(){
   if(lastAct&&kJ.cmpVar!=null){
     const favA=(kJ.favVarPct==null?0:kJ.favVarPct)>=0;
     annots.push({m:lastAct.m, val:lastAct.val, color:favA?'#0b7a0b':'#c21a1a',
-      text:`${kJ.cmpVar>=0?'+':''}${fmt(kJ.cmpVar)} (${fmtPct(kJ.cmpVarPct)})\n${L.vs}`});
+      text:`${kJ.cmpVar>=0?'+':''}${fmtK(kJ,kJ.cmpVar)} (${fmtPct(kJ.cmpVarPct)})\n${L.vs}`});
   }
   const endPt=(!TJ.mth&&cumAct.length)? cumAct[cumAct.length-1] : null;
   if(endPt&&endPt.val!=null&&kJ.varTgt!=null&&(!lastAct||endPt.m!==lastAct.m)){
@@ -4793,15 +4827,19 @@ async function fsumPptx(){
 function renderKpiNav(){
   const m=S.model; if(!m) return;
   const byL2=groupBy(filteredRows(),'micaL2');
-  const items=[...byL2.entries()].map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
-    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  const items=[...byL2.entries()].map(([l2,rs])=>{
+    let k=kpi(rs,m,S.ytdM,S.includeFC);
+    if(isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+    return {l2, k};
+  }).sort((a,b)=>(isBSLine2(a)-isBSLine2(b))||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  function isBSLine2(x){ return x.k.isBS?1:0; }
   $('kpiNav').innerHTML=items.map(it=>{
     const rg=cmpHidden(it.l2)?{cls:'n',label:'actuals only'}:rag(it.k.favVarPct,S.thresh);
     const act=S.view==='summary'&&MX.l2===it.l2;
     return `<button class="${act?'active':''}" data-l2="${esc(it.l2)}" draggable="true"
       title="${esc(it.l2)} — ${rg.label}" aria-label="${esc(it.l2)}, ${rg.label}">
       <span class="dot ${rg.cls}" aria-hidden="true"></span>
-      <span class="nm">${esc(it.l2)}</span><span class="v">${fmt(it.k.cy)}</span></button>`;
+      <span class="nm">${esc(it.l2)}</span><span class="v">${fmtK(it.k,it.k.cy)}</span></button>`;
   }).join('');
   $('kpiNav').querySelectorAll('button').forEach(b=>{
     b.addEventListener('click',()=>{
