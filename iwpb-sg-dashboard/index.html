@@ -550,6 +550,34 @@ table.grid .namecell{max-width:330px;overflow:hidden;text-overflow:ellipsis}
 tr.subrow td:first-child{padding-left:34px;color:var(--text-secondary)}
 .scroll-x{overflow-x:auto}
 /* review grids — contained, sticky header, zebra rows */
+/* ---- Financial Summary: banded management-reporting grid ---- */
+.fsumwrap{overflow:auto;border:1px solid var(--border);border-radius:6px;max-height:74vh}
+table.fsum{border-collapse:collapse;font-size:12px;white-space:nowrap;background:var(--surface-2)}
+table.fsum th{background:var(--hsbc-red);color:#fff;font-weight:600;font-size:10.5px;
+  padding:4px 8px;text-align:center;border-right:1px solid rgba(255,255,255,.35);
+  border-bottom:1px solid rgba(255,255,255,.35);position:sticky;z-index:3}
+table.fsum thead tr:nth-child(1) th{top:0}
+table.fsum thead tr:nth-child(2) th{top:20px}
+table.fsum thead tr:nth-child(3) th{top:40px}
+table.fsum th.rowhead{text-align:left;min-width:230px;left:0;z-index:5}
+table.fsum th.bandend,table.fsum td.bandend{border-right:2px solid var(--border-strong)}
+table.fsum td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--grid);
+  font-variant-numeric:tabular-nums}
+table.fsum td.nm{text-align:left;position:sticky;left:0;background:var(--surface-2);z-index:2;
+  min-width:230px;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+table.fsum tr.lvl1 td.nm{padding-left:20px;color:var(--text-secondary)}
+table.fsum tr.lvl2 td.nm{padding-left:34px;color:var(--text-secondary)}
+table.fsum tr.sub td{font-weight:700;border-top:1px solid var(--border-strong)}
+table.fsum tr.sub td.nm{color:var(--text-primary)}
+table.fsum tr.tot td{font-weight:700;border-top:2px solid var(--border-strong);
+  border-bottom:2px solid var(--border-strong)}
+table.fsum tr.band td{background:var(--hsbc-red);color:#fff;font-weight:700;text-align:left;
+  letter-spacing:.3px;padding:5px 8px}
+table.fsum tr.band td.nm{background:var(--hsbc-red);color:#fff}
+table.fsum tr:hover td:not(.nm){background:color-mix(in srgb, var(--series-1) 7%, transparent)}
+table.fsum .mut{color:var(--text-muted)}
+table.fsum .up{color:#0b7a0b}
+table.fsum .dn{color:#c21a1a}
 .rvwwrap{max-height:600px;overflow:auto;border:1px solid var(--border);border-radius:6px}
 .rvwwrap.slim{max-height:440px}
 table.review thead th{position:sticky;top:0;background:var(--surface-2);z-index:2;
@@ -591,6 +619,9 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <button id="navSummary" class="active">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1.2" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="6" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="9" y="9" width="6" height="6" rx="1.2" fill="currentColor"/></svg>
       <span data-lbl="nav_summary">KPI summary</span></button>
+    <button id="navFsum">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="3.2" rx="1" fill="currentColor"/><rect x="1" y="6" width="6" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="8.6" y="6" width="6.4" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="1" y="10" width="6" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="8.6" y="10" width="6.4" height="2.4" rx="1" fill="currentColor" opacity=".55"/></svg>
+      <span data-lbl="nav_fsum">Financial Summary</span></button>
     <button id="navCustom">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="9" height="6" rx="1.2" fill="currentColor"/><rect x="12" y="1" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="6" y="9" width="9" height="6" rx="1.2" fill="currentColor"/></svg>
       <span data-lbl="nav_custom">My dashboard</span></button>
@@ -893,6 +924,23 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     </div>
   </div>
 
+  <div id="fsumView" hidden>
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2 id="fsumTitle"></h2>
+      <p class="lede2" id="fsumLede"></p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-quiet" id="btnFsumXlsx">⤓ Export to Excel</button>
+      <button class="btn-quiet" id="btnFsumPptx">⤓ PPT</button>
+    </div></div>
+    <div class="panel">
+      <div class="fsumwrap"><table class="fsum" id="fsumTable"></table></div>
+      <p class="note" id="fsumNote"></p>
+      <div id="fsumCom"></div>
+    </div>
+  </div>
+
   <div id="tableView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
@@ -978,16 +1026,23 @@ const CFG_DEFAULT={
     calc_rag_direction:'Y',
     commentary_dim:'',
     commentary_levels:'micaL1,micaL2',
-    commentary_drivers:'5'
+    commentary_drivers:'5',
+    fsum_title:'Singapore: Financial Summary',
+    fsum_section_label:'P&L',
+    fsum_section_dim:'',
+    fsum_section_order:'',
+    fsum_levels:'',
+    fsum_ow:'Y',
+    fsum_total_label:''
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
   drivers:{},
-  views:{summary:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
+  views:{summary:'Y',fsum:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
   labels:{
     nav_summary:'KPI summary', nav_custom:'My dashboard', nav_builder:'Drag & drop charts',
     nav_query:'Query builder', nav_table:'Data drill down', nav_assist:'MI Assistant',
-    nav_sim:'Simulation Assistant',
+    nav_sim:'Simulation Assistant', nav_fsum:'Financial Summary',
     sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
     sect_config:'Configuration', sect_period:'Period & RAG',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
@@ -3618,6 +3673,7 @@ function renderTable(){
 function setView(v){
   S.view=v;
   $('summaryView').hidden = v!=='summary';
+  $('fsumView').hidden    = v!=='fsum';
   $('customView').hidden  = v!=='custom';
   $('builderView').hidden = v!=='builder';
   $('queryView').hidden   = v!=='query';
@@ -3625,6 +3681,7 @@ function setView(v){
   $('assistView').hidden  = v!=='assist';
   $('simView').hidden     = v!=='sim';
   $('navSummary').classList.toggle('active',v==='summary');
+  $('navFsum').classList.toggle('active',v==='fsum');
   $('navCustom').classList.toggle('active',v==='custom');
   $('navBuilder').classList.toggle('active',v==='builder');
   $('navQuery').classList.toggle('active',v==='query');
@@ -3633,6 +3690,232 @@ function setView(v){
   $('navSim').classList.toggle('active',v==='sim');
   render();
 }
+/* ================= Financial Summary =================
+   The management-reporting layout: three column bands (Month, QTD, YTD) with
+   their variance groups, over a P&L cascade taken from the driller's own
+   hierarchy. Everything is derived from the selected YTD-through month, so
+   the month, quarter and year-to-date columns all move together. */
+function fsumLevels(){
+  const m=S.model;
+  const want=cfgS('fsum_levels').split(/[,;\s]+/).filter(x=>x&&x in m.dimCols);
+  return want.length? want.slice(0,3) : houseLevels();
+}
+/* the month, quarter and prior-quarter columns behind the three bands */
+function fsumPlan(m, ytdM){
+  const idx=m.cyMonths.findIndex(p=>p.m===ytdM);
+  const monCols=idx<0? [] : m.cyMonths.slice(Math.max(0,idx-2), idx+1);
+  const q=Math.floor(ytdM/3);
+  const qMonths=m.cyMonths.filter(p=>Math.floor(p.m/3)===q&&p.m<=ytdM);
+  const pqMonths=q>0? m.cyMonths.filter(p=>Math.floor(p.m/3)===q-1)
+    : m.pyMonths.filter(p=>Math.floor(p.m/3)===3);
+  const yy=String(m.yearCY).slice(-2);
+  return {monCols, qMonths, pqMonths, q, yy, qLbl:`Q${q+1}${yy}`,
+    ytdLbl:`${MON_LBL[ytdM]} YTD`};
+}
+/* every figure one line of the summary needs */
+function fsumFigs(rows, m, P, ytdM){
+  const k=kpi(rows,m,ytdM,S.includeFC);
+  const sum=cols=>cols.length? sumCols(rows, cols.map(p=>p.col)) : null;
+  const qtd=sum(P.qMonths);
+  const pq=sum(P.pqMonths);
+  const pyQ=m.pyMonths.length? sum(m.pyMonths.filter(p=>P.qMonths.some(x=>x.m===p.m))) : null;
+  const wq=P.qMonths.reduce((a,p)=>a+fcWeight(m,p.m),0);
+  const qTgt=k.target!=null? k.target*wq : null;
+  const d=(a,b)=>(a!=null&&b!=null)? a-b : null;
+  const pc=(v,b)=>(v!=null&&b!=null&&b!==0)? v/Math.abs(b) : null;
+  return {k, mon:P.monCols.map(p=>sumCols(rows,[p.col])),
+    mVsFc:d(k.mth,k.mthFc), mVsTgt:d(k.mth,k.mthTgt), mVsPM:d(k.mth,k.mthPrev), mVsPY:d(k.mth,k.mthPy),
+    qtd, qVsTgt:d(qtd,qTgt), qVsPQ:d(qtd,pq), qVsPY:d(qtd,pyQ),
+    ytd:k.cy, yVsTgt:d(k.cy,k.ytdTgt), yVsPY:d(k.cy,k.py),
+    yVsTgtP:pc(d(k.cy,k.ytdTgt),k.ytdTgt), yVsPYP:pc(d(k.cy,k.py),k.py)};
+}
+/* the row cascade: children of each top level, then the level as a subtotal,
+   in the same materiality order the KPI tiles use */
+function fsumTopCount(rows){ return groupBy(rows, fsumLevels()[0]).size; }
+function fsumTree(rows){
+  const lv=fsumLevels(), L1=lv[0], L2=lv[1], L3=lv[2];
+  const ow=cfgYes('fsum_ow')? 'o/w ' : '';
+  const m=S.model, out=[];
+  const size=rs=>Math.abs(kpi(rs,m,S.ytdM,S.includeFC).cy||0);
+  const ordered=map=>{
+    const arr=[...map.entries()];
+    const prio=[], rest=[...arr];
+    for(const rx of PRIO_RES){ const i=rest.findIndex(([n])=>rx.test(n)); if(i>=0) prio.push(rest.splice(i,1)[0]); }
+    rest.sort((a,b)=>size(b[1])-size(a[1]));
+    return [...prio,...rest];
+  };
+  for(const [n1,rs1] of ordered(groupBy(rows,L1))){
+    const g2=L2? ordered(groupBy(rs1,L2)) : [];
+    const skip2=g2.length<=1;   // a lone child repeats its parent — show it once
+    if(!skip2) for(const [n2,rs2] of g2){
+      out.push({name:n2, rows:rs2, lvl:1});
+      const g3=L3? ordered(groupBy(rs2,L3)) : [];
+      if(g3.length>1) for(const [n3,rs3] of g3) out.push({name:ow+n3, rows:rs3, lvl:2});
+    }
+    out.push({name:n1, rows:rs1, lvl:0, sub:true});
+  }
+  return out;
+}
+/* the section bands the table is split into */
+function fsumSections(rows){
+  const m=S.model, dim=cfgS('fsum_section_dim').trim();
+  const u=cfgUnit();
+  if(!dim||!(dim in m.dimCols))
+    return [{label:`${cfgS('fsum_section_label')} (${u})`, rows}];
+  const g=groupBy(rows,dim);
+  const want=cfgS('fsum_section_order').split(/[,;]/).map(x=>x.trim()).filter(Boolean);
+  const names=want.length? want.filter(n=>g.has(n)).concat([...g.keys()].filter(n=>!want.includes(n)))
+    : [...g.keys()];
+  return names.map(n=>({label:`${n} (${u})`, rows:g.get(n)}));
+}
+/* management-report number styling: parentheses for negatives, whole percents,
+   >100% past the scale, and the sign carried in the colour */
+function fsumNum(v){
+  if(v==null) return '<span class="mut">–</span>';
+  return fmtFull(Math.round(v));
+}
+function fsumVar(v){
+  if(v==null) return '<span class="mut">–</span>';
+  const r=Math.round(v);
+  return `<span class="${r<0?'dn':r>0?'up':''}">${fmtFull(r)}</span>`;
+}
+function fsumPctTxt(v){
+  if(v==null) return '–';
+  if(Math.abs(v)>1) return (v<0?'>(100%)':'>100%');
+  const t=Math.round(Math.abs(v)*100)+'%';
+  return v<0? '('+t+')' : t;
+}
+function fsumPct(v){
+  if(v==null) return '<span class="mut">–</span>';
+  return `<span class="${v<0?'dn':v>0?'up':''}">${fsumPctTxt(v)}</span>`;
+}
+function fsumHeadRows(P, m){
+  const u=cfgUnit();
+  const mh=P.monCols.map(p=>`${MON_LBL[p.m]} ${p.fc?'Fcst':'Actual'}`);
+  return {mh, u,
+    qh:`${P.qLbl} Actual`, yh:`${P.ytdLbl} Actual`};
+}
+function renderFsum(){
+  const m=S.model, rows=filteredRows(), P=fsumPlan(m,S.ytdM);
+  const H=fsumHeadRows(P,m), u=cfgUnit();
+  $('fsumTitle').textContent=`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`;
+  $('fsumLede').textContent=`Month, quarter-to-date and year-to-date against forecast, target, `+
+    `prior period and prior year — pulled from the driller under the current filters · figures in ${u} as reported.`;
+  const nMon=P.monCols.length;
+  let head=`<thead><tr><th class="rowhead" rowspan="3"></th>`+
+    `<th colspan="${nMon+4}" class="bandend">Month</th>`+
+    `<th colspan="4" class="bandend">QTD</th>`+
+    `<th colspan="5">YTD</th></tr><tr>`+
+    H.mh.map(h=>`<th rowspan="2">${esc(h)}</th>`).join('')+
+    `<th colspan="4" class="bandend">Variance (${esc(u)})</th>`+
+    `<th rowspan="2">${esc(H.qh)}</th><th colspan="3" class="bandend">Variance (${esc(u)})</th>`+
+    `<th rowspan="2">${esc(H.yh)}</th><th colspan="2">Variance (${esc(u)})</th>`+
+    `<th colspan="2">Variance (%)</th></tr><tr>`+
+    `<th>vs Fcst</th><th>vs Target</th><th>vs PM</th><th class="bandend">vs PY</th>`+
+    `<th>vs Target</th><th>vs PQ</th><th class="bandend">vs PY</th>`+
+    `<th>vs Target</th><th>vs PY</th><th>vs Target</th><th>vs PY</th></tr></thead>`;
+  const nCols=1+nMon+4+4+5;
+  const secs=fsumSections(rows);
+  const tree=secs.flatMap(sec=>[{band:sec.label}, ...fsumTree(sec.rows),
+    ...(fsumTopCount(sec.rows)>1? [{rows:sec.rows, lvl:0, tot:true,
+      name:secs.length>1? `Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`
+        : (cfgS('fsum_total_label')||cfgS('total_label'))}] : [])]);
+  let body='';
+  for(const r of tree){
+    if(r.band){ body+=`<tr class="band"><td class="nm" colspan="${nCols}">${esc(r.band)}</td></tr>`; continue; }
+    const f=fsumFigs(r.rows,m,P,S.ytdM);
+    const cls=(r.tot?'tot':r.sub?'sub':'lvl'+r.lvl);
+    body+=`<tr class="${cls}"><td class="nm" title="${esc(r.name)}">${esc(r.name)}</td>`+
+      f.mon.map(v=>`<td>${fsumNum(v)}</td>`).join('')+
+      `<td>${fsumVar(f.mVsFc)}</td><td>${fsumVar(f.mVsTgt)}</td><td>${fsumVar(f.mVsPM)}</td>`+
+      `<td class="bandend">${fsumVar(f.mVsPY)}</td>`+
+      `<td>${fsumNum(f.qtd)}</td><td>${fsumVar(f.qVsTgt)}</td><td>${fsumVar(f.qVsPQ)}</td>`+
+      `<td class="bandend">${fsumVar(f.qVsPY)}</td>`+
+      `<td>${fsumNum(f.ytd)}</td><td>${fsumVar(f.yVsTgt)}</td><td>${fsumVar(f.yVsPY)}</td>`+
+      `<td>${fsumPct(f.yVsTgtP)}</td><td>${fsumPct(f.yVsPYP)}</td></tr>`;
+  }
+  $('fsumTable').innerHTML=head+`<tbody>${body}</tbody>`;
+  const gaps=[];
+  if(!m.pyMonths.length) gaps.push('vs PY and vs PQ (no prior-year columns in this file)');
+  if(!(m.targetCols&&m.targetCols.length)) gaps.push('vs Target (no FY target column)');
+  if(kpi(rows,m,S.ytdM,S.includeFC).fyFc==null) gaps.push('vs Fcst (no forecast column or months)');
+  $('fsumNote').textContent=gaps.length? 'Shown as – : '+gaps.join(' · ') : '';
+  aiComment($('fsumCom'), 'fsum|'+filterNote()+'|'+S.ytdM+'|'+drvSig(), ()=>fsumCommentary(rows,m,P));
+}
+function fsumCommentary(rows,m,P){
+  const tot=fsumFigs(rows,m,P,S.ytdM);
+  const mon=MON_LBL[S.ytdM]+"'"+P.yy;
+  let h=`<b>${esc(cfgS('fsum_total_label')||cfgS('total_label'))}</b> for <b>${mon}</b> is <b>${fmtFull(Math.round(tot.k.mth==null?0:tot.k.mth))}</b>`;
+  if(tot.mVsFc!=null) h+=`, <b>${fmtFull(Math.round(tot.mVsFc))}</b> vs forecast`;
+  if(tot.mVsTgt!=null) h+=` and <b>${fmtFull(Math.round(tot.mVsTgt))}</b> vs target`;
+  h+=`. ${esc(P.qLbl)} stands at <b>${fmtFull(Math.round(tot.qtd||0))}</b>`;
+  if(tot.qVsPQ!=null) h+=` (<b>${fmtFull(Math.round(tot.qVsPQ))}</b> vs prior quarter)`;
+  h+=`; ${esc(P.ytdLbl)} at <b>${fmtFull(Math.round(tot.ytd||0))}</b>`;
+  if(tot.yVsTgtP!=null) h+=` — <b>${fsumPctTxt(tot.yVsTgtP)}</b> vs target`;
+  if(tot.yVsPYP!=null) h+=` and <b>${fsumPctTxt(tot.yVsPYP)}</b> vs prior year`;
+  h+='.';
+  // the biggest movers of the month, on the same basis the table shows
+  const lines=fsumTree(rows).filter(r=>r.sub&&!r.band).map(r=>({name:r.name, f:fsumFigs(r.rows,m,P,S.ytdM)}))
+    .filter(x=>x.f.mVsFc!=null).sort((a,b)=>Math.abs(b.f.mVsFc)-Math.abs(a.f.mVsFc)).slice(0,3);
+  if(lines.length) h+=` Movement against forecast is led by `+
+    lines.map(x=>`<b>${esc(x.name)}</b> (${fmtFull(Math.round(x.f.mVsFc))})`).join(', ')+'.';
+  const dt=lines.map(x=>driverFor(x.name)).filter(Boolean);
+  if(dt.length) h=`<span class="drvlead">${esc(dt[0])}.</span> `+h;
+  return h;
+}
+/* Excel / PowerPoint use the very same header text and figures */
+function fsumAOA(){
+  const m=S.model, rows=filteredRows(), P=fsumPlan(m,S.ytdM), u=cfgUnit();
+  const H=fsumHeadRows(P,m);
+  const aoa=[[`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`],[filterNote()],[]];
+  const r1=[''], r2=[''];
+  H.mh.forEach(h=>{ r1.push('Month'); r2.push(h); });
+  ['vs Fcst','vs Target','vs PM','vs PY'].forEach(h=>{ r1.push(`Month · Variance (${u})`); r2.push(h); });
+  r1.push('QTD'); r2.push(H.qh);
+  ['vs Target','vs PQ','vs PY'].forEach(h=>{ r1.push(`QTD · Variance (${u})`); r2.push(h); });
+  r1.push('YTD'); r2.push(H.yh);
+  ['vs Target','vs PY'].forEach(h=>{ r1.push(`YTD · Variance (${u})`); r2.push(h); });
+  ['vs Target','vs PY'].forEach(h=>{ r1.push('YTD · Variance (%)'); r2.push(h); });
+  aoa.push(r1, r2);
+  for(const sec of fsumSections(rows)){
+    aoa.push([sec.label]);
+    for(const r of fsumTree(sec.rows)) aoa.push(fsumAoaRow(r,m,P));
+    if(fsumTopCount(sec.rows)>1)
+      aoa.push(fsumAoaRow({name:`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`, rows:sec.rows, lvl:0},m,P));
+  }
+  return aoa;
+}
+function fsumAoaRow(r,m,P){
+  {
+    const f=fsumFigs(r.rows,m,P,S.ytdM);
+    const rnd=v=>v==null?null:Math.round(v);
+    return [('\u00a0\u00a0\u00a0'.repeat(r.lvl))+r.name, ...f.mon.map(rnd),
+      rnd(f.mVsFc), rnd(f.mVsTgt), rnd(f.mVsPM), rnd(f.mVsPY),
+      rnd(f.qtd), rnd(f.qVsTgt), rnd(f.qVsPQ), rnd(f.qVsPY),
+      rnd(f.ytd), rnd(f.yVsTgt), rnd(f.yVsPY),
+      fsumPctTxt(f.yVsTgtP), fsumPctTxt(f.yVsPYP)];
+  }
+}
+async function fsumPptx(){
+  const m=S.model, P=fsumPlan(m,S.ytdM);
+  const aoa=fsumAOA();
+  const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
+  const sl=p.addSlide(); sl.background={color:'FFFFFF'};
+  sl.addText(`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`,
+    {x:0.4,y:0.22,w:12.6,h:0.4,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI'});
+  sl.addText(filterNote(),{x:0.4,y:0.62,w:12.6,h:0.24,fontSize:9.5,italic:true,color:'52514E',fontFace:'Segoe UI'});
+  const body=aoa.slice(3).filter(r=>r&&r.length);
+  const rows2=body.map((r,i)=>r.map(v=>({
+    text:v==null?'':(typeof v==='number'? fmtFull(v):String(v)),
+    options:i<2?{bold:true,color:'FFFFFF',fill:{color:'DB0011'},align:'center'}
+      :{align:typeof v==='number'?'right':'left'}})));
+  sl.addTable(rows2,{x:0.3,y:0.95,w:12.8,fontSize:7.5,fontFace:'Segoe UI',
+    border:{pt:0.4,color:'DDDCD8'},autoPage:true,autoPageRepeatHeader:true});
+  const txt=comText('fsumCom');
+  if(txt) sl.addText(txt,{x:0.3,y:6.9,w:12.8,h:0.5,fontSize:10,italic:true,color:'52514E',fontFace:'Segoe UI',wrap:true});
+  await p.writeFile({fileName:`IWPB_SG_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
+}
+
 function renderKpiNav(){
   const m=S.model; if(!m) return;
   const byL2=groupBy(filteredRows(),'micaL2');
@@ -4275,6 +4558,7 @@ function drawDrivers(){
 function render(){
   if(!S.model) return;
   if(S.view==='summary') renderSummary();
+  else if(S.view==='fsum') renderFsum();
   else if(S.view==='custom') renderCustom();
   else if(S.view==='builder') renderBuilder();
   else if(S.view==='query') renderQuery();
@@ -4565,7 +4849,7 @@ function applyCfgDom(){
   for(let i=0;i<MON_LBL.length;i++) MON_LBL[i]=upM? MON_LBL_BASE[i].toUpperCase() : MON_LBL_BASE[i];
   const svw=parseFloat(cfgS('sim_value_width'));
   document.documentElement.style.setProperty('--sim-val-w', (isFinite(svw)&&svw>=10? svw : 50)+'ch');
-  const NAVV={summary:'navSummary',custom:'navCustom',builder:'navBuilder',query:'navQuery',
+  const NAVV={summary:'navSummary',fsum:'navFsum',custom:'navCustom',builder:'navBuilder',query:'navQuery',
     table:'navTable',assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
   const sel=$('fThresh');
@@ -4752,7 +5036,10 @@ function init(){
   });
   $('fThresh').addEventListener('change',e=>{ S.thresh=+e.target.value; render(); renderKpiNav(); });
   $('navSummary').addEventListener('click',()=>setView('summary'));
+  $('navFsum').addEventListener('click',()=>setView('fsum'));
   $('navCustom').addEventListener('click',()=>setView('custom'));
+  $('btnFsumXlsx').addEventListener('click',()=>exportWB([{name:'Financial Summary',aoa:fsumAOA()}],'IWPB_SG_financial_summary'));
+  $('btnFsumPptx').addEventListener('click',()=>fsumPptx());
   $('navBuilder').addEventListener('click',()=>setView('builder'));
   $('navQuery').addEventListener('click',()=>setView('query'));
   $('qFieldSearch').addEventListener('input',()=>renderQuery());

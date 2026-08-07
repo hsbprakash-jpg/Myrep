@@ -54,6 +54,21 @@ A single header row with:
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
   widescreen slide, built natively in PowerPoint.
+- **Financial Summary** — the management-reporting layout: three column
+  bands over the P&L cascade taken from the driller's own hierarchy.
+  *Month* (the three months ending at the selected one, then Variance vs
+  Fcst / vs Target / vs PM / vs PY), *QTD* (the quarter to date, then vs
+  Target / vs PQ / vs PY) and *YTD* (year to date, then Variance in
+  currency and in % vs Target and vs PY). Rows cascade child lines into a
+  bold subtotal per top level and a grand total, in the tile-priority
+  order. Everything moves with the YTD-through month — pick MAY and the
+  months become Mar/Apr/May, the quarter Q226 to date, the year-to-date
+  Jan–May. Comparisons a file cannot serve show as `–` with a note saying
+  which and why. Excel and PowerPoint exports carry the same headers and
+  figures. Configurable via `fsum_title`, `fsum_section_label`,
+  `fsum_section_dim` / `fsum_section_order` (band the table by a column,
+  e.g. P&L / Balance Sheet / Key Metrics), `fsum_levels`, `fsum_ow` (the
+  "o/w" prefix on the deepest level) and `fsum_total_label`.
 - **Variance period** — a left-pane selector (Period & RAG) that sets the
   comparison every view is rated on: YTD vs PY, MoM, Month vs Target, YTD
   vs Target, YTD vs Forecast, FY vs Target, FY vs PY. The option labels
@@ -166,8 +181,8 @@ What each section governs:
 - **Dimensions** — per dimension: display label override, whether it
   appears in the left-pane filters (`Extra1` = Y/N) and whether it is
   offered as a simulation rule scope (`Extra2` = Y/N).
-- **Views** — enable/disable each page (summary, custom, builder, query,
-  table, assist, sim).
+- **Views** — enable/disable each page (summary, fsum, custom, builder,
+  query, table, assist, sim).
 
 The applied config persists in the browser and re-parses the cached data
 file immediately; **Reset to defaults** reverts everything. Blank values
