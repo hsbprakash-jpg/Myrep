@@ -66,10 +66,17 @@ A single header row with:
   the grand-total tile is left off because the lines were chosen by hand.
   The PowerPoint tile grid and the landing narrative follow the same list.
   Leave it blank for the default behaviour (`tile_level` + `tilePriority`).
-- **No total when a total means nothing** — the grand-total tile is dropped
-  automatically whenever the lines were named in `tile_lines` or the file's
-  statements were declared in `fsum_sections`, and can be dropped on any
-  file with `total_tile`. With no total, the landing narrative and the
+- **No total when a total means nothing** — `total_tile` and `fsum_total`
+  default to `auto`: a computed total is printed only when every MICA
+  Level 1 line in the file is a recognised P&L line (the `TilePriority`
+  patterns). A driller carrying Deposits or Loans beside a result gets no
+  total tile, no total row and no total in its commentary, because adding a
+  balance to a result is not a figure; a P&L-only driller keeps its bottom
+  line as before. `Y` or `N` force it either way, and naming the lines in
+  `tile_lines` or declaring statements in `fsum_sections` also drops it.
+  Lines the priority patterns do not recognise are ordered as they appear
+  in the driller rather than by size, so a balance-sheet line is not
+  hoisted above the P&L. With no total, the landing narrative and the
   performance trajectory are about a **MICA line** instead: a picker on the
   trajectory panel lists Level 1 and Level 2 lines, and the page opens on
   the first declared statement's line (the P&L result) — the trio, the

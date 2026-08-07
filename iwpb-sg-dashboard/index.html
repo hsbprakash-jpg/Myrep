@@ -1015,7 +1015,7 @@ const CFG_DEFAULT={
     landing_title:'Financial Performance',
     total_label:'Total P&L',
     total_all_label:'Total (all lines)',
-    total_tile:'Y',
+    total_tile:'auto',
     tile_lines:'',
     tile_line_levels:'micaL1,micaL2',
     tile_level:'auto',
@@ -1053,7 +1053,7 @@ const CFG_DEFAULT={
     fsum_sections:'',
     fsum_no_total:'',
     fsum_other_label:'Other',
-    fsum_total:'Y',
+    fsum_total:'auto',
     fsum_line_order:'',
     fsum_levels:'',
     fsum_ow:'Y',
@@ -2224,7 +2224,11 @@ function renderSummary(){
     cards=[...(tileL1?byL1g:groupBy(rows,'micaL2')).entries()].map(([nm,rs])=>{
       const k=kpi(rs,m,S.ytdM,S.includeFC);
       return {l2:nm, l1:tileL1?nm:rs[0].d.micaL1, rows:rs, k};
-    }).sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+    });
+    const anyPrio=cards.some(c=>PRIO_RES.some(rx=>rx.test(c.l2)));
+    const firstAt=c=>{ let i=Infinity; for(const r of c.rows){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
+    cards.sort(anyPrio? (a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0)
+                      : (a,b)=>firstAt(a)-firstAt(b));
     scPfx=tileL1?'l1:':'';
   }
 
@@ -3113,7 +3117,13 @@ function summaryLineOptions(rows){
 /* no grand total when the lines were named by hand, or when the file's
    statements have been declared, or when the total tile is switched off */
 function summaryNoTotal(named){
-  return !cfgYes('total_tile') || (named&&named.length>0) || fsumSectionDefs().length>0;
+  if(named&&named.length>0) return true;
+  if(fsumSectionDefs().length>0) return true;
+  const v=cfgS('total_tile').trim().toLowerCase();
+  if(v==='y'||v==='yes'||v==='true') return false;
+  if(v==='n'||v==='no'||v==='false') return true;
+  // auto: a total tile only on a file whose Level 1 lines are all P&L lines
+  return !fsumTotalOK(filteredRows());
 }
 function tileLineDefs(){
   return cfgS('tile_lines').split(/[,;|]/).map(x=>x.trim()).filter(Boolean);
@@ -3976,6 +3986,8 @@ function fsumTree(rows){
   const ow=cfgYes('fsum_ow')? 'o/w ' : '';
   const m=S.model, out=[];
   const size=rs=>Math.abs(kpi(rs,m,S.ytdM,S.includeFC).cy||0);
+  // position of a line's first row in the file
+  const firstAt=rs=>{ let i=Infinity; for(const r of rs){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
   const ordered=(map,top)=>{
     const arr=[...map.entries()];
     const want=top? cfgS('fsum_line_order').split(/[,;|]/).map(x=>x.trim().toLowerCase()).filter(Boolean) : [];
@@ -3983,12 +3995,12 @@ function fsumTree(rows){
       const named=[], rest2=[...arr];
       for(const w of want){ const i=rest2.findIndex(([n])=>String(n).trim().toLowerCase()===w);
         if(i>=0) named.push(rest2.splice(i,1)[0]); }
-      rest2.sort((a,b)=>size(b[1])-size(a[1]));
+      rest2.sort((a,b)=>firstAt(a[1])-firstAt(b[1]));
       return [...named,...rest2];
     }
     const prio=[], rest=[...arr];
     for(const rx of PRIO_RES){ const i=rest.findIndex(([n])=>rx.test(n)); if(i>=0) prio.push(rest.splice(i,1)[0]); }
-    rest.sort((a,b)=>size(b[1])-size(a[1]));
+    rest.sort((a,b)=>top? firstAt(a[1])-firstAt(b[1]) : size(b[1])-size(a[1]));
     return [...prio,...rest];
   };
   for(const [n1,rs1] of ordered(groupBy(rows,L1), true)){
@@ -4018,6 +4030,18 @@ function fsumSectionDefs(){
     return {label:p2.slice(0,i).trim(),
       vals:p2.slice(i+1).split(',').map(x=>x.trim()).filter(Boolean)};
   }).filter(d=>d.label&&d.vals.length);
+}
+/* Whether a block may carry a computed total. On 'auto' it may only when
+   every top-level line in it is a recognised P&L line (the tile-priority
+   patterns) — a driller carrying deposits or loans alongside a result is
+   never totalled, because adding a balance to a result is not a figure. */
+function fsumTotalOK(rows){
+  const v=cfgS('fsum_total').trim().toLowerCase();
+  if(v==='y'||v==='yes'||v==='true') return true;
+  if(v==='n'||v==='no'||v==='false') return false;
+  const names=[...groupBy(rows, fsumLevels()[0]).keys()].filter(Boolean);
+  if(!names.length) return false;
+  return names.every(n=>PRIO_RES.some(rx=>rx.test(n)));
 }
 function fsumNoTotal(){
   return new Set(cfgS('fsum_no_total').split(/[,;|]/).map(x=>x.trim().toLowerCase()).filter(Boolean));
@@ -4102,7 +4126,7 @@ function renderFsum(){
   const nCols=1+nMon+4+4+5;
   const secs=fsumSections(rows);
   const tree=secs.flatMap(sec=>[{band:sec.label}, ...fsumTree(sec.rows),
-    ...((cfgYes('fsum_total')&&!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
+    ...((fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
       name:secs.length>1? `Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`
         : (cfgS('fsum_total_label')||totalLabel(l1Names(sec.rows)))}] : [])]);
   let body='';
@@ -4155,7 +4179,7 @@ function fsumCommentary(rows,m,P){
     const one=fsumTopCount(sec.rows)===1;
     // a block of one line speaks as that line; a block of several as itself,
     // unless adding its lines together would mean nothing
-    if(one||(!sec.noTotal&&cfgYes('fsum_total'))){
+    if(one||(!sec.noTotal&&fsumTotalOK(sec.rows))){
       const nm=one? [...groupBy(sec.rows, fsumLevels()[0]).keys()][0] : `Total ${sec.name}`;
       return fsumBlockText(nm, sec.rows, m, P, fsumMovers(sec.rows,m,P));
     }
@@ -4185,7 +4209,7 @@ function fsumAOA(){
   for(const sec of fsumSections(rows)){
     aoa.push([sec.label]);
     for(const r of fsumTree(sec.rows)) aoa.push(fsumAoaRow(r,m,P));
-    if(cfgYes('fsum_total')&&!sec.noTotal&&fsumTopCount(sec.rows)>1)
+    if(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)
       aoa.push(fsumAoaRow({name:`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`, rows:sec.rows, lvl:0},m,P));
   }
   return aoa;
