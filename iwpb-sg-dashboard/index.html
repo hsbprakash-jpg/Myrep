@@ -377,6 +377,7 @@ main{flex:1;min-width:0;padding:14px 20px}
 
 /* ---------- KPI summary ---------- */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,292px));gap:14px;justify-content:flex-start}
+.cards .card{min-height:172px}
 .greet{font-size:13px;color:var(--text-secondary);margin:0 0 6px}
 .greet b{color:var(--text-primary)}
 .commentary{background:var(--surface-1);border:1px solid var(--border);border-left:4px solid var(--hsbc-red);
@@ -395,6 +396,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .chip b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 .chip .cdot{width:9px;height:9px;border-radius:50%;flex:none}
 .twocol{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:12px;margin-bottom:12px;align-items:start}
+#sumPanels{margin-top:22px}
 @media (max-width:1180px){.twocol{grid-template-columns:1fr}}
 .trio{display:flex;gap:20px;margin:6px 0 2px;flex-wrap:wrap}
 .trio .t .tv{font-size:17px;font-weight:750;font-variant-numeric:tabular-nums}
@@ -674,7 +676,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div class="sect sect-fold" id="sectKpisRow" title="Collapse / expand the KPI list" style="display:flex;align-items:center;gap:6px;cursor:pointer">
     <span data-lbl="sect_kpis">KPIs · MICA Level 2</span><span id="kpiCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="kpiNav"></div>
-  <div class="hint" data-lbl="kpi_hint">Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card</div>
+  <div class="hint" data-lbl="kpi_hint">Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card</div>
   <div class="sect sect-fold" id="sectCfgRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_config">Configuration</span><span id="cfgCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="cfgPanel">
     <button class="btn-quiet" id="btnCfgUpload">⤒ Upload config (xlsx / csv)</button>
@@ -754,9 +756,25 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <button class="btn-quiet" id="btnPptSummary" title="One-slide financial dashboard in the driller tile format">⤓ PPT</button></div></div>
     <div class="cards" id="cardGrid"></div>
     <div class="chiprow" id="chipRow"></div>
-    <div class="twocol">
+    <div class="twocol" id="sumPanels">
       <div class="panel" id="trajPanel" style="margin-bottom:0"></div>
-    <div class="panel" id="mixPanel" style="margin-bottom:0">
+    <div class="panel" id="housePanel" style="margin-bottom:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div class="foldhead" id="houseFoldHead" role="button" tabindex="0" title="Collapse / expand the commentary"
+          style="cursor:pointer"><h4 style="margin:0 0 4px"><span id="houseCaret" style="font-size:11px;color:var(--fold-red)">▾</span>
+          Management commentary <span class="unitsfx" data-unitsfx></span></h4>
+        <p class="subtitle" id="houseSub"></p></div>
+        <div style="display:flex;gap:8px;align-items:center" id="houseCtl">
+          <label style="font-size:12px;color:var(--text-muted)">Driven by
+            <select id="houseDim" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)"></select></label>
+          <button class="btn-quiet" id="btnHouseCopy">⧉ Copy</button>
+          <button class="btn-quiet" id="btnHouseWord">⤓ Word</button>
+        </div>
+      </div>
+      <div id="houseCom"></div>
+    </div>
+    </div>
+    <div class="panel" id="mixPanel" style="display:none">
       <div class="panel-head">
         <div><h4 id="mixTitle">Mix analysis</h4><p class="subtitle" id="mixSub"></p></div>
         <div id="mixCtl">
@@ -774,22 +792,6 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       </div>
       <div id="mixChart" class="chart-wrap"></div>
       <div id="mixCom"></div>
-    </div>
-    </div>
-    <div class="panel" id="housePanel">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-        <div class="foldhead" id="houseFoldHead" role="button" tabindex="0" title="Collapse / expand the commentary"
-          style="cursor:pointer"><h4 style="margin:0 0 4px"><span id="houseCaret" style="font-size:11px;color:var(--fold-red)">▾</span>
-          Management commentary <span class="unitsfx" data-unitsfx></span></h4>
-        <p class="subtitle" id="houseSub"></p></div>
-        <div style="display:flex;gap:8px;align-items:center" id="houseCtl">
-          <label style="font-size:12px;color:var(--text-muted)">Driven by
-            <select id="houseDim" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)"></select></label>
-          <button class="btn-quiet" id="btnHouseCopy">⧉ Copy</button>
-          <button class="btn-quiet" id="btnHouseWord">⤓ Word</button>
-        </div>
-      </div>
-      <div id="houseCom"></div>
     </div>
   </div>
 
@@ -1068,7 +1070,7 @@ const CFG_DEFAULT={
     month_case:'upper',
     unit_label:'US$m',
     display_units:'as',
-    unit_options:'as,mm,bn',
+    unit_options:'as,k,mm,bn',
     unit_decimals:'',
     calc_ytd_actuals:'column',
     calc_fy_forecast:'column',
@@ -1120,7 +1122,7 @@ const CFG_DEFAULT={
     drv_hint:'Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.',
     lbl_ytd:'YTD through', lbl_fc:'Include forecast month', lbl_tol:'RAG tolerance',
     lbl_varper:'Variance period', lbl_units:'Units',
-    kpi_hint:'Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card'
+    kpi_hint:'Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card'
   }
 };
 for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:/^mica/.test(sp.key)?'Y':'N'};
@@ -1188,7 +1190,8 @@ function unitOptions(){
   const nat=unitNative();
   const want=cfgS('unit_options').split(/[,;\s]+/).map(x=>x.trim().toLowerCase()).filter(x=>x&&UNIT_EXP[x]!==undefined);
   const ids=want.length? want : ['as'];
-  return ids.map(id=>({id, label:id==='as'? `${unitLabelFor('as')} (as reported)` : unitLabelFor(id)}));
+  return ids.map(id=>({id, label:id==='as'? `${unitLabelFor('as')} (as reported)`
+    : id==='k'? `${unitNative().cur}000s (k)` : unitLabelFor(id)}));
 }
 /* how much a figure is divided by to restate it in the selected unit */
 function unitDiv(){
@@ -2397,7 +2400,7 @@ function renderSummary(){
   } else cm+='; this file carries no comparison baseline.';
   $('commentary').innerHTML=cm;
 
-  $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY} (${cfgUnit()})`;
+  $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY}`;
   const lvl=tileL1?'MICA Level 1':'MICA Level 2';
   const anyBS=cards.some(c=>c.k.isBS)&&bsUnit();
   const unitTxt=anyBS? `P&L in ${cfgUnit()} · balances in ${bsUnitLabel()}` : `figures in ${cfgUnit()} as reported`;
@@ -2422,7 +2425,7 @@ function renderSummary(){
     const trs=hideCmp?[]:tileRows(k,m);
     const tu=(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
     return `
-    <button class="card" ${l2attr} title="View this line in Mix analysis">
+    <button class="card" ${l2attr} title="View this line in the trajectory and commentary">
       <div class="thead"><span class="tname" title="${esc(name)}">${esc(name)}</span><span class="tunit">${esc(tu)}</span>
         <span class="tval${(k.cmpMain||0)<0?' negnum':''}">${(k.isBS&&bsUnit())? fmtBS(k.cmpMain) : fmt(k.cmpMain)}</span></div>
       ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
@@ -2456,8 +2459,11 @@ function renderSummary(){
   if(moreBtn) moreBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showAllKpis=!S.showAllKpis; renderSummary(); });
   $('cardGrid').querySelectorAll('.card[data-l2]').forEach(el=>
     el.addEventListener('click',()=>{
-      MX.l2=el.dataset.l2; saveMix(); render();
-      $('mixPanel').scrollIntoView({behavior:'smooth',block:'start'});
+      MX.l2=el.dataset.l2; saveMix();
+      const lo=lineOpts.find(o=>o.name===el.dataset.name);
+      if(lo) S.trajLine=lo.key;
+      render();
+      const sp=$('sumPanels'); if(sp) sp.scrollIntoView({behavior:'smooth',block:'start'});
     }));
   // drag a tile left/right to reorder; the order persists in this browser
   const tgrid=$('cardGrid');
@@ -2590,7 +2596,7 @@ function renderSummary(){
   const aChip=c=>{
     const rg=rag(c.k.favVarPct,S.thresh);
     const cls=rg.cls==='r'?'attn-r':'attn-a';
-    return `<button class="chip attnchip ${cls}" data-l2="${scPfx}${esc(c.l2)}" title="Review in Mix analysis">
+    return `<button class="chip attnchip ${cls}" data-l2="${scPfx}${esc(c.l2)}" title="Review this line below">
       ${rg.cls==='r'?'▼':'●'} <b>${esc(c.l2)}</b> ${fmtPct(c.k.cmpVarPct)} ${esc(L.vs)} →</button>`;
   };
   $('chipRow').insertAdjacentHTML('beforeend', attn.map(aChip).join(''));
@@ -4999,8 +5005,10 @@ function renderKpiNav(){
   $('kpiNav').querySelectorAll('button').forEach(b=>{
     b.addEventListener('click',()=>{
       MX.l2=b.dataset.l2; saveMix();
+      const lo=summaryLineOptions(filteredRows()).find(o=>o.name===b.dataset.l2);
+      if(lo) S.trajLine=lo.key;
       if(S.view!=='summary') setView('summary'); else render();
-      $('mixPanel').scrollIntoView({behavior:'smooth',block:'start'});
+      const sp=$('sumPanels'); if(sp) sp.scrollIntoView({behavior:'smooth',block:'start'});
     });
     b.addEventListener('dragstart',e=>{
       e.dataTransfer.setData('text/x-kpi',b.dataset.l2);

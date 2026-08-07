@@ -96,6 +96,14 @@ A single header row with:
   (`US$m` on the P&L lines, `US$bn` on balances), the page lede states the
   split ("P&L in US$m · balances in US$bn"), and the one-slide PPT export
   mirrors the same grid, units, expansion and totals rule as the page.
+  Because the tiles carry their own units, the *Financial Performance*
+  header carries none.
+- **Summary layout** — the tiles sit in equal-height cards; below them the
+  performance trajectory takes the left column and the Management
+  commentary the right. Clicking a tile (or a KPI in the left rail) points
+  the trajectory and its narrative at that line. The mix-analysis panel no
+  longer shows on this page, though its view still feeds the one-page PPT
+  export.
 - **No total when a total means nothing** — `total_tile` and `fsum_total`
   default to `auto`: a computed total is printed only while no MICA Level 1
   line in the file is a balance-sheet line, recognised by
@@ -137,8 +145,8 @@ A single header row with:
 - **Units** — a strip at the top of every page declaring the unit every
   figure is stated in, with a selector. The file's own unit comes from
   `unit_label` (e.g. `US$m`); *as reported* leaves the figures alone, and
-  `mm` / `bn` restate every figure against the chosen unit — a line of
-  11,489 US$m reads as 11.5 US$bn. Figures never carry their own `m`/`bn`
+  `k` / `mm` / `bn` restate every figure against the chosen unit — a line
+  of 11,489 US$m reads as 11.5 US$bn, or 11,489,000 US$k. Figures never carry their own `m`/`bn`
   suffix on top of the file's unit, which would scale the same number
   twice. Excel and PowerPoint exports follow the selection (percentages
   and the raw driller-row export are never restated), and simulation
