@@ -4718,9 +4718,10 @@ async function fsumPptx(){
     colW:[wName, ...Array(nNum).fill(wNum)],
     rowH:rowHs, fontSize:fs, fontFace:'Segoe UI',
     border:{pt:0.4,color:BRD}, margin:0.012, valign:'middle', autoPage:false});
+  // the commentary sits at the foot of the slide, whatever the table's depth
   if(comRuns.length)
-    sl.addText(comRuns,{x:0.3, y:tblY+tblH+0.12, w:12.73, h:Math.min(comH,7.5-(tblY+tblH+0.18)), fontSize:8.5,
-      fontFace:'Segoe UI', valign:'top', wrap:true, fit:'shrink'});
+    sl.addText(comRuns,{x:0.3, y:7.42-comH, w:12.73, h:comH, fontSize:8.5,
+      fontFace:'Segoe UI', valign:'bottom', wrap:true, fit:'shrink'});
   await p.writeFile({fileName:`IWPB_SG_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
 }
 
