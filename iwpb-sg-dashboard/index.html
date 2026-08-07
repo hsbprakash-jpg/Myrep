@@ -1025,6 +1025,7 @@ const CFG_DEFAULT={
     fc_label_pattern:'forecast|fcst|\\bfc\\b',
     target_label_pattern:'\\btarget\\b|\\btgt\\b|target|tgt',
     cost_patterns:'cost|\\becl\\b|expected\\s+credit|impair|expense',
+    balance_sheet_patterns:'deposit|\\bloan|advance|mortgage|\\bcasa\\b|balance|\\basset|liabilit|\\brwa\\b|\\baum\\b|\\bnnm\\b|customer\\s*account',
     hidden_cmp_patterns:'direct\\s*costs?|costs?\\s*[-\u2013]?\\s*(direct|indirect)|indirect\\s*costs?|\\becl\\b|expected\\s+credit',
     dashboard_page_size:'6',
     font_greeting:'', font_commentary:'', font_eyebrow:'',
@@ -1081,7 +1082,7 @@ const CFG_DEFAULT={
 for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:/^mica/.test(sp.key)?'Y':'N'};
 let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null');
   if(v&&v.settings) return v; }catch(e){} return JSON.parse(JSON.stringify(CFG_DEFAULT)); })();
-let RE_FC,RE_TGT,RE_COST,RE_HIDE,PRIO_RES;
+let RE_FC,RE_TGT,RE_COST,RE_HIDE,RE_BS,PRIO_RES;
 function cfgS(k){ const v=CFG.settings&&CFG.settings[k]; return (v==null||v==='')? CFG_DEFAULT.settings[k] : String(v); }
 function cfgYes(k){ return String(cfgS(k)).trim().toUpperCase()!=='N'; }
 function cfgRe(str,fb){ try{ return new RegExp(str||fb,'i'); }catch(e){ return new RegExp(fb,'i'); } }
@@ -1090,6 +1091,7 @@ function cfgCompile(){
   RE_TGT=cfgRe(cfgS('target_label_pattern'),CFG_DEFAULT.settings.target_label_pattern);
   RE_COST=cfgRe(cfgS('cost_patterns'),CFG_DEFAULT.settings.cost_patterns);
   RE_HIDE=cfgRe(cfgS('hidden_cmp_patterns'),CFG_DEFAULT.settings.hidden_cmp_patterns);
+  RE_BS=cfgRe(cfgS('balance_sheet_patterns'),CFG_DEFAULT.settings.balance_sheet_patterns);
   PRIO_RES=((CFG.tilePriority&&CFG.tilePriority.length)?CFG.tilePriority:CFG_DEFAULT.tilePriority)
     .map(p2=>{ try{ return new RegExp(p2,'i'); }catch(e){ return null; } }).filter(Boolean);
 }
@@ -2227,8 +2229,8 @@ function renderSummary(){
     });
     const anyPrio=cards.some(c=>PRIO_RES.some(rx=>rx.test(c.l2)));
     const firstAt=c=>{ let i=Infinity; for(const r of c.rows){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
-    cards.sort(anyPrio? (a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0)
-                      : (a,b)=>firstAt(a)-firstAt(b));
+    const within=anyPrio? (a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0) : (a,b)=>firstAt(a)-firstAt(b);
+    cards.sort((a,b)=>(isBSLine(a.l2)?1:0)-(isBSLine(b.l2)?1:0) || within(a,b));
     scPfx=tileL1?'l1:':'';
   }
 
@@ -2311,17 +2313,21 @@ function renderSummary(){
   const PRIORITY=PRIO_RES;
   const prio=[], rest=[...cards];
   if(!named.length) for(const rx of PRIORITY){
-    const i=rest.findIndex(c=>rx.test(c.l2));
+    const i=rest.findIndex(c=>rx.test(c.l2)&&!isBSLine(c.l2));   // never hoist a balance
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const orderedAll=named.length? cards : applyTileOrder([...prio,...rest]);
+  const orderedAll=named.length? cards
+    : applyTileOrder([...prio,...rest]).sort((a,b)=>(isBSLine(a.l2)?1:0)-(isBSLine(b.l2)?1:0));
   TILE_ALL=orderedAll.map(c=>c.l2);
-  const shown=(named.length||S.showAllKpis||!cfgYes('collapse_rest')||!prio.length)
+  // a file carrying a balance sheet shows every top line — collapsing would
+  // hide the balance-sheet lines behind the P&L ones the priorities match
+  const mixedFile=cards.some(c=>isBSLine(c.l2));
+  const shown=(named.length||S.showAllKpis||!cfgYes('collapse_rest')||!prio.length||mixedFile)
     ? orderedAll : orderedAll.slice(0,prio.length);
   $('cardGrid').innerHTML=
     (noTotal? '' : cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false))+
     shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${esc(c.scope||(scPfx+c.l2))}" data-name="${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
-    (!named.length&&prio.length&&rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
+    (!named.length&&!mixedFile&&prio.length&&rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'')+
     (missingLines.length?`<div class="card morecard" style="cursor:default">Not found in ${
       esc(tileLevelNames())}: ${esc(missingLines.join(', '))}</div>`:'');
@@ -3140,7 +3146,7 @@ function summaryNoTotal(named){
   const v=cfgS('total_tile').trim().toLowerCase();
   if(v==='y'||v==='yes'||v==='true') return false;
   if(v==='n'||v==='no'||v==='false') return true;
-  // auto: a total tile only on a file whose Level 1 lines are all P&L lines
+  // auto: no total tile once the file carries a balance-sheet line
   return !fsumTotalOK(filteredRows());
 }
 function tileLineDefs(){
@@ -4017,9 +4023,11 @@ function fsumTree(rows){
       return [...named,...rest2];
     }
     const prio=[], rest=[...arr];
-    for(const rx of PRIO_RES){ const i=rest.findIndex(([n])=>rx.test(n)); if(i>=0) prio.push(rest.splice(i,1)[0]); }
+    for(const rx of PRIO_RES){ const i=rest.findIndex(([n])=>rx.test(n)&&!(top&&isBSLine(n)));
+      if(i>=0) prio.push(rest.splice(i,1)[0]); }
     rest.sort((a,b)=>top? firstAt(a[1])-firstAt(b[1]) : size(b[1])-size(a[1]));
-    return [...prio,...rest];
+    const out2=[...prio,...rest];
+    return top? out2.sort((a,b)=>(isBSLine(a[0])?1:0)-(isBSLine(b[0])?1:0)) : out2;
   };
   for(const [n1,rs1] of ordered(groupBy(rows,L1), true)){
     const g2=L2? ordered(groupBy(rs1,L2)) : [];
@@ -4053,13 +4061,14 @@ function fsumSectionDefs(){
    every top-level line in it is a recognised P&L line (the tile-priority
    patterns) — a driller carrying deposits or loans alongside a result is
    never totalled, because adding a balance to a result is not a figure. */
+function isBSLine(name){ return !!(RE_BS&&RE_BS.test(String(name||''))); }
 function fsumTotalOK(rows){
   const v=cfgS('fsum_total').trim().toLowerCase();
   if(v==='y'||v==='yes'||v==='true') return true;
   if(v==='n'||v==='no'||v==='false') return false;
   const names=[...groupBy(rows, fsumLevels()[0]).keys()].filter(Boolean);
   if(!names.length) return false;
-  return names.every(n=>PRIO_RES.some(rx=>rx.test(n)));
+  return !names.some(isBSLine);   // a balance beside a result is never totalled
 }
 function fsumNoTotal(){
   return new Set(cfgS('fsum_no_total').split(/[,;|]/).map(x=>x.trim().toLowerCase()).filter(Boolean));

@@ -67,9 +67,14 @@ A single header row with:
   The PowerPoint tile grid and the landing narrative follow the same list.
   Leave it blank for the default behaviour (`tile_level` + `tilePriority`).
 - **No total when a total means nothing** — `total_tile` and `fsum_total`
-  default to `auto`: a computed total is printed only when every MICA
-  Level 1 line in the file is a recognised P&L line (the `TilePriority`
-  patterns). A driller carrying Deposits or Loans beside a result gets no
+  default to `auto`: a computed total is printed only while no MICA Level 1
+  line in the file is a balance-sheet line, recognised by
+  `balance_sheet_patterns` (deposits, loans, advances, mortgages, balances,
+  assets, liabilities, RWA, AUM, NNM …). Those patterns are their own
+  setting, independent of `TilePriority`, so re-ordering the tile
+  priorities cannot switch totalling back on. Balance-sheet lines are also
+  never hoisted by tile priority and always sort below the P&L, and a file
+  carrying them never collapses its tile grid. A driller carrying Deposits or Loans beside a result gets no
   total tile, no total row and no total in its commentary, because adding a
   balance to a result is not a figure; a P&L-only driller keeps its bottom
   line as before. `Y` or `N` force it either way, and naming the lines in
