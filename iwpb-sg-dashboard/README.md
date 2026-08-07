@@ -54,6 +54,13 @@ A single header row with:
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
   widescreen slide, built natively in PowerPoint.
+- **The total tile** — the first KPI tile adds up every row in scope. If a
+  line in the file carries the same name as `total_label` the tile takes
+  `total_all_label` instead ("Total (all lines)"), so the grand total and
+  the line of that name are never two tiles with one name. Set
+  `total_tile` to `N` to drop the tile altogether — worth doing on a file
+  that mixes statements, where adding balance-sheet balances to a P&L
+  result gives a number with no meaning.
 - **Units** — a strip at the top of every page declaring the unit every
   figure is stated in, with a selector. The file's own unit comes from
   `unit_label` (e.g. `US$m`); *as reported* leaves the figures alone, and

@@ -1014,6 +1014,8 @@ const CFG_DEFAULT={
     eyebrow:'HSBC Management Reporting : IWPB Singapore Driller',
     landing_title:'Financial Performance',
     total_label:'Total P&L',
+    total_all_label:'Total (all lines)',
+    total_tile:'Y',
     tile_level:'auto',
     collapse_rest:'Y',
     rag_tolerance:'0.05',
@@ -1149,6 +1151,15 @@ function unitDec(){
 }
 function uval(v){ const d=unitDiv(); return (v==null||d===1)? v : v/d; }
 function cfgUnit(){ return unitLabelFor(unitSel()); }
+/* The grand total is every row in scope added up. If a line in the file
+   happens to carry the configured total label, the two would read as the
+   same thing on the page, so the total takes a distinguishing name. */
+function totalLabel(names){
+  const t=(cfgS('total_label')||'Total').trim();
+  const clash=(names||[]).some(n=>String(n).trim().toLowerCase()===t.toLowerCase());
+  return clash? (cfgS('total_all_label')||'Total (all lines)') : t;
+}
+function l1Names(rows){ return [...new Set((rows||[]).map(r=>r.d.micaL1).filter(Boolean))]; }
 /* monthly phasing weight for forecast/target: even 1/12, the file's own
    monthly profile, or custom weights from the config */
 function fcWeight(model, mi){
@@ -2202,8 +2213,9 @@ function renderSummary(){
   const best=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct>=b.k.favVarPct?a:b):null;
   const worst=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct<=b.k.favVarPct?a:b):null;
   const l1name=[...byL1g.keys()][0]||'Revenue';
-  const totName=tileL1? cfgS('total_label') : `Total ${l1name}`;
-  let cm=`${esc(tileL1?cfgS('total_label'):l1name)} of <b>${fmt(kT.cmpMain)}</b> for ${esc(L.main)}`;
+  const tileNames=cards.map(c=>c.l2);
+  const totName=tileL1? totalLabel(tileNames) : `Total ${l1name}`;
+  let cm=`${esc(tileL1?totName:l1name)} of <b>${fmt(kT.cmpMain)}</b> for ${esc(L.main)}`;
   if(kT.cmpVarPct!=null){
     cm+=` runs <b>${fmtPct(kT.cmpVarPct)}</b> ${kT.cmpVarPct>=0?'ahead of':'behind'} ${esc(L.base)}`;
     if(kT.cmpBase!=null) cm+=` of <b>${fmt(kT.cmpBase)}</b>`;
@@ -2256,7 +2268,7 @@ function renderSummary(){
   TILE_ALL=orderedAll.map(c=>c.l2);
   const shown=(S.showAllKpis||!cfgYes('collapse_rest'))? orderedAll : orderedAll.slice(0,Math.max(1,prio.length));
   $('cardGrid').innerHTML=
-    cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false)+
+    (cfgYes('total_tile')? cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false) : '')+
     shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${scPfx}${esc(c.l2)}" data-name="${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
     (rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'');
@@ -2463,7 +2475,7 @@ function houseCommentaryHtml(){
     .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .filter(g=>g.name)
     .sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
-  const totLbl=cfgS('total_label')||'PBT';
+  const totLbl=totalLabel(l1Names(rows));
   let h=`<p>(${esc(L.main)}) <b>${esc(totLbl)}</b> of <b>${fmt(mainOf(kT))}</b> is ${faTxt(kT)} vs ${esc(L.base)}`;
   if(l1.length) h+=` driven by ${l1.map(g=>`${faWord(g.k, mainOf(g.k))} ${esc(g.name)} (${faTxt(g.k)})`).join(', ')}`;
   h+='.</p>';
@@ -2639,7 +2651,7 @@ async function exportSummaryPPT(){
     const i=rest.findIndex(c=>rx.test(c.l2));
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const tiles=[{name:tileL1?cfgS('total_label'):`Total ${l1name}`,k:kT,hide:false},
+  const tiles=[{name:tileL1?totalLabel(byL2.map(c=>c.l2)):`Total ${l1name}`,k:kT,hide:false},
     ...applyTileOrder([...prio,...rest]).map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
   const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
     return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
@@ -3907,7 +3919,7 @@ function renderFsum(){
   const tree=secs.flatMap(sec=>[{band:sec.label}, ...fsumTree(sec.rows),
     ...(fsumTopCount(sec.rows)>1? [{rows:sec.rows, lvl:0, tot:true,
       name:secs.length>1? `Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`
-        : (cfgS('fsum_total_label')||cfgS('total_label'))}] : [])]);
+        : (cfgS('fsum_total_label')||totalLabel(l1Names(sec.rows)))}] : [])]);
   let body='';
   for(const r of tree){
     if(r.band){ body+=`<tr class="band"><td class="nm" colspan="${nCols}">${esc(r.band)}</td></tr>`; continue; }
@@ -3934,7 +3946,7 @@ function renderFsum(){
 function fsumCommentary(rows,m,P){
   const tot=fsumFigs(rows,m,P,S.ytdM);
   const mon=MON_LBL[S.ytdM]+"'"+P.yy;
-  let h=`<b>${esc(cfgS('fsum_total_label')||cfgS('total_label'))}</b> for <b>${mon}</b> is <b>${fmtFull(Math.round(tot.k.mth==null?0:tot.k.mth))}</b>`;
+  let h=`<b>${esc(cfgS('fsum_total_label')||totalLabel(l1Names(rows)))}</b> for <b>${mon}</b> is <b>${fmtFull(Math.round(tot.k.mth==null?0:tot.k.mth))}</b>`;
   if(tot.mVsFc!=null) h+=`, <b>${fmtFull(Math.round(tot.mVsFc))}</b> vs forecast`;
   if(tot.mVsTgt!=null) h+=` and <b>${fmtFull(Math.round(tot.mVsTgt))}</b> vs target`;
   h+=`. ${esc(P.qLbl)} stands at <b>${fmtFull(Math.round(tot.qtd||0))}</b>`;
