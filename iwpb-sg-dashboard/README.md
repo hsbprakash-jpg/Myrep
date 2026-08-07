@@ -54,6 +54,13 @@ A single header row with:
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
   widescreen slide, built natively in PowerPoint.
+- **The result line is opened up** — on a driller whose only P&L rollup is a
+  single Level 1 line (a PBT beside Deposits and Loans), the tile grid would
+  otherwise show that one result and the balance sheet, and nothing of what
+  drove it. Its Level 2 lines lead the grid in statement order — revenue,
+  the cost lines, the charge — with the result behind them and the
+  balance-sheet lines last. Files with several P&L rollups are unaffected.
+  Switch it off with `tile_expand_result`.
 - **Naming the tiles** — `tile_lines` lists exactly which lines become KPI
   tiles, in the order given: `Revenue,PBT,Loans,Deposits,Costs`. Each name
   is looked up in the MICA hierarchy — Level 1 first, then Level 2

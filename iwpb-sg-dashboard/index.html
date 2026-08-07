@@ -1018,6 +1018,7 @@ const CFG_DEFAULT={
     total_tile:'auto',
     tile_lines:'',
     tile_line_levels:'micaL1,micaL2',
+    tile_expand_result:'Y',
     tile_level:'auto',
     collapse_rest:'Y',
     rag_tolerance:'0.05',
@@ -2213,7 +2214,7 @@ function renderSummary(){
   const tileL1=cfgTileL1(byL1g.size);
   const named=tileLineDefs();
   const missingLines=[];
-  let cards, scPfx;
+  let cards, scPfx, fixedOrder=false;
   if(named.length){
     cards=named.map(nm=>{
       const f=tileFindLine(rows,nm);
@@ -2232,6 +2233,24 @@ function renderSummary(){
     const within=anyPrio? (a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0) : (a,b)=>firstAt(a)-firstAt(b);
     cards.sort((a,b)=>(isBSLine(a.l2)?1:0)-(isBSLine(b.l2)?1:0) || within(a,b));
     scPfx=tileL1?'l1:':'';
+    // A driller whose only P&L rollup is one Level 1 line would show that
+    // result and the balance sheet and nothing of what drove it. Its own
+    // Level 2 lines — revenue, the cost lines, the charge — lead the grid,
+    // with the result behind them.
+    if(tileL1&&cfgYes('tile_expand_result')){
+      const pl=cards.filter(c=>!isBSLine(c.l2));
+      if(pl.length===1){
+        const kids=[...groupBy(pl[0].rows,'micaL2').entries()]
+          .filter(([n])=>n&&n!=='(blank)'&&n!==pl[0].l2)
+          .map(([nm,rs])=>({l2:nm, l1:pl[0].l2, rows:rs, scope:'d:micaL2:'+nm,
+            k:kpi(rs,m,S.ytdM,S.includeFC)}));
+        if(kids.length>1){
+          kids.sort((a,b)=>firstAt(a)-firstAt(b));
+          cards=[...kids, {...pl[0], scope:'l1:'+pl[0].l2}, ...cards.filter(c=>isBSLine(c.l2))];
+          scPfx=''; fixedOrder=true;   // statement order, not priority order
+        }
+      }
+    }
   }
 
   const l1name=[...byL1g.keys()][0]||'Revenue';
@@ -2312,11 +2331,11 @@ function renderSummary(){
   // top KPIs first (Total, NII, Trading, Fees, Direct Costs, ECL); collapse the rest
   const PRIORITY=PRIO_RES;
   const prio=[], rest=[...cards];
-  if(!named.length) for(const rx of PRIORITY){
+  if(!named.length&&!fixedOrder) for(const rx of PRIORITY){
     const i=rest.findIndex(c=>rx.test(c.l2)&&!isBSLine(c.l2));   // never hoist a balance
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const orderedAll=named.length? cards
+  const orderedAll=(named.length||fixedOrder)? cards
     : applyTileOrder([...prio,...rest]).sort((a,b)=>(isBSLine(a.l2)?1:0)-(isBSLine(b.l2)?1:0));
   TILE_ALL=orderedAll.map(c=>c.l2);
   // a file carrying a balance sheet shows every top line — collapsing would
