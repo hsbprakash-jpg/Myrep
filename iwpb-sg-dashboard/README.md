@@ -65,7 +65,9 @@ A single header row with:
   months become Mar/Apr/May, the quarter Q226 to date, the year-to-date
   Jan–May. Comparisons a file cannot serve show as `–` with a note saying
   which and why. Excel and PowerPoint exports carry the same headers and
-  figures. Configurable via `fsum_title`, `fsum_section_label`,
+  figures. The page is deliberately independent of the **Variance period**
+  selector — it shows every basis side by side already, so only the
+  YTD-through month moves it. Configurable via `fsum_title`, `fsum_section_label`,
   `fsum_section_dim` / `fsum_section_order` (band the table by a column,
   e.g. P&L / Balance Sheet / Key Metrics), `fsum_levels`, `fsum_ow` (the
   "o/w" prefix on the deepest level) and `fsum_total_label`.
