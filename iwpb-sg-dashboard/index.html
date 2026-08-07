@@ -1068,6 +1068,7 @@ const CFG_DEFAULT={
     total_all_label:'Total (all lines)',
     total_tile:'auto',
     tile_lines:'',
+    tile_dims:'',
     tile_line_levels:'micaL1,micaL2',
     tile_expand_result:'Y',
     tile_level:'auto',
@@ -1114,6 +1115,9 @@ const CFG_DEFAULT={
     fsum_line_order:'',
     fsum_levels:'',
     fsum_max_levels:'3',
+    account_hierarchy_from:'mica,micaL1,micaL2,micaL3,micaL4,micaL5',
+    product_hierarchy_from:'prodCode,prodL1,prodL2,prodL3',
+    hierarchy_unmapped_label:'Unmapped',
     fsum_ow:'Y',
     fsum_total_label:'',
     fsum_detail:'',
@@ -1124,6 +1128,81 @@ const CFG_DEFAULT={
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
+  hierarchies:{account:[
+    {id:'A1', levels:['PBT','','','']},
+    {id:'A2', levels:['PBT','Revenue','','']},
+    {id:'A3', levels:['PBT','Revenue','Banking NII','']},
+    {id:'A4', levels:['PBT','Revenue','Fees & Other Operating Income','']},
+    {id:'A5', levels:['PBT','ECL','','']},
+    {id:'A6', levels:['PBT','Total Operating Expense','','']},
+    {id:'A7', levels:['PBT','Total Operating Expense','Direct Cost','']},
+    {id:'A8', levels:['PBT','Total Operating Expense','Direct Cost','Direct Cost ex VP']},
+    {id:'A9', levels:['PBT','Total Operating Expense','Direct Cost','Variable Pay']},
+    {id:'A10', levels:['PBT','Total Operating Expense','Direct Cost','Corporate Centre']},
+    {id:'A11', levels:['PBT','Total Operating Expense','Indirect Cost','']},
+    {id:'A12', levels:['PBT','Income from Associates','','']},
+    {id:'A13', levels:['Balance Sheet','','','']},
+    {id:'A14', levels:['Balance Sheet','Customer Deposits','','']},
+    {id:'A15', levels:['Balance Sheet','Loans and Advances','','']},
+    {id:'A16', levels:['Balance Sheet','RWAs','','']},
+    {id:'A17', levels:['Balance Sheet','Wealth Balances','','']},
+    {id:'A18', levels:['Balance Sheet','Wealth Balances','Deposits','']},
+    {id:'A19', levels:['Balance Sheet','Wealth Balances','Invested Assets','']},
+    {id:'A20', levels:['Balance Sheet','Wealth Balances','Invested Assets','NNIA']},
+    {id:'A21', levels:['Balance Sheet','Wealth Balances','Invested Assets','Markets Movement']},
+    {id:'A22', levels:['Balance Sheet','Wealth Balances','Invested Assets','FX and other']},
+    {id:'A23', levels:['Balance Sheet','NNM','','']},
+    {id:'A24', levels:['Balance Sheet','NNM','Deposits Flow','']},
+    {id:'A25', levels:['Balance Sheet','NNM','NNIA','']}
+  ], product:[
+    {id:'B1', levels:['IWPB','','','','']},
+    {id:'B2', levels:['IWPB','Retail','','','']},
+    {id:'B3', levels:['IWPB','Retail','Retail Lending','','']},
+    {id:'B4', levels:['IWPB','Retail','Retail Lending','Mortgages','']},
+    {id:'B5', levels:['IWPB','Retail','Retail Lending','Cards','']},
+    {id:'B6', levels:['IWPB','Retail','Retail Lending','Other Personal Lending','']},
+    {id:'B7', levels:['IWPB','Retail','Retail Lending','Other Personal Lending','Payroll']},
+    {id:'B8', levels:['IWPB','Retail','Retail Lending','Other Personal Lending','Personal Loans']},
+    {id:'B9', levels:['IWPB','Retail','Retail Lending','Other Personal Lending','Auto']},
+    {id:'B10', levels:['IWPB','Retail','Retail Lending','Other Personal Lending','RBB']},
+    {id:'B11', levels:['IWPB','Retail','Retail Deposits','','']},
+    {id:'B12', levels:['IWPB','Retail','Retail Deposits','CASAs','']},
+    {id:'B13', levels:['IWPB','Retail','Retail Deposits','CASAs','Current Accounts']},
+    {id:'B14', levels:['IWPB','Retail','Retail Deposits','CASAs','Saving Accounts']},
+    {id:'B15', levels:['IWPB','Retail','Retail Deposits','Time Deposits','']},
+    {id:'B16', levels:['IWPB','Retail','Retail Deposits','Retail Other','']},
+    {id:'B17', levels:['IWPB','Wealth','','','']},
+    {id:'B18', levels:['IWPB','Wealth','Investment Distribution','','']},
+    {id:'B19', levels:['IWPB','Wealth','Investment Distribution','Mutual Funds','']},
+    {id:'B20', levels:['IWPB','Wealth','Investment Distribution','Structured Products','']},
+    {id:'B21', levels:['IWPB','Wealth','Investment Distribution','Equities','']},
+    {id:'B22', levels:['IWPB','Wealth','Investment Distribution','Bonds','']},
+    {id:'B23', levels:['IWPB','Wealth','Investment Distribution','Wealth Lending','']},
+    {id:'B24', levels:['IWPB','Wealth','Investment Distribution','Other Investments','']},
+    {id:'B25', levels:['IWPB','Wealth','Investment Distribution','Cash FX','']},
+    {id:'B26', levels:['IWPB','Wealth','Insurance','','']},
+    {id:'B27', levels:['IWPB','Wealth','Insurance','Insurance Manufacturing','']},
+    {id:'B28', levels:['IWPB','Wealth','Insurance','Wealth Ins Distn','']},
+    {id:'B29', levels:['IWPB','Wealth','Asset Management','','']},
+    {id:'B30', levels:['IWPB','Wealth','Private Bank','','']},
+    {id:'B31', levels:['IWPB','Others','','','']},
+    {id:'B32', levels:['IWPB','Others','Allocs of Corp Centre (RBWM)','','']},
+    {id:'B33', levels:['IWPB','Others','Allocs of Corp Centre (RBWM)','BSM','']},
+    {id:'B34', levels:['IWPB','Others','Allocs of Corp Centre (RBWM)','UK Bank Levy','']},
+    {id:'B35', levels:['IWPB','Others','Allocs of Corp Centre (RBWM)','Hyperinflation','']},
+    {id:'B36', levels:['IWPB','Others','Allocs of Corp Centre (RBWM)','Holding Int Expense','']},
+    {id:'B37', levels:['IWPB','Others','Allocs of Corp Centre (RBWM)','Corporate Centre Other','']},
+    {id:'B38', levels:['IWPB','Others','Allocs of Corp Centre (GPB)','','']},
+    {id:'B39', levels:['IWPB','Others','Allocs of Corp Centre (GPB)','BSM','']},
+    {id:'B40', levels:['IWPB','Others','Allocs of Corp Centre (GPB)','UK Bank Levy','']},
+    {id:'B41', levels:['IWPB','Others','Allocs of Corp Centre (GPB)','Hyperinflation','']},
+    {id:'B42', levels:['IWPB','Others','Allocs of Corp Centre (GPB)','Holding Int Expense','']},
+    {id:'B43', levels:['IWPB','Others','Allocs of Corp Centre (GPB)','Corporate Centre Other','']},
+    {id:'B44', levels:['IWPB','Others','Other','','']},
+    {id:'B45', levels:['IWPB','Others','Other','Non Wealth Insurance Distribution','']},
+    {id:'B46', levels:['IWPB','Others','Other','Other Products','']},
+    {id:'B47', levels:['IWPB','Others','Wealth Lending','','']}
+  ]},
   drivers:{},
   views:{summary:'Y',fsum:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
   labels:{
@@ -2337,8 +2416,9 @@ function renderSummary(){
 
   // KPI tiles per MICA Level 1 (most material first); a degenerate file with
   // a single Level 1 value keeps the Level 2 tiles
-  const byL1g=groupBy(rows,'micaL1');
-  const tileL1=cfgTileL1(byL1g.size);
+  const TD=tileDims();
+  const byL1g=groupBy(rows,TD[0]);
+  const tileL1=cfgTileL1(byL1g.size)||TD[0]===TD[1];
   const named=tileLineDefs();
   const missingLines=[];
   let cards, scPfx, fixedOrder=false;
@@ -2352,10 +2432,10 @@ function renderSummary(){
     }).filter(Boolean);
     scPfx='';
   } else {
-    cards=[...(tileL1?byL1g:groupBy(rows,'micaL2')).entries()].map(([nm,rs])=>{
+    cards=[...(tileL1?byL1g:groupBy(rows,TD[1])).entries()].map(([nm,rs])=>{
       let k=kpi(rs,m,S.ytdM,S.includeFC);
       if(isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
-      return {l2:nm, l1:tileL1?nm:rs[0].d.micaL1, rows:rs, k};
+      return {l2:nm, l1:tileL1?nm:rs[0].d[TD[0]], rows:rs, k};
     });
     const anyPrio=cards.some(c=>PRIO_RES.some(rx=>rx.test(c.l2)));
     const firstAt=c=>{ let i=Infinity; for(const r of c.rows){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
@@ -2369,9 +2449,9 @@ function renderSummary(){
     if(tileL1&&cfgYes('tile_expand_result')){
       const pl=cards.filter(c=>!isBSLine(c.l2));
       if(pl.length===1){
-        const kids=[...groupBy(pl[0].rows,'micaL2').entries()]
+        const kids=[...groupBy(pl[0].rows,TD[1]).entries()]
           .filter(([n])=>n&&n!=='(blank)'&&n!==pl[0].l2)
-          .map(([nm,rs])=>({l2:nm, l1:pl[0].l2, rows:rs, scope:'d:micaL2:'+nm,
+          .map(([nm,rs])=>({l2:nm, l1:pl[0].l2, rows:rs, scope:'d:'+TD[1]+':'+nm,
             k:kpi(rs,m,S.ytdM,S.includeFC)}));
         if(kids.length>1){
           kids.sort((a,b)=>firstAt(a)-firstAt(b));
@@ -2408,9 +2488,9 @@ function renderSummary(){
   const hName=lead? lead.l2 : (tileL1? totName : l1name);
   // auto-written commentary with bold figures
   const rankRows=(subj&&subj.rows)? subj.rows : rows;
-  const rankKey=(subj&&subj.key.startsWith('l1:'))? 'micaL2' : (tileL1?'micaL1':'micaL2');
-  const rankSet=(subj&&rankKey==='micaL2')
-    ? [...groupBy(rankRows,'micaL2').entries()].filter(([n])=>n&&n!=='(blank)')
+  const rankKey=(subj&&subj.key.startsWith('l1:'))? TD[1] : (tileL1?TD[0]:TD[1]);
+  const rankSet=(subj&&rankKey===TD[1])
+    ? [...groupBy(rankRows,TD[1]).entries()].filter(([n])=>n&&n!=='(blank)')
         .map(([nm,rs])=>({l2:nm, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     : cards;
   const withVar=rankSet.filter(c=>c.k.favVarPct!=null && !cmpHidden(c.l2));
@@ -2534,7 +2614,7 @@ function renderSummary(){
   const jName=subj? subj.name : totName;
   const rgJ=rag(kJ.favVarPct,S.thresh);
   const lineSel=lineOpts.length? `<select id="trajLine" aria-label="Line" style="max-width:230px">${
-    ['micaL1','micaL2'].map(dk=>{
+    [...new Set(tileDims())].map(dk=>{
       const grp=FIELD_LABELS[dk]||ALL_DIM_LABELS[dk]||dk;
       const os=lineOpts.filter(o=>o.grp===grp);
       return os.length? `<optgroup label="${esc(grp)}">${os.map(o=>
@@ -3201,8 +3281,9 @@ function svgToPngData(svgEl, scale){
 /* one widescreen slide replicating the driller financial-dashboard tile grid */
 async function exportSummaryPPT(){
   const m=S.model, rows=filteredRows();
-  const l1g=groupBy(rows,'micaL1');
-  const tileL1=cfgTileL1(l1g.size);
+  const TD=tileDims();
+  const l1g=groupBy(rows,TD[0]);
+  const tileL1=cfgTileL1(l1g.size)||TD[0]===TD[1];
   const named=tileLineDefs();
   const kOf=(rs)=>{ let k=kpi(rs,m,S.ytdM,S.includeFC);
     if(rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
@@ -3210,7 +3291,7 @@ async function exportSummaryPPT(){
   const byL2=named.length
     ? named.map(nm=>tileFindLine(rows,nm)).filter(Boolean)
         .map(f=>({l2:f.name, k:kOf(f.rows)}))
-    : [...(tileL1?l1g:groupBy(rows,'micaL2')).entries()]
+    : [...(tileL1?l1g:groupBy(rows,TD[1])).entries()]
         .map(([l2,rs])=>({l2, k:kOf(rs)}))
         .sort((a,b)=>(a.k.isBS?1:0)-(b.k.isBS?1:0)||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
@@ -3227,12 +3308,12 @@ async function exportSummaryPPT(){
     const pl=ordered.filter(c=>!c.k.isBS);
     if(pl.length===1&&(l1g.get(pl[0].l2)||[]).length){
       const rs1=l1g.get(pl[0].l2);
-      const kids=[...groupBy(rs1,'micaL2').entries()]
+      const kids=[...groupBy(rs1,TD[1]).entries()]
         .filter(([n])=>n&&n!=='(blank)'&&n!==pl[0].l2)
         .map(([l2,rs])=>({l2, k:kOf(rs)}));
       if(kids.length>1){
         const at=rs=>{ let i=Infinity; for(const r of rs){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
-        kids.sort((a2,b2)=>at(l1g.get(pl[0].l2).filter(r=>r.d.micaL2===a2.l2))-at(l1g.get(pl[0].l2).filter(r=>r.d.micaL2===b2.l2)));
+        kids.sort((a2,b2)=>at(l1g.get(pl[0].l2).filter(r=>r.d[TD[1]]===a2.l2))-at(l1g.get(pl[0].l2).filter(r=>r.d[TD[1]]===b2.l2)));
         ordered=[...kids, pl[0], ...ordered.filter(c=>c.k.isBS)];
       }
     }
@@ -3608,12 +3689,13 @@ function scopeName(sc){
    the landing narrative are about a chosen line rather than the sum of all. */
 function summaryLineOptions(rows){
   const m=S.model, out=[], seen=new Set();
-  for(const k of ['micaL1','micaL2']){
+  const dims=[...new Set(tileDims())];
+  for(const k of dims){
     if(!(k in m.dimCols)) continue;
     const lbl=FIELD_LABELS[k]||ALL_DIM_LABELS[k]||k;
     for(const [n,rs] of groupBy(rows,k)){
       if(!n||n==='(blank)') continue;
-      const key=(k==='micaL1'?'l1:':'')+n;
+      const key=(k===dims[0]&&dims.length>1?'l1:':'')+n;
       if(seen.has(key)) continue;
       seen.add(key);
       out.push({key, name:n, rows:rs, grp:lbl});
@@ -3635,6 +3717,15 @@ function summaryNoTotal(named){
 }
 function tileLineDefs(){
   return cfgS('tile_lines').split(/[,;|]/).map(x=>x.trim()).filter(Boolean);
+}
+/* the pair of dimensions the Financial Performance tiles group by —
+   micaL1/micaL2 unless tile_dims points elsewhere (e.g. accH1,accH2 to run
+   the page off the account hierarchy mapping) */
+function tileDims(){
+  const m=S.model;
+  if(!m) return ['micaL1','micaL2'];
+  const want=cfgS('tile_dims').split(/[,;\s]+/).filter(x=>x&&x in m.dimCols);
+  return want.length>=2? want.slice(0,2) : want.length===1? [want[0],want[0]] : ['micaL1','micaL2'];
 }
 function tileDimOrder(){
   const m=S.model;
@@ -5025,7 +5116,7 @@ async function fsumPptx(){
 
 function renderKpiNav(){
   const m=S.model; if(!m) return;
-  const byL2=groupBy(filteredRows(),'micaL2');
+  const byL2=groupBy(filteredRows(),tileDims()[1]);
   const items=[...byL2.entries()].map(([l2,rs])=>{
     let k=kpi(rs,m,S.ytdM,S.includeFC);
     if(isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
@@ -5975,6 +6066,46 @@ async function refreshCachedInfo(){
   $('btnReuse').addEventListener('click',()=>ingestArrayBuffer(rec.buf, rec.name, true));
   $('btnCacheClear').addEventListener('click',async()=>{ await cacheClear(); refreshCachedInfo(); });
 }
+const HIER_DEFS=[
+  {key:'account', pfx:'accH', lbl:'Acct Hier L', from:'account_hierarchy_from'},
+  {key:'product', pfx:'prodH', lbl:'Prod Hier L', from:'product_hierarchy_from'},
+];
+function applyHierarchies(m){
+  const un=cfgS('hierarchy_unmapped_label')||'Unmapped';
+  for(const h of HIER_DEFS){
+    const spec=((CFG.hierarchies&&CFG.hierarchies[h.key])
+      ||CFG_DEFAULT.hierarchies[h.key]||[]);
+    if(!spec.length) continue;
+    const map=new Map(); let maxD=0;
+    for(const rr of spec){
+      const path=(rr.levels||[]).map(x=>String(x==null?'':x).trim()).filter(Boolean);
+      if(!path.length) continue;
+      maxD=Math.max(maxD,path.length);
+      const key=path[path.length-1].toLowerCase();
+      if(!map.has(key)) map.set(key,path);
+    }
+    if(!maxD) continue;
+    const src=cfgS(h.from).split(/[,;\s]+/).filter(k=>k in m.dimCols);
+    let any=false;
+    for(const row of m.rows){
+      let best=null;
+      for(const k of src){
+        const v=String(row.d[k]||'').trim().toLowerCase(); if(!v) continue;
+        const p2=map.get(v);
+        if(p2&&(!best||p2.length>best.length)) best=p2;
+      }
+      if(best) any=true;
+      for(let i=0;i<maxD;i++)
+        row.d[h.pfx+(i+1)]= best? (best[i]||best[best.length-1]) : un;
+    }
+    if(any) for(let i=0;i<maxD;i++){
+      const k=h.pfx+(i+1), lbl=h.lbl+(i+1);
+      m.dimCols[k]=-1;
+      if(!(k in ALL_DIM_LABELS)) ALL_DIM_LABELS[k]=lbl;
+      if(!(k in FIELD_LABELS)) FIELD_LABELS[k]=lbl;
+    }
+  }
+}
 function applyCfgDom(){
   cfgCompile();
   const bh=document.querySelector('.brand h1'); if(bh) bh.textContent=cfgS('app_title');
@@ -6019,19 +6150,24 @@ function applyCfgDom(){
 function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
   const low=x=>deMoji(String(x==null?'':x).trim()).trim();
-  const tp=[];
+  const tp=[], hb={};
   const handle=(section,rows)=>{
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
     for(const r of rows){
       if(!r||r.every(c=>c==null||c==='')) continue;
-      const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]), e2=low(r[4]);
-      if(/^(key|order|view|dimension)$/i.test(a)||a.startsWith('<')) continue;
+      const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]), e2=low(r[4]), f2=low(r[5]);
+      if(/^(key|order|view|dimension|id)$/i.test(a)||a.startsWith('<')) continue;
       if(sec==='settings'||sec==='calculations'){ if(a) cfg.settings[a.toLowerCase()]=b2; }
       else if(sec==='tilepriority'){ const pat=b2||a; if(pat) tp.push(pat); }
       else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'N', match:e2||null}; }
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
       else if(sec==='labels'){ if(a) cfg.labels[a.toLowerCase()]=b2; }
       else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
+      else if(sec==='accounthierarchy'||sec==='producthierarchy'){
+        const hk=sec==='accounthierarchy'?'account':'product';
+        if(hb[hk]!==true){ cfg.hierarchies[hk]=[]; hb[hk]=true; }   // uploaded rows replace the defaults wholesale
+        if(b2) cfg.hierarchies[hk].push({id:a||String(cfg.hierarchies[hk].length+1), levels:[b2,c,d,e2,f2]});
+      }
     }
   };
   const first=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null});
@@ -6065,7 +6201,7 @@ function handleCfgFile(file){
 }
 function cfgTemplateCSV(){
   const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; };
-  const rows=[['Sheet','Key','Value','Extra1','Extra2','Extra3'],
+  const rows=[['Sheet','Key','Value','Extra1','Extra2','Extra3','Extra4'],
     ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>!k.startsWith('calc_')).map(([k,v])=>['Settings',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>k.startsWith('calc_')).map(([k,v])=>['Calculations',k,v,'','']),
     ...CFG_DEFAULT.tilePriority.map((p2,i)=>['TilePriority',String(i+1),p2,'','']),
@@ -6073,7 +6209,9 @@ function cfgTemplateCSV(){
     ['Dimensions','<new key - e.g. channel>','<label - e.g. Channel>','Y','N','<driller column to match - e.g. channel>'],
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
-    ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','','']];
+    ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','',''],
+    ...CFG_DEFAULT.hierarchies.account.map(r=>['AccountHierarchy',r.id,...r.levels,'']),
+    ...CFG_DEFAULT.hierarchies.product.map(r=>['ProductHierarchy',r.id,...r.levels])];
   return rows.map(r=>r.map(q).join(',')).join('\r\n');
 }
 function downloadCfgTemplate(){
@@ -6117,6 +6255,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       return false;
     }
     model.sheetName=sheetName;
+    applyHierarchies(model);
     S.model=model; S.fileName=name;
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
     S.showAllKpis=false;

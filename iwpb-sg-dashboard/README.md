@@ -386,6 +386,25 @@ What each section governs:
   back to the label, then the key — matching ignores case, spaces and
   underscores). E.g. `Dimensions,channel,Channel,Y,N,channel` turns a
   `Channel` column into a full dimension across every view.
+- **AccountHierarchy / ProductHierarchy** — the reporting hierarchies as
+  mapping tables, one row per node: `Key` an ID, then up to five levels
+  across `Value…Extra4` (account runs four deep — PBT → Revenue →
+  Banking NII…, Balance Sheet → Wealth Balances → Invested Assets → NNIA;
+  product five — IWPB → Retail/Wealth/Others down to Payroll or Saving
+  Accounts). The app binds them at load: each driller row's line names
+  (matched against the columns in `account_hierarchy_from` /
+  `product_hierarchy_from`, deepest match wins) place the row in each
+  hierarchy, and every level becomes a derived dimension — `Acct Hier
+  L1–L4`, `Prod Hier L1–L5` — usable in the drag & drop chart builder,
+  dynamic dashboard widgets, Financial Summary cascade, commentary
+  Driven-by and Mix analysis exactly like a driller column. Rows naming
+  nothing in a hierarchy fall into `hierarchy_unmapped_label`
+  (`Unmapped`). Uploading rows for a section replaces the built-in
+  mapping wholesale; a section row with a blank first level clears it.
+  The Financial Performance page itself binds through `tile_dims` (e.g.
+  `accH1,accH2`, or just `accH2`): the KPI tiles, left-rail KPI list,
+  trajectory line picker, narrative ranking and the one-slide PPT all
+  regroup by those dimensions instead of MICA Level 1/2.
 - **Views** — enable/disable each page (summary, fsum, custom, builder,
   query, table, assist, sim).
 
