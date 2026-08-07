@@ -1214,6 +1214,10 @@ function bsRecast(k){
     varFcPct:(L.mode==='fc'? pct : (k.fyFc? (bal-k.fyFc)/Math.abs(k.fyFc) : null)),
     varTgt:vT, varTgtPct:(vT!=null&&k.target)? vT/Math.abs(k.target) : null};
 }
+function bsScope(rows){
+  return !!(bsUnit()&&rows&&rows.length&&rows.every(r=>isBSLine(String(r.d.micaL1||''))));
+}
+function scopeUnit(rows){ return bsScope(rows)? bsUnitLabel() : cfgUnit(); }
 function bsBaseLbl(mode){
   return mode==='tgt'? 'Target balance' : mode==='py'? 'PY closing' : 'Closing forecast';
 }
@@ -1711,7 +1715,10 @@ function rag(varPct, thresh){
 
 /* ================= formatting ================= */
 function fmtNum(v){
-  const d=unitDec(), x=uval(v);
+  let d=unitDec();
+  const x=uval(v);
+  // a small scaled figure keeps one decimal — a 22.4bn book must not read 22
+  if(d===0&&Math.abs(x)<50&&Math.abs(x%1)>=0.05) d=1;
   const s=Math.abs(x).toLocaleString(undefined,{maximumFractionDigits:d, minimumFractionDigits:d});
   return x<0? '('+s+')' : s;
 }
@@ -2837,7 +2844,7 @@ function renderMix(){
   $('mxMeasure').innerHTML=mops.map(k2=>`<option value="${k2}"${MX.measure===k2?' selected':''}>${esc(measureLabel(k2))}</option>`).join('');
   $('mxType').innerHTML=typeOptions(MX.type, ensureType(MX));
   $('mixTitle').textContent=chartTitle(MX);
-  $('mixSub').textContent=`${cmpLabels(S.model).period} · ${cfgUnit()} · change the view with the dropdowns — it follows the filters in the left pane`;
+  $('mixSub').textContent=`${cmpLabels(S.model).period} · ${scopeUnit(scopeFilter(filteredRows(),MX.l2))} · change the view with the dropdowns — it follows the filters in the left pane`;
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
   aiComment($('mixCom'), 'mix|'+JSON.stringify([MX.l2,MX.groupBy,MX.measure,MX.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig(),
     ()=>chartCommentaryHtml({...MX}));
@@ -3419,6 +3426,8 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
   // groups: [{name, k, sub?:[{name,k}]}]
   const m=S.model;
   const L=cmpLabels(m);
+  const gBS=groups.length&&groups.every(g=>g.k&&g.k.isBS);
+  const cellB=v=>gBS? `<span${(v||0)<0?' class="negnum"':''}>${fmtBS(v)}</span>` : fmtCell(v);
   const mainOf=k=>k.cmpMain;
   const maxAbs=Math.max(1,...groups.map(g=>Math.abs(mainOf(g.k)||0)));
   const rowHtml=(g,cls,attr)=>{
@@ -3428,8 +3437,8 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
     return `<tr class="${cls}" ${attr||''}>
       <td class="namecell">${esc(g.name)}</td>
       <td>${bar}</td>
-      <td>${fmtCell(mainOf(g.k))}</td><td>${fmtCell(g.k.cmpBase)}</td>
-      <td>${fmtCell(g.k.cmpVar)}</td>
+      <td>${cellB(mainOf(g.k))}</td><td>${cellB(g.k.cmpBase)}</td>
+      <td>${cellB(g.k.cmpVar)}</td>
       <td><span${(g.k.cmpVarPct||0)<0?' class="negnum"':''}>${fmtPct(g.k.cmpVarPct)}</span></td>
       <td style="text-align:left">${ragPill(rg)}</td></tr>`;
   };
@@ -3438,10 +3447,13 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
     body+=rowHtml(g, clickAttr?'clickable':'', clickAttr?`${clickAttr}="${esc(g.name)}" tabindex="0"`:'');
     if(g.open && g.sub) for(const s of g.sub) body+=rowHtml(s,'subrow','');
   }
-  const tot={name:'Total', k:kpi(groups.flatMap(g=>g.rows||[]),m,S.ytdM,S.includeFC)};
+  const totRows=groups.flatMap(g=>g.rows||[]);
+  let totK=kpi(totRows,m,S.ytdM,S.includeFC);
+  if(gBS&&bsScope(totRows)) totK=bsRecast(totK);
+  const tot={name:'Total', k:totK};
   el.innerHTML=(title?`<h4>${esc(title)}</h4>`:'')+(subtitle?`<p class="subtitle">${esc(subtitle)}</p>`:'')+
     `<div class="rvwwrap slim"><table class="grid review">
-    <thead><tr><th>Line</th><th></th><th>${esc(L.main)} (${esc(cfgUnit())})</th><th>${esc(L.base)}</th>
+    <thead><tr><th>Line</th><th></th><th>${esc(gBS? MON_LBL[S.ytdM]+' closing':L.main)} (${esc(gBS? bsUnitLabel():cfgUnit())})</th><th>${esc(gBS? bsBaseLbl(L.mode):L.base)}</th>
     <th>Δ</th><th>Δ%</th><th style="text-align:left">RAG</th></tr></thead>
     <tbody>${body}${rowHtml(tot,'total','')}</tbody></table></div>`;
 }
@@ -3582,7 +3594,9 @@ function chartTitleBase(cfg){
   return `${cfg.l2?scopeName(cfg.l2):'Total'} · ${measureLabel(effMeasure(cfg))} by ${fieldLabels(cfg.groupBy)}`+
     (gArr(cfg.splitBy).length?` / ${fieldLabels(cfg.splitBy)}`:'');
 }
-function chartTitle(cfg){ return chartTitleBase(cfg)+` (${cfgUnit()})`; }
+function chartTitle(cfg){
+  return chartTitleBase(cfg)+` (${scopeUnit(scopeFilter(filteredRows(),cfg.l2))})`;
+}
 const CHART_TYPES=[['column','Column'],['hbar','Horizontal bar'],['lollipop','Lollipop'],
   ['line','Line'],['area','Area'],['pie','Pie'],['donut','Donut'],['waterfall','Waterfall'],
   ['pareto','Pareto'],['treemap','Treemap'],['scatter','Scatter vs baseline'],['table','Table']];
@@ -3623,13 +3637,14 @@ function chartData(cfg){
   const m=S.model;
   let rows=filteredRows();
   rows=scopeFilter(rows,cfg.l2);
-  const mfn=rs=>pickMeasure(kpi(rs,m,S.ytdM,S.includeFC), cfg.measure)||0;
+  const bsU=bsScope(rows), bsDv=bsU? bsUnitDiv() : 1;
+  const mfn=rs=>(pickMeasure(kpi(rs,m,S.ytdM,S.includeFC), cfg.measure)||0)/bsDv;
   const gks=gArr(cfg.groupBy);
   const gkey=r=>gks.map(k=>r.d[k]||'(blank)').join(' · ');
   let groups=[...groupByFn(rows,gkey).entries()].map(([name,rs])=>{
     const k=kpi(rs,m,S.ytdM,S.includeFC);
-    return {name, rows:rs, cy:k.cy||0, py:scatterBase(k,S.model)||0,
-      val:pickMeasure(k,cfg.measure)||0};
+    return {name, rows:rs, cy:(k.cy||0)/bsDv, py:(scatterBase(k,S.model)||0)/bsDv,
+      val:(pickMeasure(k,cfg.measure)||0)/bsDv};
   });
   groups.sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
   const TOP=(cfg.type==='donut'||cfg.type==='pie')?6 : cfg.type==='treemap'?12 : cfg.type==='scatter'?10 : 8;
@@ -3645,14 +3660,14 @@ function chartData(cfg){
     paired=true; segNames=[pair.an,pair.bn];
     for(const c of cats){
       const k2=kpi(c.rows,m,S.ytdM,S.includeFC);
-      const av=pair.a(k2)||0, bv=pair.b(k2)||0;
+      const av=(pair.a(k2)||0)/bsDv, bv=(pair.b(k2)||0)/bsDv;
       c.segs={[segNames[0]]:av, [segNames[1]]:bv};
       c.segTotal=av;                       // headline stays the actual
       c.varFc=av-bv;
       c.varFcPct=Math.abs(bv)>0.0001? c.varFc/Math.abs(bv) : null;
     }
     cats.sort((a,b)=>Math.abs(b.segTotal)-Math.abs(a.segTotal));
-    return {cats, segNames, clamped:false, paired, cmpName:pair.bn};
+    return {cats, segNames, clamped:false, paired, cmpName:pair.bn, bsU};
   }
   const sks=gArr(cfg.splitBy).filter(k=>!gks.includes(k));
   const skey=r=>sks.map(k=>r.d[k]||'(blank)').join(' · ');
@@ -3676,7 +3691,7 @@ function chartData(cfg){
       c.segTotal=Object.values(segs).reduce((s,v)=>s+v,0);
     }
   }
-  return {cats, segNames, clamped, paired};
+  return {cats, segNames, clamped, paired, bsU};
 }
 function segLegend(segNames){
   if(!segNames) return '';
@@ -5321,16 +5336,31 @@ function aTable(headers, rows2){
 function gnote(){
   return `<div class="anote">${esc(filterNote())} · governed answer, computed locally from the driller</div>`;
 }
-function aKpi(rows){ return kpi(rows,S.model,S.ytdM,S.includeFC); }
+function aKpi(rows){
+  let k=kpi(rows,S.model,S.ytdM,S.includeFC);
+  if(bsScope(rows)) k=bsRecast(k);
+  return k;
+}
+function aCell(k,v){
+  if(v==null) return fmtCell(v);
+  return (k&&k.isBS&&bsUnit())? `<span${v<0?' class="negnum"':''}>${fmtBS(v)}${bsUnit()}</span>` : fmtCell(v);
+}
 function aPerf(){
-  const m=S.model, rows=filteredRows(), L=cmpLabels(m), kT=aKpi(rows);
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  // a file carrying balances beside a P&L is never totalled across the two —
+  // the headline speaks for the P&L, the table lists every line in its unit
+  const plRows=rows.filter(r=>!isBSLine(String(r.d.micaL1||'')));
+  const mixed=plRows.length&&plRows.length!==rows.length;
+  const kT=aKpi(mixed? plRows : rows);
+  const plNames=l1Names(plRows);
+  const hdName=mixed? (plNames.length===1? plNames[0] : totalLabel(plNames))+' — ' : '';
   const g=[...groupBy(rows,'micaL1').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
-    .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+    .sort((a,b)=>(a.k.isBS?1:0)-(b.k.isBS?1:0)||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const rg=rag(kT.favVarPct,S.thresh);
-  let h=`${esc(L.main)} stands at <b>${fmt(kT.cmpMain)}</b>`;
+  let h=`${esc(hdName)}${esc(L.main)} stands at <b>${fmt(kT.cmpMain)}</b>`;
   h+= kT.cmpVarPct!=null? `, <b>${fmtPct(kT.cmpVarPct)}</b> ${esc(L.vs)} — rated <b>${rg.label}</b>.` : ' with no comparison baseline in this file.';
   if(g.length>1) h+=aTable(['Line',L.main,L.base,'Var %','Rating'],
-    g.map(x=>[esc(x.n),fmtCell(x.k.cmpMain),fmtCell(x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
+    g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
   return h+gnote();
 }
 function aBehind(){
@@ -5341,7 +5371,7 @@ function aBehind(){
   if(!g.length) return `Nothing is behind — every line is at or ahead of the ${esc(L.base)} under the current filters.`+gnote();
   return `<b>${g.length}</b> line${g.length>1?'s run':' runs'} behind the ${esc(L.base)}, worst first:`+
     aTable(['Line',L.main,L.base,'Var','Var %'],
-      g.map(x=>[esc(x.n),fmtCell(x.k.cmpMain),fmtCell(x.k.cmpBase),fmtCell(x.k.cmpVar),fmtPct(x.k.cmpVarPct)]))+gnote();
+      g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),aCell(x.k,x.k.cmpVar),fmtPct(x.k.cmpVarPct)]))+gnote();
 }
 function aFyTgt(){
   const m=S.model, rows=filteredRows(), kT=aKpi(rows);
@@ -5362,7 +5392,7 @@ function aTopProducts(){
     .sort((a,b)=>(b.k.cy||0)-(a.k.cy||0)).slice(0,5);
   return `Top products by ${rev.length?'Revenue':'total'} YTD:`+
     aTable(['Product','YTD','Share'],
-      g.map(x=>[esc(x.n),fmtCell(x.k.cy),(x.k.cy/tot*100).toFixed(1)+'%']))+gnote();
+      g.map(x=>[esc(x.n),aCell(x.k,x.k.cy),(x.k.cy/tot*100).toFixed(1)+'%']))+gnote();
 }
 function aDragProducts(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
@@ -5372,7 +5402,7 @@ function aDragProducts(){
   if(!g.length) return 'No comparison baseline available for products in this file.'+gnote();
   return `Products dragging performance the most ${esc(L.vs)}:`+
     aTable(['Product',L.main,L.base,'Var %'],
-      g.map(x=>[esc(x.n),fmtCell(x.k.cmpMain),fmtCell(x.k.cmpBase),fmtPct(x.k.cmpVarPct)]))+gnote();
+      g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct)]))+gnote();
 }
 function aCosts(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
@@ -5384,7 +5414,7 @@ function aCosts(){
   let h=`Total costs run at <b>${fmt(kC.cy)}</b> YTD`;
   h+= kC.cmpVarPct!=null? `, <b>${fmtPct(kC.cmpVarPct)}</b> ${esc(L.vs)} — rated <b>${rg.label}</b> (cost increases rate unfavourable).`:'.';
   if(g.length>1) h+=aTable(['Cost line',L.main,L.base,'Var %','Rating'],
-    g.map(x=>[esc(x.n),fmtCell(x.k.cmpMain),fmtCell(x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
+    g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
   return h+gnote();
 }
 function aEcl(){
@@ -5429,7 +5459,7 @@ function aFuncMix(){
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0)).slice(0,5);
   return `Largest contributors by ${key==='funcL2'?'function':'product'}:`+
     aTable([key==='funcL2'?'Function':'Product','YTD','Share'],
-      g.map(x=>[esc(x.n),fmtCell(x.k.cy),(x.k.cy/tot*100).toFixed(1)+'%']))+gnote();
+      g.map(x=>[esc(x.n),aCell(x.k,x.k.cy),(x.k.cy/tot*100).toFixed(1)+'%']))+gnote();
 }
 const AQ=[
   {id:'perf',   q:'How are we performing YTD?',                    kw:['perform','overall','doing','how are we','summary','ytd'], run:aPerf},
@@ -5623,7 +5653,8 @@ function widgetRows(l2){
   return scopeFilter(filteredRows(), l2);
 }
 function widgetTitle(w){
-  return widgetTitleBase(w)+` (${cfgUnit()})`;
+  const rs=scopeFilter(filteredRows(), w.type==='chart'? (w.cfg&&w.cfg.l2) : w.l2);
+  return widgetTitleBase(w)+` (${scopeUnit(rs)})`;
 }
 function widgetTitleBase(w){
   return w.type==='chart'? chartTitleBase(w.cfg) : scopeName(w.l2)+' · '+WTYPES[w.type];
@@ -5781,7 +5812,9 @@ function renderCustom(){
     if(rows.length && (w.type==='l3'||w.type==='products')){
       const key=w.type==='l3'?'micaL3':'prodL2';
       const groups=[...groupBy(rows,key).entries()]
-        .map(([name,rs])=>({name, rows:rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+        .map(([name,rs])=>{ let k2=kpi(rs,m,S.ytdM,S.includeFC);
+          if(bsScope(rs)) k2=bsRecast(k2);
+          return {name, rows:rs, k:k2}; })
         .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
       breakdownTable(div.querySelector('.wbody'),'','',groups,null);
     }

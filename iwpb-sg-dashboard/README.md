@@ -73,6 +73,12 @@ A single header row with:
   the grand-total tile is left off because the lines were chosen by hand.
   The PowerPoint tile grid and the landing narrative follow the same list.
   Leave it blank for the default behaviour (`tile_level` + `tilePriority`).
+- **Balance scopes read in billions everywhere** — any tile, chart or
+  table whose scope is a balance line switches to the balance unit: Mix
+  analysis and builder charts scoped to Deposits or Loans plot and label
+  in `US$bn`, dashboard cards and breakdown tables restate to closings in
+  bn, and the MI Assistant's tables show each line in its own unit. A
+  chart over a mixed scope (the whole file) stays in the file's unit.
 - **Units on the tiles** — every KPI tile names its unit beside the KPI
   (`US$m` on the P&L lines, `US$bn` on balances), the page lede states the
   split ("P&L in US$m · balances in US$bn"), and the one-slide PPT export
