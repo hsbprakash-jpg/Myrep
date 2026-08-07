@@ -199,7 +199,15 @@ A single header row with:
   is wanted), remembered in the browser, with the roll-up selector, commentary
   and all three exports following the cascade. A level that doesn't fan
   out (a lone child repeating its parent) is collapsed, but the walk keeps
-  descending so a deeper level that does split is never lost. A **roll-up selector** beside the export buttons sets how
+  descending so a deeper level that does split is never lost. The **rows
+  themselves drag too**: pull any line onto a sibling to reorder it — drop
+  on the top half to land above it, bottom half below — and the line's
+  whole block moves with it (its o/w children re-render beneath it, and a
+  group total carries everything above it). A row only accepts siblings at
+  the same level under the same parent, so statements stay apart and a
+  child can't leave its parent. The order persists in the browser, every
+  export follows it, and a *Reset row order* link under the table restores
+  the default. A **roll-up selector** beside the export buttons sets how
   deep the cascade reads — Level 1 rollups only, to Level 2, or the full
   o/w Level 3 detail — and the Excel, PPT and Word exports follow it
   (`fsum_detail` sets the level on load). Variance colours follow
