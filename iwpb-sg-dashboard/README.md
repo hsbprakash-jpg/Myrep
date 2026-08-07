@@ -159,6 +159,27 @@ A single header row with:
   (`PBT,Deposits,Loans` puts the balance-sheet lines below the P&L), and
   `fsum_total` set to `N` removes every total row from the table, the
   commentary and both exports.
+- **Management commentary** — the reporting pack's own wording, generated
+  from the file. A heading naming the comparison, an opener giving the
+  result and what moved it, then each line of the statement with its
+  variance in F/A notation and the movements behind it:
+
+  ```
+  (JUN) FY Forecast Vs FY26 target (ex notables):
+  (JUN) FY Forecast PBT is $(4,067)m down vs FY26 target driven by lower
+  Revenue ($109mA / 1.3%), lower Total Direct Cost ($110mF / 3.2%) …
+  Revenue of $8,379m is $109mA / 1.3% (ex notables):
+    • NII - Interest Income $36mA / 0.9% driven by …
+  ```
+
+  The comparison follows the selected **Variance period**, so the same
+  generator writes the vs-forecast, vs-target and vs-prior-year versions.
+  Balance-sheet lines are reported after the statement, never inside it.
+  `commentary_format` picks `slide` (this) or `house` (the earlier
+  cascading style), `commentary_levels` sets the cascade,
+  `commentary_dim` the dimension the "driven by" clauses cut by,
+  `commentary_drivers` how many are named, and `commentary_headline` /
+  `commentary_note` the wording of the heading.
 - **Variance period** — a left-pane selector (Period & RAG) that sets the
   comparison every view is rated on: YTD vs PY, MoM, Month vs Target, YTD
   vs Target, YTD vs Forecast, FY vs Target, FY vs PY. The option labels

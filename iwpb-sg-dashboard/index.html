@@ -1046,7 +1046,10 @@ const CFG_DEFAULT={
     calc_rag_green_at:'0',
     calc_rag_direction:'Y',
     commentary_dim:'',
-    commentary_levels:'micaL1,micaL2',
+    commentary_levels:'micaL1,micaL2,micaL3',
+    commentary_format:'slide',
+    commentary_note:'ex notables',
+    commentary_headline:'FY Forecast',
     commentary_drivers:'5',
     fsum_title:'Singapore: Financial Summary',
     fsum_section_label:'P&L',
@@ -2502,9 +2505,93 @@ function renderHouse(){
   const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
   const cur=houseDimKey();
   $('houseDim').innerHTML=dims.map(k=>`<option value="${k}"${cur===k?' selected':''}>${esc(FIELD_LABELS[k])}</option>`).join('');
-  $('houseSub').textContent=`${L.period} — house-style narrative, cascading to ${FIELD_LABELS[cur]||cur} · ${cfgUnit()}`;
-  aiComment($('houseCom'), 'house|'+filterNote()+'|'+S.ytdM+'|'+cur+'|'+L.vp+'|'+L.mode+'|'+drvSig(),
-    ()=>houseCommentaryHtml());
+  $('houseSub').textContent=`${L.period} — reporting-pack narrative, cascading to ${FIELD_LABELS[cur]||cur} · ${cfgUnit()}`;
+  aiComment($('houseCom'), 'house|'+filterNote()+'|'+S.ytdM+'|'+cur+'|'+L.vp+'|'+L.mode+'|'+
+    cfgS('commentary_format')+'|'+drvSig(),
+    ()=>cfgS('commentary_format').trim().toLowerCase()==='house'
+      ? houseCommentaryHtml() : slideCommentaryHtml());
+}
+
+/* ---- slide-format management commentary -------------------------------
+   The reporting pack's own wording: a heading naming the comparison, an
+   opener giving the result and what drove it, then each line of the
+   statement with its variance in F/A notation and the movements behind it.
+   The basis follows whatever variance period is selected, so the same
+   generator writes the vs-forecast, vs-target and vs-prior-year versions. */
+function slUnitTok(){
+  const sel=unitSel();
+  return sel==='as'? (unitNative().tok||'') : sel;
+}
+function slAmt(v){ return v==null? '–' : '$'+fmt(Math.abs(v))+slUnitTok(); }
+function slVal(v){ return v==null? '–' : '$'+fmt(v)+slUnitTok(); }
+/* "a, b and c" the way the pack writes it */
+function slJoin(parts){
+  if(parts.length<2) return parts.join('');
+  return parts.slice(0,-1).join(', ')+' and '+parts[parts.length-1];
+}
+/* $XmF/A / x% */
+function slVar(k){
+  if(k.cmpVar==null) return 'n/a';
+  const fav=(k.favVarPct==null? (k.cmpVar>=0) : k.favVarPct>=0);
+  const p=k.cmpVarPct==null? '' : ' / '+fmtPct(Math.abs(k.cmpVarPct)).replace('+','');
+  return `<b>${slAmt(k.cmpVar)}${fav?'F':'A'}</b>${p}`;
+}
+function slDrivers(rows, dimKey, n){
+  const ds=houseDrivers(rows, dimKey, n);
+  return ds.length? ' driven by '+ds.map(d=>`${esc(d.name)} (${slVar(d.k)})`).join(', ') : '';
+}
+function slGroups(rows, key){
+  const m=S.model;
+  const atF=fileOrder(m);
+  return [...groupBy(rows,key).entries()].filter(([n])=>n&&n!=='(blank)')
+    .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .sort((a,b)=>atF(a.rs)-atF(b.rs));
+}
+function slideCommentaryHtml(){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  if(!rows.length) return '';
+  const LV=houseLevels(); if(!LV.length) return '';
+  const dimKey=houseDimKey(), N=houseDrvCount();
+  const mon=MON_LBL[S.ytdM], note=cfgS('commentary_note');
+  const head=cfgS('commentary_headline')||L.main;
+  const nt=note? ` (${esc(note)})` : '';
+  let h=`<p><u>(${esc(mon)}) ${esc(head)} Vs ${esc(L.base)}${nt}:</u></p>`;
+
+  const tops=slGroups(rows, LV[0]);
+  const pl=tops.filter(g=>!isBSLine(g.name)), bs=tops.filter(g=>isBSLine(g.name));
+  // the result: the P&L rollup when there is one, else the whole scope
+  const res=(pl.length===1)? pl[0] : null;
+  const resRows=res? res.rs : rows;
+  const resK=res? res.k : kpi(rows,m,S.ytdM,S.includeFC);
+  const resName=res? res.name : (cfgS('total_label')||'Result');
+  const parts=res? slGroups(res.rs, LV[1]||LV[0]) : pl;
+
+  const dirWord=k=>{
+    if(k.cmpVar==null) return 'flat';
+    const base=(k.cmpMain!=null? k.cmpMain : 0);
+    return (base>=0? k.cmpVar>=0 : k.cmpVar<=0)? 'higher' : 'lower';
+  };
+  h+=`<p>(${esc(mon)}) ${esc(head)} <b>${esc(resName)}</b> is <b>${slVal(resK.cmpMain)}</b> `+
+     `${resK.cmpVar==null?'':((resK.favVarPct==null? resK.cmpVar>=0 : resK.favVarPct>=0)?'up':'down')+' '}vs ${esc(L.base)}`;
+  if(parts.length) h+=` driven by ${slJoin(parts.map(g=>`${dirWord(g.k)} ${esc(g.name)} (${slVar(g.k)})`))}`;
+  h+='</p>';
+
+  // each line of the statement, with its own lines beneath where it has them
+  for(const g of parts){
+    const kids=LV[2]? slGroups(g.rs, LV[2]) : [];
+    if(kids.length>1){
+      h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${slVal(g.k.cmpMain)}</b> `+
+        `is ${slVar(g.k)}${nt}:</p><ul class="houselist">`;
+      for(const c of kids) h+=`<li><b>${esc(c.name)}</b> ${slVar(c.k)}${slDrivers(c.rs,dimKey,N)}</li>`;
+      h+='</ul>';
+    } else {
+      h+=`<p style="margin:8px 0 2px"><b>${esc(g.name)}</b> ${slVar(g.k)}${slDrivers(g.rs,dimKey,N)}</p>`;
+    }
+  }
+  // balance-sheet lines keep to themselves, after the statement
+  for(const g of bs)
+    h+=`<p style="margin:8px 0 2px"><b>${esc(g.name)}</b> ${slVar(g.k)}${slDrivers(g.rs,dimKey,N)}</p>`;
+  return h;
 }
 
 /* house-style management commentary: cascading actuals-vs-baseline narrative */
@@ -2543,8 +2630,8 @@ function houseLevels(){
   const m=S.model;
   const lv=String(cfgS('commentary_levels')||'').split(/[,;]/).map(x=>x.trim())
     .filter(k=>k&&(k in m.dimCols));
-  if(lv.length) return lv.slice(0,2);
-  return ['micaL1','micaL2'].filter(k=>k in m.dimCols);
+  if(lv.length) return lv.slice(0,3);
+  return ['micaL1','micaL2','micaL3'].filter(k=>k in m.dimCols);
 }
 function houseDrvCount(){
   const n=parseInt(cfgS('commentary_drivers'),10);
