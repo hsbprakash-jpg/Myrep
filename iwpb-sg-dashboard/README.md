@@ -130,7 +130,13 @@ A single header row with:
   order. Everything moves with the YTD-through month — pick MAY and the
   months become Mar/Apr/May, the quarter Q226 to date, the year-to-date
   Jan–May. Comparisons a file cannot serve show as `–` with a note saying
-  which and why. A **Full Year band** closes the table — the live FY
+  which and why. The QTD figure comes from the file's **quarterly column**
+  and the year-to-date from the **YTD column** — months are only added when
+  no such column exists (`calc_ytd_actuals: months` forces sums). Lines
+  matched by `balance_sheet_patterns` are treated as stocks throughout:
+  month, QTD, YTD and FY are closing balances, and target/forecast
+  baselines are the full-year columns as-is, never phased fractions or
+  summed months. A **Full Year band** closes the table — the live FY
   forecast (Jan–Dec actuals + forecast months) with variance in currency
   and percent vs the prior forecast column, the FY target and prior-year
   actuals — so once the selected month crosses the last actual and the

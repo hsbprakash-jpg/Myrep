@@ -4286,25 +4286,63 @@ function fsumPlan(m, ytdM){
 function fsumFigs(rows, m, P, ytdM){
   const k=kpi(rows,m,ytdM,S.includeFC);
   const sum=cols=>cols.length? sumCols(rows, cols.map(p=>p.col)) : null;
-  const qtd=sum(P.qMonths);
-  const pq=sum(P.pqMonths);
-  const pyQ=m.pyMonths.length? sum(m.pyMonths.filter(p=>P.qMonths.some(x=>x.m===p.m))) : null;
+  // The file's own roll-up columns are authoritative: the quarter figure comes
+  // from the quarterly column and the year-to-date from the YTD column —
+  // months are only added when no such column exists (or calc_ytd_actuals is
+  // 'months'). On a balance sheet a quarter column carries the balance while
+  // a sum of months carries three times it, so this is correctness, not style.
+  const useCols=cfgS('calc_ytd_actuals').toLowerCase()!=='months';
+  const cyy=String(m.yearCY).slice(-2);
+  const pyy=m.pyMonths.length? String(m.yearPY).slice(-2) : (m.fyPriorLabel||null);
+  const qFind=(qn,yy)=>yy==null? null : m.quarterCols.find(c=>c.q===qn&&
+    (c.year==null||String(c.year).padStart(2,'0')===String(yy).padStart(2,'0')));
+  const qCol=useCols? qFind(P.q+1,cyy) : null;
+  const pqCol=useCols? (P.q>0? qFind(P.q,cyy) : qFind(4,pyy)) : null;
+  const pyQCol=useCols? qFind(P.q+1,pyy) : null;
+  const qtd=qCol? sumCols(rows,[qCol.col]) : sum(P.qMonths);
+  const pq=pqCol? sumCols(rows,[pqCol.col]) : sum(P.pqMonths);
+  const pyQ=pyQCol? sumCols(rows,[pyQCol.col])
+    : (m.pyMonths.length? sum(m.pyMonths.filter(p=>P.qMonths.some(x=>x.m===p.m))) : null);
+  // Balance-sheet lines are stocks: every figure is a closing value. The YTD
+  // balance is the selected month's balance, the quarter the quarter column,
+  // and a target or forecast baseline is the full-year column as-is — phased
+  // targets and summed months belong to flows and would overstate a balance.
+  const bs=rows.length&&isBSLine(String(rows[0].d.micaL1||''));
+  const asOf=m.ytdAsOfCols&&m.ytdAsOfCols[0];
+  let ytdOv=null;
+  if(bs) ytdOv=(useCols&&asOf&&asOf.ytdM===ytdM)? sumCols(rows,[asOf.col]) : k.mth;
+  else if(useCols&&asOf&&ytdM>=asOf.ytdM){
+    // YTD column as-is at its own month; forecast months beyond it laid on
+    // top rather than the whole year being rebuilt from months
+    const beyond=m.cyMonths.filter(p2=>p2.m>asOf.ytdM&&p2.m<=ytdM&&(!p2.fc||S.includeFC));
+    ytdOv=sumCols(rows,[asOf.col])+(beyond.length? (sum(beyond)||0) : 0);
+  }
+  const ytd=ytdOv!=null? ytdOv : k.cy;
+  const qtdB=bs? (qCol? qtd : k.mth) : qtd;
   const wq=P.qMonths.reduce((a,p)=>a+fcWeight(m,p.m),0);
-  const qTgt=k.target!=null? k.target*wq : null;
+  const qTgt=bs? k.target : (k.target!=null? k.target*wq : null);
+  const yTgt=bs? k.target : k.ytdTgt;
+  const yPY=bs? k.mthPy : k.py;
+  const mTgt=bs? k.target : k.mthTgt;
   const d=(a,b)=>(a!=null&&b!=null)? a-b : null;
   const pc=(v,b)=>(v!=null&&b!=null&&b!==0)? v/Math.abs(b) : null;
-  // Full Year: the live forecast (Jan–Dec actuals + forecast months) against
-  // the published prior forecast column, the FY target and prior-year actuals
-  const fy=k.outlook;
+  // Full Year: for flows the live forecast (Jan–Dec actuals + forecast
+  // months); for balances the December closing forecast — each against the
+  // published prior-forecast column, the FY target and prior-year actuals
+  const decCol=m.cyMonths.length? m.cyMonths[m.cyMonths.length-1] : null;
+  const fy=bs? (decCol? sumCols(rows,[decCol.col]) : k.fyFc) : k.outlook;
   const fyPrFc=(m.fyFcCols&&m.fyFcCols.length)? sum(m.fyFcCols) : null;
-  const fyPY=k.fyPrior!=null? k.fyPrior : (m.pyMonths.length? sumCols(rows,m.pyMonths.map(p=>p.col)) : null);
-  return {k, mon:P.monCols.map(p=>sumCols(rows,[p.col])),
-    mVsFc:d(k.mth,k.mthFc), mVsTgt:d(k.mth,k.mthTgt), mVsPM:d(k.mth,k.mthPrev), mVsPY:d(k.mth,k.mthPy),
-    qtd, qVsTgt:d(qtd,qTgt), qVsPQ:d(qtd,pq), qVsPY:d(qtd,pyQ),
-    ytd:k.cy, yVsTgt:d(k.cy,k.ytdTgt), yVsPY:d(k.cy,k.py),
-    yVsTgtP:pc(d(k.cy,k.ytdTgt),k.ytdTgt), yVsPYP:pc(d(k.cy,k.py),k.py),
-    fy, fVsPrF:d(fy,fyPrFc), fVsTgt:k.varTgt, fVsPY:d(fy,fyPY),
-    fVsPrFP:pc(d(fy,fyPrFc),fyPrFc), fVsTgtP:k.varTgtPct, fVsPYP:pc(d(fy,fyPY),fyPY)};
+  const fyPY=k.fyPrior!=null? k.fyPrior
+    : (m.pyMonths.length? (bs? sumCols(rows,[m.pyMonths[m.pyMonths.length-1].col])
+                             : sumCols(rows,m.pyMonths.map(p=>p.col))) : null);
+  const mFc=bs? k.fyFc : k.mthFc;
+  return {k, bs, mon:P.monCols.map(p=>sumCols(rows,[p.col])),
+    mVsFc:d(k.mth,mFc), mVsTgt:d(k.mth,mTgt), mVsPM:d(k.mth,k.mthPrev), mVsPY:d(k.mth,k.mthPy),
+    qtd:qtdB, qVsTgt:d(qtdB,qTgt), qVsPQ:d(qtdB,pq), qVsPY:d(qtdB,pyQ),
+    ytd, yVsTgt:d(ytd,yTgt), yVsPY:d(ytd,yPY),
+    yVsTgtP:pc(d(ytd,yTgt),yTgt), yVsPYP:pc(d(ytd,yPY),yPY),
+    fy, fVsPrF:d(fy,fyPrFc), fVsTgt:d(fy,k.target), fVsPY:d(fy,fyPY),
+    fVsPrFP:pc(d(fy,fyPrFc),fyPrFc), fVsTgtP:pc(d(fy,k.target),k.target), fVsPYP:pc(d(fy,fyPY),fyPY)};
 }
 /* the row cascade: children of each top level, then the level as a subtotal,
    in the same materiality order the KPI tiles use */
