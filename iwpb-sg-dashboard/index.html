@@ -4723,45 +4723,60 @@ function fsumMovers(rows,m,P){
 /* the cascade builder: which dimensions the summary rolls through, in what
    order — drag a level in (Product under MICA, or instead of it), drag to
    reorder, ✕ to remove. Three levels at most; the roll-up selector follows. */
+let FSUM_DRAG=null;
 function renderFsumLv(){
   const m=S.model, cur=fsumLevels();
   const host=$('fsumLvChips'), pal=$('fsumLvPal');
   if(!host) return;
   const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
   const setLv=a=>{ fsumLvSave(a); S.fsumDepth=0; renderFsum(); };
+  // keep the new level even when the cascade is full: what it displaces is
+  // the level after its landing spot, never the newcomer
+  const place=(key,at)=>{
+    const a=cur.filter(k=>k!==key);
+    if(at==null||at>a.length) at=a.length;
+    a.splice(at,0,key);
+    while(a.length>3){
+      const last=a.length-1;
+      a.splice(a[last]===key? last-1 : last, 1);   // the newcomer always survives
+    }
+    setLv(a);
+  };
   host.innerHTML=cur.map((k,i)=>
-    `<span class="lvchip inlv" draggable="true" data-k="${k}" data-i="${i}">`+
+    `<span class="lvchip inlv" draggable="true" data-k="${k}" data-i="${i}" title="Drag to reorder">`+
     `<span class="seq">${i+1}</span>${esc(FIELD_LABELS[k])}${cur.length>1?`<span class="x" title="Remove level" data-x="${k}">✕</span>`:''}</span>`).join('');
   pal.innerHTML=dims.filter(k=>!cur.includes(k)).map(k=>
-    `<span class="lvchip" draggable="true" data-k="${k}" title="Drag into the cascade — or click to append">${esc(FIELD_LABELS[k])}</span>`).join('');
-  let dragK=null;
+    `<span class="lvchip" draggable="true" data-k="${k}" title="Drag into the cascade — or click to add as the last level">${esc(FIELD_LABELS[k])}</span>`).join('');
   const chips=[...host.querySelectorAll('.lvchip'),...pal.querySelectorAll('.lvchip')];
   chips.forEach(el=>{
-    el.addEventListener('dragstart',e=>{ dragK=el.dataset.k;
-      try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',dragK); }catch(err){} });
-    el.addEventListener('dragend',()=>{ dragK=null; });
+    el.addEventListener('dragstart',e=>{ FSUM_DRAG=el.dataset.k;
+      try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',FSUM_DRAG); }catch(err){} });
+    el.addEventListener('dragend',()=>{ FSUM_DRAG=null; });
   });
   host.querySelectorAll('.lvchip').forEach(el=>{
-    el.addEventListener('dragover',e=>{ if(dragK&&dragK!==el.dataset.k){ e.preventDefault(); el.classList.add('dragtgt'); } });
+    el.addEventListener('dragover',e=>{ if(FSUM_DRAG&&FSUM_DRAG!==el.dataset.k){
+      e.preventDefault(); e.stopPropagation(); el.classList.add('dragtgt'); } });
     el.addEventListener('dragleave',()=>el.classList.remove('dragtgt'));
     el.addEventListener('drop',e=>{
-      e.preventDefault(); el.classList.remove('dragtgt');
-      if(!dragK||dragK===el.dataset.k) return;
-      const a=cur.filter(k=>k!==dragK);
-      let at=a.indexOf(el.dataset.k);
+      e.preventDefault(); e.stopPropagation(); el.classList.remove('dragtgt');
+      const key=FSUM_DRAG; FSUM_DRAG=null;
+      if(!key||key===el.dataset.k) return;
+      let at=cur.filter(k=>k!==key).indexOf(el.dataset.k);
       const r=el.getBoundingClientRect();
       if(e.clientX>r.left+r.width/2) at+=1;
-      a.splice(at,0,dragK);
-      setLv(a.slice(0,3));
+      place(key,at);
     });
     const x=el.querySelector('.x');
-    if(x) x.addEventListener('click',()=>setLv(cur.filter(k=>k!==x.dataset.x)));
+    if(x) x.addEventListener('click',e=>{ e.stopPropagation(); setLv(cur.filter(k=>k!==x.dataset.x)); });
   });
+  // bar-level handlers are assigned, not accumulated, so re-renders never
+  // stack stale closures that would immediately overwrite the drop
   const bar=$('fsumLvBar');
-  bar.addEventListener('dragover',e=>{ if(dragK&&!cur.includes(dragK)) e.preventDefault(); });
-  bar.addEventListener('drop',e=>{ if(dragK&&!cur.includes(dragK)){ e.preventDefault(); setLv([...cur,dragK].slice(0,3)); } });
+  bar.ondragover=e=>{ if(FSUM_DRAG&&!cur.includes(FSUM_DRAG)) e.preventDefault(); };
+  bar.ondrop=e=>{ const key=FSUM_DRAG; FSUM_DRAG=null;
+    if(key&&!cur.includes(key)){ e.preventDefault(); place(key,null); } };
   pal.querySelectorAll('.lvchip').forEach(el=>
-    el.addEventListener('click',()=>setLv([...cur,el.dataset.k].slice(0,3))));
+    el.addEventListener('click',()=>place(el.dataset.k,null)));
 }
 function fsumCommentary(rows,m,P){
   const secs=fsumSections(rows);
