@@ -125,15 +125,15 @@ Labels,lbl_varper,Variance period,,
 Labels,lbl_units,Units,,
 Labels,kpi_hint,Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card,,
 Drivers,<line or value - e.g. Loans>,<driver note the AI weaves into commentary>,,
-AccountHierarchy,A1,PBT,,,,,
+AccountHierarchy,A1,PBT,,,,,PBT ex Notables
 AccountHierarchy,A2,PBT,Revenue,,,,Total Revenue
 AccountHierarchy,A3,PBT,Revenue,Banking NII,,,NII - Interest Income|NII - Net Interest Income
-AccountHierarchy,A4,PBT,Revenue,Fees & Other Operating Income,,,NFI - Fee Income|Net Fee Income|Trading Income|Other Income
-AccountHierarchy,A5,PBT,ECL,,,,Expected credit losses|ECL Charge
-AccountHierarchy,A6,PBT,Total Operating Expense,,,,Costs|Total Costs
-AccountHierarchy,A7,PBT,Total Operating Expense,Direct Cost,,,Total Direct Cost|Direct Costs|Staff Costs
-AccountHierarchy,A8,PBT,Total Operating Expense,Direct Cost,Direct Cost ex VP,,
-AccountHierarchy,A9,PBT,Total Operating Expense,Direct Cost,Variable Pay,,
+AccountHierarchy,A4,PBT,Revenue,Fees & Other Operating Income,,,NFI - Fee Income|Net Fee Income|Trading Income|Other Income|Fees and Other Income|Fees & Other Income
+AccountHierarchy,A5,PBT,ECL,,,,Expected credit losses|ECL Charge|ECLs
+AccountHierarchy,A6,PBT,Total Operating Expense,,,,Costs|Total Costs|Operating Expenses|Total Operating Expenses
+AccountHierarchy,A7,PBT,Total Operating Expense,Direct Cost,,,Total Direct Cost|Direct Costs|Staff Costs|Global Teams (DC only)
+AccountHierarchy,A8,PBT,Total Operating Expense,Direct Cost,Direct Cost ex VP,,"Direct Cost ex VP, CC, GT"
+AccountHierarchy,A9,PBT,Total Operating Expense,Direct Cost,Variable Pay,,Variable Pay ex CC
 AccountHierarchy,A10,PBT,Total Operating Expense,Direct Cost,Corporate Centre,,
 AccountHierarchy,A11,PBT,Total Operating Expense,Indirect Cost,,,Total Indirect Costs (incl InterCo)|Indirect Costs|Allocated Costs
 AccountHierarchy,A12,PBT,Income from Associates,,,,
@@ -142,16 +142,16 @@ AccountHierarchy,A14,Balance Sheet,Customer Deposits,,,,Deposits
 AccountHierarchy,A15,Balance Sheet,Loans and Advances,,,,Loans|Customer Loans
 AccountHierarchy,A16,Balance Sheet,RWAs,,,,
 AccountHierarchy,A17,Balance Sheet,Wealth Balances,,,,
-AccountHierarchy,A18,Balance Sheet,Wealth Balances,Deposits,,,
-AccountHierarchy,A19,Balance Sheet,Wealth Balances,Invested Assets,,,
+AccountHierarchy,A18,Balance Sheet,Wealth Balances,Deposits,,,Wealth Deposits
+AccountHierarchy,A19,Balance Sheet,Wealth Balances,Invested Assets,,,Wealth Invested Assets|Wealth Invested Assets (excl. AM 3rd party)
 AccountHierarchy,A20,Balance Sheet,Wealth Balances,Invested Assets,NNIA,,
 AccountHierarchy,A21,Balance Sheet,Wealth Balances,Invested Assets,Markets Movement,,
 AccountHierarchy,A22,Balance Sheet,Wealth Balances,Invested Assets,FX and other,,
 AccountHierarchy,A23,Balance Sheet,NNM,,,,
-AccountHierarchy,A24,Balance Sheet,NNM,Deposits Flow,,,
-AccountHierarchy,A25,Balance Sheet,NNM,NNIA,,,
+AccountHierarchy,A24,Balance Sheet,NNM,Deposits Flow,,,NND|Net New Deposits
+AccountHierarchy,A25,Balance Sheet,NNM,NNIA,,,NNIA (excl. AM 3rd party)
 ProductHierarchy,B1,IWPB,,,,,
-ProductHierarchy,B2,IWPB,Retail,,,,
+ProductHierarchy,B2,IWPB,Retail,,,,Retail Banking
 ProductHierarchy,B3,IWPB,Retail,Retail Lending,,,Total Consumer Assets excl Wealth Lending|Total Consumer Assets|Consumer Assets
 ProductHierarchy,B4,IWPB,Retail,Retail Lending,Mortgages,,Mortgages (Real Estate Secured)
 ProductHierarchy,B5,IWPB,Retail,Retail Lending,Cards,,Credit Cards
@@ -177,7 +177,7 @@ ProductHierarchy,B24,IWPB,Wealth,Investment Distribution,Other Investments,,
 ProductHierarchy,B25,IWPB,Wealth,Investment Distribution,Cash FX,,
 ProductHierarchy,B26,IWPB,Wealth,Insurance,,,
 ProductHierarchy,B27,IWPB,Wealth,Insurance,Insurance Manufacturing,,
-ProductHierarchy,B28,IWPB,Wealth,Insurance,Wealth Ins Distn,,
+ProductHierarchy,B28,IWPB,Wealth,Insurance,Wealth Ins Distn,,Insurance Distribution|Wealth Insurance Distribution
 ProductHierarchy,B29,IWPB,Wealth,Asset Management,,,
 ProductHierarchy,B30,IWPB,Wealth,Private Bank,,,
 ProductHierarchy,B31,IWPB,Others,,,,Not Used in Report
