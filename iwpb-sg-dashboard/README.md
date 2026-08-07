@@ -99,11 +99,16 @@ A single header row with:
   Because the tiles carry their own units, the *Financial Performance*
   header carries none.
 - **Summary layout** — the tiles sit in equal-height cards; below them the
-  performance trajectory takes the left column and the Management
-  commentary the right. Clicking a tile (or a KPI in the left rail) points
-  the trajectory and its narrative at that line. The mix-analysis panel no
-  longer shows on this page, though its view still feeds the one-page PPT
-  export.
+  performance trajectory takes the left column and a **Decisions &
+  actions** panel the right, the two stretched to the same height with the
+  graph sized to fill its panel. The panel turns the trajectory's reading
+  into action bullets — position vs the basis, momentum, outlook vs
+  target, and the run-rate the remaining months must average to hit it —
+  and is editable and lockable like every other commentary. The
+  Management commentary sits full-width beneath the pair. Clicking a tile
+  (or a KPI in the left rail) points the trajectory and its actions at
+  that line. The mix-analysis panel no longer shows on this page, though
+  its view still feeds the one-page PPT export.
 - **No total when a total means nothing** — `total_tile` and `fsum_total`
   default to `auto`: a computed total is printed only while no MICA Level 1
   line in the file is a balance-sheet line, recognised by
