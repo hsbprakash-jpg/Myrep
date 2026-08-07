@@ -56,9 +56,11 @@ A single header row with:
   widescreen slide, built natively in PowerPoint.
 - **Naming the tiles** — `tile_lines` lists exactly which lines become KPI
   tiles, in the order given: `Revenue,PBT,Loans,Deposits,Costs`. Each name
-  is looked up across the file's dimensions and taken from the first level
-  that carries it, so a summary can mix a Level 1 rollup with Level 2 lines
-  inside it without forcing everything to one level. The list is shown as
+  is looked up in the MICA hierarchy — Level 1 first, then Level 2
+  (`tile_line_levels`) — and taken from the first level that carries it, so
+  a summary can mix a Level 1 rollup with Level 2 lines inside it without
+  forcing everything to one level. Nothing resolves against a product,
+  segment or function that happens to share a line's name. The list is shown as
   given — no priority reordering, no collapsing behind "show all" — a name
   the file does not carry is called out rather than silently dropped, and
   the grand-total tile is left off because the lines were chosen by hand.

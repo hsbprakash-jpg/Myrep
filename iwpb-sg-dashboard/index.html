@@ -1017,6 +1017,7 @@ const CFG_DEFAULT={
     total_all_label:'Total (all lines)',
     total_tile:'Y',
     tile_lines:'',
+    tile_line_levels:'micaL1,micaL2',
     tile_level:'auto',
     collapse_rest:'Y',
     rag_tolerance:'0.05',
@@ -2290,8 +2291,8 @@ function renderSummary(){
     shown.map(c=>cardHtml(c.l2, c.l1, c.k, `data-l2="${esc(c.scope||(scPfx+c.l2))}" data-name="${esc(c.l2)}"`, cmpHidden(c.l2))).join('')+
     (!named.length&&rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'')+
-    (missingLines.length?`<div class="card morecard" style="cursor:default">Not found in this file: ${
-      esc(missingLines.join(', '))}</div>`:'');
+    (missingLines.length?`<div class="card morecard" style="cursor:default">Not found in ${
+      esc(tileLevelNames())}: ${esc(missingLines.join(', '))}</div>`:'');
   const moreBtn=$('btnMoreKpis');
   if(moreBtn) moreBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showAllKpis=!S.showAllKpis; renderSummary(); });
   $('cardGrid').querySelectorAll('.card[data-l2]').forEach(el=>
@@ -3040,9 +3041,12 @@ function tileLineDefs(){
 }
 function tileDimOrder(){
   const m=S.model;
-  const pref=['micaL1','micaL2','micaL3','prodL1','prodL2','prodL3','cgL1','cgL2',
-    'funcL1','funcL2','entity'];
+  const want=cfgS('tile_line_levels').split(/[,;\s]+/).map(x=>x.trim()).filter(Boolean);
+  const pref=want.length? want : ['micaL1','micaL2'];
   return pref.filter(k=>k in m.dimCols);
+}
+function tileLevelNames(){
+  return tileDimOrder().map(k=>FIELD_LABELS[k]||ALL_DIM_LABELS[k]||k).join(' / ');
 }
 /* find a named line: first dimension that carries the value wins */
 function tileFindLine(rows, name){
