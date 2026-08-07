@@ -130,7 +130,12 @@ A single header row with:
   order. Everything moves with the YTD-through month — pick MAY and the
   months become Mar/Apr/May, the quarter Q226 to date, the year-to-date
   Jan–May. Comparisons a file cannot serve show as `–` with a note saying
-  which and why. Every variance in the page's commentary is written the way
+  which and why. A **roll-up selector** beside the export buttons sets how
+  deep the cascade reads — Level 1 rollups only, to Level 2, or the full
+  o/w Level 3 detail — and the Excel, PPT and Word exports follow it
+  (`fsum_detail` sets the level on load). Variance colours follow
+  favourability, not raw sign: a lower cost reads green and lower revenue
+  red, on either sign convention. Every variance in the page's commentary is written the way
   the pack writes it — `18F`, `346A`, `14%A` — favourable or adverse taken
   from the line's own direction, so a smaller cost reads F and a deeper loss
   reads A. Excel and PowerPoint exports carry the same headers and

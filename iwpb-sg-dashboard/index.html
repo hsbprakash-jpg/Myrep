@@ -944,6 +944,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <p class="lede2" id="fsumLede"></p>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
+      <select id="fsumDepthSel" aria-label="Roll-up level"></select>
       <button class="btn-quiet" id="btnFsumXlsx">⤓ Export to Excel</button>
       <button class="btn-quiet" id="btnFsumPptx">⤓ PPT</button>
       <button class="btn-quiet" id="btnFsumWord">⤓ Word</button>
@@ -1064,7 +1065,8 @@ const CFG_DEFAULT={
     fsum_line_order:'',
     fsum_levels:'',
     fsum_ow:'Y',
-    fsum_total_label:''
+    fsum_total_label:'',
+    fsum_detail:''
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
@@ -1885,7 +1887,7 @@ const S = {
   model:null, fileName:'',
   filters:{},                 // dimKey -> Set of selected values (absent = all)
   outDims:new Set(), outPeriods:new Set(['pyMonths','cyMonths','quarters','ytd']),
-  ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'', trajLine:'',
+  ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'', trajLine:'', fsumDepth:0,
   view:'summary', widgets:[],
 };
 const ALL_DIM_LABELS={mica:'MICA code', micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
@@ -4252,6 +4254,13 @@ function fsumLevels(){
   const want=cfgS('fsum_levels').split(/[,;\s]+/).filter(x=>x&&x in m.dimCols);
   return want.length? want.slice(0,3) : houseLevels();
 }
+/* how deep the cascade rolls up: 1 = Level 1 rollups only, 2 adds the Level 2
+   lines, 3 the full o/w detail — the user's pick, else the configuration */
+function fsumDepth(){
+  const max=fsumLevels().length||1;
+  const v=S.fsumDepth||parseInt(cfgS('fsum_detail'))||max;
+  return Math.min(Math.max(1,v), max);
+}
 /* the month, quarter and prior-quarter columns behind the three bands */
 function fsumPlan(m, ytdM){
   const idx=m.cyMonths.findIndex(p=>p.m===ytdM);
@@ -4285,7 +4294,7 @@ function fsumFigs(rows, m, P, ytdM){
    in the same materiality order the KPI tiles use */
 function fsumTopCount(rows){ return groupBy(rows, fsumLevels()[0]).size; }
 function fsumTree(rows){
-  const lv=fsumLevels(), L1=lv[0], L2=lv[1], L3=lv[2];
+  const lv=fsumLevels().slice(0,fsumDepth()), L1=lv[0], L2=lv[1], L3=lv[2];
   const ow=cfgYes('fsum_ow')? 'o/w ' : '';
   const m=S.model, out=[];
   const size=rs=>Math.abs(kpi(rs,m,S.ytdM,S.includeFC).cy||0);
@@ -4390,10 +4399,10 @@ function fsumNum(v){
   if(v==null) return '<span class="mut">–</span>';
   return fmtFull(Math.round(v));
 }
-function fsumVar(v){
+function fsumVar(k, v){
   if(v==null) return '<span class="mut">–</span>';
   const r=Math.round(v);
-  return `<span class="${r<0?'dn':r>0?'up':''}">${fmtFull(r)}</span>`;
+  return `<span class="${r===0?'':(faOK(k,v)?'up':'dn')}">${fmtFull(r)}</span>`;
 }
 function fsumPctTxt(v){
   if(v==null) return '–';
@@ -4401,9 +4410,9 @@ function fsumPctTxt(v){
   const t=Math.round(Math.abs(v)*100)+'%';
   return v<0? '('+t+')' : t;
 }
-function fsumPct(v){
+function fsumPct(k, v){
   if(v==null) return '<span class="mut">–</span>';
-  return `<span class="${v<0?'dn':v>0?'up':''}">${fsumPctTxt(v)}</span>`;
+  return `<span class="${v===0?'':(faOK(k,v)?'up':'dn')}">${fsumPctTxt(v)}</span>`;
 }
 function fsumHeadRows(P, m){
   const u=cfgUnit();
@@ -4443,14 +4452,22 @@ function renderFsum(){
     const cls=(r.tot?'tot':r.sub?'sub':'lvl'+r.lvl);
     body+=`<tr class="${cls}"><td class="nm" title="${esc(r.name)}">${esc(r.name)}</td>`+
       f.mon.map(v=>`<td>${fsumNum(v)}</td>`).join('')+
-      `<td>${fsumVar(f.mVsFc)}</td><td>${fsumVar(f.mVsTgt)}</td><td>${fsumVar(f.mVsPM)}</td>`+
-      `<td class="bandend">${fsumVar(f.mVsPY)}</td>`+
-      `<td>${fsumNum(f.qtd)}</td><td>${fsumVar(f.qVsTgt)}</td><td>${fsumVar(f.qVsPQ)}</td>`+
-      `<td class="bandend">${fsumVar(f.qVsPY)}</td>`+
-      `<td>${fsumNum(f.ytd)}</td><td>${fsumVar(f.yVsTgt)}</td><td>${fsumVar(f.yVsPY)}</td>`+
-      `<td>${fsumPct(f.yVsTgtP)}</td><td>${fsumPct(f.yVsPYP)}</td></tr>`;
+      `<td>${fsumVar(f.k,f.mVsFc)}</td><td>${fsumVar(f.k,f.mVsTgt)}</td><td>${fsumVar(f.k,f.mVsPM)}</td>`+
+      `<td class="bandend">${fsumVar(f.k,f.mVsPY)}</td>`+
+      `<td>${fsumNum(f.qtd)}</td><td>${fsumVar(f.k,f.qVsTgt)}</td><td>${fsumVar(f.k,f.qVsPQ)}</td>`+
+      `<td class="bandend">${fsumVar(f.k,f.qVsPY)}</td>`+
+      `<td>${fsumNum(f.ytd)}</td><td>${fsumVar(f.k,f.yVsTgt)}</td><td>${fsumVar(f.k,f.yVsPY)}</td>`+
+      `<td>${fsumPct(f.k,f.yVsTgtP)}</td><td>${fsumPct(f.k,f.yVsPYP)}</td></tr>`;
   }
   $('fsumTable').innerHTML=head+`<tbody>${body}</tbody>`;
+  const lvAll=fsumLevels(), dSel=$('fsumDepthSel');
+  if(dSel){
+    dSel.innerHTML=lvAll.map((k,i)=>{
+      const nm=FIELD_LABELS[k]||ALL_DIM_LABELS[k]||k;
+      return `<option value="${i+1}"${fsumDepth()===i+1?' selected':''}>${i? 'To '+esc(nm) : esc(nm)+' only'}</option>`;
+    }).join('');
+    dSel.style.display=lvAll.length>1?'':'none';
+  }
   const gaps=[];
   if(!m.pyMonths.length) gaps.push('vs PY and vs PQ (no prior-year columns in this file)');
   if(!(m.targetCols&&m.targetCols.length)) gaps.push('vs Target (no FY target column)');
@@ -5702,6 +5719,7 @@ function init(){
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navFsum').addEventListener('click',()=>setView('fsum'));
   $('navCustom').addEventListener('click',()=>setView('custom'));
+  $('fsumDepthSel').addEventListener('change',e=>{ S.fsumDepth=+e.target.value; renderFsum(); });
   $('btnFsumXlsx').addEventListener('click',()=>exportWB([{name:'Financial Summary',aoa:fsumAOA()}],'IWPB_SG_financial_summary'));
   $('btnFsumPptx').addEventListener('click',()=>fsumPptx());
   $('navBuilder').addEventListener('click',()=>setView('builder'));
