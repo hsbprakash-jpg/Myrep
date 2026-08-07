@@ -3563,6 +3563,7 @@ function summaryLineOptions(rows){
 function summaryNoTotal(named){
   if(named&&named.length>0) return true;
   if(fsumSectionDefs().length>0) return true;
+  if(mixedScope(filteredRows())) return true;   // absolute, whatever total_tile says
   const v=cfgS('total_tile').trim().toLowerCase();
   if(v==='y'||v==='yes'||v==='true') return false;
   if(v==='n'||v==='no'||v==='false') return true;
@@ -4542,13 +4543,22 @@ function fsumSectionDefs(){
    patterns) — a driller carrying deposits or loans alongside a result is
    never totalled, because adding a balance to a result is not a figure. */
 function isBSLine(name){ return !!(RE_BS&&RE_BS.test(String(name||''))); }
+/* a scope that carries balance-sheet lines beside P&L lines — adding the two
+   is never a figure, whatever the configuration says */
+function mixedScope(rows){
+  let bs=false, pl=false;
+  for(const r of rows){ if(isBSLine(String(r.d.micaL1||''))) bs=true; else pl=true;
+    if(bs&&pl) return true; }
+  return false;
+}
 function fsumTotalOK(rows){
+  if(mixedScope(rows)) return false;   // absolute — Y cannot force a cross-statement total
   const v=cfgS('fsum_total').trim().toLowerCase();
   if(v==='y'||v==='yes'||v==='true') return true;
   if(v==='n'||v==='no'||v==='false') return false;
   const names=[...groupBy(rows, fsumLevels()[0]).keys()].filter(Boolean);
   if(!names.length) return false;
-  return !names.some(isBSLine);   // a balance beside a result is never totalled
+  return !names.some(isBSLine);
 }
 function fsumNoTotal(){
   return new Set(cfgS('fsum_no_total').split(/[,;|]/).map(x=>x.trim().toLowerCase()).filter(Boolean));
