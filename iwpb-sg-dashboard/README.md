@@ -149,7 +149,12 @@ A single header row with:
   export** is a single aligned slide: banded headers, a fixed column grid,
   rows sized to fit the page, favourability colours in the variance cells,
   and the commentary — coloured F/A figures included — beneath the table.
-  A **roll-up selector** beside the export buttons sets how
+  A **cascade builder** sits above the
+  table: the levels the summary rolls through are chips — drag a dimension
+  in from the palette (Product under MICA Level 1, or between Level 1 and
+  Level 2), drag chips to reorder, ✕ to remove — three levels at most,
+  remembered in the browser, with the roll-up selector, commentary and all
+  three exports following the cascade. A **roll-up selector** beside the export buttons sets how
   deep the cascade reads — Level 1 rollups only, to Level 2, or the full
   o/w Level 3 detail — and the Excel, PPT and Word exports follow it
   (`fsum_detail` sets the level on load). Variance colours follow

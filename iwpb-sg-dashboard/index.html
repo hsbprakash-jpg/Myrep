@@ -483,6 +483,17 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom-t b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 .aicom-t:focus{background:var(--surface-1);border-radius:4px}
 .aicom-note{color:var(--text-muted);font-size:10.5px}
+.lvbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:6px 10px;
+  background:var(--surface-1);border:1px solid var(--border);border-radius:6px}
+.lvbar .lvlbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;color:var(--text-muted)}
+.lvchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.lvchip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:12px;
+  font-size:12px;border:1px solid var(--border-strong);background:var(--surface-2);cursor:grab;user-select:none}
+.lvchip.inlv{background:var(--fold-bg);border-color:var(--fold-red);color:var(--fold-red);font-weight:600}
+.lvchip .x{cursor:pointer;font-size:11px;opacity:.65}
+.lvchip .x:hover{opacity:1}
+.lvchip.dragtgt{outline:2px dashed var(--fold-red);outline-offset:1px}
+.lvchip .seq{font-size:10px;opacity:.6}
 .unitbar{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:5px 10px;
   background:var(--fold-bg);border:1px solid var(--border);border-radius:5px}
 .unitbar .unitlbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;
@@ -951,6 +962,12 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <button class="btn-quiet" id="btnFsumPptx">⤓ PPT</button>
       <button class="btn-quiet" id="btnFsumWord">⤓ Word</button>
     </div></div>
+    <div class="lvbar" id="fsumLvBar">
+      <span class="lvlbl">Cascade</span>
+      <span id="fsumLvChips" class="lvchips"></span>
+      <span class="lvlbl" style="margin-left:14px">Add a level</span>
+      <span id="fsumLvPal" class="lvchips"></span>
+    </div>
     <div class="panel">
       <div class="fsumwrap"><table class="fsum" id="fsumTable"></table></div>
       <p class="note" id="fsumNote"></p>
@@ -4335,8 +4352,12 @@ function setView(v){
    their variance groups, over a P&L cascade taken from the driller's own
    hierarchy. Everything is derived from the selected YTD-through month, so
    the month, quarter and year-to-date columns all move together. */
+function fsumLvStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_fsumlv')||'null'); }catch(e){ return null; } }
+function fsumLvSave(a){ try{ localStorage.setItem('iwpbsg_fsumlv',JSON.stringify(a)); }catch(e){} }
 function fsumLevels(){
   const m=S.model;
+  const own=fsumLvStore();
+  if(Array.isArray(own)){ const v=own.filter(k=>k in m.dimCols); if(v.length) return v.slice(0,3); }
   const want=cfgS('fsum_levels').split(/[,;\s]+/).filter(x=>x&&x in m.dimCols);
   return want.length? want.slice(0,3) : houseLevels();
 }
@@ -4614,6 +4635,7 @@ function renderFsum(){
       `<td>${fsumPct(f.k,f.fVsTgtP)}</td><td>${fsumPct(f.k,f.fVsPYP)}</td></tr>`;
   }
   $('fsumTable').innerHTML=head+`<tbody>${body}</tbody>`;
+  renderFsumLv();
   const lvAll=fsumLevels(), dSel=$('fsumDepthSel');
   if(dSel){
     dSel.innerHTML=lvAll.map((k,i)=>{
@@ -4673,6 +4695,49 @@ function fsumMovers(rows,m,P){
   return fsumTree(rows).filter(r=>r.sub&&!r.band)
     .map(r=>({name:r.name, f:fsumFigs(r.rows,m,P,S.ytdM)}))
     .filter(x=>x.f.mVsFc!=null).sort((a,b)=>Math.abs(b.f.mVsFc)-Math.abs(a.f.mVsFc)).slice(0,3);
+}
+/* the cascade builder: which dimensions the summary rolls through, in what
+   order — drag a level in (Product under MICA, or instead of it), drag to
+   reorder, ✕ to remove. Three levels at most; the roll-up selector follows. */
+function renderFsumLv(){
+  const m=S.model, cur=fsumLevels();
+  const host=$('fsumLvChips'), pal=$('fsumLvPal');
+  if(!host) return;
+  const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
+  const setLv=a=>{ fsumLvSave(a); S.fsumDepth=0; renderFsum(); };
+  host.innerHTML=cur.map((k,i)=>
+    `<span class="lvchip inlv" draggable="true" data-k="${k}" data-i="${i}">`+
+    `<span class="seq">${i+1}</span>${esc(FIELD_LABELS[k])}${cur.length>1?`<span class="x" title="Remove level" data-x="${k}">✕</span>`:''}</span>`).join('');
+  pal.innerHTML=dims.filter(k=>!cur.includes(k)).map(k=>
+    `<span class="lvchip" draggable="true" data-k="${k}" title="Drag into the cascade — or click to append">${esc(FIELD_LABELS[k])}</span>`).join('');
+  let dragK=null;
+  const chips=[...host.querySelectorAll('.lvchip'),...pal.querySelectorAll('.lvchip')];
+  chips.forEach(el=>{
+    el.addEventListener('dragstart',e=>{ dragK=el.dataset.k;
+      try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',dragK); }catch(err){} });
+    el.addEventListener('dragend',()=>{ dragK=null; });
+  });
+  host.querySelectorAll('.lvchip').forEach(el=>{
+    el.addEventListener('dragover',e=>{ if(dragK&&dragK!==el.dataset.k){ e.preventDefault(); el.classList.add('dragtgt'); } });
+    el.addEventListener('dragleave',()=>el.classList.remove('dragtgt'));
+    el.addEventListener('drop',e=>{
+      e.preventDefault(); el.classList.remove('dragtgt');
+      if(!dragK||dragK===el.dataset.k) return;
+      const a=cur.filter(k=>k!==dragK);
+      let at=a.indexOf(el.dataset.k);
+      const r=el.getBoundingClientRect();
+      if(e.clientX>r.left+r.width/2) at+=1;
+      a.splice(at,0,dragK);
+      setLv(a.slice(0,3));
+    });
+    const x=el.querySelector('.x');
+    if(x) x.addEventListener('click',()=>setLv(cur.filter(k=>k!==x.dataset.x)));
+  });
+  const bar=$('fsumLvBar');
+  bar.addEventListener('dragover',e=>{ if(dragK&&!cur.includes(dragK)) e.preventDefault(); });
+  bar.addEventListener('drop',e=>{ if(dragK&&!cur.includes(dragK)){ e.preventDefault(); setLv([...cur,dragK].slice(0,3)); } });
+  pal.querySelectorAll('.lvchip').forEach(el=>
+    el.addEventListener('click',()=>setLv([...cur,el.dataset.k].slice(0,3))));
 }
 function fsumCommentary(rows,m,P){
   const secs=fsumSections(rows);
