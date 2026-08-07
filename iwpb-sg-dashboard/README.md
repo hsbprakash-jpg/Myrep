@@ -195,8 +195,8 @@ A single header row with:
   in from the palette (Product under MICA Level 1, or between Level 1 and
   Level 2 — MICA Levels 4 and 5 and any config-declared dimension are
   offered when the file carries them), drag chips to reorder, ✕ to remove
-  — three levels at most by default, raised via `fsum_max_levels` (up to
-  six), remembered in the browser, with the roll-up selector, commentary
+  — up to six levels (`fsum_max_levels` lowers the cap if a tighter page
+  is wanted), remembered in the browser, with the roll-up selector, commentary
   and all three exports following the cascade. A level that doesn't fan
   out (a lone child repeating its parent) is collapsed, but the walk keeps
   descending so a deeper level that does split is never lost. A **roll-up selector** beside the export buttons sets how

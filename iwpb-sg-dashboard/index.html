@@ -1114,7 +1114,7 @@ const CFG_DEFAULT={
     fsum_total:'auto',
     fsum_line_order:'',
     fsum_levels:'',
-    fsum_max_levels:'3',
+    fsum_max_levels:'6',
     account_hierarchy_from:'mica,micaL1,micaL2,micaL3,micaL4,micaL5',
     product_hierarchy_from:'prodCode,prodL1,prodL2,prodL3',
     hierarchy_unmapped_label:'Unmapped',
@@ -2888,7 +2888,7 @@ function houseLevels(){
   const m=S.model;
   const lv=String(cfgS('commentary_levels')||'').split(/[,;]/).map(x=>x.trim())
     .filter(k=>k&&(k in m.dimCols));
-  if(lv.length) return lv.slice(0,3);
+  if(lv.length) return lv.slice(0,6);
   return ['micaL1','micaL2','micaL3'].filter(k=>k in m.dimCols);
 }
 function houseDrvCount(){
@@ -4550,7 +4550,7 @@ function fsumLvStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_fsum
 function fsumLvSave(a){ try{ localStorage.setItem('iwpbsg_fsumlv',JSON.stringify(a)); }catch(e){} }
 function fsumMaxLv(){
   const v=parseInt(cfgS('fsum_max_levels'));
-  return isFinite(v)&&v>=1? Math.min(v,6) : 3;
+  return isFinite(v)&&v>=1? Math.min(v,6) : 6;
 }
 function fsumLevels(){
   const m=S.model, mx=fsumMaxLv();
