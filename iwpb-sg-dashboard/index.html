@@ -4702,26 +4702,28 @@ async function fsumPptx(){
         breakLine:(bi<blocks.length-1&&ri===b2.runs.length-1)||undefined}}));
   });
   const comLines=Math.max(2, Math.ceil(comRuns.reduce((a,r2)=>a+r2.text.length,0)/170)+blocks.length-1);
-  const comH=Math.min(1.6, 0.16*comLines+0.1);
-  // fit: rows never wrap (short labels, capped font), so the height is exact —
-  // two header rows, then the body split over what remains above the commentary
-  const tblY=0.76, avail=7.5-tblY-comH-0.3;
+  const comWant=Math.min(2.2, 0.18*comLines+0.12);
+  // the table is kept compact — slim rows, at least an inch held back for the
+  // commentary — and the commentary starts where the table ends, taking all
+  // the space left beneath it
+  const tblY=0.76, avail=7.5-tblY-Math.max(comWant,1.0)-0.25;
   const n=tblRows.length;
-  const hHdr=0.24;
-  const hBody=Math.max(0.15, Math.min(0.28, (avail-2*hHdr)/(n-2)));
+  const hHdr=0.22;
+  const hBody=Math.max(0.15, Math.min(0.22, (avail-2*hHdr)/(n-2)));
   const wAll=12.73, wName=2.0, wNum=(wAll-wName)/nNum;
   // the largest font the narrow columns can hold on one line, capped by row height
-  const fs=Math.max(5.5, Math.min(hBody>=0.24?8:7.5, Math.floor(wNum*72/(0.52*8)*2)/2));
+  const fs=Math.max(5.5, Math.min(hBody>=0.2?7.5:7, Math.floor(wNum*72/(0.52*8)*2)/2));
   const rowHs=[hHdr,hHdr,...Array(n-2).fill(hBody)];
   const tblH=rowHs.reduce((a,x)=>a+x,0);
   sl.addTable(tblRows,{x:0.3, y:tblY, w:wAll,
     colW:[wName, ...Array(nNum).fill(wNum)],
     rowH:rowHs, fontSize:fs, fontFace:'Segoe UI',
     border:{pt:0.4,color:BRD}, margin:0.012, valign:'middle', autoPage:false});
-  // the commentary sits at the foot of the slide, whatever the table's depth
-  if(comRuns.length)
-    sl.addText(comRuns,{x:0.3, y:7.42-comH, w:12.73, h:comH, fontSize:8.5,
-      fontFace:'Segoe UI', valign:'bottom', wrap:true, fit:'shrink'});
+  if(comRuns.length){
+    const comY=tblY+tblH+0.14;
+    sl.addText(comRuns,{x:0.3, y:comY, w:12.73, h:7.42-comY, fontSize:9,
+      fontFace:'Segoe UI', valign:'top', wrap:true, fit:'shrink'});
+  }
   await p.writeFile({fileName:`IWPB_SG_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
 }
 
