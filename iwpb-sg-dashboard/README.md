@@ -73,6 +73,10 @@ A single header row with:
   the grand-total tile is left off because the lines were chosen by hand.
   The PowerPoint tile grid and the landing narrative follow the same list.
   Leave it blank for the default behaviour (`tile_level` + `tilePriority`).
+- **Units on the tiles** — every KPI tile names its unit beside the KPI
+  (`US$m` on the P&L lines, `US$bn` on balances), the page lede states the
+  split ("P&L in US$m · balances in US$bn"), and the one-slide PPT export
+  mirrors the same grid, units, expansion and totals rule as the page.
 - **No total when a total means nothing** — `total_tile` and `fsum_total`
   default to `auto`: a computed total is printed only while no MICA Level 1
   line in the file is a balance-sheet line, recognised by

@@ -494,6 +494,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .lvchip .x:hover{opacity:1}
 .lvchip.dragtgt{outline:2px dashed var(--fold-red);outline-offset:1px}
 .lvchip .seq{font-size:10px;opacity:.6}
+.tname .tunit{font-size:9.5px;font-weight:600;color:var(--text-muted);letter-spacing:.3px;
+  border:1px solid var(--border);border-radius:8px;padding:0 5px;vertical-align:1px;white-space:nowrap}
 .unitbar{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:5px 10px;
   background:var(--fold-bg);border:1px solid var(--border);border-radius:5px}
 .unitbar .unitlbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;
@@ -2374,9 +2376,11 @@ function renderSummary(){
 
   $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY} (${cfgUnit()})`;
   const lvl=tileL1?'MICA Level 1':'MICA Level 2';
+  const anyBS=cards.some(c=>c.k.isBS)&&bsUnit();
+  const unitTxt=anyBS? `P&L in ${cfgUnit()} · balances in ${bsUnitLabel()}` : `figures in ${cfgUnit()} as reported`;
   $('summaryLede').textContent= L.mode==='none'
-    ? `${lvl} summary — no comparison baseline in this file · figures in ${cfgUnit()} as reported.`
-    : `RAG by ${lvl} — ${L.main} against ${L.base} · figures in ${cfgUnit()} as reported.`;
+    ? `${lvl} summary — no comparison baseline in this file · ${unitTxt}.`
+    : `RAG by ${lvl} — ${L.main} against ${L.base} · ${unitTxt}.`;
 
   // driller-format KPI tiles: name + headline, then vs-comparison rows with
   // direction triangles (colour = favourability, triangle = movement)
@@ -2393,10 +2397,11 @@ function renderSummary(){
   };
   const cardHtml=(name,l1,k,l2attr,hideCmp)=>{
     const trs=hideCmp?[]:tileRows(k,m);
+    const tu=(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
     return `
     <button class="card" ${l2attr} title="View this line in Mix analysis">
-      <div class="thead"><span class="tname">${esc(name)}</span>
-        <span class="tval${(k.cmpMain||0)<0?' negnum':''}">${fmtK(k)}</span></div>
+      <div class="thead"><span class="tname">${esc(name)} <span class="tunit">${esc(tu)}</span></span>
+        <span class="tval${(k.cmpMain||0)<0?' negnum':''}">${(k.isBS&&bsUnit())? fmtBS(k.cmpMain) : fmt(k.cmpMain)}</span></div>
       ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
         :`<div class="krow actonly"><span class="kl">${esc(L.main)} actuals</span></div>`}
       <div class="vd">View detail →</div>
@@ -3130,12 +3135,15 @@ async function exportSummaryPPT(){
   const l1g=groupBy(rows,'micaL1');
   const tileL1=cfgTileL1(l1g.size);
   const named=tileLineDefs();
+  const kOf=(rs)=>{ let k=kpi(rs,m,S.ytdM,S.includeFC);
+    if(rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+    return k; };
   const byL2=named.length
     ? named.map(nm=>tileFindLine(rows,nm)).filter(Boolean)
-        .map(f=>({l2:f.name, k:kpi(f.rows,m,S.ytdM,S.includeFC)}))
+        .map(f=>({l2:f.name, k:kOf(f.rows)}))
     : [...(tileL1?l1g:groupBy(rows,'micaL2')).entries()]
-        .map(([l2,rs])=>({l2, k:kpi(rs,m,S.ytdM,S.includeFC)}))
-        .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+        .map(([l2,rs])=>({l2, k:kOf(rs)}))
+        .sort((a,b)=>(a.k.isBS?1:0)-(b.k.isBS?1:0)||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
   const l1name=[...l1g.keys()][0]||'Revenue';
   const PRIORITY=PRIO_RES;
@@ -3144,9 +3152,24 @@ async function exportSummaryPPT(){
     const i=rest.findIndex(c=>rx.test(c.l2));
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const ordered=named.length? byL2 : applyTileOrder([...prio,...rest]);
+  let ordered=named.length? byL2 : applyTileOrder([...prio,...rest]);
+  // mirror the page: a lone P&L rollup opens into its Level 2 lines
+  if(!named.length&&tileL1&&cfgYes('tile_expand_result')){
+    const pl=ordered.filter(c=>!c.k.isBS);
+    if(pl.length===1&&(l1g.get(pl[0].l2)||[]).length){
+      const rs1=l1g.get(pl[0].l2);
+      const kids=[...groupBy(rs1,'micaL2').entries()]
+        .filter(([n])=>n&&n!=='(blank)'&&n!==pl[0].l2)
+        .map(([l2,rs])=>({l2, k:kOf(rs)}));
+      if(kids.length>1){
+        const at=rs=>{ let i=Infinity; for(const r of rs){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
+        kids.sort((a2,b2)=>at(l1g.get(pl[0].l2).filter(r=>r.d.micaL2===a2.l2))-at(l1g.get(pl[0].l2).filter(r=>r.d.micaL2===b2.l2)));
+        ordered=[...kids, pl[0], ...ordered.filter(c=>c.k.isBS)];
+      }
+    }
+  }
   const tiles=[
-    ...((cfgYes('total_tile')&&!named.length)
+    ...(!summaryNoTotal(named)
       ? [{name:tileL1?totalLabel(byL2.map(c=>c.l2)):`Total ${l1name}`,k:kT,hide:false}] : []),
     ...ordered.map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
   const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
@@ -3176,7 +3199,8 @@ async function exportSummaryPPT(){
   tiles.forEach((t,i)=>{
     const tx=X0+(i%COLS)*(TW+GX), ty=Y0+Math.floor(i/COLS)*(TH+GY);
     slide.addShape('rect',{x:tx,y:ty,w:TW,h:TH,fill:{color:'FFFFFF'},line:{color:'C8C7C3',width:1}});
-    const nm=nameTxt(t.name), vTxt=fmt(t.k.cmpMain);
+    const tu=(t.k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
+    const nm=nameTxt(t.name)+'  ·  '+tu, vTxt=(t.k.isBS&&bsUnit())? fmtBS(t.k.cmpMain) : fmt(t.k.cmpMain);
     slide.addText(nm,{x:tx+0.1,y:ty+0.05,w:TW-1.18,h:0.42,fontSize:nameFs(nm),bold:true,
       color:'1A1A19',fontFace:'Segoe UI',wrap:true,fit:'shrink',valign:'top',lineSpacing:nameFs(nm)+1});
     slide.addText(vTxt,{x:tx+TW-1.12,y:ty+0.05,w:1.02,h:0.28,align:'right',bold:true,valign:'top',
@@ -3192,7 +3216,7 @@ async function exportSummaryPPT(){
       const up=((t.k.costLike&&!t.k.dirFlip)? -raw : raw)>=0;
       const col=fav?'0B7A0B':'C21A1A', tri=up?'\u25B2':'\u25BC';
       const ry=ty+0.55+ri*0.27;
-      const aTxt=r.v==null?'\u2013':tri+fmt(Math.abs(r.v));
+      const aTxt=r.v==null?'\u2013':tri+((t.k.isBS&&bsUnit())? fmtBS(Math.abs(r.v)) : fmt(Math.abs(r.v)));
       const pTxt=r.p==null?'':tri+pctAbs(r.p);
       slide.addText(r.lbl,{x:tx+0.1,y:ry,w:0.78,h:0.24,fontSize:9.5,color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
       slide.addText(aTxt,{x:tx+0.88,y:ry,w:1.0,h:0.24,fontSize:cellFs(aTxt),bold:true,color:col,
