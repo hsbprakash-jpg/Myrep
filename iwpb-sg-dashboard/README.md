@@ -130,7 +130,13 @@ A single header row with:
   order. Everything moves with the YTD-through month — pick MAY and the
   months become Mar/Apr/May, the quarter Q226 to date, the year-to-date
   Jan–May. Comparisons a file cannot serve show as `–` with a note saying
-  which and why. A **roll-up selector** beside the export buttons sets how
+  which and why. A **Full Year band** closes the table — the live FY
+  forecast (Jan–Dec actuals + forecast months) with variance in currency
+  and percent vs the prior forecast column, the FY target and prior-year
+  actuals — so once the selected month crosses the last actual and the
+  month columns read Forecast, the comparison that matters is on the page,
+  and the commentary reports it with numbers and percentages. A
+  **roll-up selector** beside the export buttons sets how
   deep the cascade reads — Level 1 rollups only, to Level 2, or the full
   o/w Level 3 detail — and the Excel, PPT and Word exports follow it
   (`fsum_detail` sets the level on load). Variance colours follow

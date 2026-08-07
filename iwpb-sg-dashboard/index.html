@@ -4293,11 +4293,18 @@ function fsumFigs(rows, m, P, ytdM){
   const qTgt=k.target!=null? k.target*wq : null;
   const d=(a,b)=>(a!=null&&b!=null)? a-b : null;
   const pc=(v,b)=>(v!=null&&b!=null&&b!==0)? v/Math.abs(b) : null;
+  // Full Year: the live forecast (Jan–Dec actuals + forecast months) against
+  // the published prior forecast column, the FY target and prior-year actuals
+  const fy=k.outlook;
+  const fyPrFc=(m.fyFcCols&&m.fyFcCols.length)? sum(m.fyFcCols) : null;
+  const fyPY=k.fyPrior!=null? k.fyPrior : (m.pyMonths.length? sumCols(rows,m.pyMonths.map(p=>p.col)) : null);
   return {k, mon:P.monCols.map(p=>sumCols(rows,[p.col])),
     mVsFc:d(k.mth,k.mthFc), mVsTgt:d(k.mth,k.mthTgt), mVsPM:d(k.mth,k.mthPrev), mVsPY:d(k.mth,k.mthPy),
     qtd, qVsTgt:d(qtd,qTgt), qVsPQ:d(qtd,pq), qVsPY:d(qtd,pyQ),
     ytd:k.cy, yVsTgt:d(k.cy,k.ytdTgt), yVsPY:d(k.cy,k.py),
-    yVsTgtP:pc(d(k.cy,k.ytdTgt),k.ytdTgt), yVsPYP:pc(d(k.cy,k.py),k.py)};
+    yVsTgtP:pc(d(k.cy,k.ytdTgt),k.ytdTgt), yVsPYP:pc(d(k.cy,k.py),k.py),
+    fy, fVsPrF:d(fy,fyPrFc), fVsTgt:k.varTgt, fVsPY:d(fy,fyPY),
+    fVsPrFP:pc(d(fy,fyPrFc),fyPrFc), fVsTgtP:k.varTgtPct, fVsPYP:pc(d(fy,fyPY),fyPY)};
 }
 /* the row cascade: children of each top level, then the level as a subtotal,
    in the same materiality order the KPI tiles use */
@@ -4425,7 +4432,7 @@ function fsumPct(k, v){
 }
 function fsumHeadRows(P, m){
   const u=cfgUnit();
-  const mh=P.monCols.map(p=>`${MON_LBL[p.m]} ${p.fc?'Fcst':'Actual'}`);
+  const mh=P.monCols.map(p=>`${MON_LBL[p.m]} ${p.fc?'Forecast':'Actual'}`);
   return {mh, u,
     qh:`${P.qLbl} Actual`, yh:`${P.ytdLbl} Actual`};
 }
@@ -4439,16 +4446,21 @@ function renderFsum(){
   let head=`<thead><tr><th class="rowhead" rowspan="3"></th>`+
     `<th colspan="${nMon+4}" class="bandend">Month</th>`+
     `<th colspan="4" class="bandend">QTD</th>`+
-    `<th colspan="5">YTD</th></tr><tr>`+
+    `<th colspan="5" class="bandend">YTD</th>`+
+    `<th colspan="7">Full Year</th></tr><tr>`+
     H.mh.map(h=>`<th rowspan="2">${esc(h)}</th>`).join('')+
     `<th colspan="4" class="bandend">Variance (${esc(u)})</th>`+
     `<th rowspan="2">${esc(H.qh)}</th><th colspan="3" class="bandend">Variance (${esc(u)})</th>`+
     `<th rowspan="2">${esc(H.yh)}</th><th colspan="2">Variance (${esc(u)})</th>`+
-    `<th colspan="2">Variance (%)</th></tr><tr>`+
+    `<th colspan="2" class="bandend">Variance (%)</th>`+
+    `<th rowspan="2">FY'${esc(P.yy)} Forecast</th><th colspan="3">Variance (${esc(u)})</th>`+
+    `<th colspan="3">Variance (%)</th></tr><tr>`+
     `<th>vs Fcst</th><th>vs Target</th><th>vs PM</th><th class="bandend">vs PY</th>`+
     `<th>vs Target</th><th>vs PQ</th><th class="bandend">vs PY</th>`+
-    `<th>vs Target</th><th>vs PY</th><th>vs Target</th><th>vs PY</th></tr></thead>`;
-  const nCols=1+nMon+4+4+5;
+    `<th>vs Target</th><th>vs PY</th><th>vs Target</th><th class="bandend">vs PY</th>`+
+    `<th>vs Prior Fcst</th><th>vs Target</th><th>vs PY</th>`+
+    `<th>vs Prior Fcst</th><th>vs Target</th><th>vs PY</th></tr></thead>`;
+  const nCols=1+nMon+4+4+5+7;
   const secs=fsumSections(rows);
   const tree=secs.flatMap(sec=>[{band:sec.label}, ...fsumTree(sec.rows),
     ...((fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
@@ -4466,7 +4478,10 @@ function renderFsum(){
       `<td>${fsumNum(f.qtd)}</td><td>${fsumVar(f.k,f.qVsTgt)}</td><td>${fsumVar(f.k,f.qVsPQ)}</td>`+
       `<td class="bandend">${fsumVar(f.k,f.qVsPY)}</td>`+
       `<td>${fsumNum(f.ytd)}</td><td>${fsumVar(f.k,f.yVsTgt)}</td><td>${fsumVar(f.k,f.yVsPY)}</td>`+
-      `<td>${fsumPct(f.k,f.yVsTgtP)}</td><td>${fsumPct(f.k,f.yVsPYP)}</td></tr>`;
+      `<td>${fsumPct(f.k,f.yVsTgtP)}</td><td class="bandend">${fsumPct(f.k,f.yVsPYP)}</td>`+
+      `<td>${fsumNum(f.fy)}</td><td>${fsumVar(f.k,f.fVsPrF)}</td><td>${fsumVar(f.k,f.fVsTgt)}</td>`+
+      `<td>${fsumVar(f.k,f.fVsPY)}</td><td>${fsumPct(f.k,f.fVsPrFP)}</td>`+
+      `<td>${fsumPct(f.k,f.fVsTgtP)}</td><td>${fsumPct(f.k,f.fVsPYP)}</td></tr>`;
   }
   $('fsumTable').innerHTML=head+`<tbody>${body}</tbody>`;
   const lvAll=fsumLevels(), dSel=$('fsumDepthSel');
@@ -4510,6 +4525,13 @@ function fsumBlockText(name, rows, m, P, sub){
   if(f.yVsTgtP!=null) h+=` — ${faPctTxt(k,f.yVsTgtP)} vs target`;
   if(f.yVsPYP!=null) h+=` and ${faPctTxt(k,f.yVsPYP)} vs prior year`;
   h+='.';
+  if(f.fy!=null){
+    const bits=[];
+    if(f.fVsPrF!=null) bits.push(`${faAmt(k,f.fVsPrF)} / ${faPctTxt(k,f.fVsPrFP)} vs prior forecast`);
+    if(f.fVsTgt!=null) bits.push(`${faAmt(k,f.fVsTgt)} / ${faPctTxt(k,f.fVsTgtP)} vs target`);
+    if(f.fVsPY!=null) bits.push(`${faAmt(k,f.fVsPY)} / ${faPctTxt(k,f.fVsPYP)} vs PY`);
+    h+=` FY'${esc(P.yy)} forecast at <b>${fmtFull(Math.round(f.fy))}</b>${bits.length? ' — '+bits.join(', '):''}.`;
+  }
   if(sub&&sub.length) h+=` Movement against forecast is led by `+
     sub.map(x=>`<b>${esc(x.name)}</b> (${faAmt(x.f.k,x.f.mVsFc)})`).join(', ')+'.';
   return h;
@@ -4551,6 +4573,9 @@ function fsumAOA(){
   r1.push('YTD'); r2.push(H.yh);
   ['vs Target','vs PY'].forEach(h=>{ r1.push(`YTD · Variance (${u})`); r2.push(h); });
   ['vs Target','vs PY'].forEach(h=>{ r1.push('YTD · Variance (%)'); r2.push(h); });
+  r1.push('Full Year'); r2.push(`FY'${P.yy} Forecast`);
+  ['vs Prior Fcst','vs Target','vs PY'].forEach(h=>{ r1.push(`FY · Variance (${u})`); r2.push(h); });
+  ['vs Prior Fcst','vs Target','vs PY'].forEach(h=>{ r1.push('FY · Variance (%)'); r2.push(h); });
   aoa.push(r1, r2);
   for(const sec of fsumSections(rows)){
     aoa.push([sec.label]);
@@ -4568,7 +4593,9 @@ function fsumAoaRow(r,m,P){
       rnd(f.mVsFc), rnd(f.mVsTgt), rnd(f.mVsPM), rnd(f.mVsPY),
       rnd(f.qtd), rnd(f.qVsTgt), rnd(f.qVsPQ), rnd(f.qVsPY),
       rnd(f.ytd), rnd(f.yVsTgt), rnd(f.yVsPY),
-      fsumPctTxt(f.yVsTgtP), fsumPctTxt(f.yVsPYP)];
+      fsumPctTxt(f.yVsTgtP), fsumPctTxt(f.yVsPYP),
+      rnd(f.fy), rnd(f.fVsPrF), rnd(f.fVsTgt), rnd(f.fVsPY),
+      fsumPctTxt(f.fVsPrFP), fsumPctTxt(f.fVsTgtP), fsumPctTxt(f.fVsPYP)];
   }
 }
 async function fsumPptx(){
