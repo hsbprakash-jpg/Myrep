@@ -494,8 +494,16 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .lvchip .x:hover{opacity:1}
 .lvchip.dragtgt{outline:2px dashed var(--fold-red);outline-offset:1px}
 .lvchip .seq{font-size:10px;opacity:.6}
-.tname .tunit{font-size:9.5px;font-weight:600;color:var(--text-muted);letter-spacing:.3px;
-  border:1px solid var(--border);border-radius:8px;padding:0 5px;vertical-align:1px;white-space:nowrap}
+@media (hover:hover){
+  .card .vd{opacity:0;transition:opacity .12s}
+  .card:hover .vd,.card:focus .vd{opacity:1}
+  .aicom .aicom-btns{opacity:0;transition:opacity .12s}
+  .aicom:hover .aicom-btns,.aicom:focus-within .aicom-btns{opacity:1}
+}
+.aicom-h span:first-child{opacity:.75}
+.thead .tunit{font-size:9.5px;font-weight:600;color:var(--text-muted);letter-spacing:.3px;
+  border:1px solid var(--border);border-radius:8px;padding:0 5px;white-space:nowrap;
+  flex:0 0 auto;align-self:center;margin:0 6px}
 .unitbar{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:5px 10px;
   background:var(--fold-bg);border:1px solid var(--border);border-radius:5px}
 .unitbar .unitlbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;
@@ -1090,7 +1098,8 @@ const CFG_DEFAULT={
     fsum_total_label:'',
     fsum_detail:'',
     bs_unit:'bn',
-    fsum_bs_label:'Balance Sheet'
+    fsum_bs_label:'Balance Sheet',
+    show_greeting:'N'
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
@@ -2136,7 +2145,8 @@ function aiComment(host, sig, a, b){
   const canRetrieve=!!(prev&&prev.t!=null&&prev.t!==text);
   const noBtns=!!(opts&&opts.noButtons);
   const ctxTxt=(opts&&opts.ctx!=null)? opts.ctx : filterNote();
-  host.innerHTML=`<p class="ctxnote">${esc(ctxTxt)}</p><div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · kept':'AI commentary · click text to edit'}</span>
+  const filtersOn=Object.values(S.filters||{}).some(set=>set&&set.size);
+  host.innerHTML=`${filtersOn?`<p class="ctxnote">${esc(ctxTxt)}</p>`:''}<div class="aicom"><div class="aicom-h"><span>${locked?'Manual commentary · kept':'AI commentary · click text to edit'}</span>
       <span class="aicom-btns"${noBtns?' hidden':''}>
       <button class="aicom-p" type="button"${canRetrieve?'':' disabled'} title="${canRetrieve?'Bring back the manual commentary that was written before':'Nothing to retrieve yet — a copy is kept whenever your text is replaced'}">⤺ ${esc(cfgL('btn_retrieve')||'Retrieve')}</button>
       <button class="aicom-r" type="button" title="Discard your edits and rebuild the AI commentary from the current data">↺ ${esc(cfgL('btn_regen')||'Regenerate')}</button></span></div>
@@ -2283,10 +2293,13 @@ function renderSummary(){
   const rgT=rag(kT.favVarPct,S.thresh);
 
   // greeting + context
-  const hh=new Date().getHours();
-  const greet=hh<12?'Good morning':hh<18?'Good afternoon':'Good evening';
   const hasFC=m.cyMonths.some(p=>p.fc);
-  $('greetLine').innerHTML=`${greet} — here's your <b>IWPB Singapore</b> snapshot · data through <b>${MON_LBL[S.ytdM]} ${esc(m.yearCY)}</b>${hasFC?', later months forecast':''}.`;
+  if(cfgYes('show_greeting')){
+    const hh=new Date().getHours();
+    const greet=hh<12?'Good morning':hh<18?'Good afternoon':'Good evening';
+    $('greetLine').innerHTML=`${greet} — here's your <b>IWPB Singapore</b> snapshot · data through <b>${MON_LBL[S.ytdM]} ${esc(m.yearCY)}</b>${hasFC?', later months forecast':''}.`;
+    $('greetLine').style.display='';
+  } else $('greetLine').style.display='none';
 
   // KPI tiles per MICA Level 1 (most material first); a degenerate file with
   // a single Level 1 value keeps the Level 2 tiles
@@ -2407,7 +2420,7 @@ function renderSummary(){
     const tu=(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
     return `
     <button class="card" ${l2attr} title="View this line in Mix analysis">
-      <div class="thead"><span class="tname">${esc(name)} <span class="tunit">${esc(tu)}</span></span>
+      <div class="thead"><span class="tname" title="${esc(name)}">${esc(name)}</span><span class="tunit">${esc(tu)}</span>
         <span class="tval${(k.cmpMain||0)<0?' negnum':''}">${(k.isBS&&bsUnit())? fmtBS(k.cmpMain) : fmt(k.cmpMain)}</span></div>
       ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
         :`<div class="krow actonly"><span class="kl">${esc(L.main)} actuals</span></div>`}
@@ -2476,10 +2489,7 @@ function renderSummary(){
     `<span class="chip"><span class="cdot" style="background:var(--status-good)"></span>Favourable <b>${counts.g}</b></span>`+
     `<span class="chip"><span class="cdot" style="background:var(--status-warning)"></span>Watch <b>${counts.a}</b></span>`+
     `<span class="chip"><span class="cdot" style="background:var(--status-critical)"></span>Unfavourable <b>${counts.r}</b></span>`+
-    (counts.n?`<span class="chip"><span class="cdot" style="background:var(--text-muted)"></span>No baseline <b>${counts.n}</b></span>`:'')+
-    (best&&best.k.cmpVarPct!=null?`<span class="chip">Best <b>${esc(best.l2)}</b> ${fmtPct(best.k.cmpVarPct)}</span>`:'')+
-    (worst&&worst.k.cmpVarPct!=null&&worst!==best?`<span class="chip">Weakest <b>${esc(worst.l2)}</b> ${fmtPct(worst.k.cmpVarPct)}</span>`:'')+
-    `<span class="chip">Rows in scope <b>${rows.length.toLocaleString()}</b></span>`;
+    (counts.n?`<span class="chip"><span class="cdot" style="background:var(--text-muted)"></span>No baseline <b>${counts.n}</b></span>`:'');
 
   // performance trajectory — total, monthly, against the comparison basis
   const traj=$('trajPanel');
@@ -2505,7 +2515,7 @@ function renderSummary(){
   if(kJ.fyPrior!=null) trioAll.push([`FY-${m.fyPriorLabel} actuals`,fj(kJ.fyPrior)]);
   const seenT=new Set();
   const trio=trioAll.filter(([tl])=>{ const kx=String(tl).toLowerCase();
-    if(seenT.has(kx)) return false; seenT.add(kx); return true; }).slice(0,6);
+    if(seenT.has(kx)) return false; seenT.add(kx); return true; }).slice(0,4);
   // the chart itself follows the period: monthly shape for a month-level
   // basis, the cumulative path otherwise, against the base the period names
   const TJ=kJ.isBS? {act:kJ.cySeries.map(p2=>({m:p2.m, fc:p2.fc, val:p2.val})),
@@ -2844,7 +2854,7 @@ function renderMix(){
   $('mxMeasure').innerHTML=mops.map(k2=>`<option value="${k2}"${MX.measure===k2?' selected':''}>${esc(measureLabel(k2))}</option>`).join('');
   $('mxType').innerHTML=typeOptions(MX.type, ensureType(MX));
   $('mixTitle').textContent=chartTitle(MX);
-  $('mixSub').textContent=`${cmpLabels(S.model).period} · ${scopeUnit(scopeFilter(filteredRows(),MX.l2))} · change the view with the dropdowns — it follows the filters in the left pane`;
+  $('mixSub').textContent=`${cmpLabels(S.model).period} · ${scopeUnit(scopeFilter(filteredRows(),MX.l2))}`;
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
   aiComment($('mixCom'), 'mix|'+JSON.stringify([MX.l2,MX.groupBy,MX.measure,MX.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig(),
     ()=>chartCommentaryHtml({...MX}));

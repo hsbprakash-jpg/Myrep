@@ -79,6 +79,14 @@ A single header row with:
   in `US$bn`, dashboard cards and breakdown tables restate to closings in
   bn, and the MI Assistant's tables show each line in its own unit. A
   chart over a mixed scope (the whole file) stays in the file's unit.
+- **A calmer landing page** — the KPI summary leads with one narrative
+  line, the tile grid, a single row of RAG-and-attention chips, then the
+  two analysis panels. The greeting line is off by default
+  (`show_greeting: Y` restores it), best/weakest and row-count chips are
+  gone (the narrative and left pane already carry them), the trajectory
+  strip caps at four figures, the per-panel filter note appears only when
+  filters are actually applied, and editing chrome — View detail, RETRIEVE
+  / REGENERATE — reveals on hover.
 - **Units on the tiles** — every KPI tile names its unit beside the KPI
   (`US$m` on the P&L lines, `US$bn` on balances), the page lede states the
   split ("P&L in US$m · balances in US$bn"), and the one-slide PPT export
