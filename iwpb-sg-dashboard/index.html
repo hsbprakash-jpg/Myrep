@@ -1130,20 +1130,20 @@ const CFG_DEFAULT={
   dimensions:{},
   hierarchies:{account:[
     {id:'A1', levels:['PBT','','','']},
-    {id:'A2', levels:['PBT','Revenue','','']},
-    {id:'A3', levels:['PBT','Revenue','Banking NII','']},
-    {id:'A4', levels:['PBT','Revenue','Fees & Other Operating Income','']},
-    {id:'A5', levels:['PBT','ECL','','']},
-    {id:'A6', levels:['PBT','Total Operating Expense','','']},
-    {id:'A7', levels:['PBT','Total Operating Expense','Direct Cost','']},
+    {id:'A2', levels:['PBT','Revenue','',''], match:'Total Revenue'},
+    {id:'A3', levels:['PBT','Revenue','Banking NII',''], match:'NII - Interest Income|NII - Net Interest Income'},
+    {id:'A4', levels:['PBT','Revenue','Fees & Other Operating Income',''], match:'NFI - Fee Income|Net Fee Income|Trading Income|Other Income'},
+    {id:'A5', levels:['PBT','ECL','',''], match:'Expected credit losses|ECL Charge'},
+    {id:'A6', levels:['PBT','Total Operating Expense','',''], match:'Costs|Total Costs'},
+    {id:'A7', levels:['PBT','Total Operating Expense','Direct Cost',''], match:'Total Direct Cost|Direct Costs|Staff Costs'},
     {id:'A8', levels:['PBT','Total Operating Expense','Direct Cost','Direct Cost ex VP']},
     {id:'A9', levels:['PBT','Total Operating Expense','Direct Cost','Variable Pay']},
     {id:'A10', levels:['PBT','Total Operating Expense','Direct Cost','Corporate Centre']},
-    {id:'A11', levels:['PBT','Total Operating Expense','Indirect Cost','']},
+    {id:'A11', levels:['PBT','Total Operating Expense','Indirect Cost',''], match:'Total Indirect Costs (incl InterCo)|Indirect Costs|Allocated Costs'},
     {id:'A12', levels:['PBT','Income from Associates','','']},
     {id:'A13', levels:['Balance Sheet','','','']},
-    {id:'A14', levels:['Balance Sheet','Customer Deposits','','']},
-    {id:'A15', levels:['Balance Sheet','Loans and Advances','','']},
+    {id:'A14', levels:['Balance Sheet','Customer Deposits','',''], match:'Deposits'},
+    {id:'A15', levels:['Balance Sheet','Loans and Advances','',''], match:'Loans|Customer Loans'},
     {id:'A16', levels:['Balance Sheet','RWAs','','']},
     {id:'A17', levels:['Balance Sheet','Wealth Balances','','']},
     {id:'A18', levels:['Balance Sheet','Wealth Balances','Deposits','']},
@@ -1158,8 +1158,8 @@ const CFG_DEFAULT={
     {id:'B1', levels:['IWPB','','','','']},
     {id:'B2', levels:['IWPB','Retail','','','']},
     {id:'B3', levels:['IWPB','Retail','Retail Lending','','']},
-    {id:'B4', levels:['IWPB','Retail','Retail Lending','Mortgages','']},
-    {id:'B5', levels:['IWPB','Retail','Retail Lending','Cards','']},
+    {id:'B4', levels:['IWPB','Retail','Retail Lending','Mortgages',''], match:'Mortgages (Real Estate Secured)'},
+    {id:'B5', levels:['IWPB','Retail','Retail Lending','Cards',''], match:'Credit Cards'},
     {id:'B6', levels:['IWPB','Retail','Retail Lending','Other Personal Lending','']},
     {id:'B7', levels:['IWPB','Retail','Retail Lending','Other Personal Lending','Payroll']},
     {id:'B8', levels:['IWPB','Retail','Retail Lending','Other Personal Lending','Personal Loans']},
@@ -1167,8 +1167,8 @@ const CFG_DEFAULT={
     {id:'B10', levels:['IWPB','Retail','Retail Lending','Other Personal Lending','RBB']},
     {id:'B11', levels:['IWPB','Retail','Retail Deposits','','']},
     {id:'B12', levels:['IWPB','Retail','Retail Deposits','CASAs','']},
-    {id:'B13', levels:['IWPB','Retail','Retail Deposits','CASAs','Current Accounts']},
-    {id:'B14', levels:['IWPB','Retail','Retail Deposits','CASAs','Saving Accounts']},
+    {id:'B13', levels:['IWPB','Retail','Retail Deposits','CASAs','Current Accounts'], match:'Current Accounts Total'},
+    {id:'B14', levels:['IWPB','Retail','Retail Deposits','CASAs','Saving Accounts'], match:'Savings and Deposit Accounts'},
     {id:'B15', levels:['IWPB','Retail','Retail Deposits','Time Deposits','']},
     {id:'B16', levels:['IWPB','Retail','Retail Deposits','Retail Other','']},
     {id:'B17', levels:['IWPB','Wealth','','','']},
@@ -6076,24 +6076,31 @@ function applyHierarchies(m){
     const spec=((CFG.hierarchies&&CFG.hierarchies[h.key])
       ||CFG_DEFAULT.hierarchies[h.key]||[]);
     if(!spec.length) continue;
-    const map=new Map(); let maxD=0;
+    const map=new Map(), stitch=new Map(); let maxD=0;
     for(const rr of spec){
       const path=(rr.levels||[]).map(x=>String(x==null?'':x).trim()).filter(Boolean);
       if(!path.length) continue;
       maxD=Math.max(maxD,path.length);
       const key=path[path.length-1].toLowerCase();
       if(!map.has(key)) map.set(key,path);
+      for(const al of String(rr.match||'').split(/[|;]/)){
+        const ak=al.trim().toLowerCase();
+        if(ak&&!stitch.has(ak)) stitch.set(ak,path);
+      }
     }
     if(!maxD) continue;
     const src=cfgS(h.from).split(/[,;\s]+/).filter(k=>k in m.dimCols);
     let any=false;
     for(const row of m.rows){
-      let best=null;
+      let bestS=null, bestN=null;
       for(const k of src){
         const v=String(row.d[k]||'').trim().toLowerCase(); if(!v) continue;
+        const ps=stitch.get(v);
+        if(ps&&(!bestS||ps.length>bestS.length)) bestS=ps;
         const p2=map.get(v);
-        if(p2&&(!best||p2.length>best.length)) best=p2;
+        if(p2&&(!bestN||p2.length>bestN.length)) bestN=p2;
       }
+      const best=bestS||bestN;
       if(best) any=true;
       for(let i=0;i<maxD;i++)
         row.d[h.pfx+(i+1)]= best? (best[i]||best[best.length-1]) : un;
@@ -6155,7 +6162,7 @@ function cfgFromWorkbook(wb){
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
     for(const r of rows){
       if(!r||r.every(c=>c==null||c==='')) continue;
-      const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]), e2=low(r[4]), f2=low(r[5]);
+      const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]), e2=low(r[4]), f2=low(r[5]), g2=low(r[6]);
       if(/^(key|order|view|dimension|id)$/i.test(a)||a.startsWith('<')) continue;
       if(sec==='settings'||sec==='calculations'){ if(a) cfg.settings[a.toLowerCase()]=b2; }
       else if(sec==='tilepriority'){ const pat=b2||a; if(pat) tp.push(pat); }
@@ -6166,7 +6173,7 @@ function cfgFromWorkbook(wb){
       else if(sec==='accounthierarchy'||sec==='producthierarchy'){
         const hk=sec==='accounthierarchy'?'account':'product';
         if(hb[hk]!==true){ cfg.hierarchies[hk]=[]; hb[hk]=true; }   // uploaded rows replace the defaults wholesale
-        if(b2) cfg.hierarchies[hk].push({id:a||String(cfg.hierarchies[hk].length+1), levels:[b2,c,d,e2,f2]});
+        if(b2) cfg.hierarchies[hk].push({id:a||String(cfg.hierarchies[hk].length+1), levels:[b2,c,d,e2,f2], match:g2||''});
       }
     }
   };
@@ -6201,7 +6208,7 @@ function handleCfgFile(file){
 }
 function cfgTemplateCSV(){
   const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; };
-  const rows=[['Sheet','Key','Value','Extra1','Extra2','Extra3','Extra4'],
+  const rows=[['Sheet','Key','Value','Extra1','Extra2','Extra3','Extra4','Extra5'],
     ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>!k.startsWith('calc_')).map(([k,v])=>['Settings',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>k.startsWith('calc_')).map(([k,v])=>['Calculations',k,v,'','']),
     ...CFG_DEFAULT.tilePriority.map((p2,i)=>['TilePriority',String(i+1),p2,'','']),
@@ -6210,8 +6217,10 @@ function cfgTemplateCSV(){
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
     ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','',''],
-    ...CFG_DEFAULT.hierarchies.account.map(r=>['AccountHierarchy',r.id,...r.levels,'']),
-    ...CFG_DEFAULT.hierarchies.product.map(r=>['ProductHierarchy',r.id,...r.levels])];
+    ...['account','product'].flatMap(hk=>CFG_DEFAULT.hierarchies[hk].map(r=>{
+      const lv=[...r.levels]; while(lv.length<5) lv.push('');
+      return [hk==='account'?'AccountHierarchy':'ProductHierarchy', r.id, ...lv, r.match||''];
+    }))];
   return rows.map(r=>r.map(q).join(',')).join('\r\n');
 }
 function downloadCfgTemplate(){

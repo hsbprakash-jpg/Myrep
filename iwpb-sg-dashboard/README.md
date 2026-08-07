@@ -397,9 +397,15 @@ What each section governs:
   hierarchy, and every level becomes a derived dimension — `Acct Hier
   L1–L4`, `Prod Hier L1–L5` — usable in the drag & drop chart builder,
   dynamic dashboard widgets, Financial Summary cascade, commentary
-  Driven-by and Mix analysis exactly like a driller column. Rows naming
-  nothing in a hierarchy fall into `hierarchy_unmapped_label`
-  (`Unmapped`). Uploading rows for a section replaces the built-in
+  Driven-by and Mix analysis exactly like a driller column. Beyond a
+  node's own name, `Extra5` **stitches the node to the driller's MICA
+  lines**: a `|`-separated list of line names that belong to it
+  (`Banking NII` ← `NII - Interest Income`, `Loans and Advances` ←
+  `Loans|Customer Loans`, `Direct Cost` ← `Total Direct Cost|Staff
+  Costs`, …). A stitched match always beats an incidental name
+  equality, so `Deposits` lands on Customer Deposits even though a
+  deeper node happens to be called Deposits too. Rows naming nothing in
+  a hierarchy fall into `hierarchy_unmapped_label` (`Unmapped`). Uploading rows for a section replaces the built-in
   mapping wholesale; a section row with a blank first level clears it.
   The Financial Performance page itself binds through `tile_dims` (e.g.
   `accH1,accH2`, or just `accH2`): the KPI tiles, left-rail KPI list,
