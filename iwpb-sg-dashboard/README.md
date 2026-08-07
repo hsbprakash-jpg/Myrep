@@ -17,11 +17,14 @@ of SheetJS) runs locally.
 
 A single header row with:
 
-- **Dimensions** — `MICA`, `MICA_Level_3/2/1`, `Product_code`,
+- **Dimensions** — `MICA`, `MICA_Level_5/4/3/2/1`, `Product_code`,
   `Product_Level_3/2/1`, `Segment_code`, `CG_Level_2/1`, `Function_code`,
   `Function_Level_2/1`, `Entity code`. Header matching is tolerant of
   case/underscore/spacing differences; missing optional columns just disable
-  the related filter.
+  the related filter. Beyond the built-in list, **any other column in the
+  driller can be declared as a dimension** through the config's Dimensions
+  section (see below) and then behaves like the rest everywhere — filters,
+  Financial Summary cascade, drag & drop charts, dashboards, commentary.
 - **Periods** — either of two layouts:
   1. Two blocks of monthly columns (`Jan Actual … Dec Actual` prior year,
      then `Jan Actual …` current year), quarterly columns (`1Q25 Actual`,
@@ -190,9 +193,13 @@ A single header row with:
   A **cascade builder** sits above the
   table: the levels the summary rolls through are chips — drag a dimension
   in from the palette (Product under MICA Level 1, or between Level 1 and
-  Level 2), drag chips to reorder, ✕ to remove — three levels at most,
-  remembered in the browser, with the roll-up selector, commentary and all
-  three exports following the cascade. A **roll-up selector** beside the export buttons sets how
+  Level 2 — MICA Levels 4 and 5 and any config-declared dimension are
+  offered when the file carries them), drag chips to reorder, ✕ to remove
+  — three levels at most by default, raised via `fsum_max_levels` (up to
+  six), remembered in the browser, with the roll-up selector, commentary
+  and all three exports following the cascade. A level that doesn't fan
+  out (a lone child repeating its parent) is collapsed, but the walk keeps
+  descending so a deeper level that does split is never lost. A **roll-up selector** beside the export buttons sets how
   deep the cascade reads — Level 1 rollups only, to Level 2, or the full
   o/w Level 3 detail — and the Excel, PPT and Word exports follow it
   (`fsum_detail` sets the level on load). Variance colours follow
@@ -342,7 +349,7 @@ are accepted, both parsed locally:
 
 - an **xlsx workbook with a sheet per section** — `Settings`,
   `TilePriority`, `Dimensions`, `Views`
-- a **flat CSV** with columns `Sheet,Key,Value,Extra1,Extra2`
+- a **flat CSV** with columns `Sheet,Key,Value,Extra1,Extra2,Extra3`
   (`IWPB_SG_dashboard_config.csv` in this folder is the template, also
   downloadable in-app)
 
@@ -373,7 +380,12 @@ What each section governs:
 - **TilePriority** — the ordered name patterns pinning the top KPI tiles.
 - **Dimensions** — per dimension: display label override, whether it
   appears in the left-pane filters (`Extra1` = Y/N) and whether it is
-  offered as a simulation rule scope (`Extra2` = Y/N).
+  offered as a simulation rule scope (`Extra2` = Y/N). A row whose key is
+  **not** one of the built-ins declares a **new dimension**: `Extra3`
+  holds the text to match against the driller's column headers (falling
+  back to the label, then the key — matching ignores case, spaces and
+  underscores). E.g. `Dimensions,channel,Channel,Y,N,channel` turns a
+  `Channel` column into a full dimension across every view.
 - **Views** — enable/disable each page (summary, fsum, custom, builder,
   query, table, assist, sim).
 

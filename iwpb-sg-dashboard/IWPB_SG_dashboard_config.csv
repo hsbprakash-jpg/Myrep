@@ -1,4 +1,4 @@
-Sheet,Key,Value,Extra1,Extra2
+Sheet,Key,Value,Extra1,Extra2,Extra3
 Settings,app_title,IWPB Singapore Driller,,
 Settings,app_subtitle,Management reporting · KPI insights,,
 Settings,eyebrow,HSBC Management Reporting : IWPB Singapore Driller,,
@@ -46,6 +46,7 @@ Settings,fsum_other_label,Other,,
 Settings,fsum_total,auto,,
 Settings,fsum_line_order,,,
 Settings,fsum_levels,,,
+Settings,fsum_max_levels,3,,
 Settings,fsum_ow,Y,,
 Settings,fsum_total_label,,,
 Settings,fsum_detail,,,
@@ -68,21 +69,24 @@ TilePriority,4,\bfee,,
 TilePriority,5,\bdirect\s*cost,,
 TilePriority,6,^costs?$,,
 TilePriority,7,\becl\b|expected\s+credit,,
-Dimensions,mica,MICA code,Y,Y
-Dimensions,micaL3,MICA Level 3,Y,Y
-Dimensions,micaL2,MICA Level 2,Y,Y
-Dimensions,micaL1,MICA Level 1,Y,Y
-Dimensions,prodCode,Product code,Y,N
-Dimensions,prodL3,Product Level 3,Y,N
-Dimensions,prodL2,Product Level 2,Y,N
-Dimensions,prodL1,Product Level 1,Y,N
-Dimensions,segCode,Segment code,Y,N
-Dimensions,cgL2,Segment (CG L2),Y,N
-Dimensions,cgL1,CG Level 1,Y,N
-Dimensions,funcCode,Function code,Y,N
-Dimensions,funcL2,Function (L2),Y,N
-Dimensions,funcL1,Function Level 1,Y,N
-Dimensions,entity,Entity,Y,N
+Dimensions,mica,MICA code,Y,Y,
+Dimensions,micaL3,MICA Level 3,Y,Y,
+Dimensions,micaL4,MICA Level 4,Y,Y,
+Dimensions,micaL5,MICA Level 5,Y,Y,
+Dimensions,micaL2,MICA Level 2,Y,Y,
+Dimensions,micaL1,MICA Level 1,Y,Y,
+Dimensions,prodCode,Product code,Y,N,
+Dimensions,prodL3,Product Level 3,Y,N,
+Dimensions,prodL2,Product Level 2,Y,N,
+Dimensions,prodL1,Product Level 1,Y,N,
+Dimensions,segCode,Segment code,Y,N,
+Dimensions,cgL2,Segment (CG L2),Y,N,
+Dimensions,cgL1,CG Level 1,Y,N,
+Dimensions,funcCode,Function code,Y,N,
+Dimensions,funcL2,Function (L2),Y,N,
+Dimensions,funcL1,Function Level 1,Y,N,
+Dimensions,entity,Entity,Y,N,
+Dimensions,<new key - e.g. channel>,<label - e.g. Channel>,Y,N,<driller column to match - e.g. channel>
 Views,summary,Y,,
 Views,fsum,Y,,
 Views,custom,Y,,
@@ -115,5 +119,5 @@ Labels,lbl_fc,Include forecast month,,
 Labels,lbl_tol,RAG tolerance,,
 Labels,lbl_varper,Variance period,,
 Labels,lbl_units,Units,,
-Labels,kpi_hint,Click a KPI to analyse it in Mix analysis · drag one onto My dashboard to add a card,,
+Labels,kpi_hint,Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card,,
 Drivers,<line or value - e.g. Loans>,<driver note the AI weaves into commentary>,,

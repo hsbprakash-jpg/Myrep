@@ -601,6 +601,8 @@ table.fsum td.nm{text-align:left;position:sticky;left:0;background:var(--surface
   min-width:230px;max-width:300px;overflow:hidden;text-overflow:ellipsis}
 table.fsum tr.lvl1 td.nm{padding-left:20px;color:var(--text-secondary)}
 table.fsum tr.lvl2 td.nm{padding-left:34px;color:var(--text-secondary)}
+table.fsum tr.lvl3 td.nm{padding-left:48px;color:var(--text-secondary)}
+table.fsum tr.lvl4 td.nm{padding-left:62px;color:var(--text-secondary)}
 table.fsum tr.sub td{font-weight:700;border-top:1px solid var(--border-strong)}
 table.fsum tr.sub td.nm{color:var(--text-primary)}
 table.fsum tr.tot td{font-weight:700;border-top:2px solid var(--border-strong);
@@ -1033,6 +1035,8 @@ const MON_LBL_BASE = [...MON_LBL];
 const DIM_SPECS = [
   {key:'mica',     label:'MICA',             test:n=>n==='mica'},
   {key:'micaL3',   label:'MICA_Level_3',     test:n=>n.includes('micalevel3')},
+  {key:'micaL4',   label:'MICA_Level_4',     test:n=>n.includes('micalevel4'), opt:true},
+  {key:'micaL5',   label:'MICA_Level_5',     test:n=>n.includes('micalevel5'), opt:true},
   {key:'micaL2',   label:'MICA_Level_2',     test:n=>n.includes('micalevel2')},
   {key:'micaL1',   label:'MICA_Level_1',     test:n=>n.includes('micalevel1')},
   {key:'prodCode', label:'Product_code',     test:n=>n.includes('productcode')||n==='productco'},
@@ -1052,6 +1056,8 @@ const DIM_SPECS = [
    Every behavioural rule below reads from CFG; upload a config workbook
    (sheet per section) or flat CSV (Sheet,Key,Value,Extra1,Extra2) to
    override without touching code. */
+function normH(h){ return String(h==null?'':h).toLowerCase().replace(/[^a-z0-9]/g,''); }
+const DIM_BASE_KEYS=new Set(DIM_SPECS.map(sp=>sp.key));
 const CFG_DEFAULT={
   settings:{
     app_title:'IWPB Singapore Driller',
@@ -1107,6 +1113,7 @@ const CFG_DEFAULT={
     fsum_total:'auto',
     fsum_line_order:'',
     fsum_levels:'',
+    fsum_max_levels:'3',
     fsum_ow:'Y',
     fsum_total_label:'',
     fsum_detail:'',
@@ -1149,6 +1156,18 @@ function cfgCompile(){
   RE_BS=cfgRe(cfgS('balance_sheet_patterns'),CFG_DEFAULT.settings.balance_sheet_patterns);
   PRIO_RES=((CFG.tilePriority&&CFG.tilePriority.length)?CFG.tilePriority:CFG_DEFAULT.tilePriority)
     .map(p2=>{ try{ return new RegExp(p2,'i'); }catch(e){ return null; } }).filter(Boolean);
+  cfgSyncDims();
+}
+function cfgSyncDims(){
+  for(let i=DIM_SPECS.length-1;i>=0;i--) if(DIM_SPECS[i].custom) DIM_SPECS.splice(i,1);
+  for(const [k,d] of Object.entries(CFG.dimensions||{})){
+    if(DIM_BASE_KEYS.has(k)||!k||k.startsWith('<')) continue;
+    const pat=normH((d&&(d.match||d.label))||k);
+    if(!pat) continue;
+    const lbl=(d&&d.label)||k;
+    DIM_SPECS.push({key:k, label:lbl, test:n=>n.includes(pat), custom:true});
+    ALL_DIM_LABELS[k]=lbl; FIELD_LABELS[k]=lbl;
+  }
 }
 cfgCompile();
 function cfgDim(k){ return (CFG.dimensions&&CFG.dimensions[k])||CFG_DEFAULT.dimensions[k]||{}; }
@@ -1371,7 +1390,6 @@ function vpSel(m, ytdM){
   return 'auto';
 }
 
-function normH(h){ return String(h==null?'':h).toLowerCase().replace(/[^a-z0-9]/g,''); }
 
 function classifyPeriod(raw, bandVal){
   const t = String(raw==null?'':raw).trim().toLowerCase();
@@ -1448,7 +1466,7 @@ function parseSheet(aoa){
       if(spec.test(normH(header[c]))){ dimCols[spec.key]=c; claimed.add(c); break; }
     }
   }
-  const missing = DIM_SPECS.filter(s=>!(s.key in dimCols)).map(s=>s.label);
+  const missing = DIM_SPECS.filter(s=>!s.custom&&!s.opt&&!(s.key in dimCols)).map(s=>s.label);
   if(!('micaL2' in dimCols)) return {error:'Could not find a MICA_Level_2 column — is this an IWPB driller file?', missing};
 
   // classify remaining columns as periods
@@ -1987,7 +2005,8 @@ const S = {
   ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'', trajLine:'', fsumDepth:0,
   view:'summary', widgets:[],
 };
-const ALL_DIM_LABELS={mica:'MICA code', micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
+const ALL_DIM_LABELS={mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
+  micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
   prodCode:'Product code', prodL3:'Product Level 3', prodL2:'Product Level 2', prodL1:'Product Level 1',
   segCode:'Segment code', cgL2:'Segment (CG L2)', cgL1:'CG Level 1',
   funcCode:'Function code', funcL2:'Function (L2)', funcL1:'Function Level 1', entity:'Entity'};
@@ -3504,6 +3523,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
 
 /* ================= drag & drop chart builder ================= */
 const FIELD_LABELS={micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
+  micaL4:'MICA Level 4', micaL5:'MICA Level 5',
   prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3', prodCode:'Product code',
   cgL1:'CG Level 1', cgL2:'Segment (CG L2)', funcL1:'Function Level 1', funcL2:'Function (L2)', entity:'Entity'};
 const CAT_COLORS=['var(--cat1)','var(--cat2)','var(--cat3)','var(--cat4)','var(--cat5)','var(--cat6)','var(--cat7)'];
@@ -4437,12 +4457,16 @@ function setView(v){
    the month, quarter and year-to-date columns all move together. */
 function fsumLvStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_fsumlv')||'null'); }catch(e){ return null; } }
 function fsumLvSave(a){ try{ localStorage.setItem('iwpbsg_fsumlv',JSON.stringify(a)); }catch(e){} }
+function fsumMaxLv(){
+  const v=parseInt(cfgS('fsum_max_levels'));
+  return isFinite(v)&&v>=1? Math.min(v,6) : 3;
+}
 function fsumLevels(){
-  const m=S.model;
+  const m=S.model, mx=fsumMaxLv();
   const own=fsumLvStore();
-  if(Array.isArray(own)){ const v=own.filter(k=>k in m.dimCols); if(v.length) return v.slice(0,3); }
+  if(Array.isArray(own)){ const v=own.filter(k=>k in m.dimCols); if(v.length) return v.slice(0,mx); }
   const want=cfgS('fsum_levels').split(/[,;\s]+/).filter(x=>x&&x in m.dimCols);
-  return want.length? want.slice(0,3) : houseLevels();
+  return want.length? want.slice(0,mx) : houseLevels();
 }
 /* how deep the cascade rolls up: 1 = Level 1 rollups only, 2 adds the Level 2
    lines, 3 the full o/w detail — the user's pick, else the configuration */
@@ -4529,7 +4553,7 @@ function fsumFigs(rows, m, P, ytdM){
    in the same materiality order the KPI tiles use */
 function fsumTopCount(rows){ return groupBy(rows, fsumLevels()[0]).size; }
 function fsumTree(rows){
-  const lv=fsumLevels().slice(0,fsumDepth()), L1=lv[0], L2=lv[1], L3=lv[2];
+  const lv=fsumLevels().slice(0,fsumDepth()), L1=lv[0];
   const ow=cfgYes('fsum_ow')? 'o/w ' : '';
   const m=S.model, out=[];
   const size=rs=>Math.abs(kpi(rs,m,S.ytdM,S.includeFC).cy||0);
@@ -4553,14 +4577,17 @@ function fsumTree(rows){
     rest.sort((a,b)=>firstAt(a[1])-firstAt(b[1]));
     return [...prio,...rest].sort((a,b)=>(isBSLine(a[0])?1:0)-(isBSLine(b[0])?1:0));
   };
-  for(const [n1,rs1] of ordered(groupBy(rows,L1), true)){
-    const g2=L2? ordered(groupBy(rs1,L2)) : [];
-    const skip2=g2.length<=1;   // a lone child repeats its parent — show it once
-    if(!skip2) for(const [n2,rs2] of g2){
-      out.push({name:n2, rows:rs2, lvl:1});
-      const g3=L3? ordered(groupBy(rs2,L3)) : [];
-      if(g3.length>1) for(const [n3,rs3] of g3) out.push({name:ow+n3, rows:rs3, lvl:2});
+  const walk=(rs,li,depth)=>{
+    const Lk=lv[li]; if(!Lk) return;
+    const g=ordered(groupBy(rs,Lk));
+    if(g.length<=1){ if(g.length===1) walk(g[0][1], li+1, depth); return; }
+    for(const [n,rs2] of g){
+      out.push({name:(depth>=2?ow:'')+n, rows:rs2, lvl:Math.min(depth,4)});
+      walk(rs2, li+1, depth+1);
     }
+  };
+  for(const [n1,rs1] of ordered(groupBy(rows,L1), true)){
+    walk(rs1, 1, 1);
     out.push({name:n1, rows:rs1, lvl:0, sub:true});
   }
   return out;
@@ -4804,7 +4831,7 @@ function renderFsumLv(){
     const a=cur.filter(k=>k!==key);
     if(at==null||at>a.length) at=a.length;
     a.splice(at,0,key);
-    while(a.length>3){
+    while(a.length>fsumMaxLv()){
       const last=a.length-1;
       a.splice(a[last]===key? last-1 : last, 1);   // the newcomer always survives
     }
@@ -5997,11 +6024,11 @@ function cfgFromWorkbook(wb){
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
     for(const r of rows){
       if(!r||r.every(c=>c==null||c==='')) continue;
-      const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]);
-      if(/^(key|order|view|dimension)$/i.test(a)) continue;
+      const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]), e2=low(r[4]);
+      if(/^(key|order|view|dimension)$/i.test(a)||a.startsWith('<')) continue;
       if(sec==='settings'||sec==='calculations'){ if(a) cfg.settings[a.toLowerCase()]=b2; }
       else if(sec==='tilepriority'){ const pat=b2||a; if(pat) tp.push(pat); }
-      else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'N'}; }
+      else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'N', match:e2||null}; }
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
       else if(sec==='labels'){ if(a) cfg.labels[a.toLowerCase()]=b2; }
       else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
@@ -6038,11 +6065,12 @@ function handleCfgFile(file){
 }
 function cfgTemplateCSV(){
   const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; };
-  const rows=[['Sheet','Key','Value','Extra1','Extra2'],
+  const rows=[['Sheet','Key','Value','Extra1','Extra2','Extra3'],
     ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>!k.startsWith('calc_')).map(([k,v])=>['Settings',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>k.startsWith('calc_')).map(([k,v])=>['Calculations',k,v,'','']),
     ...CFG_DEFAULT.tilePriority.map((p2,i)=>['TilePriority',String(i+1),p2,'','']),
-    ...Object.entries(CFG_DEFAULT.dimensions).map(([k,d])=>['Dimensions',k,ALL_DIM_LABELS[k]||k,d.filter,d.sim]),
+    ...Object.entries(CFG_DEFAULT.dimensions).map(([k,d])=>['Dimensions',k,ALL_DIM_LABELS[k]||k,d.filter,d.sim,'']),
+    ['Dimensions','<new key - e.g. channel>','<label - e.g. Channel>','Y','N','<driller column to match - e.g. channel>'],
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
     ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','','']];
