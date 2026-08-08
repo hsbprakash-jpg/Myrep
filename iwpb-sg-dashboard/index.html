@@ -398,9 +398,30 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .twocol{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:12px;margin-bottom:12px;align-items:start}
 #sumPanels{margin-top:22px;align-items:stretch}
 #sumPanels .panel{display:flex;flex-direction:column}
-#sumPanels #trajChart{flex:1;display:flex;flex-direction:column;justify-content:flex-end}
+#sumPanels #trajChart{flex:1;display:flex;flex-direction:column;justify-content:flex-start}
 .actlist{margin:6px 0 2px 16px;padding:0;display:grid;gap:9px}
 .actlist li{line-height:1.5}
+.decbadge{background:var(--surface-2,#f2f2f2);border:1px solid var(--border);border-radius:6px;
+  min-width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:12.5px;font-weight:800;padding:0 7px}
+.decbadge:empty{display:none}
+.deccard{border:1px solid var(--border);border-left-width:4px;border-radius:8px;
+  padding:9px 12px;margin-bottom:9px;font-size:12.5px;background:var(--surface-1)}
+.deccard.sev-r{border-left-color:var(--status-critical)}
+.deccard.sev-a{border-left-color:var(--status-warning)}
+.deccard.sev-g{border-left-color:var(--status-success,#0b7a0b)}
+.dechead{display:flex;align-items:baseline;gap:8px}
+.dechead b{font-size:13px}
+.deccard.sev-r .decicon{color:var(--status-critical)}
+.deccard.sev-a .decicon{color:var(--status-warning)}
+.deccard.sev-g .decicon{color:var(--status-success,#0b7a0b)}
+.decimp{margin-left:auto;font-weight:800;white-space:nowrap}
+.decimp.neg{color:var(--status-critical)}
+.decimp.pos{color:var(--status-success,#0b7a0b)}
+.decbody{margin:6px 0 8px;color:var(--text-secondary);line-height:1.55}
+.decbody b{color:var(--text-primary)}
+.decfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:11.5px;color:var(--text-muted)}
 @media (max-width:1180px){.twocol{grid-template-columns:1fr}}
 .trio{display:flex;gap:20px;margin:6px 0 2px;flex-wrap:wrap}
 .trio .t .tv{font-size:17px;font-weight:750;font-variant-numeric:tabular-nums}
@@ -767,9 +788,13 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="twocol" id="sumPanels">
       <div class="panel" id="trajPanel" style="margin-bottom:0"></div>
       <div class="panel" id="actPanel" style="margin-bottom:0">
-        <div class="panel-head"><div><h4>Decisions &amp; actions</h4>
-          <p class="subtitle" id="actSub"></p></div></div>
-        <div id="trajCom"></div>
+        <div class="panel-head"><div>
+          <div class="eyebrow" style="margin-bottom:2px" data-lbl="dec_eyebrow">Decisions required</div>
+          <h4 style="text-transform:none;letter-spacing:normal;font-size:14.5px" data-lbl="dec_title">Executive decisions</h4>
+          <p class="subtitle" id="actSub"></p></div>
+          <span class="decbadge" id="decCount" title="Lines outside tolerance"></span></div>
+        <div id="decList"></div>
+        <div id="trajCom" style="display:none"></div>
       </div>
     </div>
     <div class="panel" id="housePanel">
@@ -1124,6 +1149,7 @@ const CFG_DEFAULT={
     fsum_total_label:'',
     fsum_residual_label:'Other',
     fsum_parent_row:'top',
+    decisions_max:'3',
     fsum_detail:'',
     bs_unit:'bn',
     fsum_bs_label:'Balance Sheet',
@@ -1231,7 +1257,8 @@ const CFG_DEFAULT={
     drv_hint:'Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.',
     lbl_ytd:'YTD through', lbl_fc:'Include forecast month', lbl_tol:'RAG tolerance',
     lbl_varper:'Variance period', lbl_units:'Units',
-    kpi_hint:'Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card'
+    kpi_hint:'Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card',
+    dec_eyebrow:'Decisions required', dec_title:'Executive decisions'
   }
 };
 for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:/^mica/.test(sp.key)?'Y':'N'};
@@ -2682,7 +2709,6 @@ function renderSummary(){
   }
   $('trajChart').dataset.h='205';
   trendChart($('trajChart'), cumAct, cmpCum, m.yearCY, cmpName, 'line', annots);
-  $('actSub').textContent=`${jName} — what the trajectory calls for · rated on ${L.period}`;
   aiComment($('trajCom'), 'traj|'+filterNote()+'|'+S.ytdM+'|'+L.vp+'|'+L.mode+'|'+(subj?subj.key:''), ()=>{
     const act=kJ.cySeries.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
     const best=act.length? act.reduce((a,b)=>b.val>a.val?b:a) : null;
@@ -2714,6 +2740,7 @@ function renderSummary(){
   const tls=$('trajLine');
   if(tls) tls.addEventListener('change',e=>{ S.trajLine=e.target.value; renderSummary(); });
 
+  renderDecisions(cards, L);
   // attention required — anything not green
   const attn=cards.filter(c=>!cmpHidden(c.l2)&&['a','r'].includes(rag(c.k.favVarPct,S.thresh).cls))
     .sort((a,b)=>(a.k.favVarPct??0)-(b.k.favVarPct??0)).slice(0,4);
@@ -3701,6 +3728,53 @@ function scopeName(sc){
 /* Every line the summary can be about, taken from the MICA hierarchy. A file
    that mixes statements has no meaningful grand total, so the trajectory and
    the landing narrative are about a chosen line rather than the sum of all. */
+/* the executive-decisions panel: inferences computed from the figures —
+   position vs the basis, the full-year gap, the run-rate the remaining
+   months must average — never narrative commentary */
+function renderDecisions(cards, L){
+  const host=$('decList'); if(!host) return;
+  const maxN=Math.max(1, parseInt(cfgS('decisions_max'),10)||3);
+  const sevRank={r:0,a:1,g:2,n:3};
+  const pool=cards.filter(c=>!cmpHidden(c.l2)&&c.k.favVarPct!=null)
+    .map(c=>({...c, rg:rag(c.k.favVarPct,S.thresh)}))
+    .sort((a,b)=>(sevRank[a.rg.cls]-sevRank[b.rg.cls])
+      ||Math.abs(b.k.favVarPct??0)-Math.abs(a.k.favVarPct??0));
+  const act=pool.filter(c=>c.rg.cls!=='g');
+  const show=(act.length? act : pool).slice(0,maxN);
+  const cnt=$('decCount'); if(cnt) cnt.textContent=act.length? String(act.length) : '';
+  const sub=$('actSub'); if(sub) sub.textContent=`Inferences from the data · rated on ${L.period}`;
+  const rem=12-(S.ytdM+1);
+  host.innerHTML=show.map(c=>{
+    const k=c.k, fav=(k.favVarPct??0)>=0, sfx=fav?'F':'A';
+    const inf=[];
+    if(k.cmpMain!=null&&k.cmpBase!=null)
+      inf.push(`${esc(L.main)} <b>${fmtK(k,k.cmpMain)}</b> vs ${esc(k.isBS? bsBaseLbl(L.mode) : L.base)} <b>${fmtK(k,k.cmpBase)}</b> — <b>${fmtPct(k.cmpVarPct)}</b>.`);
+    if(k.outlook!=null&&k.target!=null)
+      inf.push(`${k.isBS?'Dec closing (fcst)':'FY outlook'} <b>${fmtK(k,k.outlook)}</b> vs target <b>${fmtK(k,k.target)}</b> — <b>${fmtPct(k.varTgtPct)}</b>.`);
+    if(!k.isBS&&k.target!=null&&rem>0&&k.cy!=null){
+      const act3=(k.cySeries||[]).filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
+      if(act3.length){
+        const req=(k.target-k.cy)/rem, cur=k.cy/act3.length;
+        if(cur!==0) inf.push(`Needs <b>${fmt(req)}</b>/month over the remaining <b>${rem}</b> months vs run-rate <b>${fmt(cur)}</b> — <b>${fmtPct((req-cur)/Math.abs(cur))}</b>.`);
+      }
+    }
+    return `<div class="deccard sev-${c.rg.cls}">
+      <div class="dechead"><span class="decicon" aria-hidden="true">${c.rg.cls==='r'?'\u26a0':'\u25cf'}</span>
+        <b>${esc(c.l2)}</b>
+        <span class="decimp ${fav?'pos':'neg'}">${k.cmpVar!=null? fmtK(k,Math.abs(k.cmpVar))+sfx : ''}${k.cmpVarPct!=null? ' / '+fmtPct(Math.abs(k.cmpVarPct)):''}</span></div>
+      <div class="decbody">${inf.join('<br>')}</div>
+      <div class="decfoot"><span>${esc(c.rg.label)} \u00b7 ${esc(L.vs)}</span>
+        <button class="btn-quiet decgo" data-name="${esc(c.l2)}">Review trajectory \u2192</button></div>
+    </div>`;
+  }).join('')
+  +(act.length>show.length? `<p class="note">+${act.length-show.length} more lines outside tolerance \u2014 see the left rail.</p>`
+    : (!act.length? `<p class="note">All lines within tolerance on ${esc(L.period)} \u2014 no decisions required.</p>` : ''));
+  host.querySelectorAll('.decgo').forEach(b=>b.addEventListener('click',()=>{
+    const lo=summaryLineOptions(filteredRows()).find(o=>o.name===b.dataset.name);
+    if(lo){ S.trajLine=lo.key; render();
+      const sp=$('sumPanels'); if(sp) sp.scrollIntoView({behavior:'smooth',block:'start'}); }
+  }));
+}
 function summaryLineOptions(rows){
   const m=S.model, out=[], seen=new Set();
   const dims=[...new Set(tileDims())];

@@ -102,12 +102,17 @@ A single header row with:
   Because the tiles carry their own units, the *Financial Performance*
   header carries none.
 - **Summary layout** — the tiles sit in equal-height cards; below them the
-  performance trajectory takes the left column and a **Decisions &
-  actions** panel the right, the two stretched to the same height with the
-  graph sized to fill its panel. The panel turns the trajectory's reading
-  into action bullets — position vs the basis, momentum, outlook vs
-  target, and the run-rate the remaining months must average to hit it —
-  and is editable and lockable like every other commentary. The
+  performance trajectory takes the left column and an **Executive
+  decisions** panel the right, the two stretched to the same height. The
+  panel is computed, never narrated: the lines outside tolerance rank
+  worst-first as decision cards, each with a severity flag, the variance
+  as its headline impact figure (233A / +11.5%), and the inferences the
+  data supports — position vs the basis, the full-year gap to target, and
+  the run-rate the remaining months must average — plus a *Review
+  trajectory* action that points the chart at that line. A count badge
+  carries the number of lines outside tolerance, cards cap at
+  `decisions_max` (default 3) with the overflow noted, and a file with
+  everything inside tolerance says so instead. The
   Management commentary sits full-width beneath the pair. Clicking a tile
   (or a KPI in the left rail) points the trajectory and its actions at
   that line. The mix-analysis panel no longer shows on this page, though
