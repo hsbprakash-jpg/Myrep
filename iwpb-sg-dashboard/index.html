@@ -1816,6 +1816,17 @@ function cmpHidden(name){
   return RE_HIDE.test(String(name||''));
 }
 /* comparison rows for a driller-style KPI tile: label + variance amount + % */
+const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
+  return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
+function kpiRowHtml(k,r){
+  const fav=(k.dirFlip? -(r.p??0) : (r.p??0))>=0;
+  const raw=r.v??r.p??0;
+  const up=((k.costLike&&!k.dirFlip)? -raw : raw)>=0;
+  const c=fav?'fav':'unfav', tri=up?'\u25B2':'\u25BC';
+  return `<div class="krow"><span class="kl">${esc(r.lbl)}</span>
+    <span class="kv ${c}">${r.v==null?'\u2013':tri+fmtK(k,Math.abs(r.v))}</span>
+    <span class="kv ${c}">${r.p==null?'':tri+pctAbs(r.p)}</span></div>`;
+}
 function tileRows(k,m){
   const rows=[];
   // the selected variance period always leads; the standard rows follow
@@ -2586,15 +2597,7 @@ function renderSummary(){
   // direction triangles (colour = favourability, triangle = movement)
   const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
     return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
-  const tileRowHtml=(k,r)=>{
-    const fav=(k.dirFlip? -(r.p??0) : (r.p??0))>=0;
-    const raw=r.v??r.p??0;
-    const up=((k.costLike&&!k.dirFlip)? -raw : raw)>=0;
-    const c=fav?'fav':'unfav', tri=up?'\u25B2':'\u25BC';
-    return `<div class="krow"><span class="kl">${esc(r.lbl)}</span>
-      <span class="kv ${c}">${r.v==null?'\u2013':tri+fmtK(k,Math.abs(r.v))}</span>
-      <span class="kv ${c}">${r.p==null?'':tri+pctAbs(r.p)}</span></div>`;
-  };
+  const tileRowHtml=kpiRowHtml;
   const cardHtml=(name,l1,k,l2attr,hideCmp)=>{
     const trs=hideCmp?[]:tileRows(k,m);
     const tu=(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
@@ -6284,15 +6287,16 @@ function renderCustom(){
       const Lw=cmpLabels(m);
       const hidew=cmpHidden(w.l2);
       const rgw=rag(k.favVarPct,S.thresh);
-      const subw= hidew? `${esc(Lw.main)} actuals`
-        : `${fmtPct(k.cmpVarPct)} ${esc(k.isBS? 'vs '+bsBaseLbl(Lw.mode).toLowerCase() : Lw.vs)} (${fmtK(k,Math.abs(k.cmpVar??0))})`;
+      const trsw=hidew? [] : tileRows(k,m);
       const cviz=(w.ctype||'hbar')==='line'? sparkline(k.cySeries,250,42)
         : (w.ctype||'hbar')==='column'? miniCol(k.cySeries)
         : (w.ctype||'hbar')==='table'? miniMonthTable(k.cySeries)
         : miniHBar(k.cySeries);
-      body=`<div class="val${(k.cmpMain||0)<0?' negnum':''}">${(k.isBS&&bsUnit())? fmtBS(k.cmpMain) : fmt(k.cmpMain)}</div>
-        <div class="row" style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span class="delta">${subw}</span>${hidew?'':ragPill(rgw)}</div>
+      body=`<div class="row" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="val${(k.cmpMain||0)<0?' negnum':''}">${(k.isBS&&bsUnit())? fmtBS(k.cmpMain) : fmt(k.cmpMain)}</div>
+          ${hidew?'':ragPill(rgw)}</div>
+        ${trsw.length? trsw.map(r=>kpiRowHtml(k,r)).join('')
+          : `<div class="krow actonly"><span class="kl">${esc(Lw.main)} actuals</span></div>`}
         <div style="margin-top:8px">${cviz}</div>`;
     } else if(w.type==='traj'){
       const tj=trajSeries(k,m);

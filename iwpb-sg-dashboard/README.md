@@ -477,8 +477,11 @@ What each section governs:
   comma-bearing names stay whole) always wins. From each card the usual
   flows make graphs and tables: click for the trajectory, drag a
   left-rail metric onto **My dashboard** for a card/spark/table widget
-  scoped to it, and the "Metrics" group heads the scope pickers in Mix
-  analysis and the drag & drop chart builder. Everything resolves
+  scoped to it — dashboard KPI cards carry the same multi-comparison
+  stack as the tiles and the reporting pack (the selected basis, vs PY,
+  vs Fcst and FY vs Tgt, whichever the file can serve, each as coloured
+  amount + %) above the mini chart — and the "Metrics" group heads the
+  scope pickers in Mix analysis and the drag & drop chart builder. Everything resolves
   through one scope machinery, exports included. Uploaded Metrics rows replace the
   built-in list wholesale.
 - **Views** — enable/disable each page (summary, fsum, custom, builder,
