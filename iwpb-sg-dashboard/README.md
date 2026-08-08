@@ -547,8 +547,12 @@ The **Drag & drop charts** page is a field-based chart builder. Drag any
 dimension chip (MICA levels, Product levels/code, Segment, Function, Entity)
 into the **Group by** well — or click a chip to assign it — and optionally a
 second field into **Split by** for stacked segments. Pick the KPI scope, the
-measure (YTD current year, YTD prior year, or variance) and the chart type;
-the preview renders live and respects the right-pane filters.
+measure and the chart type; the preview renders live and respects the
+right-pane filters. The measure dropdown offers every comparison the file
+serves, whatever else it carries: YTD actuals, paired **actual vs PY / vs
+YTD forecast / vs YTD target** (side-by-side bars with variance labels),
+the single bases and their variances, and the FY measures — a prior-year
+file no longer hides the forecast and target measures.
 
 Eleven chart types are available everywhere a chart-type dropdown appears
 (Mix analysis, the builder, and every pinned chart widget): Column,

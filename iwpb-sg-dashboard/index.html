@@ -3854,6 +3854,8 @@ function cmpPairs(){
   const m=S.model;
   return {
     cmpfc:{a:k=>k.cy, b:k=>k.ytdFc, an:`YTD ${m.yearCY} actual`, bn:'YTD forecast'},
+    cmppy:{a:k=>k.cy, b:k=>k.py, an:`YTD ${m.yearCY} actual`, bn:`YTD ${m.yearPY}`},
+    cmptgt:{a:k=>k.cy, b:k=>k.ytdTgt, an:`YTD ${m.yearCY} actual`, bn:'YTD target'},
     cmpfy:{a:k=>k.fyPrior, b:k=>k.fyFc, an:`FY-${m.fyPriorLabel||'PY'} actuals`, bn:'FY forecast'}
   };
 }
@@ -3871,6 +3873,10 @@ function measureLabel(mea){
     case 'ytdfc': return 'YTD forecast (phased)';
     case 'vfc': return 'Variance vs YTD forecast';
     case 'cmpfc': return 'YTD actual vs YTD forecast';
+    case 'cmppy': return 'YTD actual vs YTD PY';
+    case 'cmptgt': return 'YTD actual vs YTD target';
+    case 'ytdtgt': return 'YTD target';
+    case 'vyt': return 'Variance vs target (YTD)';
     case 'cmpfy': return `FY-${m.fyPriorLabel||'PY'} actuals vs FY forecast`;
     default: return `YTD ${m.yearCY}`;
   }
@@ -3878,12 +3884,13 @@ function measureLabel(mea){
 function measureOpts(){
   const m=S.model;
   const sel=cmpLabels(m).vp!=='auto'? ['basis','basisvar'] : [];
-  if(m.pyMonths.length) return [...sel,'cy','py','var'];
   const o=[...sel,'cy'];
-  if(m.fyFcCols&&m.fyFcCols.length) o.push('cmpfc','ytdfc','vfc');
+  if(m.pyMonths.length) o.push('cmppy','py','var');
+  const hasYtdFc=m.ytdFcAsOfCols&&m.ytdFcAsOfCols.length;
+  if(hasYtdFc||fcBasis(m)) o.push('cmpfc','ytdfc','vfc');
+  if(m.ytdTgtAsOfCols&&m.ytdTgtAsOfCols.length) o.push('cmptgt','ytdtgt','vyt');
   if(m.fyFcCols&&m.fyFcCols.length&&m.fyPriorCols&&m.fyPriorCols.length) o.push('cmpfy');
   o.push('outlook');
-  if(m.targetCols&&m.targetCols.length) o.push('target','vtgt');
   if(m.fyPriorCols&&m.fyPriorCols.length) o.push('fypy');
   return o;
 }
@@ -3895,7 +3902,9 @@ function pickMeasure(k, mea){
     case 'outlook': return k.outlook; case 'target': return k.target;
     case 'vtgt': return k.varTgt; case 'fypy': return k.fyPrior;
     case 'ytdfc': return k.ytdFc; case 'vfc': return k.varFc;
-    case 'cmpfc': return k.cy; case 'cmpfy': return k.fyPrior;
+    case 'ytdtgt': return k.ytdTgt; case 'vyt': return k.varYT;
+    case 'cmpfc': return k.cy; case 'cmppy': return k.cy;
+    case 'cmptgt': return k.cy; case 'cmpfy': return k.fyPrior;
     default: return k.cy;
   }
 }
