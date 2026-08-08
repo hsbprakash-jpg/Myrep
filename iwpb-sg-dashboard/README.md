@@ -212,9 +212,13 @@ A single header row with:
   the same level under the same parent, so statements stay apart and a
   child can't leave its parent. The order persists in the browser, every
   export follows it, and a *Reset row order* link under the table restores
-  the default. The whole arrangement can be kept as a **named view**:
+  the default. Every parent row carries a **− / + toggle**: collapse a
+  line and its children fold away while the parent's own figures stay
+  put, at any depth — the fold state persists in the browser, exports
+  follow the folded view, and an *Expand all* link under the table
+  reopens everything. The whole arrangement can be kept as a **named view**:
   *Save view…* beside the roll-up selector snapshots the cascade levels,
-  roll-up depth and dragged row order under a name you give it, the
+  roll-up depth, dragged row order and fold state under a name you give it, the
   picker switches between saved views, ✕ deletes the selected one, and
   the last applied view is remembered in the browser and restored on the
   next visit. When the cascade runs on hierarchy levels, lines the mapping

@@ -623,6 +623,11 @@ table.fsum td.nm{text-align:left;position:sticky;left:0;background:var(--surface
 table.fsum tr.lvl1 td.nm{padding-left:20px;color:var(--text-secondary)}
 table.fsum tr.lvl2 td.nm{padding-left:34px;color:var(--text-secondary)}
 table.fsum tr[draggable="true"] td.nm{cursor:grab}
+.fsumtog{width:17px;height:17px;line-height:1;border:1px solid var(--border-strong);
+  border-radius:4px;background:var(--surface-1);cursor:pointer;font-size:12px;font-weight:800;
+  padding:0;margin-right:7px;color:var(--text-secondary);vertical-align:baseline;display:inline-flex;
+  align-items:center;justify-content:center}
+.fsumtog:hover{color:var(--text-primary);border-color:var(--text-muted)}
 table.fsum tr.rowtgt td{box-shadow:inset 0 2px 0 var(--fold-red)}
 table.fsum tr.lvl3 td.nm{padding-left:48px;color:var(--text-secondary)}
 table.fsum tr.lvl4 td.nm{padding-left:62px;color:var(--text-secondary)}
@@ -4799,12 +4804,13 @@ function fsumViewActive(){ try{ return localStorage.getItem('iwpbsg_fsumview_act
 function fsumViewSetActive(n){ try{ n? localStorage.setItem('iwpbsg_fsumview_active',n)
   : localStorage.removeItem('iwpbsg_fsumview_active'); }catch(e){} }
 function fsumViewSnapshot(){
-  return {lv:fsumLevels(), depth:fsumDepth(), ord:fsumOrdStore()};
+  return {lv:fsumLevels(), depth:fsumDepth(), ord:fsumOrdStore(), col:[...fsumColStore()]};
 }
 function fsumViewApply(name){
   const v=fsumViewsStore()[name]; if(!v) return;
   fsumLvSave(Array.isArray(v.lv)&&v.lv.length? v.lv : fsumLevels());
   fsumOrdSave(v.ord&&typeof v.ord==='object'? v.ord : {});
+  fsumColSave(new Set(Array.isArray(v.col)? v.col : []));
   S.fsumDepth=v.depth||0;
   fsumViewSetActive(name);
   renderFsum();
@@ -4833,6 +4839,12 @@ function fsumViewControls(){
     const all=fsumViewsStore(); delete all[n]; fsumViewsSave(all);
     fsumViewSetActive(''); renderFsum();
   };
+}
+function fsumColStore(){ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_fsumcol')||'null');
+  return new Set(Array.isArray(v)? v : []); }catch(e){ return new Set(); } }
+function fsumColSave(set){ try{ localStorage.setItem('iwpbsg_fsumcol',JSON.stringify([...set])); }catch(e){} }
+function fsumColToggle(key){
+  const c=fsumColStore(); c.has(key)? c.delete(key) : c.add(key); fsumColSave(c); renderFsum();
 }
 function fsumOrdStore(){ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_fsumord')||'null');
   return (v&&typeof v==='object'&&!Array.isArray(v))? v : {}; }catch(e){ return {}; } }
@@ -4893,6 +4905,15 @@ function fsumTree(rows){
     for(const e of g) (fsumPadGroup(Lk,e[0],e[1])? pad : main).push(e);
     return {main, pad};
   };
+  const COL=fsumColStore();
+  const hasChildren=(rs,li)=>{
+    const Lk=lv[li]; if(!Lk) return false;
+    const g=[...groupBy(rs,Lk).entries()];
+    if(g.length<=1) return g.length===1? hasChildren(g[0][1], li+1) : false;
+    const main=g.filter(([n,rs2])=>!fsumPadGroup(Lk,n,rs2));
+    if(!main.length) return hasChildren(rs, li+1);
+    return true;
+  };
   const walk=(rs,li,depth,path)=>{
     const Lk=lv[li]; if(!Lk) return;
     const scope=Lk+':'+path.join('>');
@@ -4901,8 +4922,11 @@ function fsumTree(rows){
     const {main,pad}=splitPad(g,Lk);
     if(!main.length){ walk(rs, li+1, depth, path); return; }
     for(const [n,rs2] of main){
-      out.push({name:(depth>=2?ow:'')+n, rows:rs2, lvl:Math.min(depth,4), ord:{scope, name:n}});
-      walk(rs2, li+1, depth+1, [...path,n]);
+      const key=[...path,n].join('>');
+      const kn=hasChildren(rs2, li+1);
+      out.push({name:(depth>=2?ow:'')+n, rows:rs2, lvl:Math.min(depth,4),
+        ord:{scope, name:n}, key, kids:kn, closed:kn&&COL.has(key)});
+      if(kn&&!COL.has(key)) walk(rs2, li+1, depth+1, [...path,n]);
     }
     for(const [,rs2] of pad)
       out.push({name:(depth>=2?ow:'')+RESID, rows:rs2, lvl:Math.min(depth,4)});
@@ -4912,9 +4936,11 @@ function fsumTree(rows){
   const gTop=ordered(groupBy(rows,L1), true, topScope);
   const {main:topMain,pad:topPad}=splitPad(gTop,L1);
   for(const [n1,rs1] of (topMain.length? topMain : gTop)){
-    const row={name:n1, rows:rs1, lvl:0, sub:true, ord:{scope:topScope, name:n1}};
+    const kn=hasChildren(rs1, 1);
+    const row={name:n1, rows:rs1, lvl:0, sub:true, ord:{scope:topScope, name:n1},
+      key:n1, kids:kn, closed:kn&&COL.has(n1)};
     if(pTop) out.push(row);
-    walk(rs1, 1, 1, [n1]);
+    if(kn&&!COL.has(n1)) walk(rs1, 1, 1, [n1]);
     if(!pTop) out.push(row);
   }
   if(topMain.length) for(const [,rs1] of topPad)
@@ -5075,7 +5101,8 @@ function renderFsum(){
     const f=fsumFigs(r.rows,m,P,S.ytdM);
     const cls=(r.tot?'tot':r.sub?'sub':'lvl'+r.lvl);
     const drag=r.ord? ` draggable="true" data-oscope="${esc(r.ord.scope)}" data-oname="${esc(r.ord.name)}"` : '';
-    body+=`<tr class="${cls}"${drag}><td class="nm" title="${esc(r.name)}${r.ord?' — drag onto a sibling line to reorder; its o/w lines move with it':''}">${esc(r.name)}</td>`+
+    const tog=r.kids? `<button class="fsumtog" data-key="${esc(r.key)}" title="${r.closed?'Expand':'Collapse'} ${esc(r.name)}" aria-expanded="${!r.closed}">${r.closed?'+':'\u2212'}</button>` : '';
+    body+=`<tr class="${cls}"${drag}><td class="nm" title="${esc(r.name)}${r.ord?' — drag onto a sibling line to reorder; its o/w lines move with it':''}">${tog}${esc(r.name)}</td>`+
       f.mon.map(v=>`<td>${fsumNum(v,f.bs)}</td>`).join('')+
       `<td>${fsumVar(f.k,f.mVsFc,f.bs)}</td><td>${fsumVar(f.k,f.mVsTgt,f.bs)}</td><td>${fsumVar(f.k,f.mVsPM,f.bs)}</td>`+
       `<td class="bandend">${fsumVar(f.k,f.mVsPY,f.bs)}</td>`+
@@ -5099,6 +5126,10 @@ function renderFsum(){
     dSel.style.display=lvAll.length>1?'':'none';
   }
   const tbl=$('fsumTable');
+  tbl.querySelectorAll('.fsumtog').forEach(b=>{
+    b.addEventListener('click',e=>{ e.stopPropagation(); fsumColToggle(b.dataset.key); });
+    b.addEventListener('dragstart',e=>{ e.preventDefault(); e.stopPropagation(); });
+  });
   tbl.querySelectorAll('tr[data-oscope]').forEach(tr=>{
     tr.addEventListener('dragstart',e=>{ FSUM_ROW_DRAG={scope:tr.dataset.oscope, name:tr.dataset.oname};
       try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',tr.dataset.oname); }catch(err){} });
@@ -5127,11 +5158,15 @@ function renderFsum(){
   if(!m.pyMonths.length) gaps.push('vs PY and vs PQ (no prior-year columns in this file)');
   if(!(m.targetCols&&m.targetCols.length)) gaps.push('vs Target (no FY target column)');
   if(kpi(rows,m,S.ytdM,S.includeFC).fyFc==null) gaps.push('vs Fcst (no forecast column or months)');
-  $('fsumNote').innerHTML=(gaps.length? 'Shown as – : '+esc(gaps.join(' · ')) : '')+
-    (Object.keys(fsumOrdStore()).length?
-      `${gaps.length?' · ':''}<button class="linklike" id="fsumOrdReset">Reset row order</button>`:'');
+  const noteBits=[];
+  if(gaps.length) noteBits.push('Shown as – : '+esc(gaps.join(' · ')));
+  if(Object.keys(fsumOrdStore()).length) noteBits.push(`<button class="linklike" id="fsumOrdReset">Reset row order</button>`);
+  if(fsumColStore().size) noteBits.push(`<button class="linklike" id="fsumColReset">Expand all</button>`);
+  $('fsumNote').innerHTML=noteBits.join(' · ');
   const rstB=$('fsumOrdReset');
   if(rstB) rstB.onclick=()=>{ try{ localStorage.removeItem('iwpbsg_fsumord'); }catch(e){} renderFsum(); };
+  const colB=$('fsumColReset');
+  if(colB) colB.onclick=()=>{ try{ localStorage.removeItem('iwpbsg_fsumcol'); }catch(e){} renderFsum(); };
   aiComment($('fsumCom'), 'fsum|'+filterNote(true)+'|'+S.ytdM+'|'+drvSig(),
     {ctx:filterNote(true)}, ()=>fsumCommentary(rows,m,P));
 }
