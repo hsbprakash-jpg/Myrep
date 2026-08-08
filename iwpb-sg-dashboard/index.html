@@ -1123,6 +1123,7 @@ const CFG_DEFAULT={
     fsum_ow:'Y',
     fsum_total_label:'',
     fsum_residual_label:'Other',
+    fsum_parent_row:'top',
     fsum_detail:'',
     bs_unit:'bn',
     fsum_bs_label:'Balance Sheet',
@@ -4666,6 +4667,7 @@ function fsumPadGroup(Lk,n,rs){
   const nm=String(n).trim();
   return rs.every(r2=>String(r2.d[pk]||'').trim()===nm);
 }
+function fsumParentTop(){ return cfgS('fsum_parent_row').trim().toLowerCase()!=='bottom'; }
 function fsumAncestorTotal(rows){
   const mh=HIER_LV_RE.exec(fsumLevels()[0]||''); if(!mh||+mh[2]<2) return '';
   const pk=mh[1]+(+mh[2]-1);
@@ -4729,11 +4731,14 @@ function fsumTree(rows){
       out.push({name:(depth>=2?ow:'')+RESID, rows:rs2, lvl:Math.min(depth,4)});
   };
   const topScope='top:'+L1;
+  const pTop=fsumParentTop();
   const gTop=ordered(groupBy(rows,L1), true, topScope);
   const {main:topMain,pad:topPad}=splitPad(gTop,L1);
   for(const [n1,rs1] of (topMain.length? topMain : gTop)){
+    const row={name:n1, rows:rs1, lvl:0, sub:true, ord:{scope:topScope, name:n1}};
+    if(pTop) out.push(row);
     walk(rs1, 1, 1, [n1]);
-    out.push({name:n1, rows:rs1, lvl:0, sub:true, ord:{scope:topScope, name:n1}});
+    if(!pTop) out.push(row);
   }
   if(topMain.length) for(const [,rs1] of topPad)
     out.push({name:RESID, rows:rs1, lvl:0, sub:true});
@@ -4879,11 +4884,14 @@ function renderFsum(){
     `<th>vs Prior Fcst</th><th>vs Target</th><th>vs PY</th></tr></thead>`;
   const nCols=1+nMon+4+4+5+7;
   const secs=fsumSections(rows);
-  const tree=secs.flatMap(sec=>[{band:sec.label}, ...fsumTree(sec.rows),
-    ...((fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
+  const tree=secs.flatMap(sec=>{
+    const totRows=(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
       name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
         ||(secs.length>1? `Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`
-          : totalLabel(l1Names(sec.rows)))}] : [])]);
+          : totalLabel(l1Names(sec.rows)))}] : [];
+    return fsumParentTop()? [{band:sec.label}, ...totRows, ...fsumTree(sec.rows)]
+      : [{band:sec.label}, ...fsumTree(sec.rows), ...totRows];
+  });
   let body='';
   for(const r of tree){
     if(r.band){ body+=`<tr class="band"><td class="nm" colspan="${nCols}">${esc(r.band)}</td></tr>`; continue; }
@@ -5090,10 +5098,12 @@ function fsumAOA(){
   aoa.push(r1, r2);
   for(const sec of fsumSections(rows)){
     aoa.push([sec.label]);
+    const totA=(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)?
+      [fsumAoaRow({name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
+        ||`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`, rows:sec.rows, lvl:0},m,P)] : [];
+    if(fsumParentTop()) for(const t2 of totA) aoa.push(t2);
     for(const r of fsumTree(sec.rows)) aoa.push(fsumAoaRow(r,m,P));
-    if(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)
-      aoa.push(fsumAoaRow({name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
-        ||`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`, rows:sec.rows, lvl:0},m,P));
+    if(!fsumParentTop()) for(const t2 of totA) aoa.push(t2);
   }
   return aoa;
 }
@@ -5150,10 +5160,10 @@ async function fsumPptx(){
   const tblRows=[head1,head2];
   for(const sec of secs){
     tblRows.push([{text:sec.label, options:{bold:true,color:'FFFFFF',fill:{color:RED},colspan:nNum+1,align:'left'}}]);
-    const tree=[...fsumTree(sec.rows),
-      ...((fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)?
-        [{name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
-          ||(secs.length>1?`Total ${sec.name}`:totalLabel(l1Names(sec.rows))), rows:sec.rows, lvl:0, tot:true}]:[])];
+    const totP=(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)?
+      [{name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
+        ||(secs.length>1?`Total ${sec.name}`:totalLabel(l1Names(sec.rows))), rows:sec.rows, lvl:0, tot:true}]:[];
+    const tree=fsumParentTop()? [...totP, ...fsumTree(sec.rows)] : [...fsumTree(sec.rows), ...totP];
     for(const r of tree){
       const f=fsumFigs(r.rows,m,P,S.ytdM), k=f.k;
       const bold=!!(r.tot||r.sub);

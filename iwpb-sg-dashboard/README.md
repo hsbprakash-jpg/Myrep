@@ -214,7 +214,10 @@ A single header row with:
   row takes the name of the one hierarchy parent every line rolls up to,
   so a P&L block cascaded at Account Level 2 reads Revenue / ECL / Total
   Operating Expense / Other with **PBT** as its total, in the app and in
-  all three exports (`fsum_total_label` still overrides). A **roll-up selector** beside the export buttons sets how
+  all three exports (`fsum_total_label` still overrides). Parent rows
+  lead their block by default — PBT on top, then Revenue with its lines
+  beneath it (`fsum_parent_row: bottom` restores the classic
+  bottom-total layout where children build up to the parent). A **roll-up selector** beside the export buttons sets how
   deep the cascade reads — Level 1 rollups only, to Level 2, or the full
   o/w Level 3 detail — and the Excel, PPT and Word exports follow it
   (`fsum_detail` sets the level on load). Variance colours follow
