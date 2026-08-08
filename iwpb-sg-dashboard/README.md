@@ -178,7 +178,12 @@ A single header row with:
   Jan–May. Comparisons a file cannot serve show as `–` with a note saying
   which and why. The QTD figure comes from the file's **quarterly column**
   and the year-to-date from the **YTD column** — months are only added when
-  no such column exists (`calc_ytd_actuals: months` forces sums). Lines
+  no such column exists (`calc_ytd_actuals: months` forces sums). The same
+  rule covers the prior year: a PY YTD column (`Jun YTD-25`) matching the
+  selected month is authoritative for every vs-PY figure, with PY months
+  summed only when the file carries no such column. Comparison charts
+  compute their bases on actuals only, so the YTD column stays
+  authoritative there even with forecast months toggled into the page. Lines
   matched by `balance_sheet_patterns` are treated as stocks throughout:
   month, QTD, YTD and FY are closing balances, and target/forecast
   baselines are the full-year columns as-is, never phased fractions or

@@ -1680,7 +1680,12 @@ function parseSheet(aoa){
   else if(qYears.length===1){ yearCY='20'+String(qYears[0]).padStart(2,'0'); }
   else{
     let yy=null;
-    for(const h of header){
+    const mYY=c=>{ const m2=String(header[c]||'').match(/^\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[- '](\d{2})\s*$/i);
+      return m2? +m2[1] : null; };
+    if(cyMonths.length) yy=mYY(cyMonths[0].col);
+    const pyy=pyMonths.length? mYY(pyMonths[0].col) : null;
+    if(pyy!=null) yearPY='20'+String(pyy).padStart(2,'0');
+    if(yy==null) for(const h of header){
       const m2=String(h||'').match(/^\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[- '](\d{2})\s*$/i);
       if(m2){ yy=+m2[1]; break; }
     }
@@ -1743,9 +1748,11 @@ function parseSheet(aoa){
   const isCYytd=p=>!p.target&&!p.fy&&p.ytdM!=null&&(p.ytdYear==null||p.ytdYear===cyYY);
   const ytdAsOfCols=ytdCols.filter(p=>isCYytd(p)&&!p.fc).slice(0,1);
   const ytdFcAsOfCols=ytdCols.filter(p=>isCYytd(p)&&p.fc).slice(0,1);
+  const pyYY2=String(yearPY).slice(-2);
+  const pyYtdAsOfCols=ytdCols.filter(p=>!p.target&&!p.fy&&!p.fc&&p.ytdM!=null&&p.ytdYear===pyYY2).slice(0,1);
   const fcProfile=cyMonths.map(p=>({m:p.m, w:rows.reduce((s2,r)=>s2+Math.abs(r.v[p.col]||0),0)}));
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
-    fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, fcProfile, yearPY, yearCY};
+    fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, pyYtdAsOfCols, fcProfile, yearPY, yearCY};
 }
 
 /* ================= aggregation ================= */
@@ -1768,7 +1775,10 @@ function kpi(rows, model, ytdM, includeFC){
   const asOf=model.ytdAsOfCols&&model.ytdAsOfCols[0];
   if(cfgS('calc_ytd_actuals').toLowerCase()!=='months'&&
      asOf&&asOf.ytdM===ytdM&&!cySel.some(p=>p.fc)) cy=sumCols(rows,[asOf.col]);
-  const py = model.pyMonths.length? sumCols(rows, pySel.map(p=>p.col)) : null;
+  let py = model.pyMonths.length? sumCols(rows, pySel.map(p=>p.col)) : null;
+  const pyAsOf=model.pyYtdAsOfCols&&model.pyYtdAsOfCols[0];
+  if(py!=null&&cfgS('calc_ytd_actuals').toLowerCase()!=='months'&&
+     pyAsOf&&pyAsOf.ytdM===ytdM) py=sumCols(rows,[pyAsOf.col]);
   const varAbs = (cy!=null&&py!=null)? cy-py : null;
   const varPct = (varAbs!=null && py!==0)? varAbs/Math.abs(py) : null;
   const cySeries = model.cyMonths.map(p=>({m:p.m, fc:p.fc, val:sumCols(rows,[p.col])}));
@@ -4128,6 +4138,11 @@ function chartData(cfg){
     if((gks[0]==='metric'||gks[0]==='cmp'||cmpSplit)&&rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
     return k;
   };
+  const kCmp=rs=>{
+    let k=kpi(rs,m,S.ytdM,false);
+    if(rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+    return k;
+  };
   const gkey=r=>gks.map(k=>r.d[k]||'(blank)').join(' · ');
   let groups, pnlOnly=false;
   if(gks[0]==='cmp'){
@@ -4136,7 +4151,7 @@ function chartData(cfg){
     // side only (pick a balance-sheet KPI scope to compare balances)
     let crows=rows;
     if(mixedScope(crows)){ crows=crows.filter(r=>!isBSLine(String(r.d.micaL1||''))); pnlOnly=true; }
-    const k=kFor(crows);
+    const k=kCmp(crows);
     groups=cmpBases(m).map(b=>({name:b.name, rows:crows, cy:(k.cy||0)/bsDv, py:(scatterBase(k,S.model)||0)/bsDv,
       val:b.pick(k)==null? null : b.pick(k)/bsDv})).filter(g=>g.val!=null);
   } else if(gks[0]==='metric'){
@@ -4181,7 +4196,7 @@ function chartData(cfg){
     // bases are scenarios of the same number, so they are never stacked
     const bs=cmpBases(m), used=new Set();
     for(const c of cats){
-      const k2=kFor(c.rows);
+      const k2=kCmp(c.rows);
       c.segs={}; c.vars={};
       for(const b of bs){
         const v=b.pick(k2); if(v==null) continue;
