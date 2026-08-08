@@ -406,7 +406,9 @@ What each section governs:
   `ytd_fc`, `ytd_tgt`, `mom`, `mth_py`, `mth_tgt`, `mth_fc`, `fy_tgt`,
   `fy_py`; entries a file cannot serve are hidden automatically).
 - **Calculations** — the calculation rules themselves:
-  `calc_ytd_actuals` (`column` = as-of YTD column authoritative /
+  `calc_ytd_actuals` (`column` = a YTD column matching the selected
+  month is authoritative everywhere, months are never added when one
+  exists — including in files that also carry prior-year months;
   `months` = always sum months), `calc_fy_forecast` (`column` = FY
   forecast column first / `outlook` = always Jan–Dec months),
   `calc_ytd_forecast` phasing (`even` = elapsed÷12 / `profile` = the
@@ -482,11 +484,14 @@ What each section governs:
   vs Fcst and FY vs Tgt, whichever the file can serve, each as coloured
   amount + %) above the mini chart — and the "Metrics" group heads the
   scope pickers in Mix analysis and the drag & drop chart builder. A
-  **KPI scorecard table** widget puts every metric on one page: one row
-  per metric with its RAG dot, value, own unit and the comparison bases
-  as coloured amount + % column pairs; rows click through to the KPI
+  **KPI scorecard table** widget puts every metric on one page, in the
+  reporting pack's own format by default: a grid of bordered boxes, each
+  headed by the metric's name (with its unit) and value, with the
+  comparison bases beneath as coloured triangle + amount + % rows — a
+  header switch flips to a flat table (RAG dot, value, unit, comparison
+  column pairs) instead. Boxes and rows click through to the KPI
   summary, the widget exports to Excel, and it never totals across
-  statements (each row keeps its own unit and no narrative is drawn). Everything resolves
+  statements (each metric keeps its own unit and no narrative is drawn). Everything resolves
   through one scope machinery, exports included. Uploaded Metrics rows replace the
   built-in list wholesale.
 - **Views** — enable/disable each page (summary, fsum, custom, builder,

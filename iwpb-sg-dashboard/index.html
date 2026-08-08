@@ -628,6 +628,21 @@ table.fsum tr[draggable="true"] td.nm{cursor:grab}
   padding:0;margin-right:7px;color:var(--text-secondary);vertical-align:baseline;display:inline-flex;
   align-items:center;justify-content:center}
 .fsumtog:hover{color:var(--text-primary);border-color:var(--text-muted)}
+.scgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px}
+@media (max-width:900px){.scgrid{grid-template-columns:1fr}}
+.scbox{border:1px solid var(--border-strong);border-radius:6px;padding:9px 12px;cursor:pointer;background:var(--surface-1)}
+.scbox:hover{box-shadow:var(--shadow)}
+.scbox .schead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:5px}
+.scbox .scname{font-weight:800;font-size:13px;color:var(--text-primary)}
+.scbox .scu{font-weight:600;font-size:10.5px;color:var(--text-muted)}
+.scbox .scval{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scbox .scrow{display:flex;align-items:baseline;gap:8px;margin-top:3px;font-size:12.5px}
+.scbox .scl{color:var(--text-secondary);flex:1}
+.scbox .kv{font-weight:700;font-variant-numeric:tabular-nums;min-width:72px;text-align:right}
+.scbox .kv.pc{min-width:56px}
+.scbox .kv.fav{color:var(--status-good)}
+.scbox .kv.unfav{color:var(--status-critical)}
 .scoretbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
 .scoretbl th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);
   text-align:right;padding:4px 8px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
@@ -1752,7 +1767,7 @@ function kpi(rows, model, ytdM, includeFC){
   // a YTD column for exactly the selected month is authoritative — taken as-is
   const asOf=model.ytdAsOfCols&&model.ytdAsOfCols[0];
   if(cfgS('calc_ytd_actuals').toLowerCase()!=='months'&&
-     !model.pyMonths.length&&asOf&&asOf.ytdM===ytdM&&!cySel.some(p=>p.fc)) cy=sumCols(rows,[asOf.col]);
+     asOf&&asOf.ytdM===ytdM&&!cySel.some(p=>p.fc)) cy=sumCols(rows,[asOf.col]);
   const py = model.pyMonths.length? sumCols(rows, pySel.map(p=>p.col)) : null;
   const varAbs = (cy!=null&&py!=null)? cy-py : null;
   const varPct = (varAbs!=null && py!==0)? varAbs/Math.abs(py) : null;
@@ -3643,6 +3658,27 @@ function scorecardData(m){
       unit:(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit()});
   }
   return {items, cols};
+}
+function scorecardPack(m){
+  const sc=scorecardData(m);
+  if(!sc.items.length) return '<p class="note">No KPIs resolve against this file.</p>';
+  const rowH=(k,r)=>{
+    const fav=(k.dirFlip? -(r.p??0) : (r.p??0))>=0;
+    const raw=r.v??r.p??0;
+    const up=((k.costLike&&!k.dirFlip)? -raw : raw)>=0;
+    const c=fav?'fav':'unfav', tri=up?'\u25B2':'\u25BC';
+    return `<div class="scrow"><span class="scl">${esc(r.lbl)}</span>`+
+      `<span class="kv ${c}">${r.v==null?'\u2013':tri+fmtK(k,Math.abs(r.v))}</span>`+
+      `<span class="kv ${c} pc">${r.p==null?'':tri+pctAbs(r.p)}</span></div>`;
+  };
+  return `<div class="scgrid">${sc.items.map(it=>{
+    const trs=Object.values(it.map);
+    return `<div class="scbox" data-sc="${esc(it.scope)}" title="Open ${esc(it.name)} on the KPI summary">`+
+      `<div class="schead"><span class="scname">${esc(it.name)} <span class="scu">(${esc(it.unit)})</span></span>`+
+      `<span class="scval${(it.k.cmpMain||0)<0?' negnum':''}">${(it.k.isBS&&bsUnit())? fmtBS(it.k.cmpMain) : fmt(it.k.cmpMain)}</span></div>`+
+      (trs.length? trs.map(r=>rowH(it.k,r)).join('') : '<div class="scrow"><span class="scl">actuals only</span></div>')+
+      `</div>`;
+  }).join('')}</div>`;
 }
 function scorecardTable(m){
   const sc=scorecardData(m);
@@ -6346,6 +6382,9 @@ function renderCustom(){
       : w.type==='card'?`<select class="wctype" aria-label="Chart type">${
         [['hbar','Horizontal bar'],['line','Sparkline'],['column','Column'],['table','Table']].map(([v,l])=>
           `<option value="${v}"${(w.ctype||'hbar')===v?' selected':''}>${l}</option>`).join('')}</select>`
+      : w.type==='scorecard'?`<select class="wctype" aria-label="Layout">${
+        [['pack','Pack boxes'],['table','Flat table']].map(([v,l])=>
+          `<option value="${v}"${(w.ctype||'pack')===v?' selected':''}>${l}</option>`).join('')}</select>`
       : w.type==='trend'?`<select class="wttype" aria-label="Chart type">${
         [['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar'],['table','Table']].map(([v,l])=>
           `<option value="${v}"${(w.ttype||'line')===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
@@ -6374,7 +6413,7 @@ function renderCustom(){
           : `<div class="krow actonly"><span class="kl">${esc(Lw.main)} actuals</span></div>`}
         <div style="margin-top:8px">${cviz}</div>`;
     } else if(w.type==='scorecard'){
-      body=`<div style="overflow-x:auto">${scorecardTable(m)}</div>`;
+      body=`<div style="overflow-x:auto">${(w.ctype||'pack')==='table'? scorecardTable(m) : scorecardPack(m)}</div>`;
     } else if(w.type==='traj'){
       const tj=trajSeries(k,m);
       const hasFCw=k.cySeries.some(p2=>p2.fc);
@@ -6390,8 +6429,8 @@ function renderCustom(){
     }
     div.innerHTML=head+`<div class="wbody">${body}</div>`;
     if(w.type==='scorecard'){
-      div.querySelectorAll('tr[data-sc]').forEach(tr=>tr.addEventListener('click',()=>{
-        MX.l2=tr.dataset.sc; saveMix(); setView('summary');
+      div.querySelectorAll('tr[data-sc], .scbox[data-sc]').forEach(el=>el.addEventListener('click',()=>{
+        MX.l2=el.dataset.sc; saveMix(); setView('summary');
       }));
     }
     if(w.type==='chart'){
