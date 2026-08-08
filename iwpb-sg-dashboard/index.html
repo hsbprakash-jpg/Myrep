@@ -7273,7 +7273,7 @@ function init(){
       const cols=3, gap=0.18, gx=0.42, gw=12.4;
       const bw=(gw-(cols-1)*gap)/cols;
       const maxRows=Math.max(1,...sc.items.map(x=>Object.keys(x.map).length));
-      const bh=0.5+maxRows*0.235+0.1;
+      const bh=0.46+0.05+maxRows*0.235+0.12;
       const topY=1.05, maxY=7.15;
       const rowsFit=Math.max(1, Math.floor((maxY-topY+gap)/(bh+gap)));
       const chunk=cols*rowsFit, nSlides=Math.ceil(sc.items.length/chunk);
@@ -7282,34 +7282,45 @@ function init(){
         ts.addText(it.title+(nSlides>1?` (${Math.floor(s0/chunk)+1}/${nSlides})`:''),
           {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true});
         ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
+        // internal grid, shared by every box: label | amount | % — the two
+        // number columns are fixed-width and right-aligned to the same edge
+        const pad=0.14, pctW=0.92, amtW=1.12, colGap=0.06;
+        const rowH=0.235, headH=0.46;
         sc.items.slice(s0,s0+chunk).forEach((x,i)=>{
           const bx=gx+(i%cols)*(bw+gap), by=topY+Math.floor(i/cols)*(bh+gap);
+          const xPct=bx+bw-pad-pctW, xAmt=xPct-colGap-amtW, lblW=xAmt-colGap-(bx+pad);
           ts.addShape('roundRect',{x:bx,y:by,w:bw,h:bh,rectRadius:0.05,
             fill:{color:'FFFFFF'},line:{color:'C8C7C2',pt:1}});
+          const hValW=1.35, hNameW=bw-pad*2-hValW-colGap;
           ts.addText([
             {text:x.name+' ', options:{bold:true,fontSize:11,color:'0B0B0B'}},
             {text:'('+x.unit+')', options:{fontSize:8,color:'79776F'}},
-          ],{x:bx+0.12,y:by+0.07,w:bw-1.75,h:0.3,fontFace:'Segoe UI',valign:'middle',fit:'shrink'});
+          ],{x:bx+pad,y:by,w:hNameW,h:headH,fontFace:'Segoe UI',valign:'middle',fit:'shrink',
+             wrap:true, inset:0, margin:0});
           ts.addText((x.k.isBS&&bsUnit())? fmtBS(x.k.cmpMain) : fmt(x.k.cmpMain),
-            {x:bx+bw-1.62,y:by+0.06,w:1.5,h:0.32,fontSize:14,bold:true,align:'right',
-             color:(x.k.cmpMain||0)<0?'D03B3B':'0B0B0B',fontFace:'Segoe UI',fit:'shrink'});
-          ts.addShape('line',{x:bx+0.12,y:by+0.46,w:bw-0.24,h:0,line:{color:'E2E1DD',pt:0.75}});
+            {x:bx+bw-pad-hValW,y:by,w:hValW,h:headH,fontSize:14,bold:true,align:'right',valign:'middle',
+             color:(x.k.cmpMain||0)<0?'D03B3B':'0B0B0B',fontFace:'Segoe UI',fit:'shrink',
+             inset:0, margin:0});
+          ts.addShape('line',{x:bx+pad,y:by+headH,w:bw-pad*2,h:0,line:{color:'E2E1DD',pt:0.75}});
           const trs=Object.values(x.map);
           trs.forEach((r,ri)=>{
             const fav=(x.k.dirFlip? -(r.p??0):(r.p??0))>=0;
             const raw=r.v??r.p??0;
             const up=((x.k.costLike&&!x.k.dirFlip)? -raw : raw)>=0;
             const cc=fav?'0CA30C':'D03B3B', tri=up?'\u25B2':'\u25BC';
-            const ry=by+0.5+ri*0.235;
-            ts.addText(r.lbl,{x:bx+0.12,y:ry,w:bw-2.62,h:0.22,fontSize:9.5,color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
-            ts.addText(r.v==null?'\u2013':tri+fmtK(x.k,Math.abs(r.v)),{x:bx+bw-2.52,y:ry,w:1.48,h:0.22,
-              fontSize:9.5,bold:true,align:'right',color:cc,fontFace:'Segoe UI',fit:'shrink'});
-            ts.addText(r.p==null?'':tri+pctAbs(r.p),{x:bx+bw-1.0,y:ry,w:0.88,h:0.22,
-              fontSize:9.5,bold:true,align:'right',color:cc,fontFace:'Segoe UI',fit:'shrink'});
+            const ry=by+headH+0.05+ri*rowH;
+            ts.addText(r.lbl,{x:bx+pad,y:ry,w:lblW,h:rowH,fontSize:9.5,color:'52514E',
+              fontFace:'Segoe UI',fit:'shrink',valign:'middle',inset:0,margin:0});
+            ts.addText(r.v==null?'\u2013':tri+fmtK(x.k,Math.abs(r.v)),{x:xAmt,y:ry,w:amtW,h:rowH,
+              fontSize:9.5,bold:true,align:'right',valign:'middle',color:cc,
+              fontFace:'Segoe UI',fit:'shrink',inset:0,margin:0});
+            ts.addText(r.p==null?'':tri+pctAbs(r.p),{x:xPct,y:ry,w:pctW,h:rowH,
+              fontSize:9.5,bold:true,align:'right',valign:'middle',color:cc,
+              fontFace:'Segoe UI',fit:'shrink',inset:0,margin:0});
           });
           if(!trs.length)
-            ts.addText('actuals only',{x:bx+0.12,y:by+0.5,w:bw-0.24,h:0.22,
-              fontSize:9,italic:true,color:'79776F',fontFace:'Segoe UI'});
+            ts.addText('actuals only',{x:bx+pad,y:by+headH+0.05,w:bw-pad*2,h:rowH,
+              fontSize:9,italic:true,color:'79776F',fontFace:'Segoe UI',valign:'middle',inset:0,margin:0});
         });
       }
     };
