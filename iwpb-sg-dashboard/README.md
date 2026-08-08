@@ -481,7 +481,12 @@ What each section governs:
   stack as the tiles and the reporting pack (the selected basis, vs PY,
   vs Fcst and FY vs Tgt, whichever the file can serve, each as coloured
   amount + %) above the mini chart — and the "Metrics" group heads the
-  scope pickers in Mix analysis and the drag & drop chart builder. Everything resolves
+  scope pickers in Mix analysis and the drag & drop chart builder. A
+  **KPI scorecard table** widget puts every metric on one page: one row
+  per metric with its RAG dot, value, own unit and the comparison bases
+  as coloured amount + % column pairs; rows click through to the KPI
+  summary, the widget exports to Excel, and it never totals across
+  statements (each row keeps its own unit and no narrative is drawn). Everything resolves
   through one scope machinery, exports included. Uploaded Metrics rows replace the
   built-in list wholesale.
 - **Views** — enable/disable each page (summary, fsum, custom, builder,

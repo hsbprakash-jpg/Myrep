@@ -628,6 +628,25 @@ table.fsum tr[draggable="true"] td.nm{cursor:grab}
   padding:0;margin-right:7px;color:var(--text-secondary);vertical-align:baseline;display:inline-flex;
   align-items:center;justify-content:center}
 .fsumtog:hover{color:var(--text-primary);border-color:var(--text-muted)}
+.scoretbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+.scoretbl th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);
+  text-align:right;padding:4px 8px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+.scoretbl th:first-child{text-align:left}
+.scoretbl td{padding:5px 8px;border-bottom:1px solid var(--border);text-align:right;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.scoretbl td.nm{text-align:left;font-weight:700;color:var(--text-primary)}
+.scoretbl td.un{color:var(--text-muted);font-size:11px}
+.scoretbl td.val{font-weight:800}
+.scoretbl td.kv.fav{color:var(--status-good);font-weight:700}
+.scoretbl td.kv.unfav{color:var(--status-critical);font-weight:700}
+.scoretbl td.kv.pc{font-size:11.5px}
+.scoretbl tbody tr{cursor:pointer}
+.scoretbl tbody tr:hover td{background:var(--surface-2,#f7f7f7)}
+.scoretbl .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:middle}
+.scoretbl .dot.g{background:var(--status-good)}
+.scoretbl .dot.a{background:var(--status-warning)}
+.scoretbl .dot.r{background:var(--status-critical)}
+.scoretbl .dot.n{background:var(--text-muted)}
 table.fsum tr.rowtgt td{box-shadow:inset 0 2px 0 var(--fold-red)}
 table.fsum tr.lvl3 td.nm{padding-left:48px;color:var(--text-secondary)}
 table.fsum tr.lvl4 td.nm{padding-left:62px;color:var(--text-secondary)}
@@ -851,6 +870,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <option value="traj">YTD actuals vs forecast</option>
         <option value="l3">MICA L3 breakdown</option>
         <option value="products">Product breakdown</option>
+        <option value="scorecard">KPI scorecard table</option>
       </select>
       <select id="wKpi" aria-label="Widget KPI"></select>
       <button class="btn-primary" id="btnAddWidget" style="padding:6px 16px;font-size:13px">Add widget</button>
@@ -3602,11 +3622,64 @@ function rowsAOA(){
   for(const r of rows) aoa.push(cols.map(c=>c.get(r)));
   return aoa;
 }
+function scorecardData(m){
+  const rows=filteredRows();
+  let defs=liveMetrics(rows).map(d=>d.name);
+  if(!defs.length) defs=tileNamedDefs(rows);
+  if(!defs.length) defs=[...new Set(rows.map(r=>r.d[tileDims()[1]]).filter(Boolean))];
+  const bucket=l=>/fcst|forecast/i.test(l)? 'vs Fcst'
+    : /\bpy\b|prior\s*year/i.test(l)? 'vs PY'
+    : /fy.*(tgt|target)/i.test(l)? 'FY vs Tgt'
+    : /tgt|target/i.test(l)? 'vs Tgt' : l;
+  const items=[], cols=[];
+  for(const nm of defs){
+    const f=tileFindLine(rows,nm); if(!f) continue;
+    let k=kpi(f.rows,m,S.ytdM,S.includeFC);
+    if(f.rows.length&&isBSLine(f.rows[0].d.micaL1||'')) k=bsRecast(k);
+    const trs=cmpHidden(f.name)? [] : tileRows(k,m);
+    const map={};
+    for(const r of trs){ const b=bucket(r.lbl); if(!(b in map)){ map[b]=r; if(!cols.includes(b)) cols.push(b); } }
+    items.push({name:f.name, k, map, scope:f.scope||f.name,
+      unit:(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit()});
+  }
+  return {items, cols};
+}
+function scorecardTable(m){
+  const sc=scorecardData(m);
+  if(!sc.items.length) return '<p class="note">No KPIs resolve against this file.</p>';
+  const cell=(k,r)=>{
+    if(!r) return '<td></td><td></td>';
+    const fav=(k.dirFlip? -(r.p??0) : (r.p??0))>=0;
+    const raw=r.v??r.p??0;
+    const up=((k.costLike&&!k.dirFlip)? -raw : raw)>=0;
+    const c=fav?'fav':'unfav', tri=up?'\u25B2':'\u25BC';
+    return `<td class="kv ${c}">${r.v==null?'\u2013':tri+fmtK(k,Math.abs(r.v))}</td>`+
+      `<td class="kv ${c} pc">${r.p==null?'':tri+pctAbs(r.p)}</td>`;
+  };
+  return `<table class="scoretbl"><thead><tr><th></th><th>Value</th><th class="un">Unit</th>${
+      sc.cols.map(c=>`<th colspan="2">${esc(c)}</th>`).join('')}</tr></thead><tbody>${
+    sc.items.map(it=>{
+      const rg=cmpHidden(it.name)? {cls:'n'} : rag(it.k.favVarPct,S.thresh);
+      return `<tr data-sc="${esc(it.scope)}" title="Open ${esc(it.name)} on the KPI summary">`+
+        `<td class="nm"><span class="dot ${rg.cls}"></span>${esc(it.name)}</td>`+
+        `<td class="val${(it.k.cmpMain||0)<0?' negnum':''}">${(it.k.isBS&&bsUnit())? fmtBS(it.k.cmpMain) : fmt(it.k.cmpMain)}</td>`+
+        `<td class="un">${esc(it.unit)}</td>${sc.cols.map(c=>cell(it.k,it.map[c])).join('')}</tr>`;
+    }).join('')}</tbody></table>`;
+}
 function widgetAOA(w){
   if(w.type==='chart'){
     const aoa=chartAOA(w.cfg);
     const txt=widgetCommentText(w);
     if(txt){ aoa.push([]); aoa.push(['AI commentary']); aoa.push([txt]); }
+    return aoa;
+  }
+  if(w.type==='scorecard'){
+    const sc=scorecardData(S.model);
+    const aoa=[['KPI scorecard'],[filterNote()],[],
+      ['Metric','Value','Unit',...sc.cols.flatMap(c=>[c,c+' %'])]];
+    for(const it of sc.items)
+      aoa.push([it.name, it.k.cmpMain, it.unit,
+        ...sc.cols.flatMap(c=>{ const r=it.map[c]; return r? [r.v, r.p] : [null,null]; })]);
     return aoa;
   }
   const rows=widgetRows(w.l2), name=w.l2||'Total (all KPIs)';
@@ -6184,7 +6257,7 @@ function render(){
 }
 
 /* ================= dynamic dashboard (drag & drop) ================= */
-const WTYPES={card:'KPI card', trend:'Monthly trend', traj:'YTD actuals vs forecast', l3:'MICA L3 breakdown', products:'Product breakdown', chart:'Custom chart'};
+const WTYPES={card:'KPI card', trend:'Monthly trend', traj:'YTD actuals vs forecast', l3:'MICA L3 breakdown', products:'Product breakdown', scorecard:'KPI scorecard table', chart:'Custom chart'};
 let widgetSeq=0;
 let dashPage=1;
 function newWidgetId(){ return 'w'+(++widgetSeq)+'_'+Math.floor(Math.random()*1e6); }
@@ -6207,10 +6280,12 @@ function widgetRows(l2){
   return scopeFilter(filteredRows(), l2);
 }
 function widgetTitle(w){
+  if(w.type==='scorecard') return `${WTYPES.scorecard} — all KPIs, one page`;
   const rs=scopeFilter(filteredRows(), w.type==='chart'? (w.cfg&&w.cfg.l2) : w.l2);
   return widgetTitleBase(w)+` (${scopeUnit(rs)})`;
 }
 function widgetTitleBase(w){
+  if(w.type==='scorecard') return WTYPES.scorecard;
   return w.type==='chart'? chartTitleBase(w.cfg) : scopeName(w.l2)+' · '+WTYPES[w.type];
 }
 
@@ -6262,7 +6337,7 @@ function renderCustom(){
     const rows=widgetRows(w.l2);
     let k=kpi(rows,m,S.ytdM,S.includeFC);
     if(rows.length&&isBSLine(rows[0].d.micaL1||'')) k=bsRecast(k);
-    const wu=(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
+    const wu=w.type==='scorecard'? (bsUnit()? cfgUnit()+' / '+bsUnitLabel() : cfgUnit()) : (k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
     const rg=rag(k.favVarPct,S.thresh);
     const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
       Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
@@ -6298,6 +6373,8 @@ function renderCustom(){
         ${trsw.length? trsw.map(r=>kpiRowHtml(k,r)).join('')
           : `<div class="krow actonly"><span class="kl">${esc(Lw.main)} actuals</span></div>`}
         <div style="margin-top:8px">${cviz}</div>`;
+    } else if(w.type==='scorecard'){
+      body=`<div style="overflow-x:auto">${scorecardTable(m)}</div>`;
     } else if(w.type==='traj'){
       const tj=trajSeries(k,m);
       const hasFCw=k.cySeries.some(p2=>p2.fc);
@@ -6312,6 +6389,11 @@ function renderCustom(){
         `</div><div class="chart-wrap wchart"></div>`;
     }
     div.innerHTML=head+`<div class="wbody">${body}</div>`;
+    if(w.type==='scorecard'){
+      div.querySelectorAll('tr[data-sc]').forEach(tr=>tr.addEventListener('click',()=>{
+        MX.l2=tr.dataset.sc; saveMix(); setView('summary');
+      }));
+    }
     if(w.type==='chart'){
       const wcb=div.querySelector('.wchartbody');
       wcb.appendChild(buildChartEl(w.cfg));
@@ -6373,7 +6455,9 @@ function renderCustom(){
         .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
       breakdownTable(div.querySelector('.wbody'),'','',groups,null);
     }
-    if(rows.length && w.type!=='chart'){
+    // the scorecard speaks through its own rows — a narrative would have to
+    // total across statements, which is never done
+    if(rows.length && w.type!=='chart' && w.type!=='scorecard'){
       const comDiv=document.createElement('div');
       div.querySelector('.wbody').appendChild(comDiv);
       aiComment(comDiv, widgetComSig(w), ()=>widgetCommentaryHtml(w));
