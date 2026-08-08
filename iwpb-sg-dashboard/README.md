@@ -403,10 +403,17 @@ What each section governs:
   `Channel` column into a full dimension across every view.
 - **AccountHierarchy / ProductHierarchy** — the reporting hierarchies as
   mapping tables, one row per node: `Key` an ID, then up to five levels
-  across `Value…Extra4` (account runs four deep — PBT → Revenue →
-  Banking NII…, Balance Sheet → Wealth Balances → Invested Assets → NNIA;
-  product five — IWPB → Retail/Wealth/Others down to Payroll or Saving
-  Accounts). The app binds them at load: each driller row's line names
+  across `Value…Extra4` (both run five deep — the account side mirrors
+  the reporting pack: PBT → Revenue → Banking NII / Fees and Other Income
+  → Retail Banking / Wealth / Others → Investment Distribution / Private
+  Bank / Asset Management / Insurance, with ECLs, Operating Expenses →
+  Direct Cost ex VP CC GT / Global Teams / Variable Pay ex CC / Indirect
+  Costs, and Balance Sheet → Deposits, Loans and Advances, Wealth
+  Balances → Wealth Deposits / Wealth Invested Assets → NNIA, NNM → NND;
+  product — IWPB → Retail/Wealth/Others down to Payroll or Saving
+  Accounts). Revenue foots as Banking NII + Fees and Other Income,
+  Operating Expenses as its four cost lines, and PBT as Revenue + ECLs +
+  Operating Expenses — the same arithmetic as the pack slide. The app binds them at load: each driller row's line names
   (matched against the columns in `account_hierarchy_from` /
   `product_hierarchy_from`, deepest match wins) place the row in each
   hierarchy, and every level becomes a derived dimension — `Acct Hier

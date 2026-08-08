@@ -126,31 +126,41 @@ Labels,lbl_varper,Variance period,,
 Labels,lbl_units,Units,,
 Labels,kpi_hint,Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card,,
 Drivers,<line or value - e.g. Loans>,<driver note the AI weaves into commentary>,,
-AccountHierarchy,A1,PBT,,,,,PBT ex Notables
+AccountHierarchy,A1,PBT,,,,,PBT ex Notables|Total P&L
 AccountHierarchy,A2,PBT,Revenue,,,,Total Revenue
-AccountHierarchy,A3,PBT,Revenue,Banking NII,,,NII - Interest Income|NII - Net Interest Income
-AccountHierarchy,A4,PBT,Revenue,Fees & Other Operating Income,,,NFI - Fee Income|Net Fee Income|Trading Income|Other Income|Fees and Other Income|Fees & Other Income
-AccountHierarchy,A5,PBT,ECL,,,,Expected credit losses|ECL Charge|ECLs
-AccountHierarchy,A6,PBT,Total Operating Expense,,,,Costs|Total Costs|Operating Expenses|Total Operating Expenses
-AccountHierarchy,A7,PBT,Total Operating Expense,Direct Cost,,,Total Direct Cost|Direct Costs|Staff Costs|Global Teams (DC only)
-AccountHierarchy,A8,PBT,Total Operating Expense,Direct Cost,Direct Cost ex VP,,"Direct Cost ex VP, CC, GT"
-AccountHierarchy,A9,PBT,Total Operating Expense,Direct Cost,Variable Pay,,Variable Pay ex CC
-AccountHierarchy,A10,PBT,Total Operating Expense,Direct Cost,Corporate Centre,,
-AccountHierarchy,A11,PBT,Total Operating Expense,Indirect Cost,,,Total Indirect Costs (incl InterCo)|Indirect Costs|Allocated Costs
-AccountHierarchy,A12,PBT,Income from Associates,,,,
-AccountHierarchy,A13,Balance Sheet,,,,,
-AccountHierarchy,A14,Balance Sheet,Customer Deposits,,,,Deposits
-AccountHierarchy,A15,Balance Sheet,Loans and Advances,,,,Loans|Customer Loans
-AccountHierarchy,A16,Balance Sheet,RWAs,,,,
-AccountHierarchy,A17,Balance Sheet,Wealth Balances,,,,
-AccountHierarchy,A18,Balance Sheet,Wealth Balances,Deposits,,,Wealth Deposits
-AccountHierarchy,A19,Balance Sheet,Wealth Balances,Invested Assets,,,Wealth Invested Assets|Wealth Invested Assets (excl. AM 3rd party)
-AccountHierarchy,A20,Balance Sheet,Wealth Balances,Invested Assets,NNIA,,
-AccountHierarchy,A21,Balance Sheet,Wealth Balances,Invested Assets,Markets Movement,,
-AccountHierarchy,A22,Balance Sheet,Wealth Balances,Invested Assets,FX and other,,
-AccountHierarchy,A23,Balance Sheet,NNM,,,,
-AccountHierarchy,A24,Balance Sheet,NNM,Deposits Flow,,,NND|Net New Deposits
-AccountHierarchy,A25,Balance Sheet,NNM,NNIA,,,NNIA (excl. AM 3rd party)
+AccountHierarchy,A3,PBT,Revenue,Banking NII,,,NII - Interest Income|NII - Net Interest Income|Net Interest Income
+AccountHierarchy,A4,PBT,Revenue,Banking NII,Retail,,
+AccountHierarchy,A5,PBT,Revenue,Banking NII,Private Bank,,
+AccountHierarchy,A6,PBT,Revenue,Banking NII,Corporate Centre,,
+AccountHierarchy,A7,PBT,Revenue,Banking NII,Others,,
+AccountHierarchy,A8,PBT,Revenue,Fees and Other Income,,,Fees & Other Operating Income|NFI - Fee Income|Net Fee Income|Trading Income|Other Income|Fees & Other Income
+AccountHierarchy,A9,PBT,Revenue,Fees and Other Income,Retail Banking,,
+AccountHierarchy,A10,PBT,Revenue,Fees and Other Income,Wealth,,
+AccountHierarchy,A11,PBT,Revenue,Fees and Other Income,Wealth,Investment Distribution,Mutual Funds|Structured Products|Equities|Bonds|Cash FX|Other Investments
+AccountHierarchy,A12,PBT,Revenue,Fees and Other Income,Wealth,Private Bank,
+AccountHierarchy,A13,PBT,Revenue,Fees and Other Income,Wealth,Asset Management,
+AccountHierarchy,A14,PBT,Revenue,Fees and Other Income,Wealth,Insurance,Insurance Manufacturing|Insurance Distribution|Wealth Ins Distn
+AccountHierarchy,A15,PBT,Revenue,Fees and Other Income,Others,,
+AccountHierarchy,A16,PBT,ECLs,,,,ECL|Expected credit losses|ECL Charge
+AccountHierarchy,A17,PBT,Operating Expenses,,,,Total Operating Expense|Total Operating Expenses|Costs|Total Costs
+AccountHierarchy,A18,PBT,Operating Expenses,"Direct Cost ex VP, CC, GT",,,Direct Cost ex VP|Total Direct Cost|Direct Costs|Direct Cost|Staff Costs
+AccountHierarchy,A19,PBT,Operating Expenses,Global Teams (DC only),,,Global Teams
+AccountHierarchy,A20,PBT,Operating Expenses,Variable Pay ex CC,,,Variable Pay
+AccountHierarchy,A21,PBT,Operating Expenses,Indirect Costs,,,Total Indirect Costs (incl InterCo)|Indirect Cost|Allocated Costs
+AccountHierarchy,A22,PBT,Income from Associates,,,,
+AccountHierarchy,A23,Balance Sheet,,,,,
+AccountHierarchy,A24,Balance Sheet,Deposits,,,,Customer Deposits
+AccountHierarchy,A25,Balance Sheet,Loans and Advances,,,,Loans|Customer Loans
+AccountHierarchy,A26,Balance Sheet,RWAs,,,,
+AccountHierarchy,A27,Balance Sheet,Wealth Balances,,,,
+AccountHierarchy,A28,Balance Sheet,Wealth Balances,Wealth Deposits,,,
+AccountHierarchy,A29,Balance Sheet,Wealth Balances,Wealth Invested Assets,,,Invested Assets|Wealth Invested Assets (excl. AM 3rd party)
+AccountHierarchy,A30,Balance Sheet,Wealth Balances,Wealth Invested Assets,NNIA,,
+AccountHierarchy,A31,Balance Sheet,Wealth Balances,Wealth Invested Assets,Markets Movement,,
+AccountHierarchy,A32,Balance Sheet,Wealth Balances,Wealth Invested Assets,FX and other,,
+AccountHierarchy,A33,Balance Sheet,NNM,,,,
+AccountHierarchy,A34,Balance Sheet,NNM,NND,,,Deposits Flow|Net New Deposits
+AccountHierarchy,A35,Balance Sheet,NNM,NNIA,,,NNIA (excl. AM 3rd party)
 ProductHierarchy,B1,IWPB,,,,,
 ProductHierarchy,B2,IWPB,Retail,,,,Retail Banking
 ProductHierarchy,B3,IWPB,Retail,Retail Lending,,,Total Consumer Assets excl Wealth Lending|Total Consumer Assets|Consumer Assets
