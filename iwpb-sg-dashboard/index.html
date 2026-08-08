@@ -1158,6 +1158,20 @@ const CFG_DEFAULT={
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   dimensions:{},
+  metrics:[
+    {name:'Revenue',      scope:'accH2=Revenue'},
+    {name:'Banking NII',  scope:'accH3=Banking NII'},
+    {name:'Wealth Fees',  scope:'accH4=Wealth'},
+    {name:'PBT',          scope:'accH1=PBT'},
+    {name:'Direct Cost ex VP, CC, GT', scope:'accH3=Direct Cost ex VP, CC, GT'},
+    {name:'ECL',          scope:'accH2=ECLs'},
+    {name:'Deposits',     scope:'accH2=Deposits'},
+    {name:'Loans and Advances', scope:'accH2=Loans and Advances'},
+    {name:'Retail & Premier Wealth Balance', scope:'accH3=Wealth Balances;cgL2=Retail & Premier Wealth'},
+    {name:'PB Wealth Balance', scope:'accH3=Wealth Balances;cgL2=Private Bank'},
+    {name:'NNM',          scope:'accH2=NNM'},
+    {name:'FY ROTE',      scope:'micaL2=ROTE'},
+  ],
   hierarchies:{account:[
     {id:'A1', levels:['PBT'], match:'PBT ex Notables|Total P&L'},
     {id:'A2', levels:['PBT','Revenue'], match:'Total Revenue'},
@@ -2469,7 +2483,7 @@ function renderSummary(){
       if(!f){ missingLines.push(nm); return null; }
       let k=kpi(f.rows,m,S.ytdM,S.includeFC);
       if(isBSLine(f.rows[0].d.micaL1||'')) k=bsRecast(k);
-      return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:'d:'+f.key+':'+f.name, k};
+      return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:f.scope||('d:'+f.key+':'+f.name), k};
     }).filter(Boolean);
     scPfx='';
   } else {
@@ -3017,7 +3031,10 @@ function renderMix(){
   const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
   const l1s=[...new Set(m.rows.map(r=>r.d.micaL1).filter(Boolean))].sort();
   const l2s=[...new Set(m.rows.map(r=>r.d.micaL2).filter(Boolean))].sort();
+  const mets=liveMetrics(m.rows);
   $('mxScope').innerHTML=`<option value="">Total (all KPIs)</option>`+
+    (mets.length? `<optgroup label="Metrics">${mets.map(d2=>
+      `<option value="m:${esc(d2.name)}"${MX.l2==='m:'+d2.name?' selected':''}>${esc(d2.name)}</option>`).join('')}</optgroup>`:'')+
     (l1s.length>1? l1s.map(l1=>`<option value="l1:${esc(l1)}"${MX.l2==='l1:'+l1?' selected':''}>${esc(l1)} · L1</option>`).join(''):'')+
     l2s.map(l2=>`<option value="${esc(l2)}"${MX.l2===l2?' selected':''}>${esc(l2)}</option>`).join('');
   $('mxDim').innerHTML=dims.map(k=>`<option value="${k}"${MX.groupBy===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('');
@@ -3707,9 +3724,36 @@ function groupByFn(rows, fn){
   for(const r of rows){ const k=fn(r); let a=m.get(k); if(!a){a=[];m.set(k,a);} a.push(r); }
   return m;
 }
+/* the scorecard metrics: named scopes from the config's Metrics section —
+   'accH3=Wealth Balances;cgL2=Private Bank' selects the rows the metric
+   speaks about, across any dimension the model carries */
+function cfgMetricList(){
+  const own=CFG.metrics;
+  return ((own&&own.length)? own : CFG_DEFAULT.metrics||[])
+    .map(x=>({name:String(x.name||''), scope:String(x.scope||'')})).filter(x=>x.name&&x.scope);
+}
+function metricDef(name){
+  const n=String(name||'').trim().toLowerCase();
+  return cfgMetricList().find(x=>x.name.trim().toLowerCase()===n)||null;
+}
+function metricRows(def, rows){
+  let out=rows;
+  for(const part of String(def.scope).split(/[;|]/)){
+    const i=part.indexOf('='); if(i<0) continue;
+    const k=part.slice(0,i).trim(), v=part.slice(i+1).trim().toLowerCase();
+    if(!k) continue;
+    if(!(S.model&&k in S.model.dimCols)) return [];
+    out=out.filter(r=>String(r.d[k]||'').trim().toLowerCase()===v);
+  }
+  return out;
+}
+function liveMetrics(rows){
+  return cfgMetricList().filter(def=>metricRows(def,rows).length);
+}
 function scopeFilter(rows, sc){
   if(!sc) return rows;
   const t=String(sc);
+  if(t.startsWith('m:')){ const def=metricDef(t.slice(2)); return def? metricRows(def, rows) : []; }
   if(t.startsWith('d:')){ const i=t.indexOf(':',2); const k=t.slice(2,i), v=t.slice(i+1);
     return rows.filter(r=>(r.d[k]||'')===v); }
   if(t.startsWith('l1:')){ const v=t.slice(3); return rows.filter(r=>r.d.micaL1===v); }
@@ -3718,6 +3762,7 @@ function scopeFilter(rows, sc){
 function scopeName(sc){
   if(!sc) return 'Total (all KPIs)';
   const t=String(sc);
+  if(t.startsWith('m:')) return t.slice(2);
   if(t.startsWith('d:')){ const i=t.indexOf(':',2); return t.slice(i+1); }
   return t.startsWith('l1:')? t.slice(3) : t;
 }
@@ -3804,7 +3849,10 @@ function summaryNoTotal(named){
   return !fsumTotalOK(filteredRows());
 }
 function tileLineDefs(){
-  return cfgS('tile_lines').split(/[,;|]/).map(x=>x.trim()).filter(Boolean);
+  const v=cfgS('tile_lines');
+  // ';' or '|' become the only separators when present, so a metric name
+  // that itself contains commas (Direct Cost ex VP, CC, GT) stays whole
+  return v.split(/[;|]/.test(v)? /[;|]/ : /,/).map(x=>x.trim()).filter(Boolean);
 }
 /* the pair of dimensions the Financial Performance tiles group by —
    micaL1/micaL2 unless tile_dims points elsewhere (e.g. accH1,accH2 to run
@@ -3826,6 +3874,9 @@ function tileLevelNames(){
 }
 /* find a named line: first dimension that carries the value wins */
 function tileFindLine(rows, name){
+  const def=metricDef(name);
+  if(def){ const rs=metricRows(def, rows);
+    if(rs.length) return {key:'m', name:def.name, rows:rs, scope:'m:'+def.name}; }
   const want=String(name).trim().toLowerCase();
   for(const k of tileDimOrder()){
     const rs=rows.filter(r=>String(r.d[k]||'').trim().toLowerCase()===want);
@@ -4304,7 +4355,11 @@ function renderBuilder(){
   // options
   const l2s=[...new Set(m.rows.map(r=>r.d.micaL2).filter(Boolean))].sort();
   const sc=$('bScope'), keep=sc.value;
-  sc.innerHTML=`<option value="">Total (all KPIs)</option>`+l2s.map(l2=>`<option value="${esc(l2)}">${esc(l2)}</option>`).join('');
+  const bMets=liveMetrics(m.rows);
+  sc.innerHTML=`<option value="">Total (all KPIs)</option>`+
+    (bMets.length? `<optgroup label="Metrics">${bMets.map(d2=>
+      `<option value="m:${esc(d2.name)}">${esc(d2.name)}</option>`).join('')}</optgroup>`:'')+
+    l2s.map(l2=>`<option value="${esc(l2)}">${esc(l2)}</option>`).join('');
   sc.value=[...sc.options].some(o=>o.value===B.l2)?B.l2:'';
   const bops=measureOpts();
   if(!B.mUser) B.measure=bops.includes('basis')?'basis':'cy';
@@ -6331,7 +6386,7 @@ function applyCfgDom(){
 function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
   const low=x=>deMoji(String(x==null?'':x).trim()).trim();
-  const tp=[], hb={};
+  const tp=[], hb={}; let mz=false;
   const handle=(section,rows)=>{
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
     for(const r of rows){
@@ -6344,6 +6399,8 @@ function cfgFromWorkbook(wb){
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
       else if(sec==='labels'){ if(a) cfg.labels[a.toLowerCase()]=b2; }
       else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
+      else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
+        if(a&&b2) cfg.metrics.push({name:a, scope:b2}); }
       else if(sec==='accounthierarchy'||sec==='producthierarchy'){
         const hk=sec==='accounthierarchy'?'account':'product';
         if(hb[hk]!==true){ cfg.hierarchies[hk]=[]; hb[hk]=true; }   // uploaded rows replace the defaults wholesale
@@ -6401,6 +6458,7 @@ function cfgTemplateCSV(){
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
     ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','',''],
+    ...CFG_DEFAULT.metrics.map(x=>['Metrics',x.name,x.scope,'','']),
     ...['account','product'].flatMap(hk=>CFG_DEFAULT.hierarchies[hk].map(r=>{
       const lv=[...r.levels]; while(lv.length<5) lv.push('');
       return [hk==='account'?'AccountHierarchy':'ProductHierarchy', r.id, ...lv, r.match||''];

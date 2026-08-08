@@ -130,6 +130,18 @@ Labels,kpi_hint,Click a KPI to see its trajectory and commentary · drag one ont
 Labels,dec_eyebrow,Decisions required,,
 Labels,dec_title,Executive decisions,,
 Drivers,<line or value - e.g. Loans>,<driver note the AI weaves into commentary>,,
+Metrics,Revenue,accH2=Revenue,,
+Metrics,Banking NII,accH3=Banking NII,,
+Metrics,Wealth Fees,accH4=Wealth,,
+Metrics,PBT,accH1=PBT,,
+Metrics,"Direct Cost ex VP, CC, GT","accH3=Direct Cost ex VP, CC, GT",,
+Metrics,ECL,accH2=ECLs,,
+Metrics,Deposits,accH2=Deposits,,
+Metrics,Loans and Advances,accH2=Loans and Advances,,
+Metrics,Retail & Premier Wealth Balance,accH3=Wealth Balances;cgL2=Retail & Premier Wealth,,
+Metrics,PB Wealth Balance,accH3=Wealth Balances;cgL2=Private Bank,,
+Metrics,NNM,accH2=NNM,,
+Metrics,FY ROTE,micaL2=ROTE,,
 AccountHierarchy,A1,PBT,,,,,PBT ex Notables|Total P&L
 AccountHierarchy,A2,PBT,Revenue,,,,Total Revenue
 AccountHierarchy,A3,PBT,Revenue,Banking NII,,,NII - Interest Income|NII - Net Interest Income|Net Interest Income

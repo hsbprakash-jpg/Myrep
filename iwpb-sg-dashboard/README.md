@@ -441,6 +441,23 @@ What each section governs:
   `accH1,accH2`, or just `accH2`): the KPI tiles, left-rail KPI list,
   trajectory line picker, narrative ranking and the one-slide PPT all
   regroup by those dimensions instead of MICA Level 1/2.
+- **Metrics** — the reporting pack's scorecard metrics as named scopes:
+  each row is `Metrics,<name>,<scope>` where the scope selects the rows
+  the metric speaks about, as `dimension=value` pairs ANDed with `;` —
+  any dimension works, hierarchy levels included
+  (`accH3=Wealth Balances;cgL2=Private Bank` is *PB Wealth Balance*).
+  Twelve ship by default: Revenue, Banking NII, Wealth Fees, PBT, Direct
+  Cost ex VP CC GT, ECL, Deposits, Loans and Advances, Retail & Premier /
+  PB Wealth Balances, NNM and FY ROTE (the last needs a ROTE line in the
+  driller). A metric a file cannot serve simply doesn't appear. Metrics
+  are first-class scopes everywhere: name them in `tile_lines` (separate
+  with `;` so comma-bearing names stay whole) and the Financial
+  Performance grid becomes the scorecard, tiles carrying each metric's
+  own unit and variances; they head the scope pickers in Mix analysis
+  and the drag & drop chart builder under a "Metrics" group; and any
+  chart or table built on them — dashboards and exports included — is
+  scoped through the same resolver. Uploaded Metrics rows replace the
+  built-in list wholesale.
 - **Views** — enable/disable each page (summary, fsum, custom, builder,
   query, table, assist, sim).
 
