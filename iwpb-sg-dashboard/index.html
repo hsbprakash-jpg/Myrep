@@ -1122,6 +1122,7 @@ const CFG_DEFAULT={
     hierarchy_unmapped_label:'Unmapped',
     fsum_ow:'Y',
     fsum_total_label:'',
+    fsum_residual_label:'Other',
     fsum_detail:'',
     bs_unit:'bn',
     fsum_bs_label:'Balance Sheet',
@@ -4648,6 +4649,19 @@ function fsumTopCount(rows){ return groupBy(rows, fsumLevels()[0]).size; }
 function fsumOrdStore(){ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_fsumord')||'null');
   return (v&&typeof v==='object'&&!Array.isArray(v))? v : {}; }catch(e){ return {}; } }
 function fsumOrdSave(o){ try{ localStorage.setItem('iwpbsg_fsumord',JSON.stringify(o)); }catch(e){} }
+const HIER_LV_RE=/^(accH|prodH)(\d+)$/;
+function fsumPadGroup(Lk,n,rs){
+  const mh=HIER_LV_RE.exec(Lk); if(!mh||+mh[2]<2) return false;
+  const pk=mh[1]+(+mh[2]-1);
+  const nm=String(n).trim();
+  return rs.every(r2=>String(r2.d[pk]||'').trim()===nm);
+}
+function fsumAncestorTotal(rows){
+  const mh=HIER_LV_RE.exec(fsumLevels()[0]||''); if(!mh||+mh[2]<2) return '';
+  const pk=mh[1]+(+mh[2]-1);
+  const vals=new Set(rows.map(r2=>String(r2.d[pk]||'').trim()).filter(Boolean));
+  return vals.size===1? [...vals][0] : '';
+}
 function fsumTree(rows){
   const lv=fsumLevels().slice(0,fsumDepth()), L1=lv[0];
   const ow=cfgYes('fsum_ow')? 'o/w ' : '';
@@ -4684,21 +4698,35 @@ function fsumTree(rows){
     rest.sort((a,b)=>firstAt(a[1])-firstAt(b[1]));
     return done([...prio,...rest].sort((a,b)=>(isBSLine(a[0])?1:0)-(isBSLine(b[0])?1:0)));
   };
+  const RESID=cfgS('fsum_residual_label')||'Other';
+  const splitPad=(g,Lk)=>{
+    const main=[], pad=[];
+    for(const e of g) (fsumPadGroup(Lk,e[0],e[1])? pad : main).push(e);
+    return {main, pad};
+  };
   const walk=(rs,li,depth,path)=>{
     const Lk=lv[li]; if(!Lk) return;
     const scope=Lk+':'+path.join('>');
     const g=ordered(groupBy(rs,Lk), false, scope);
     if(g.length<=1){ if(g.length===1) walk(g[0][1], li+1, depth, path); return; }
-    for(const [n,rs2] of g){
+    const {main,pad}=splitPad(g,Lk);
+    if(!main.length){ walk(rs, li+1, depth, path); return; }
+    for(const [n,rs2] of main){
       out.push({name:(depth>=2?ow:'')+n, rows:rs2, lvl:Math.min(depth,4), ord:{scope, name:n}});
       walk(rs2, li+1, depth+1, [...path,n]);
     }
+    for(const [,rs2] of pad)
+      out.push({name:(depth>=2?ow:'')+RESID, rows:rs2, lvl:Math.min(depth,4)});
   };
   const topScope='top:'+L1;
-  for(const [n1,rs1] of ordered(groupBy(rows,L1), true, topScope)){
+  const gTop=ordered(groupBy(rows,L1), true, topScope);
+  const {main:topMain,pad:topPad}=splitPad(gTop,L1);
+  for(const [n1,rs1] of (topMain.length? topMain : gTop)){
     walk(rs1, 1, 1, [n1]);
     out.push({name:n1, rows:rs1, lvl:0, sub:true, ord:{scope:topScope, name:n1}});
   }
+  if(topMain.length) for(const [,rs1] of topPad)
+    out.push({name:RESID, rows:rs1, lvl:0, sub:true});
   return out;
 }
 /* the section bands the table is split into */
@@ -4843,8 +4871,9 @@ function renderFsum(){
   const secs=fsumSections(rows);
   const tree=secs.flatMap(sec=>[{band:sec.label}, ...fsumTree(sec.rows),
     ...((fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
-      name:secs.length>1? `Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`
-        : (cfgS('fsum_total_label')||totalLabel(l1Names(sec.rows)))}] : [])]);
+      name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
+        ||(secs.length>1? `Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`
+          : totalLabel(l1Names(sec.rows)))}] : [])]);
   let body='';
   for(const r of tree){
     if(r.band){ body+=`<tr class="band"><td class="nm" colspan="${nCols}">${esc(r.band)}</td></tr>`; continue; }
@@ -5053,7 +5082,8 @@ function fsumAOA(){
     aoa.push([sec.label]);
     for(const r of fsumTree(sec.rows)) aoa.push(fsumAoaRow(r,m,P));
     if(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)
-      aoa.push(fsumAoaRow({name:`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`, rows:sec.rows, lvl:0},m,P));
+      aoa.push(fsumAoaRow({name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
+        ||`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`, rows:sec.rows, lvl:0},m,P));
   }
   return aoa;
 }
@@ -5112,7 +5142,8 @@ async function fsumPptx(){
     tblRows.push([{text:sec.label, options:{bold:true,color:'FFFFFF',fill:{color:RED},colspan:nNum+1,align:'left'}}]);
     const tree=[...fsumTree(sec.rows),
       ...((fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)?
-        [{name:secs.length>1?`Total ${sec.name}`:(cfgS('fsum_total_label')||totalLabel(l1Names(sec.rows))), rows:sec.rows, lvl:0, tot:true}]:[])];
+        [{name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
+          ||(secs.length>1?`Total ${sec.name}`:totalLabel(l1Names(sec.rows))), rows:sec.rows, lvl:0, tot:true}]:[])];
     for(const r of tree){
       const f=fsumFigs(r.rows,m,P,S.ytdM), k=f.k;
       const bold=!!(r.tot||r.sub);

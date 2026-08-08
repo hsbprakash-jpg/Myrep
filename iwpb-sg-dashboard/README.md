@@ -207,7 +207,14 @@ A single header row with:
   the same level under the same parent, so statements stay apart and a
   child can't leave its parent. The order persists in the browser, every
   export follows it, and a *Reset row order* link under the table restores
-  the default. A **roll-up selector** beside the export buttons sets how
+  the default. When the cascade runs on hierarchy levels, lines the mapping
+  could not place any deeper than the block's parent no longer masquerade
+  as a sibling named after that parent — they show as an **Other** line
+  (`fsum_residual_label`) at the end of the block — and the block's total
+  row takes the name of the one hierarchy parent every line rolls up to,
+  so a P&L block cascaded at Account Level 2 reads Revenue / ECL / Total
+  Operating Expense / Other with **PBT** as its total, in the app and in
+  all three exports (`fsum_total_label` still overrides). A **roll-up selector** beside the export buttons sets how
   deep the cascade reads — Level 1 rollups only, to Level 2, or the full
   o/w Level 3 detail — and the Excel, PPT and Word exports follow it
   (`fsum_detail` sets the level on load). Variance colours follow
