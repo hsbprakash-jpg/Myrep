@@ -6348,7 +6348,10 @@ function renderCustom(){
   // KPI picker options
   const l2s=[...new Set(m.rows.map(r=>r.d.micaL2).filter(Boolean))].sort();
   const sel=$('wKpi'), keep=sel.value;
+  const wMets=liveMetrics(m.rows);
   sel.innerHTML=`<option value="">Total (all KPIs)</option>`+
+    (wMets.length? `<optgroup label="Metrics">${wMets.map(d2=>
+      `<option value="m:${esc(d2.name)}">${esc(d2.name)}</option>`).join('')}</optgroup>`:'')+
     l2s.map(l2=>`<option value="${esc(l2)}">${esc(l2)}</option>`).join('');
   if([...sel.options].some(o=>o.value===keep)) sel.value=keep;
 
