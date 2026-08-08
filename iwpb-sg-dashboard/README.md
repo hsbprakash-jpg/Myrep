@@ -212,7 +212,12 @@ A single header row with:
   the same level under the same parent, so statements stay apart and a
   child can't leave its parent. The order persists in the browser, every
   export follows it, and a *Reset row order* link under the table restores
-  the default. When the cascade runs on hierarchy levels, lines the mapping
+  the default. The whole arrangement can be kept as a **named view**:
+  *Save view…* beside the roll-up selector snapshots the cascade levels,
+  roll-up depth and dragged row order under a name you give it, the
+  picker switches between saved views, ✕ deletes the selected one, and
+  the last applied view is remembered in the browser and restored on the
+  next visit. When the cascade runs on hierarchy levels, lines the mapping
   could not place any deeper than the block's parent no longer masquerade
   as a sibling named after that parent — they show as an **Other** line
   (`fsum_residual_label`) at the end of the block — and the block's total

@@ -1009,6 +1009,9 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <p class="lede2" id="fsumLede"></p>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
+      <select id="fsumViewSel" aria-label="Saved views" title="Saved views of this page"></select>
+      <button class="btn-quiet" id="btnFsumViewSave" title="Save the current cascade, roll-up depth and row order as a named view">💾 Save view…</button>
+      <button class="btn-quiet" id="btnFsumViewDel" title="Delete the selected saved view" style="display:none">✕</button>
       <select id="fsumDepthSel" aria-label="Roll-up level"></select>
       <button class="btn-quiet" id="btnFsumXlsx">⤓ Export to Excel</button>
       <button class="btn-quiet" id="btnFsumPptx">⤓ PPT</button>
@@ -4786,6 +4789,51 @@ function fsumFigs(rows, m, P, ytdM){
 /* the row cascade: children of each top level, then the level as a subtotal,
    in the same materiality order the KPI tiles use */
 function fsumTopCount(rows){ return groupBy(rows, fsumLevels()[0]).size; }
+/* named, persistent views of the Financial Summary: each snapshot carries
+   the cascade levels, the roll-up depth and the dragged row order; the last
+   applied view is remembered and restored on the next visit */
+function fsumViewsStore(){ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_fsumviews')||'null');
+  return (v&&typeof v==='object'&&!Array.isArray(v))? v : {}; }catch(e){ return {}; } }
+function fsumViewsSave(o){ try{ localStorage.setItem('iwpbsg_fsumviews',JSON.stringify(o)); }catch(e){} }
+function fsumViewActive(){ try{ return localStorage.getItem('iwpbsg_fsumview_active')||''; }catch(e){ return ''; } }
+function fsumViewSetActive(n){ try{ n? localStorage.setItem('iwpbsg_fsumview_active',n)
+  : localStorage.removeItem('iwpbsg_fsumview_active'); }catch(e){} }
+function fsumViewSnapshot(){
+  return {lv:fsumLevels(), depth:fsumDepth(), ord:fsumOrdStore()};
+}
+function fsumViewApply(name){
+  const v=fsumViewsStore()[name]; if(!v) return;
+  fsumLvSave(Array.isArray(v.lv)&&v.lv.length? v.lv : fsumLevels());
+  fsumOrdSave(v.ord&&typeof v.ord==='object'? v.ord : {});
+  S.fsumDepth=v.depth||0;
+  fsumViewSetActive(name);
+  renderFsum();
+}
+function fsumViewControls(){
+  const sel=$('fsumViewSel'); if(!sel) return;
+  const views=fsumViewsStore(), names=Object.keys(views).sort();
+  const act=fsumViewActive();
+  sel.innerHTML=`<option value="">${names.length?'Saved views…':'No saved views'}</option>`+
+    names.map(n=>`<option value="${esc(n)}"${n===act?' selected':''}>${esc(n)}</option>`).join('');
+  sel.style.display='';
+  const del=$('btnFsumViewDel');
+  if(del) del.style.display=(act&&views[act])?'':'none';
+  sel.onchange=()=>{ const n=sel.value;
+    if(n) fsumViewApply(n); else { fsumViewSetActive(''); renderFsum(); } };
+  const sv=$('btnFsumViewSave');
+  if(sv) sv.onclick=()=>{
+    const n=(window.prompt('Name this view', act||'')||'').trim();
+    if(!n) return;
+    const all=fsumViewsStore(); all[n]=fsumViewSnapshot(); fsumViewsSave(all);
+    fsumViewSetActive(n); renderFsum();
+  };
+  if(del) del.onclick=()=>{
+    const n=fsumViewActive(); if(!n) return;
+    if(!window.confirm(`Delete saved view “${n}”?`)) return;
+    const all=fsumViewsStore(); delete all[n]; fsumViewsSave(all);
+    fsumViewSetActive(''); renderFsum();
+  };
+}
 function fsumOrdStore(){ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_fsumord')||'null');
   return (v&&typeof v==='object'&&!Array.isArray(v))? v : {}; }catch(e){ return {}; } }
 function fsumOrdSave(o){ try{ localStorage.setItem('iwpbsg_fsumord',JSON.stringify(o)); }catch(e){} }
@@ -5041,6 +5089,7 @@ function renderFsum(){
   }
   $('fsumTable').innerHTML=head+`<tbody>${body}</tbody>`;
   renderFsumLv();
+  fsumViewControls();
   const lvAll=fsumLevels(), dSel=$('fsumDepthSel');
   if(dSel){
     dSel.innerHTML=lvAll.map((k,i)=>{
