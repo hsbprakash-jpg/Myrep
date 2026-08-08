@@ -3784,7 +3784,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
 
 
 /* ================= drag & drop chart builder ================= */
-const FIELD_LABELS={micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
+const FIELD_LABELS={metric:'Metric', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
   micaL4:'MICA Level 4', micaL5:'MICA Level 5',
   prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3', prodCode:'Product code',
   cgL1:'CG Level 1', cgL2:'Segment (CG L2)', funcL1:'Function Level 1', funcL2:'Function (L2)', entity:'Entity'};
@@ -4066,13 +4066,29 @@ function chartData(cfg){
   rows=scopeFilter(rows,cfg.l2);
   const bsU=bsScope(rows), bsDv=bsU? bsUnitDiv() : 1;
   const mfn=rs=>(pickMeasure(kpi(rs,m,S.ytdM,S.includeFC), cfg.measure)||0)/bsDv;
-  const gks=gArr(cfg.groupBy);
+  const gks0=gArr(cfg.groupBy);
+  const gks=gks0.includes('metric')? ['metric'] : gks0;
+  const kFor=rs=>{
+    let k=kpi(rs,m,S.ytdM,S.includeFC);
+    if(gks[0]==='metric'&&rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+    return k;
+  };
   const gkey=r=>gks.map(k=>r.d[k]||'(blank)').join(' · ');
-  let groups=[...groupByFn(rows,gkey).entries()].map(([name,rs])=>{
-    const k=kpi(rs,m,S.ytdM,S.includeFC);
-    return {name, rows:rs, cy:(k.cy||0)/bsDv, py:(scatterBase(k,S.model)||0)/bsDv,
-      val:(pickMeasure(k,cfg.measure)||0)/bsDv};
-  });
+  let groups;
+  if(gks[0]==='metric'){
+    groups=liveMetrics(rows).map(def=>{
+      const rs=metricRows(def, rows);
+      const k=kFor(rs);
+      return {name:def.name, rows:rs, cy:(k.cy||0)/bsDv, py:(scatterBase(k,S.model)||0)/bsDv,
+        val:(pickMeasure(k,cfg.measure)||0)/bsDv};
+    });
+  } else {
+    groups=[...groupByFn(rows,gkey).entries()].map(([name,rs])=>{
+      const k=kpi(rs,m,S.ytdM,S.includeFC);
+      return {name, rows:rs, cy:(k.cy||0)/bsDv, py:(scatterBase(k,S.model)||0)/bsDv,
+        val:(pickMeasure(k,cfg.measure)||0)/bsDv};
+    });
+  }
   groups.sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
   const TOP=(cfg.type==='donut'||cfg.type==='pie')?6 : cfg.type==='treemap'?12 : cfg.type==='scatter'?10 : 8;
   let cats=groups.slice(0,TOP);
@@ -4086,7 +4102,7 @@ function chartData(cfg){
     // two comparable series per category — actuals against their baseline
     paired=true; segNames=[pair.an,pair.bn];
     for(const c of cats){
-      const k2=kpi(c.rows,m,S.ytdM,S.includeFC);
+      const k2=kFor(c.rows);
       const av=(pair.a(k2)||0)/bsDv, bv=(pair.b(k2)||0)/bsDv;
       c.segs={[segNames[0]]:av, [segNames[1]]:bv};
       c.segTotal=av;                       // headline stays the actual
@@ -4096,7 +4112,7 @@ function chartData(cfg){
     cats.sort((a,b)=>Math.abs(b.segTotal)-Math.abs(a.segTotal));
     return {cats, segNames, clamped:false, paired, cmpName:pair.bn, bsU};
   }
-  const sks=gArr(cfg.splitBy).filter(k=>!gks.includes(k));
+  const sks=gArr(cfg.splitBy).filter(k=>!gks.includes(k)&&k!=='metric');
   const skey=r=>sks.map(k=>r.d[k]||'(blank)').join(' · ');
   if(sks.length && SPLIT_TYPES.has(cfg.type)){
     const totals=new Map();
@@ -4449,8 +4465,10 @@ function buildChartEl(cfg){
 function renderBuilder(){
   const m=S.model;
   // field chips
-  const fields=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
+  const fields=[...(liveMetrics(filteredRows()).length>1?['metric']:[]),
+    ...Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols)];
   const addTo=(key,f)=>{
+    if(f==='metric'&&key==='splitBy') key='groupBy';   // Metric groups, never splits
     if(!B[key].includes(f)){ B[key]=[...B[key],f]; }
     const other=key==='groupBy'?'splitBy':'groupBy';
     B[other]=B[other].filter(x=>x!==f);

@@ -491,7 +491,12 @@ What each section governs:
   header switch flips to a flat table (RAG dot, value, unit, comparison
   column pairs) instead. Boxes and rows click through to the KPI
   summary, the widget exports to Excel, and it never totals across
-  statements (each metric keeps its own unit and no narrative is drawn). Everything resolves
+  statements (each metric keeps its own unit and no narrative is drawn).
+  In the drag & drop chart builder a **Metric** field chip fans one
+  category per catalogue metric — drop it in Group by (it always groups,
+  never splits — a drop on Split by lands in Group by) and any chart
+  type compares the metrics side by side, split-able by any other
+  dimension, with balance metrics on their closing basis. Everything resolves
   through one scope machinery, exports included. Uploaded Metrics rows replace the
   built-in list wholesale.
 - **Views** — enable/disable each page (summary, fsum, custom, builder,
