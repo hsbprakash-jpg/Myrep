@@ -4887,7 +4887,8 @@ function renderQueryResults(){
   $('qResSub').textContent=`${count.toLocaleString()} rows match the query`;
   $('btnQMonths').textContent=qExpandMonths?'Collapse months':'Expand months';
   const {start, shown}=renderPager($('qPager'), qPager, count, renderQueryResults);
-  let html='<table class="grid review"><thead><tr>'+vflds.map(f=>`<th>${esc(f.label)}</th>`).join('')+'</tr></thead><tbody>';
+  let html='<table class="grid review"><thead><tr>'+vflds.map(f=>
+    `<th${f.kind==='dim'?' style="text-align:left"':''}>${esc(f.label)}</th>`).join('')+'</tr></thead><tbody>';
   aoa.slice(1+start, 1+start+shown).forEach(r=>{
     html+='<tr>'+r.map((v,ci)=>vflds[ci].kind==='per'?`<td>${fmtCell(v)}</td>`
       :`<td class="namecell" style="text-align:left">${esc(v==null?'':v)}</td>`).join('')+'</tr>';
@@ -4952,7 +4953,8 @@ function renderTable(){
     ' · columns follow the Output fields selection';
   const {start, shown}=renderPager($('dataPager'), dataPager, rows.length, renderTable);
   const cols=dataCols();
-  let html='<table class="grid review"><thead><tr>'+cols.map(c=>`<th>${esc(c.th)}</th>`).join('')+'</tr></thead><tbody>';
+  let html='<table class="grid review"><thead><tr>'+cols.map(c=>
+    `<th${c.dim?' style="text-align:left"':''}>${esc(c.th)}</th>`).join('')+'</tr></thead><tbody>';
   rows.slice(start,start+shown).forEach(r=>{
     html+='<tr>'+cols.map(c=>{
       const v=c.get(r);
