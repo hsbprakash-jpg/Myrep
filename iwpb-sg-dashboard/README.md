@@ -181,7 +181,13 @@ A single header row with:
   no such column exists (`calc_ytd_actuals: months` forces sums). The same
   rule covers the prior year: a PY YTD column (`Jun YTD-25`) matching the
   selected month is authoritative for every vs-PY figure, with PY months
-  summed only when the file carries no such column. Comparison charts
+  summed only when the file carries no such column. Target comparisons are
+  YTD-only: a **YTD target column** (`Jun YTD-26` under a Target band)
+  matching the selected month drives the `vs Tgt` row on KPI cards, the
+  scorecard and the Target comparison basis — there is no `FY vs Tgt` row
+  and no phasing, so a file carrying only an FY target shows no target
+  comparison (balances still compare the closing balance to the target
+  balance, which is already same-grain). Comparison charts
   compute their bases on actuals only, so the YTD column stays
   authoritative there even with forecast months toggled into the page. Lines
   matched by `balance_sheet_patterns` are treated as stocks throughout:

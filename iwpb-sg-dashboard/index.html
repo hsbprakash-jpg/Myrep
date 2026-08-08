@@ -1750,9 +1750,10 @@ function parseSheet(aoa){
   const ytdFcAsOfCols=ytdCols.filter(p=>isCYytd(p)&&p.fc).slice(0,1);
   const pyYY2=String(yearPY).slice(-2);
   const pyYtdAsOfCols=ytdCols.filter(p=>!p.target&&!p.fy&&!p.fc&&p.ytdM!=null&&p.ytdYear===pyYY2).slice(0,1);
+  const ytdTgtAsOfCols=ytdCols.filter(p=>p.target&&!p.fy&&p.ytdM!=null&&(p.ytdYear==null||p.ytdYear===cyYY)).slice(0,1);
   const fcProfile=cyMonths.map(p=>({m:p.m, w:rows.reduce((s2,r)=>s2+Math.abs(r.v[p.col]||0),0)}));
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
-    fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, pyYtdAsOfCols, fcProfile, yearPY, yearCY};
+    fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, pyYtdAsOfCols, ytdTgtAsOfCols, fcProfile, yearPY, yearCY};
 }
 
 /* ================= aggregation ================= */
@@ -1801,8 +1802,10 @@ function kpi(rows, model, ytdM, includeFC){
   const varFcPct = (varFc!=null&&ytdFc!==0)? varFc/Math.abs(ytdFc) : null;
   const varTgt = (outlook!=null&&target!=null)? outlook-target : null;
   const varTgtPct = (varTgt!=null&&target!==0)? varTgt/Math.abs(target) : null;
-  // FY target phased to the elapsed months, for YTD-vs-target tile rows
-  const ytdTgt = target!=null? target*phaseFrac(model,cySel) : null;
+  // YTD target strictly from a YTD target column matching the month — never
+  // phased from the FY number
+  const tgtAsOf=model.ytdTgtAsOfCols&&model.ytdTgtAsOfCols[0];
+  const ytdTgt = (tgtAsOf&&tgtAsOf.ytdM===ytdM)? sumCols(rows,[tgtAsOf.col]) : null;
   const varYT = (cy!=null&&ytdTgt!=null)? cy-ytdTgt : null;
   const varYTPct = (varYT!=null&&ytdTgt!==0)? varYT/Math.abs(ytdTgt) : null;
   // single-month figures for the month-level variance periods (MoM, month vs
@@ -1878,15 +1881,15 @@ function tileRows(k,m){
   const L=cmpLabels(m);
   if(k.isBS){
     if(k.cmpVar!=null) rows.push({lbl:L.vs.replace('YTD ',''), v:k.cmpVar, p:k.cmpVarPct});
-    if(k.varTgt!=null) rows.push({lbl:'FY vs Tgt', v:k.varTgt, p:k.varTgtPct});
+    if(k.varTgt!=null) rows.push({lbl:'vs Tgt', v:k.varTgt, p:k.varTgtPct});
     return rows;
   }
   if(L.vp&&L.vp!=='auto'&&k.cmpVar!=null) rows.push({lbl:L.vs, v:k.cmpVar, p:k.cmpVarPct, lead:true});
   if(m.pyMonths.length&&k.py!=null) rows.push({lbl:'vs PY', v:k.varAbs, p:k.varPct});
   if(k.ytdFc!=null) rows.push({lbl:'vs Fcst', v:k.varFc, p:k.varFcPct});
-  // target is a full-year number: compare the FY outlook (actual + forecast
-  // months, Jan-Dec) against it, never the YTD actuals
-  if(k.varTgt!=null) rows.push({lbl:'FY vs Tgt', v:k.varTgt, p:k.varTgtPct});
+  // target compares at the YTD grain, from a YTD target column only — a file
+  // carrying just an FY target shows no target row rather than a phased one
+  if(k.varYT!=null) rows.push({lbl:'vs Tgt', v:k.varYT, p:k.varYTPct});
   const seen=new Set();
   return rows.filter(r=>{ const key=r.lbl.toLowerCase(); if(seen.has(key)) return false; seen.add(key); return true; })
     .slice(0, Math.max(3, rows.some(r=>r.lead)?4:3));
@@ -3835,9 +3838,9 @@ function cmpBases(m){
       dv:k=>(k.isBS||!realFc)? null : k.varFc},
     {id:'py',     name:`YTD ${m.yearPY}`,          pick:k=>m.pyMonths.length? k.py : null,
       dv:k=>m.pyMonths.length? k.varAbs : null},
+    {id:'tgt',    name:'Target',                   pick:k=>k.isBS? k.target : k.ytdTgt,
+      dv:k=>k.isBS? k.varTgt : k.varYT},
     {id:'fyfc',   name:'FY forecast',              anchor:true, pick:k=>k.isBS? null : k.fyMain},
-    {id:'fytgt',  name:'FY target',                pick:k=>k.target,
-      dv:k=>k.isBS? k.varTgt : (k.fyMain!=null&&k.target!=null? k.fyMain-k.target : null)},
     {id:'fypy',   name:`FY ${m.fyPriorLabel||m.yearPY} actuals`, pick:k=>k.fyBase,
       dv:k=>k.isBS? (k.cy!=null&&k.fyBase!=null? k.cy-k.fyBase : null)
         : (k.fyMain!=null&&k.fyBase!=null? k.fyMain-k.fyBase : null)}
