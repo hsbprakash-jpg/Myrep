@@ -3817,12 +3817,12 @@ const B={groupBy:[], splitBy:[], measure:'cy', type:'column', l2:''};
 
 function cmpBases(m){
   if(!m) return [];
+  const fcCol=m.ytdFcAsOfCols&&m.ytdFcAsOfCols[0];
+  const realFc=!!(fcCol&&(typeof S==='undefined'||fcCol.ytdM===S.ytdM));
   return [
     {id:'cy',     name:`YTD ${m.yearCY} actuals`,  anchor:true, pick:k=>k.cy},
-    {id:'ytdfc',  name:'YTD forecast',             pick:k=>k.isBS? null : k.ytdFc,
-      dv:k=>k.isBS? null : k.varFc},
-    {id:'ytdtgt', name:'YTD target (phased)',      pick:k=>k.isBS? null : k.ytdTgt,
-      dv:k=>k.isBS? null : k.varYT},
+    {id:'ytdfc',  name:'YTD forecast',             pick:k=>(k.isBS||!realFc)? null : k.ytdFc,
+      dv:k=>(k.isBS||!realFc)? null : k.varFc},
     {id:'py',     name:`YTD ${m.yearPY}`,          pick:k=>m.pyMonths.length? k.py : null,
       dv:k=>m.pyMonths.length? k.varAbs : null},
     {id:'fyfc',   name:'FY forecast',              anchor:true, pick:k=>k.isBS? null : k.fyMain},

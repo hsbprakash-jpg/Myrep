@@ -499,14 +499,16 @@ What each section governs:
   dimension, with balance metrics on their closing basis. A **Comparison**
   field chip puts actuals against forecast, target and prior year on one
   chart: grouped alone it draws one bar per basis (YTD actuals, YTD
-  forecast, YTD target phased, YTD PY, then FY forecast, FY target, FY PY —
-  whichever the file serves, never summed); dropped as a split against
-  Metric or any dimension it clusters those bases side by side per category,
-  scorecard-style. The table and Excel views add Variance and Var % per
-  base, each computed at its own grain exactly as the KPI cards do — YTD
-  bases against YTD actuals, FY bases against the FY forecast/outlook,
-  never across grains — and skip the Total row when grouping by
-  overlapping metrics. On a mixed P&L + balance-sheet scope the comparison
+  forecast, YTD PY, then FY forecast, FY target, FY PY — whichever the
+  file serves, never summed, and never phased: the YTD forecast basis
+  appears only when the file carries a genuine YTD forecast column for
+  the selected month, and targets compare at the FY grain only); dropped
+  as a split against Metric or any dimension it clusters those bases side
+  by side per category, scorecard-style. The table and Excel views add
+  Variance and Var % per base, each computed at its own grain exactly as
+  the KPI cards do — YTD bases against YTD actuals, FY bases against the
+  FY forecast/outlook, never across grains — and skip the Total row when
+  grouping by overlapping metrics. On a mixed P&L + balance-sheet scope the comparison
   covers the P&L side only (pick a balance-sheet KPI scope to compare
   balances: closing balance vs FY target and PY closing). Everything resolves
   through one scope machinery, exports included. Uploaded Metrics rows replace the
