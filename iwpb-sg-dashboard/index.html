@@ -2449,9 +2449,24 @@ function chartCommentaryHtml(cfg){
   cfg=cfgEff(cfg);
   const {cats, segNames, paired, cmpName}=chartData(cfg);
   if(!cats.length) return '';
+  const gC=gArr(cfg.groupBy);
+  if(gC.includes('cmp')&&!gC.some(k2=>k2!=='cmp')){
+    // bases are scenarios of one number — no shares, no totals across them
+    const act=cats.find(c=>/actuals/i.test(c.name))||cats[0];
+    let out2=`<b>${esc(act.name)}</b> stand at <b>${fmt(act.val)}</b>`;
+    const bits=cats.filter(c=>c!==act&&/^YTD/.test(c.name)).map(c=>{
+      const d=act.val-c.val, pv=Math.abs(c.val)>0.0001? d/Math.abs(c.val) : null;
+      return `${d>=0?'\u25B2':'\u25BC'} <b>${pv==null?fmt(d):fmtPct(pv)}</b> vs ${esc(c.name)} (<b>${fmt(d)}</b>)`;
+    });
+    if(bits.length) out2+=` — ${bits.join(', ')}`;
+    const fy=cats.filter(c=>/^FY/.test(c.name));
+    out2+= fy.length? `. Full year: ${fy.map(c=>`${esc(c.name)} <b>${fmt(c.val)}</b>`).join(', ')}.` : '.';
+    return out2;
+  }
   const dim=fieldLabels(cfg.groupBy);
   const v=c=>(segNames? c.segTotal : c.val)||0;
-  const total=cats.reduce((s2,c)=>s2+v(c),0);
+  const additive=!gC.includes('metric');
+  const total=additive? cats.reduce((s2,c)=>s2+v(c),0) : 0;
   const sorted=[...cats].sort((a,b)=>Math.abs(v(b))-Math.abs(v(a)));
   const lead=sorted[0], second=sorted[1];
   let out=`<b>${esc(lead.name)}</b> is the largest ${esc(dim)} at <b>${fmt(v(lead))}</b>`;
@@ -3612,10 +3627,18 @@ function breakdownAOA(rows, key, label){
 }
 function chartAOA(cfg){
   cfg=cfgEff(cfg);
-  const {cats, segNames, paired}=chartData(cfg);
+  const {cats, segNames, paired, bases}=chartData(cfg);
   const dim=fieldLabels(cfg.groupBy);
   const aoa=[[chartTitle(cfg)],[filterNote()],[]];
-  if(paired){
+  if(paired&&bases){
+    aoa.push([dim,...bases.flatMap(b=>b.hasVar? [b.name,'Variance','Var %'] : [b.name])]);
+    for(const c of cats) aoa.push([c.name,...bases.flatMap(b=>{
+      const v=c.segs[b.name]!=null? c.segs[b.name] : null;
+      if(!b.hasVar) return [v];
+      const dv=(c.vars&&c.vars[b.name]!=null)? c.vars[b.name] : null;
+      return [v, dv, (dv!=null&&v!=null&&Math.abs(v)>0.0001)? pct(dv/Math.abs(v)) : null];
+    })]);
+  } else if(paired){
     aoa.push([dim,segNames[0],segNames[1],'Variance','Variance %']);
     for(const c of cats) aoa.push([c.name, c.segs[segNames[0]]||0, c.segs[segNames[1]]||0, c.varFc, pct(c.varFcPct)]);
   } else if(segNames){
@@ -3784,13 +3807,36 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
 
 
 /* ================= drag & drop chart builder ================= */
-const FIELD_LABELS={metric:'Metric', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
+const FIELD_LABELS={metric:'Metric', cmp:'Comparison', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
   micaL4:'MICA Level 4', micaL5:'MICA Level 5',
   prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3', prodCode:'Product code',
   cgL1:'CG Level 1', cgL2:'Segment (CG L2)', funcL1:'Function Level 1', funcL2:'Function (L2)', entity:'Entity'};
 const CAT_COLORS=['var(--cat1)','var(--cat2)','var(--cat3)','var(--cat4)','var(--cat5)','var(--cat6)','var(--cat7)'];
+const pairFill=si=>si===0?'var(--cat1)':si===1?'var(--series-2)':CAT_COLORS[si%CAT_COLORS.length];
 const B={groupBy:[], splitBy:[], measure:'cy', type:'column', l2:''};
 
+function cmpBases(m){
+  if(!m) return [];
+  return [
+    {id:'cy',     name:`YTD ${m.yearCY} actuals`,  anchor:true, pick:k=>k.cy},
+    {id:'ytdfc',  name:'YTD forecast',             pick:k=>k.isBS? null : k.ytdFc,
+      dv:k=>k.isBS? null : k.varFc},
+    {id:'ytdtgt', name:'YTD target (phased)',      pick:k=>k.isBS? null : k.ytdTgt,
+      dv:k=>k.isBS? null : k.varYT},
+    {id:'py',     name:`YTD ${m.yearPY}`,          pick:k=>m.pyMonths.length? k.py : null,
+      dv:k=>m.pyMonths.length? k.varAbs : null},
+    {id:'fyfc',   name:'FY forecast',              anchor:true, pick:k=>k.isBS? null : k.fyMain},
+    {id:'fytgt',  name:'FY target',                pick:k=>k.target,
+      dv:k=>k.isBS? k.varTgt : (k.fyMain!=null&&k.target!=null? k.fyMain-k.target : null)},
+    {id:'fypy',   name:`FY ${m.fyPriorLabel||m.yearPY} actuals`, pick:k=>k.fyBase,
+      dv:k=>k.isBS? (k.cy!=null&&k.fyBase!=null? k.cy-k.fyBase : null)
+        : (k.fyMain!=null&&k.fyBase!=null? k.fyMain-k.fyBase : null)}
+  ];
+}
+function cmpChipAvail(m){
+  return !!(m&&(m.pyMonths.length||(m.targetCols&&m.targetCols.length)||fcBasis(m)
+    ||(m.fyPriorCols&&m.fyPriorCols.length)));
+}
 function cmpPairs(){
   const m=S.model;
   return {
@@ -4018,6 +4064,9 @@ function tileFindLine(rows, name){
   return null;
 }
 function chartTitleBase(cfg){
+  const g=gArr(cfg.groupBy);
+  if(g.includes('cmp')&&!g.some(k=>k!=='cmp'))
+    return `${cfg.l2?scopeName(cfg.l2):'Total'} · Actuals vs forecast, target & prior year`;
   return `${cfg.l2?scopeName(cfg.l2):'Total'} · ${measureLabel(effMeasure(cfg))} by ${fieldLabels(cfg.groupBy)}`+
     (gArr(cfg.splitBy).length?` / ${fieldLabels(cfg.splitBy)}`:'');
 }
@@ -4031,7 +4080,9 @@ const CHART_TYPES=[['column','Column'],['hbar','Horizontal bar'],['lollipop','Lo
    splits need column/hbar/table; negative values break pie/donut/treemap/
    pareto; scatter needs a comparison baseline and no split */
 function suitableTypes(cfg){
-  const hasSplit=gArr(cfg.splitBy).filter(k=>!gArr(cfg.groupBy).includes(k)).length>0;
+  const g0=gArr(cfg.groupBy);
+  const hasSplit=gArr(cfg.splitBy).filter(k=>!g0.includes(k)).length>0
+    ||(g0.includes('cmp')&&g0.some(k=>k!=='cmp'));
   let neg=false;
   try{ const {cats}=chartData({...cfg, type:'column', splitBy:[]}); neg=cats.some(c=>(c.val||0)<0); }catch(e){}
   const m=S.model;
@@ -4067,15 +4118,28 @@ function chartData(cfg){
   const bsU=bsScope(rows), bsDv=bsU? bsUnitDiv() : 1;
   const mfn=rs=>(pickMeasure(kpi(rs,m,S.ytdM,S.includeFC), cfg.measure)||0)/bsDv;
   const gks0=gArr(cfg.groupBy);
-  const gks=gks0.includes('metric')? ['metric'] : gks0;
+  // Comparison alone groups the bases; alongside another field it splits them
+  const gksNC=gks0.filter(k2=>k2!=='cmp');
+  const cmpSplit=gArr(cfg.splitBy).includes('cmp')||(gks0.includes('cmp')&&gksNC.length>0);
+  const gks=gksNC.includes('metric')? ['metric']
+    : (gks0.includes('cmp')&&!gksNC.length)? ['cmp'] : gksNC;
   const kFor=rs=>{
     let k=kpi(rs,m,S.ytdM,S.includeFC);
-    if(gks[0]==='metric'&&rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+    if((gks[0]==='metric'||gks[0]==='cmp'||cmpSplit)&&rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
     return k;
   };
   const gkey=r=>gks.map(k=>r.d[k]||'(blank)').join(' · ');
-  let groups;
-  if(gks[0]==='metric'){
+  let groups, pnlOnly=false;
+  if(gks[0]==='cmp'){
+    // one category per basis, in declared order — bases are never summed.
+    // P&L and balances never total together: a mixed scope compares the P&L
+    // side only (pick a balance-sheet KPI scope to compare balances)
+    let crows=rows;
+    if(mixedScope(crows)){ crows=crows.filter(r=>!isBSLine(String(r.d.micaL1||''))); pnlOnly=true; }
+    const k=kFor(crows);
+    groups=cmpBases(m).map(b=>({name:b.name, rows:crows, cy:(k.cy||0)/bsDv, py:(scatterBase(k,S.model)||0)/bsDv,
+      val:b.pick(k)==null? null : b.pick(k)/bsDv})).filter(g=>g.val!=null);
+  } else if(gks[0]==='metric'){
     groups=liveMetrics(rows).map(def=>{
       const rs=metricRows(def, rows);
       const k=kFor(rs);
@@ -4089,7 +4153,7 @@ function chartData(cfg){
         val:(pickMeasure(k,cfg.measure)||0)/bsDv};
     });
   }
-  groups.sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
+  if(gks[0]!=='cmp') groups.sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
   const TOP=(cfg.type==='donut'||cfg.type==='pie')?6 : cfg.type==='treemap'?12 : cfg.type==='scatter'?10 : 8;
   let cats=groups.slice(0,TOP);
   const rest=groups.slice(TOP);
@@ -4112,7 +4176,30 @@ function chartData(cfg){
     cats.sort((a,b)=>Math.abs(b.segTotal)-Math.abs(a.segTotal));
     return {cats, segNames, clamped:false, paired, cmpName:pair.bn, bsU};
   }
-  const sks=gArr(cfg.splitBy).filter(k=>!gks.includes(k)&&k!=='metric');
+  if(cmpSplit&&gks[0]!=='cmp'&&SPLIT_TYPES.has(cfg.type)){
+    // scorecard as a chart: each category carries its bases side by side —
+    // bases are scenarios of the same number, so they are never stacked
+    const bs=cmpBases(m), used=new Set();
+    for(const c of cats){
+      const k2=kFor(c.rows);
+      c.segs={}; c.vars={};
+      for(const b of bs){
+        const v=b.pick(k2); if(v==null) continue;
+        c.segs[b.name]=v/bsDv; used.add(b.name);
+        if(b.dv){ const d=b.dv(k2); if(d!=null) c.vars[b.name]=d/bsDv; }
+      }
+      const have=bs.filter(b=>c.segs[b.name]!=null);
+      c.segTotal=have.length? c.segs[have[0].name] : 0;
+      const b2=have.find(b=>!b.anchor&&c.vars[b.name]!=null);
+      c.varFc=b2? c.vars[b2.name] : null;
+      c.varFcPct=(b2&&Math.abs(c.segs[b2.name])>0.0001)? c.varFc/Math.abs(c.segs[b2.name]) : null;
+    }
+    const segN=bs.map(b=>b.name).filter(n=>used.has(n));
+    const basesN=bs.filter(b=>used.has(b.name)).map(b=>({name:b.name, anchor:!!b.anchor, hasVar:!!b.dv}));
+    return {cats, segNames:segN, clamped:false, paired:true, multi:true, cmpName:segN[1]||'baseline',
+      bases:basesN, noTot:gks[0]==='metric', bsU, pnlOnly};
+  }
+  const sks=gArr(cfg.splitBy).filter(k=>!gks.includes(k)&&k!=='metric'&&k!=='cmp');
   const skey=r=>sks.map(k=>r.d[k]||'(blank)').join(' · ');
   if(sks.length && SPLIT_TYPES.has(cfg.type)){
     const totals=new Map();
@@ -4134,19 +4221,20 @@ function chartData(cfg){
       c.segTotal=Object.values(segs).reduce((s,v)=>s+v,0);
     }
   }
-  return {cats, segNames, clamped, paired, bsU};
+  return {cats, segNames, clamped, paired, bsU, pnlOnly};
 }
-function segLegend(segNames){
+function segLegend(segNames, paired){
   if(!segNames) return '';
   return `<div class="legend">`+segNames.map((sn,i)=>
-    `<span><span class="sw" style="background:${CAT_COLORS[i%CAT_COLORS.length]};height:9px;width:9px;border-radius:2px"></span>${esc(sn)}</span>`).join('')+`</div>`;
+    `<span><span class="sw" style="background:${paired? pairFill(i) : CAT_COLORS[i%CAT_COLORS.length]};height:9px;width:9px;border-radius:2px"></span>${esc(sn)}</span>`).join('')+`</div>`;
 }
 function buildChartEl(cfg){
   const wrap=document.createElement('div');
   const m=S.model;
-  const {cats, segNames, clamped, paired}=chartData(cfg);
+  const {cats, segNames, clamped, paired, bsU, pnlOnly, bases, noTot}=chartData(cfg);
   if(!cats.length){ wrap.innerHTML='<p class="note">No rows for this selection under the current filters.</p>'; return wrap; }
   const notes=[];
+  if(pnlOnly) notes.push('P&L and balances never total together — this comparison covers the P&L side of the scope. Pick a balance-sheet KPI scope to compare balances.');
   if(clamped) notes.push('Negative components are excluded from stacked segments — switch off Split by to see net values.');
   if(gArr(cfg.splitBy).length && !SPLIT_TYPES.has(cfg.type)) notes.push('Split by applies to column and horizontal bar charts only — ignored here.');
   let html='';
@@ -4214,7 +4302,7 @@ function buildChartEl(cfg){
     // drawn as SVG so PPT export always gets an image, whatever the chart type
     const maxAbs=Math.max(...cats.map(c=>paired? Math.max(...segNames.map(sn=>Math.abs(c.segs[sn]||0)))
       : Math.abs(segNames?c.segTotal:c.val)),1);
-    const rowH=28, labelW=214, valW=76, W=720, T2=8;
+    const rowH=paired? Math.max(28, segNames.length*9+12) : 28, labelW=214, valW=76, W=720, T2=8;
     const H2=cats.length*rowH+T2*2;
     const maxBar=W-labelW-valW-16;
     let svg='';
@@ -4224,11 +4312,12 @@ function buildChartEl(cfg){
       svg+=`<text x="${labelW-10}" y="${(cy+3.5).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--text-primary)"><title>${esc(c.name)}</title>${esc(nm)}</text>`;
       const v=segNames?c.segTotal:c.val;
       if(paired){
+        const y0=cy-(segNames.length*9)/2+1;
         segNames.forEach((sn,si)=>{
-          const sv=c.segs[sn]||0;
+          const sv=c.segs[sn]; if(sv==null) return;
           const w=Math.max(1,Math.round(Math.abs(sv)/maxAbs*maxBar));
-          svg+=`<rect x="${labelW}" y="${(cy-8+si*8).toFixed(1)}" width="${w}" height="7" rx="1.5"
-            fill="${si?'var(--series-2)':'var(--cat1)'}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(sv)}</title></rect>`;
+          svg+=`<rect x="${labelW}" y="${(y0+si*9).toFixed(1)}" width="${w}" height="7" rx="1.5"
+            fill="${pairFill(si)}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(sv)}</title></rect>`;
         });
       } else if(segNames){
         let x=labelW;
@@ -4251,7 +4340,7 @@ function buildChartEl(cfg){
       svg+=`<text x="${W-8}" y="${(cy+3.5).toFixed(1)}" text-anchor="end" font-size="11.5" font-weight="600"
         fill="${v<0?'var(--status-critical)':'var(--text-primary)'}">${paired&&c.varFcPct!=null? fmt(v)+'  ('+fmtPct(c.varFcPct)+')' : fmt(v)}</text>`;
     });
-    html=`<div class="scroll-x"><svg width="${W}" height="${H2}" viewBox="0 0 ${W} ${H2}" role="img" aria-label="${t} chart">${svg}</svg></div>`+segLegend(segNames);
+    html=`<div class="scroll-x"><svg width="${W}" height="${H2}" viewBox="0 0 ${W} ${H2}" role="img" aria-label="${t} chart">${svg}</svg></div>`+segLegend(segNames, paired);
 
   } else if(t==='line'||t==='area'){
     const W=Math.max(430, cats.length*slotW+70), L=52, T=14, H=206+BOT;
@@ -4366,7 +4455,36 @@ function buildChartEl(cfg){
 
   } else if(t==='table'){
     const dim=fieldLabels(cfg.groupBy);
-    if(paired){
+    if(paired&&bases){
+      // each base varies against its own grain's anchor, exactly as the KPI
+      // cards do — YTD vs YTD actuals, FY vs the FY forecast/outlook
+      const unit=bsU? bsUnitLabel() : cfgUnit();
+      const hd=bases.map((b,i)=>`<th class="num">${esc(b.name)}${i?'':` (${esc(unit)})`}</th>`+
+        (b.hasVar? `<th class="num">Variance</th><th class="num">Var %</th>`:'')).join('');
+      const row=c=>bases.map(b=>{
+        const v=c.segs[b.name];
+        let cells=`<td class="num">${v==null?'\u2013':fmtCell(v)}</td>`;
+        if(b.hasVar){
+          const d=c.vars? c.vars[b.name] : null;
+          const pv=(d!=null&&v!=null&&Math.abs(v)>0.0001)? d/Math.abs(v) : null;
+          cells+=`<td class="num">${d==null?'\u2013':fmtCell(d)}</td><td class="num">${pv==null?'\u2013':fmtPct(pv)}</td>`;
+        }
+        return cells;
+      }).join('');
+      const totTr=noTot? '' : (()=>{
+        const t={}, tv={};
+        for(const b of bases){ t[b.name]=cats.reduce((s2,c)=>s2+(c.segs[b.name]||0),0);
+          tv[b.name]=cats.reduce((s2,c)=>s2+((c.vars&&c.vars[b.name])||0),0); }
+        return `<tr class="tot"><td>Total</td>${bases.map(b=>{
+          let cells=`<td class="num">${fmtCell(t[b.name])}</td>`;
+          if(b.hasVar){ const d=tv[b.name], pv=Math.abs(t[b.name])>0.0001? d/Math.abs(t[b.name]) : null;
+            cells+=`<td class="num">${fmtCell(d)}</td><td class="num">${pv==null?'\u2013':fmtPct(pv)}</td>`; }
+          return cells; }).join('')}</tr>`;
+      })();
+      html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th>${hd}
+        </tr></thead><tbody>${cats.map(c=>`<tr><td>${esc(c.name)}</td>${row(c)}</tr>`).join('')}${totTr}
+        </tbody></table></div>`;
+    } else if(paired){
       const tA=cats.reduce((s2,c)=>s2+(c.segs[segNames[0]]||0),0);
       const tF=cats.reduce((s2,c)=>s2+(c.segs[segNames[1]]||0),0);
       html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th>
@@ -4426,11 +4544,13 @@ function buildChartEl(cfg){
     cats.forEach((c,i)=>{
       const cx=L+18+i*((W-L-26)/cats.length);
       if(paired){
+        const n=segNames.length, sw=Math.max(5,Math.floor((bw+8)/n)-1);
         segNames.forEach((sn,si)=>{
+          if(c.segs[sn]==null) return;
           const v2=c.segs[sn]||0, y1=y(Math.max(0,v2)), y2=y(Math.min(0,v2));
-          svg+=`<rect x="${(cx+si*(bw/2+1)).toFixed(1)}" y="${y1.toFixed(1)}" width="${(bw/2-1).toFixed(1)}"
+          svg+=`<rect x="${(cx+si*(sw+1)).toFixed(1)}" y="${y1.toFixed(1)}" width="${sw}"
             height="${Math.max(2,y2-y1).toFixed(1)}" rx="2"
-            fill="${si?'var(--series-2)':'var(--cat1)'}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(v2)}</title></rect>`;
+            fill="${pairFill(si)}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(v2)}</title></rect>`;
         });
       } else if(segNames){
         let acc=0;
@@ -4451,7 +4571,7 @@ function buildChartEl(cfg){
       svg+=xLabel(cx+bw/2,H-BOT+16)(c);
     });
     if(min<0&&max>0) svg+=`<line x1="${L}" x2="${W-8}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--border-strong)"/>`;
-    html=`<div class="scroll-x"><svg width="${W+P}" height="${H}" viewBox="${-P} 0 ${W+P} ${H}" role="img" aria-label="Column chart">${svg}</svg></div>`+segLegend(segNames);
+    html=`<div class="scroll-x"><svg width="${W+P}" height="${H}" viewBox="${-P} 0 ${W+P} ${H}" role="img" aria-label="Column chart">${svg}</svg></div>`+segLegend(segNames, paired);
   }
 
   // charts scale down to the container: no horizontal scrolling until they would
@@ -4466,9 +4586,11 @@ function renderBuilder(){
   const m=S.model;
   // field chips
   const fields=[...(liveMetrics(filteredRows()).length>1?['metric']:[]),
+    ...(cmpChipAvail(m)?['cmp']:[]),
     ...Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols)];
   const addTo=(key,f)=>{
     if(f==='metric'&&key==='splitBy') key='groupBy';   // Metric groups, never splits
+    if(f==='cmp'&&key==='splitBy'&&!B.groupBy.length) key='groupBy'; // bases need something to split
     if(!B[key].includes(f)){ B[key]=[...B[key],f]; }
     const other=key==='groupBy'?'splitBy':'groupBy';
     B[other]=B[other].filter(x=>x!==f);
