@@ -503,6 +503,11 @@ What each section governs:
   column pairs) instead. Boxes and rows click through to the KPI
   summary, the widget exports to Excel, and it never totals across
   statements (each metric keeps its own unit and no narrative is drawn).
+  The dashboard's PPT export renders the scorecard in the same pack-box
+  format — native PowerPoint shapes (bordered box per KPI, name + headline
+  value, coloured triangle variance rows, three boxes per row, paginating
+  onto extra slides when needed), editable after export; a widget switched
+  to the Flat table layout exports as a table slide instead.
   In the drag & drop chart builder a **Metric** field chip fans one
   category per catalogue metric — drop it in Group by (it always groups,
   never splits — a drop on Split by lands in Group by) and any chart
