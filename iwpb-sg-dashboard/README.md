@@ -216,12 +216,21 @@ A single header row with:
   line and its children fold away while the parent's own figures stay
   put, at any depth — the fold state persists in the browser, exports
   follow the folded view, and an *Expand all* link under the table
-  reopens everything. The whole arrangement can be kept as a **named view**:
+  reopens everything. **Row labels rename in place**: double-click a
+  line's name, type the label you want (blank restores the original) —
+  the rename keys off the underlying line, so it follows the row through
+  reordering and shows in the table, the commentary and all three
+  exports; a *Reset labels* link under the table clears them. The whole
+  arrangement can be kept as a **named view**:
   *Save view…* beside the roll-up selector snapshots the cascade levels,
-  roll-up depth, dragged row order and fold state under a name you give it, the
+  roll-up depth, dragged row order, fold state and renamed labels under
+  a name you give it, the
   picker switches between saved views, ✕ deletes the selected one, and
   the last applied view is remembered in the browser and restored on the
-  next visit. When the cascade runs on hierarchy levels, lines the mapping
+  next visit. The **⟲ Default** button clears the working view outright —
+  labels, order, folds and cascade — and returns the page to the
+  Account Hierarchy L1 cascade (`fsum_default_levels`, default
+  `accH1,accH2,accH3`); saved views survive it and can be reapplied. When the cascade runs on hierarchy levels, lines the mapping
   could not place any deeper than the block's parent no longer masquerade
   as a sibling named after that parent — they show as an **Other** line
   (`fsum_residual_label`) at the end of the block — and the block's total

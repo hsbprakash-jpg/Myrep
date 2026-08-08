@@ -1014,6 +1014,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <p class="lede2" id="fsumLede"></p>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-quiet" id="btnFsumDefault" title="Clear this view — back to the Account Hierarchy L1 cascade with default labels, order and folds">⟲ Default</button>
       <select id="fsumViewSel" aria-label="Saved views" title="Saved views of this page"></select>
       <button class="btn-quiet" id="btnFsumViewSave" title="Save the current cascade, roll-up depth and row order as a named view">💾 Save view…</button>
       <button class="btn-quiet" id="btnFsumViewDel" title="Delete the selected saved view" style="display:none">✕</button>
@@ -1158,6 +1159,7 @@ const CFG_DEFAULT={
     fsum_total_label:'',
     fsum_residual_label:'Other',
     fsum_parent_row:'top',
+    fsum_default_levels:'accH1,accH2,accH3',
     decisions_max:'3',
     fsum_detail:'',
     bs_unit:'bn',
@@ -4815,13 +4817,14 @@ function fsumViewActive(){ try{ return localStorage.getItem('iwpbsg_fsumview_act
 function fsumViewSetActive(n){ try{ n? localStorage.setItem('iwpbsg_fsumview_active',n)
   : localStorage.removeItem('iwpbsg_fsumview_active'); }catch(e){} }
 function fsumViewSnapshot(){
-  return {lv:fsumLevels(), depth:fsumDepth(), ord:fsumOrdStore(), col:[...fsumColStore()]};
+  return {lv:fsumLevels(), depth:fsumDepth(), ord:fsumOrdStore(), col:[...fsumColStore()], lbl:fsumLblStore()};
 }
 function fsumViewApply(name){
   const v=fsumViewsStore()[name]; if(!v) return;
   fsumLvSave(Array.isArray(v.lv)&&v.lv.length? v.lv : fsumLevels());
   fsumOrdSave(v.ord&&typeof v.ord==='object'? v.ord : {});
   fsumColSave(new Set(Array.isArray(v.col)? v.col : []));
+  fsumLblSave(v.lbl&&typeof v.lbl==='object'? v.lbl : {});
   S.fsumDepth=v.depth||0;
   fsumViewSetActive(name);
   renderFsum();
@@ -4850,7 +4853,25 @@ function fsumViewControls(){
     const all=fsumViewsStore(); delete all[n]; fsumViewsSave(all);
     fsumViewSetActive(''); renderFsum();
   };
+  const dfl=$('btnFsumDefault');
+  if(dfl) dfl.onclick=()=>{
+    if(!window.confirm('Clear this view and return to the default Account Hierarchy layout?')) return;
+    ['iwpbsg_fsumlv','iwpbsg_fsumord','iwpbsg_fsumcol','iwpbsg_fsumlbl'].forEach(k2=>{
+      try{ localStorage.removeItem(k2); }catch(e){} });
+    fsumViewSetActive('');
+    const m=S.model;
+    const want=cfgS('fsum_default_levels').split(/[,;\s]+/).filter(x=>x&&m&&x in m.dimCols);
+    if(want.length) fsumLvSave(want.slice(0,fsumMaxLv()));
+    S.fsumDepth=0;
+    renderFsum();
+  };
 }
+/* user row labels: raw line name -> display label, applied wherever the
+   line appears (table, commentary, all three exports) */
+function fsumLblStore(){ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_fsumlbl')||'null');
+  return (v&&typeof v==='object'&&!Array.isArray(v))? v : {}; }catch(e){ return {}; } }
+function fsumLblSave(o){ try{ localStorage.setItem('iwpbsg_fsumlbl',JSON.stringify(o)); }catch(e){} }
+function fsumLbl(n){ const o=fsumLblStore(); return o[String(n).trim().toLowerCase()]||n; }
 function fsumColStore(){ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_fsumcol')||'null');
   return new Set(Array.isArray(v)? v : []); }catch(e){ return new Set(); } }
 function fsumColSave(set){ try{ localStorage.setItem('iwpbsg_fsumcol',JSON.stringify([...set])); }catch(e){} }
@@ -4917,6 +4938,8 @@ function fsumTree(rows){
     return {main, pad};
   };
   const COL=fsumColStore();
+  const LBL=fsumLblStore();
+  const lab=n=>LBL[String(n).trim().toLowerCase()]||n;
   const hasChildren=(rs,li)=>{
     const Lk=lv[li]; if(!Lk) return false;
     const g=[...groupBy(rs,Lk).entries()];
@@ -4935,7 +4958,7 @@ function fsumTree(rows){
     for(const [n,rs2] of main){
       const key=[...path,n].join('>');
       const kn=hasChildren(rs2, li+1);
-      out.push({name:(depth>=2?ow:'')+n, rows:rs2, lvl:Math.min(depth,4),
+      out.push({name:(depth>=2?ow:'')+lab(n), rows:rs2, lvl:Math.min(depth,4),
         ord:{scope, name:n}, key, kids:kn, closed:kn&&COL.has(key)});
       if(kn&&!COL.has(key)) walk(rs2, li+1, depth+1, [...path,n]);
     }
@@ -4948,7 +4971,7 @@ function fsumTree(rows){
   const {main:topMain,pad:topPad}=splitPad(gTop,L1);
   for(const [n1,rs1] of (topMain.length? topMain : gTop)){
     const kn=hasChildren(rs1, 1);
-    const row={name:n1, rows:rs1, lvl:0, sub:true, ord:{scope:topScope, name:n1},
+    const row={name:lab(n1), rows:rs1, lvl:0, sub:true, ord:{scope:topScope, name:n1},
       key:n1, kids:kn, closed:kn&&COL.has(n1)};
     if(pTop) out.push(row);
     if(kn&&!COL.has(n1)) walk(rs1, 1, 1, [n1]);
@@ -5099,10 +5122,11 @@ function renderFsum(){
   const nCols=1+nMon+4+4+5+7;
   const secs=fsumSections(rows);
   const tree=secs.flatMap(sec=>{
-    const totRows=(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)? [{rows:sec.rows, lvl:0, tot:true,
-      name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
+    const totRaw=cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
         ||(secs.length>1? `Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`
-          : totalLabel(l1Names(sec.rows)))}] : [];
+          : totalLabel(l1Names(sec.rows)));
+    const totRows=(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)?
+      [{rows:sec.rows, lvl:0, tot:true, raw:totRaw, name:fsumLbl(totRaw)}] : [];
     return fsumParentTop()? [{band:sec.label}, ...totRows, ...fsumTree(sec.rows)]
       : [{band:sec.label}, ...fsumTree(sec.rows), ...totRows];
   });
@@ -5111,7 +5135,8 @@ function renderFsum(){
     if(r.band){ body+=`<tr class="band"><td class="nm" colspan="${nCols}">${esc(r.band)}</td></tr>`; continue; }
     const f=fsumFigs(r.rows,m,P,S.ytdM);
     const cls=(r.tot?'tot':r.sub?'sub':'lvl'+r.lvl);
-    const drag=r.ord? ` draggable="true" data-oscope="${esc(r.ord.scope)}" data-oname="${esc(r.ord.name)}"` : '';
+    const drag=(r.ord? ` draggable="true" data-oscope="${esc(r.ord.scope)}" data-oname="${esc(r.ord.name)}"` : '')
+      +(r.raw? ` data-raw="${esc(r.raw)}"` : '');
     const tog=r.kids? `<button class="fsumtog" data-key="${esc(r.key)}" title="${r.closed?'Expand':'Collapse'} ${esc(r.name)}" aria-expanded="${!r.closed}">${r.closed?'+':'\u2212'}</button>` : '';
     body+=`<tr class="${cls}"${drag}><td class="nm" title="${esc(r.name)}${r.ord?' — drag onto a sibling line to reorder; its o/w lines move with it':''}">${tog}${esc(r.name)}</td>`+
       f.mon.map(v=>`<td>${fsumNum(v,f.bs)}</td>`).join('')+
@@ -5137,6 +5162,20 @@ function renderFsum(){
     dSel.style.display=lvAll.length>1?'':'none';
   }
   const tbl=$('fsumTable');
+  tbl.querySelectorAll('tr[data-oname], tr[data-raw]').forEach(tr=>{
+    const td=tr.querySelector('td.nm'); if(!td) return;
+    td.title=(td.title? td.title+' · ':'')+'double-click to rename';
+    td.addEventListener('dblclick',e=>{
+      e.preventDefault();
+      const raw=tr.dataset.oname||tr.dataset.raw;
+      const cur=fsumLbl(raw);
+      const nn=window.prompt(`Label for “${raw}” — blank restores the original`, cur===raw? '' : cur);
+      if(nn==null) return;
+      const o=fsumLblStore(), k2=String(raw).trim().toLowerCase(), v=nn.trim();
+      if(!v||v===raw) delete o[k2]; else o[k2]=v;
+      fsumLblSave(o); renderFsum();
+    });
+  });
   tbl.querySelectorAll('.fsumtog').forEach(b=>{
     b.addEventListener('click',e=>{ e.stopPropagation(); fsumColToggle(b.dataset.key); });
     b.addEventListener('dragstart',e=>{ e.preventDefault(); e.stopPropagation(); });
@@ -5173,11 +5212,14 @@ function renderFsum(){
   if(gaps.length) noteBits.push('Shown as – : '+esc(gaps.join(' · ')));
   if(Object.keys(fsumOrdStore()).length) noteBits.push(`<button class="linklike" id="fsumOrdReset">Reset row order</button>`);
   if(fsumColStore().size) noteBits.push(`<button class="linklike" id="fsumColReset">Expand all</button>`);
+  if(Object.keys(fsumLblStore()).length) noteBits.push(`<button class="linklike" id="fsumLblReset">Reset labels</button>`);
   $('fsumNote').innerHTML=noteBits.join(' · ');
   const rstB=$('fsumOrdReset');
   if(rstB) rstB.onclick=()=>{ try{ localStorage.removeItem('iwpbsg_fsumord'); }catch(e){} renderFsum(); };
   const colB=$('fsumColReset');
   if(colB) colB.onclick=()=>{ try{ localStorage.removeItem('iwpbsg_fsumcol'); }catch(e){} renderFsum(); };
+  const lblB=$('fsumLblReset');
+  if(lblB) lblB.onclick=()=>{ try{ localStorage.removeItem('iwpbsg_fsumlbl'); }catch(e){} renderFsum(); };
   aiComment($('fsumCom'), 'fsum|'+filterNote(true)+'|'+S.ytdM+'|'+drvSig(),
     {ctx:filterNote(true)}, ()=>fsumCommentary(rows,m,P));
 }
@@ -5323,8 +5365,8 @@ function fsumAOA(){
   for(const sec of fsumSections(rows)){
     aoa.push([sec.label]);
     const totA=(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)?
-      [fsumAoaRow({name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
-        ||`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`, rows:sec.rows, lvl:0},m,P)] : [];
+      [fsumAoaRow({name:fsumLbl(cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
+        ||`Total ${sec.label.replace(/\s*\([^)]*\)\s*$/,'')}`), rows:sec.rows, lvl:0},m,P)] : [];
     if(fsumParentTop()) for(const t2 of totA) aoa.push(t2);
     for(const r of fsumTree(sec.rows)) aoa.push(fsumAoaRow(r,m,P));
     if(!fsumParentTop()) for(const t2 of totA) aoa.push(t2);
@@ -5385,8 +5427,8 @@ async function fsumPptx(){
   for(const sec of secs){
     tblRows.push([{text:sec.label, options:{bold:true,color:'FFFFFF',fill:{color:RED},colspan:nNum+1,align:'left'}}]);
     const totP=(fsumTotalOK(sec.rows)&&!sec.noTotal&&fsumTopCount(sec.rows)>1)?
-      [{name:cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
-        ||(secs.length>1?`Total ${sec.name}`:totalLabel(l1Names(sec.rows))), rows:sec.rows, lvl:0, tot:true}]:[];
+      [{name:fsumLbl(cfgS('fsum_total_label')||fsumAncestorTotal(sec.rows)
+        ||(secs.length>1?`Total ${sec.name}`:totalLabel(l1Names(sec.rows)))), rows:sec.rows, lvl:0, tot:true}]:[];
     const tree=fsumParentTop()? [...totP, ...fsumTree(sec.rows)] : [...fsumTree(sec.rows), ...totP];
     for(const r of tree){
       const f=fsumFigs(r.rows,m,P,S.ytdM), k=f.k;
