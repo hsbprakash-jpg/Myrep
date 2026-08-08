@@ -459,13 +459,18 @@ What each section governs:
   Cost ex VP CC GT, ECL, Deposits, Loans and Advances, Retail & Premier /
   PB Wealth Balances, NNM and FY ROTE (the last needs a ROTE line in the
   driller). A metric a file cannot serve simply doesn't appear. Metrics
-  are first-class scopes everywhere: name them in `tile_lines` (separate
-  with `;` so comma-bearing names stay whole) and the Financial
-  Performance grid becomes the scorecard, tiles carrying each metric's
-  own unit and variances; they head the scope pickers in Mix analysis
-  and the drag & drop chart builder under a "Metrics" group; and any
-  chart or table built on them — dashboards and exports included — is
-  scoped through the same resolver. Uploaded Metrics rows replace the
+  are first-class scopes everywhere — and by default they ARE the KPI
+  cards: whenever at least two metrics resolve against the loaded file,
+  the Financial Performance grid and the left-rail KPI list show the
+  scorecard metrics (in catalogue order, each with its own unit and
+  variances) instead of plain MICA grouping — `tile_metrics: N` restores
+  the old grouping, and an explicit `tile_lines` (separate with `;` so
+  comma-bearing names stay whole) always wins. From each card the usual
+  flows make graphs and tables: click for the trajectory, drag a
+  left-rail metric onto **My dashboard** for a card/spark/table widget
+  scoped to it, and the "Metrics" group heads the scope pickers in Mix
+  analysis and the drag & drop chart builder. Everything resolves
+  through one scope machinery, exports included. Uploaded Metrics rows replace the
   built-in list wholesale.
 - **Views** — enable/disable each page (summary, fsum, custom, builder,
   query, table, assist, sim).

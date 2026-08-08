@@ -1103,6 +1103,7 @@ const CFG_DEFAULT={
     total_all_label:'Total (all lines)',
     total_tile:'auto',
     tile_lines:'',
+    tile_metrics:'auto',
     tile_dims:'',
     tile_line_levels:'micaL1,micaL2',
     tile_expand_result:'Y',
@@ -2482,7 +2483,7 @@ function renderSummary(){
   const TD=tileDims();
   const byL1g=groupBy(rows,TD[0]);
   const tileL1=cfgTileL1(byL1g.size)||TD[0]===TD[1];
-  const named=tileLineDefs();
+  const named=tileNamedDefs(rows);
   const missingLines=[];
   let cards, scPfx, fixedOrder=false;
   if(named.length){
@@ -3350,7 +3351,7 @@ async function exportSummaryPPT(){
   const TD=tileDims();
   const l1g=groupBy(rows,TD[0]);
   const tileL1=cfgTileL1(l1g.size)||TD[0]===TD[1];
-  const named=tileLineDefs();
+  const named=tileNamedDefs(rows);
   const kOf=(rs)=>{ let k=kpi(rs,m,S.ytdM,S.includeFC);
     if(rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
     return k; };
@@ -3765,7 +3766,10 @@ function scopeFilter(rows, sc){
   if(t.startsWith('d:')){ const i=t.indexOf(':',2); const k=t.slice(2,i), v=t.slice(i+1);
     return rows.filter(r=>(r.d[k]||'')===v); }
   if(t.startsWith('l1:')){ const v=t.slice(3); return rows.filter(r=>r.d.micaL1===v); }
-  return rows.filter(r=>r.d.micaL2===t);
+  const plain=rows.filter(r=>r.d.micaL2===t);
+  if(plain.length) return plain;
+  const def=metricDef(t);
+  return def? metricRows(def, rows) : plain;
 }
 function scopeName(sc){
   if(!sc) return 'Total (all KPIs)';
@@ -3855,6 +3859,13 @@ function summaryNoTotal(named){
   if(v==='n'||v==='no'||v==='false') return true;
   // auto: no total tile once the file carries a balance-sheet line
   return !fsumTotalOK(filteredRows());
+}
+function tileNamedDefs(rows){
+  const named=tileLineDefs();
+  if(named.length) return named;
+  if(cfgS('tile_metrics').trim().toLowerCase()==='n') return [];
+  const lm=liveMetrics(rows||filteredRows()).map(d=>d.name);
+  return lm.length>=2? lm : [];
 }
 function tileLineDefs(){
   const v=cfgS('tile_lines');
@@ -5429,17 +5440,29 @@ async function fsumPptx(){
 
 function renderKpiNav(){
   const m=S.model; if(!m) return;
-  const byL2=groupBy(filteredRows(),tileDims()[1]);
-  const items=[...byL2.entries()].map(([l2,rs])=>{
-    let k=kpi(rs,m,S.ytdM,S.includeFC);
-    if(isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
-    return {l2, k};
-  }).sort((a,b)=>(isBSLine2(a)-isBSLine2(b))||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  const rowsAll=filteredRows();
+  const namedM=tileNamedDefs(rowsAll);
+  let items;
+  if(namedM.length){
+    items=namedM.map(nm=>{
+      const f=tileFindLine(rowsAll,nm); if(!f) return null;
+      let k=kpi(f.rows,m,S.ytdM,S.includeFC);
+      if(f.rows.length&&isBSLine(f.rows[0].d.micaL1||'')) k=bsRecast(k);
+      return {l2:f.name, sc:f.scope||f.name, k};
+    }).filter(Boolean);
+  } else {
+    const byL2=groupBy(rowsAll,tileDims()[1]);
+    items=[...byL2.entries()].map(([l2,rs])=>{
+      let k=kpi(rs,m,S.ytdM,S.includeFC);
+      if(isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+      return {l2, sc:l2, k};
+    }).sort((a,b)=>(isBSLine2(a)-isBSLine2(b))||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  }
   function isBSLine2(x){ return x.k.isBS?1:0; }
   $('kpiNav').innerHTML=items.map(it=>{
     const rg=cmpHidden(it.l2)?{cls:'n',label:'actuals only'}:rag(it.k.favVarPct,S.thresh);
-    const act=S.view==='summary'&&MX.l2===it.l2;
-    return `<button class="${act?'active':''}" data-l2="${esc(it.l2)}" draggable="true"
+    const act=S.view==='summary'&&(MX.l2===it.sc||MX.l2===it.l2);
+    return `<button class="${act?'active':''}" data-l2="${esc(it.sc)}" data-name="${esc(it.l2)}" draggable="true"
       title="${esc(it.l2)} — ${rg.label}" aria-label="${esc(it.l2)}, ${rg.label}">
       <span class="dot ${rg.cls}" aria-hidden="true"></span>
       <span class="nm">${esc(it.l2)}</span><span class="v">${fmtK(it.k,it.k.cy)}</span></button>`;
@@ -5447,7 +5470,7 @@ function renderKpiNav(){
   $('kpiNav').querySelectorAll('button').forEach(b=>{
     b.addEventListener('click',()=>{
       MX.l2=b.dataset.l2; saveMix();
-      const lo=summaryLineOptions(filteredRows()).find(o=>o.name===b.dataset.l2);
+      const lo=summaryLineOptions(filteredRows()).find(o=>o.name===(b.dataset.name||b.dataset.l2));
       if(lo) S.trajLine=lo.key;
       if(S.view!=='summary') setView('summary'); else render();
       const sp=$('sumPanels'); if(sp) sp.scrollIntoView({behavior:'smooth',block:'start'});
