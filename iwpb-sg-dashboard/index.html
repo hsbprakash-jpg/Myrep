@@ -7280,8 +7280,8 @@ function init(){
       for(let s0=0;s0<sc.items.length;s0+=chunk){
         const ts=p.addSlide(); ts.background={color:'FFFFFF'};
         ts.addText(it.title+(nSlides>1?` (${Math.floor(s0/chunk)+1}/${nSlides})`:''),
-          {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true});
-        ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
+          {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true,line:{color:'FFFFFF',transparency:100,width:0.25}});
+        ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{color:'FFFFFF',transparency:100,width:0.25}});
         // internal grid, shared by every box: label | amount | % — the two
         // number columns are fixed-width and right-aligned to the same edge
         const pad=0.14, pctW=0.92, amtW=1.12, colGap=0.06;
@@ -7296,11 +7296,11 @@ function init(){
             {text:x.name+' ', options:{bold:true,fontSize:11,color:'0B0B0B'}},
             {text:'('+x.unit+')', options:{fontSize:8,color:'79776F'}},
           ],{x:bx+pad,y:by,w:hNameW,h:headH,fontFace:'Segoe UI',valign:'middle',fit:'shrink',
-             wrap:true, inset:0, margin:0});
+             wrap:true, inset:0, margin:0, line:{color:'FFFFFF',transparency:100,width:0.25}});
           ts.addText((x.k.isBS&&bsUnit())? fmtBS(x.k.cmpMain) : fmt(x.k.cmpMain),
             {x:bx+bw-pad-hValW,y:by,w:hValW,h:headH,fontSize:14,bold:true,align:'right',valign:'middle',
              color:(x.k.cmpMain||0)<0?'D03B3B':'0B0B0B',fontFace:'Segoe UI',fit:'shrink',
-             inset:0, margin:0});
+             inset:0, margin:0, line:{color:'FFFFFF',transparency:100,width:0.25}});
           ts.addShape('line',{x:bx+pad,y:by+headH,w:bw-pad*2,h:0,line:{color:'E2E1DD',pt:0.75}});
           const trs=Object.values(x.map);
           trs.forEach((r,ri)=>{
@@ -7310,17 +7310,17 @@ function init(){
             const cc=fav?'0CA30C':'D03B3B', tri=up?'\u25B2':'\u25BC';
             const ry=by+headH+0.05+ri*rowH;
             ts.addText(r.lbl,{x:bx+pad,y:ry,w:lblW,h:rowH,fontSize:9.5,color:'52514E',
-              fontFace:'Segoe UI',fit:'shrink',valign:'middle',inset:0,margin:0});
+              fontFace:'Segoe UI',fit:'shrink',valign:'middle',inset:0,margin:0,line:{color:'FFFFFF',transparency:100,width:0.25}});
             ts.addText(r.v==null?'\u2013':tri+fmtK(x.k,Math.abs(r.v)),{x:xAmt,y:ry,w:amtW,h:rowH,
               fontSize:9.5,bold:true,align:'right',valign:'middle',color:cc,
-              fontFace:'Segoe UI',fit:'shrink',inset:0,margin:0});
+              fontFace:'Segoe UI',fit:'shrink',inset:0,margin:0,line:{color:'FFFFFF',transparency:100,width:0.25}});
             ts.addText(r.p==null?'':tri+pctAbs(r.p),{x:xPct,y:ry,w:pctW,h:rowH,
               fontSize:9.5,bold:true,align:'right',valign:'middle',color:cc,
-              fontFace:'Segoe UI',fit:'shrink',inset:0,margin:0});
+              fontFace:'Segoe UI',fit:'shrink',inset:0,margin:0,line:{color:'FFFFFF',transparency:100,width:0.25}});
           });
           if(!trs.length)
             ts.addText('actuals only',{x:bx+pad,y:by+headH+0.05,w:bw-pad*2,h:rowH,
-              fontSize:9,italic:true,color:'79776F',fontFace:'Segoe UI',valign:'middle',inset:0,margin:0});
+              fontSize:9,italic:true,color:'79776F',fontFace:'Segoe UI',valign:'middle',inset:0,margin:0,line:{color:'FFFFFF',transparency:100,width:0.25}});
         });
       }
     };
