@@ -7206,7 +7206,8 @@ function init(){
           if(svg) png=await svgToPngData(svg);
         }
         items.push({title:widgetTitle(w), png, aoa:widgetAOA(w), note:widgetCommentText(w),
-          sc:(w.type==='scorecard'&&(w.ctype||'pack')!=='table')? scorecardData(S.model) : null});
+          sc:(w.type==='scorecard'&&(w.ctype||'pack')!=='table')? scorecardData(S.model) : null,
+          scTitle:w.type==='scorecard'? `${widgetTitleBase(w)} (${bsUnit()? cfgUnit()+' / '+bsUnitLabel() : cfgUnit()})` : null});
       }catch(e){ items.push({title:widgetTitle(w), png:null, aoa:(()=>{try{return widgetAOA(w);}catch(e2){return null;}})(), note:''}); }
     }
     hosts.forEach(h=>h.remove());
@@ -7279,7 +7280,7 @@ function init(){
       const chunk=cols*rowsFit, nSlides=Math.ceil(sc.items.length/chunk);
       for(let s0=0;s0<sc.items.length;s0+=chunk){
         const ts=p.addSlide(); ts.background={color:'FFFFFF'};
-        ts.addText('KPI scorecard'+(nSlides>1?` (${Math.floor(s0/chunk)+1}/${nSlides})`:''),
+        ts.addText((it.scTitle||'KPI scorecard')+(nSlides>1?` \u00b7 ${Math.floor(s0/chunk)+1}/${nSlides}`:''),
           {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true,line:{color:'FFFFFF',transparency:100,width:0.25}});
         ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{color:'FFFFFF',transparency:100,width:0.25}});
         // internal grid, shared by every box: label | amount | % — the two
