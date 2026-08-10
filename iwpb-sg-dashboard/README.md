@@ -453,7 +453,10 @@ What each section governs:
 - **TilePriority** — the ordered name patterns pinning the top KPI tiles.
 - **Dimensions** — per dimension: display label override, whether it
   appears in the left-pane filters (`Extra1` = Y/N) and whether it is
-  offered as a simulation rule scope (`Extra2` = Y/N). A row whose key is
+  offered as a simulation rule scope (`Extra2` = Y/N — every dimension
+  defaults to Y, and the derived hierarchy levels are always offered, so a
+  scenario can scope on any non-numeric field in the file; a blank cell
+  inherits the default, an explicit N excludes). A row whose key is
   **not** one of the built-ins declares a **new dimension**: `Extra3`
   holds the text to match against the driller's column headers (falling
   back to the label, then the key — matching ignores case, spaces and

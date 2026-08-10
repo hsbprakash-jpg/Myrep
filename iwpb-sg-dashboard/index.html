@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 16:38</div>
+<div id="buildTag">build 2026-08-10 16:46</div>
 </aside>
 <main>
 
@@ -1348,7 +1348,7 @@ const CFG_DEFAULT={
     dec_eyebrow:'Decisions required', dec_title:'Executive decisions'
   }
 };
-for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:/^mica/.test(sp.key)?'Y':'N'};
+for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:'Y'};
 let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null');
   if(v&&v.settings) return v; }catch(e){} return JSON.parse(JSON.stringify(CFG_DEFAULT)); })();
 let RE_FC,RE_TGT,RE_COST,RE_HIDE,RE_BS,PRIO_RES;
@@ -1380,8 +1380,11 @@ cfgCompile();
 function cfgDim(k){ return (CFG.dimensions&&CFG.dimensions[k])||CFG_DEFAULT.dimensions[k]||{}; }
 function cfgDimShow(k){ return String(cfgDim(k).filter==null?'Y':cfgDim(k).filter).toUpperCase()!=='N'; }
 function cfgSimDims(){
-  const out=Object.keys(CFG_DEFAULT.dimensions).filter(k=>String(cfgDim(k).sim==null?'N':cfgDim(k).sim).toUpperCase()==='Y');
-  return out.length?out:['micaL1','micaL2','micaL3','mica'];
+  const out=Object.keys(CFG_DEFAULT.dimensions).filter(k=>String(cfgDim(k).sim==null?'Y':cfgDim(k).sim).toUpperCase()!=='N');
+  if(!out.length) out.push('micaL1','micaL2','micaL3','mica');
+  if(S.model) for(const k of Object.keys(S.model.dimCols))
+    if(!out.includes(k)&&!(k in CFG_DEFAULT.dimensions)) out.push(k);
+  return out;
 }
 function cfgTileL1(nL1){ const v=cfgS('tile_level').toLowerCase();
   return v==='level1'?true : v==='level2'?false : nL1>1; }
@@ -6991,7 +6994,7 @@ function cfgFromWorkbook(wb){
       if(/^(key|order|view|dimension|id)$/i.test(a)||a.startsWith('<')) continue;
       if(sec==='settings'||sec==='calculations'){ if(a) cfg.settings[a.toLowerCase()]=b2; }
       else if(sec==='tilepriority'){ const pat=b2||a; if(pat) tp.push(pat); }
-      else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'N', match:e2||null}; }
+      else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'Y', match:e2||null}; }
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
       else if(sec==='labels'){ if(a) cfg.labels[a.toLowerCase()]=b2; }
       else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
@@ -7126,7 +7129,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 16:38</td></tr>
+      <tr><td>Build</td><td>2026-08-10 16:46</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
