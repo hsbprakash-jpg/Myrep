@@ -185,20 +185,20 @@ aside.side nav button:hover{background:color-mix(in srgb, var(--text-primary) 4%
 aside.side nav button.active{color:var(--hsbc-red);border-left-color:var(--hsbc-red);font-weight:700;
   background:color-mix(in srgb, var(--hsbc-red) 8%, transparent)}
 aside.side nav button svg{flex:none;opacity:.9}
-#kpiNav{display:flex;flex-direction:column}
-#kpiNav button{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;
+#kpiNav,#countryNav{
+#kpiNav button,#countryNav button{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;
   border-left:3px solid transparent;padding:7px 18px 7px 15px;font:inherit;font-size:12.5px;
   color:var(--text-secondary);cursor:grab;text-align:left}
-#kpiNav button:hover{color:var(--text-primary);background:color-mix(in srgb, var(--text-primary) 4%, transparent)}
-#kpiNav button.active{color:var(--hsbc-red);font-weight:700;border-left-color:var(--hsbc-red);
+#kpiNav button:hover,#countryNav button:hover{color:var(--text-primary);background:color-mix(in srgb, var(--text-primary) 4%, transparent)}
+#kpiNav button.active,#countryNav button.active{color:var(--hsbc-red);font-weight:700;border-left-color:var(--hsbc-red);
   background:color-mix(in srgb, var(--hsbc-red) 8%, transparent)}
-#kpiNav .dot{width:8px;height:8px;border-radius:50%;flex:none}
-#kpiNav .dot.g{background:var(--status-good)}
-#kpiNav .dot.a{background:var(--status-warning)}
-#kpiNav .dot.r{background:var(--status-critical)}
-#kpiNav .dot.n{background:var(--text-muted)}
-#kpiNav .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#kpiNav .v{font-variant-numeric:tabular-nums;color:var(--text-muted);font-size:11.5px}
+#kpiNav .dot,#countryNav .dot{width:8px;height:8px;border-radius:50%;flex:none}
+#kpiNav .dot.g,#countryNav .dot.g{background:var(--status-good)}
+#kpiNav .dot.a,#countryNav .dot.a{background:var(--status-warning)}
+#kpiNav .dot.r,#countryNav .dot.r{background:var(--status-critical)}
+#kpiNav .dot.n,#countryNav .dot.n{background:var(--text-muted)}
+#kpiNav .nm,#countryNav .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#kpiNav .v,#countryNav .v{font-variant-numeric:tabular-nums;color:var(--text-muted);font-size:11.5px}
 aside.side .foot{margin-top:auto;padding:12px 18px 2px;border-top:1px solid var(--border)}
 aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
 /* stat tiles */
@@ -762,6 +762,8 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 13 L5 8 L8 10.5 L15 2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1 15 L5 11.5 L8 13 L15 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2" opacity=".6"/></svg>
       <span data-lbl="nav_sim">Simulation Assistant</span></button>
   </nav>
+  <div class="sect" id="sectCountries" hidden><span data-lbl="sect_countries">Countries</span></div>
+  <div id="countryNav"></div>
   <div class="sect sect-fold" id="sectKpisRow" title="Collapse / expand the KPI list" style="display:flex;align-items:center;gap:6px;cursor:pointer">
     <span data-lbl="sect_kpis">KPIs · MICA Level 2</span><span id="kpiCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="kpiNav"></div>
@@ -803,7 +805,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 20:46</div>
+<div id="buildTag">build 2026-08-10 21:06</div>
 </aside>
 <main>
 
@@ -1127,6 +1129,7 @@ const MON_LBL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','No
 const MON_LBL_BASE = [...MON_LBL];
 
 const DIM_SPECS = [
+  {key:'country',  label:'Country',          test:n=>n==='country'||n==='countryname'||n==='countrycode', opt:true},
   {key:'mica',     label:'MICA',             test:n=>n==='mica'},
   {key:'micaL3',   label:'MICA_Level_3',     test:n=>n.includes('micalevel3')},
   {key:'micaL4',   label:'MICA_Level_4',     test:n=>n.includes('micalevel4'), opt:true},
@@ -1163,6 +1166,8 @@ const CFG_DEFAULT={
     eyebrow:'HSBC Management Reporting : IWPB Singapore Driller',
     export_prefix:'',
     logo_mark:'',
+    country_tabs:'auto',
+    region_label:'Region \u2014 all countries',
     landing_title:'Financial Performance',
     total_label:'Total P&L',
     total_all_label:'Total (all lines)',
@@ -2278,7 +2283,7 @@ const S = {
   ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'', trajLine:'', fsumDepth:0,
   view:'summary', widgets:[],
 };
-const ALL_DIM_LABELS={mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
+const ALL_DIM_LABELS={country:'Country', mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
   prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
   micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
   prodCode:'Product code', prodL3:'Product Level 3', prodL2:'Product Level 2', prodL1:'Product Level 1',
@@ -2359,6 +2364,7 @@ function fillFilters(){
     const vals=[...new Set(m.rows.map(r=>r.d[k]||'(blank)'))].sort();
     const det=document.createElement('details');
     det.className='fltgrp';
+    det.dataset.dim=k;
     det.innerHTML=`<summary><span>${esc(ALL_DIM_LABELS[k]||spec.label)}<span class="selsum"></span></span><span class="cnt"></span></summary>
       <div class="fltbody">
         <div class="fltactions"><button class="linklike" data-act="all">All</button><button class="linklike" data-act="none">None</button></div>
@@ -3913,7 +3919,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
 
 
 /* ================= drag & drop chart builder ================= */
-const FIELD_LABELS={metric:'Metric', cmp:'Comparison', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
+const FIELD_LABELS={metric:'Metric', cmp:'Comparison', country:'Country', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
   micaL4:'MICA Level 4', micaL5:'MICA Level 5',
   prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3',
   prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
@@ -5926,6 +5932,44 @@ async function fsumPptx(){
   await p.writeFile({fileName:`${brandSlug()}_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
 }
 
+/* the left-pane country strip: a Region row (sum of every country) then one
+   row per country with its P&L YTD and RAG, each scoping the whole app */
+function renderCountryNav(){
+  const host=$('countryNav'), sect=$('sectCountries');
+  if(!host||!S.model) return;
+  const m=S.model; S.filters=S.filters||{};
+  const cs=('country' in m.dimCols)? [...new Set(m.rows.map(r=>String(r.d.country||'')).filter(Boolean))].sort() : [];
+  if(cs.length<2){ sect.hidden=true; host.innerHTML=''; return; }
+  sect.hidden=false;
+  const sel=S.filters.country;
+  const cur=(sel&&sel.size===1)? [...sel][0] : '';
+  // judge each country inside the current slice of every OTHER filter
+  const save=S.filters.country; delete S.filters.country;
+  const base=filteredRows();
+  if(save) S.filters.country=save;
+  const mk=rs=>{
+    const k=kpi(rs.filter(r=>!isBSLine(String(r.d.micaL1||''))),m,S.ytdM,S.includeFC);
+    return {k, rg:rag(k.favVarPct,S.thresh)};
+  };
+  const items=[{name:cfgS('region_label'), val:'', ...mk(base)}]
+    .concat(cs.map(c=>({name:c, val:c, ...mk(base.filter(r=>String(r.d.country||'')===c))})));
+  host.innerHTML=items.map(it=>`
+    <button class="${cur===it.val?'active':''}" data-c="${esc(it.val)}"
+      title="${esc(it.name)} \u00b7 P&L YTD \u00b7 click to scope every page">
+      <span class="dot ${it.rg.cls}" aria-hidden="true"></span>
+      <span class="nm">${esc(it.name)}</span><span class="v">${it.k.cy==null?'\u2013':fmtK(it.k,it.k.cy)}</span></button>`).join('');
+  host.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    const c=b.dataset.c;
+    const grp=document.querySelector('#dimFilters details[data-dim="country"]');
+    if(grp){
+      grp.querySelectorAll('.fltlist input').forEach(x=>{ x.checked=!c||x.value===c; });
+      const first=grp.querySelector('.fltlist input');
+      if(first){ first.dispatchEvent(new Event('change')); return; }
+    }
+    if(c) S.filters.country=new Set([c]); else delete S.filters.country;
+    render();
+  }));
+}
 function renderKpiNav(){
   const m=S.model; if(!m) return;
   const rowsAll=filteredRows();
@@ -6677,6 +6721,7 @@ function render(){
   else if(S.view==='sim') renderSim();
   else renderTable();
   renderKpiNav();
+  renderCountryNav();
   const rows=filteredRows();
   $('rowCount').textContent=`${rows.length.toLocaleString()} rows in scope`;
 }
@@ -7157,19 +7202,68 @@ function handleFile(file){
   };
   reader.readAsArrayBuffer(file);
 }
+/* several country tabs -> one model: the first tab's column grid is the
+   canonical one and every other tab's values are matched onto it by column
+   label (kind-aware and duplicate-tolerant), so tabs may lay their columns
+   out in any order. Rows are tagged with the tab name as their Country. */
+function tabPeriodKeys(m){
+  const seen={}, out=[];
+  const push=(p,kind)=>{
+    const b2=kind+'|'+String(p.label==null?'':p.label).toLowerCase().replace(/\s+/g,' ').trim();
+    const n=seen[b2]=(seen[b2]||0)+1;
+    out.push({key:b2+(n>1?'#'+n:''), col:p.col});
+  };
+  for(const p of m.pyMonths) push(p,'py');
+  for(const p of m.cyMonths) push(p,'cy');
+  for(const p of m.quarterCols) push(p,'q');
+  for(const p of m.ytdCols) push(p,'y');
+  return out;
+}
+function mergeCountryModels(tabs){
+  const merged={...tabs[0].m};
+  const canon=tabPeriodKeys(tabs[0].m);
+  merged.rows=[]; merged.countries=[]; merged.countryWarn=[];
+  merged.dimCols={...tabs[0].m.dimCols, country:-1};
+  for(const {sn,m} of tabs){
+    const keys=tabPeriodKeys(m);
+    const byKey={}; for(const x of keys) byKey[x.key]=x.col;
+    const map=canon.map(cn=>({to:cn.col, from:byKey[cn.key]}));
+    const miss=canon.filter(cn=>byKey[cn.key]==null).length;
+    const extra=keys.filter(x=>!canon.some(cn=>cn.key===x.key)).length;
+    if(miss||extra) merged.countryWarn.push(sn+': '+[
+      miss? miss+' column(s) of "'+tabs[0].sn+'" not found — those figures read blank' : '',
+      extra? extra+' extra column(s) ignored' : ''].filter(Boolean).join(', '));
+    for(const k2 in m.dimCols) if(!(k2 in merged.dimCols)) merged.dimCols[k2]=-1;
+    for(const r of m.rows){
+      const v=[];
+      for(const mp of map) if(mp.from!=null&&r.v[mp.from]!=null) v[mp.to]=r.v[mp.from];
+      merged.rows.push({d:{...r.d, country:sn}, v});
+    }
+    merged.countries.push(sn);
+  }
+  merged.fcProfile=merged.cyMonths.map(p=>({m:p.m, w:merged.rows.reduce((s2,r)=>s2+Math.abs(r.v[p.col]||0),0)}));
+  return merged;
+}
 function ingestArrayBuffer(buf, name, fromCache){
   const rep=$('ingestReport');
   {
     let model=null, sheetName=null, lastErr=null, lastMissing=null;
     try{
       const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
-      // the data sheet may sit behind Control/notes tabs — take the first sheet that parses
+      // non-data tabs (Control, Mapping, notes) never parse; every tab that
+      // does parse is a data tab. Two or more parsing tabs = one country per
+      // tab, merged into a single model with a Country dimension.
+      const parsedTabs=[];
       for(const sn of wb.SheetNames){
         const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
         const cand=parseSheet(aoa);
-        if(!cand.error && cand.rows.length){ model=cand; sheetName=sn; break; }
-        lastErr=cand.error||lastErr; lastMissing=cand.missing||lastMissing;
+        if(!cand.error && cand.rows.length){
+          parsedTabs.push({sn, m:cand});
+          if(cfgS('country_tabs').trim().toLowerCase()==='first') break;
+        } else { lastErr=cand.error||lastErr; lastMissing=cand.missing||lastMissing; }
       }
+      if(parsedTabs.length===1){ model=parsedTabs[0].m; sheetName=parsedTabs[0].sn; }
+      else if(parsedTabs.length>1){ model=mergeCountryModels(parsedTabs); sheetName=parsedTabs.map(t=>t.sn).join(' + '); }
     }catch(err){
       rep.innerHTML=`<span class="err">Could not read file: ${esc(err.message)}</span>`;
       if(fromCache) cacheClear();
@@ -7192,6 +7286,8 @@ function ingestArrayBuffer(buf, name, fromCache){
     rep.innerHTML=`<span class="ok">✔ ${fromCache?'Restored from cache':'Ingested'} ${esc(name)}</span>
       <table>
       <tr><td>Sheet</td><td>${esc(sheetName)}</td></tr>
+      ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — regional total is their sum; pick a country in the left pane</td></tr>`:''}
+      ${model.countryWarn&&model.countryWarn.length? `<tr><td>Tab alignment</td><td>${esc(model.countryWarn.join(' | '))}</td></tr>`:''}
       <tr><td>Rows</td><td>${model.rows.length.toLocaleString()}</td></tr>
       <tr><td>MICA Level 2 KPIs</td><td>${l2s.size} (${esc([...l2s].slice(0,5).join(', '))}${l2s.size>5?', …':''})</td></tr>
       <tr><td>Periods</td><td>${model.pyMonths.length?`${model.pyMonths.length} months ${esc(model.yearPY)} · `:''}${model.cyMonths.length} months ${esc(model.yearCY)}${model.cyMonths.some(p=>p.fc)?' (incl. forecast)':''}</td></tr>
@@ -7206,7 +7302,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 20:46</td></tr>
+      <tr><td>Build</td><td>2026-08-10 21:06</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

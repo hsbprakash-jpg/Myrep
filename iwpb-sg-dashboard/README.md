@@ -49,6 +49,23 @@ A single header row with:
   Values may be numbers, `1,234` text, `(1,234)` bracket negatives, `-`,
   or blank.
 
+**Multi-country workbooks** — a regional driller can carry **one country
+per tab**: every tab that parses as a driller becomes a country (named
+after its tab), while Control/Mapping/notes tabs are skipped as before.
+The countries merge into one model with a `Country` dimension, aligned by
+column label so tabs may lay their columns out in any order; any tab
+missing columns of the first data tab is reported in the ingest summary.
+A **Countries strip** appears in the left pane: a Region row — the sum of
+every country — then one row per country with its P&L YTD and RAG; click
+a row to scope every page, chart, export and simulation to that country
+(the Country filter group mirrors the choice). Region consolidation keeps
+all the standing rules: YTD from YTD columns, balances as closing
+positions in `US$bn`, P&L in `US$m`, and P&L and balance sheet never
+totalled together. Country also works as an ordinary column
+(`Country`/`Country_Name`/`Country_Code`) in a single-tab file. Settings:
+`country_tabs` (`auto` merges all parsing tabs, `first` restores the old
+first-tab-only behaviour) and `region_label` (the Region row's caption).
+
 ## Views
 
 - **KPI summary** — driller-style financial-dashboard tiles: one per MICA
