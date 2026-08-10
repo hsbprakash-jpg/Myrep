@@ -26,8 +26,11 @@ A single header row with:
   section (see below) and then behaves like the rest everywhere — filters,
   Financial Summary cascade, drag & drop charts, dashboards, commentary.
 - **Periods** — either of two layouts:
-  1. Two blocks of monthly columns (`Jan Actual … Dec Actual` prior year,
-     then `Jan Actual …` current year), quarterly columns (`1Q25 Actual`,
+  1. Monthly columns for the prior and current year. When the labels name
+     their year (`Jan-25`, `Jan 2026`) the columns can sit **anywhere in
+     the file in any order** — the year on the label assigns them. Yearless
+     labels (`Jan Actual`) fall back to the sequence rule: two blocks in
+     calendar order, prior year first. Quarterly columns (`1Q25 Actual`,
      `1Q26 Actual`, …) whose 2-digit years label the blocks, plus optional
      `… FC` forecast months and YTD columns.
   2. CIB-style: title rows above the table, an **Actuals / Forecast /

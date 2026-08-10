@@ -1614,7 +1614,8 @@ function classifyPeriod(raw, bandVal){
   const mi = MON.findIndex(m=>t.startsWith(m));
   if(mi>=0){
     if(isTarget) return {type:'ytd', label:String(raw), target:true};
-    return {type:'month', m:mi, fc:isFc, label:String(raw)};
+    const my=t.match(/\b20(\d{2})\b/) || t.match(/^[a-z]{3,9}[\s\-.']+(\d{2})\b/);
+    return {type:'month', m:mi, fc:isFc, year:my?my[1]:null, label:String(raw)};
   }
   return null;
 }
@@ -1683,13 +1684,21 @@ function parseSheet(aoa){
   }
   if(!monthCols.length) return {error:'No monthly period columns (e.g. "Jan Actual") were found.', missing};
 
-  // split month columns into year blocks: a month index <= the previous one starts a new block
-  const blocks=[]; let cur=[]; let last=-1;
-  for(const p of monthCols){
-    if(p.m<=last && cur.length){ blocks.push(cur); cur=[]; }
-    cur.push(p); last=p.m;
+  // split month columns into year blocks: labels naming their year win —
+  // then order in the file is free; otherwise a month index <= the previous
+  // one starts a new block (sequence layout)
+  const blocks=[];
+  if(monthCols.length&&monthCols.every(p=>p.year!=null)){
+    const yrs=[...new Set(monthCols.map(p=>p.year))].sort((a,b)=>(+a)-(+b));
+    for(const y of yrs) blocks.push(monthCols.filter(p=>p.year===y).sort((a,b)=>a.m-b.m));
+  } else {
+    let cur=[]; let last=-1;
+    for(const p of monthCols){
+      if(p.m<=last && cur.length){ blocks.push(cur); cur=[]; }
+      cur.push(p); last=p.m;
+    }
+    if(cur.length) blocks.push(cur);
   }
-  if(cur.length) blocks.push(cur);
   let pyMonths=[], cyMonths=[];
   if(blocks.length>=2){ pyMonths=blocks[0]; cyMonths=blocks.slice(1).flat(); }
   else { cyMonths=blocks[0]; }
