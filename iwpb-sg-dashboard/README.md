@@ -354,7 +354,12 @@ A single header row with:
   (actuals, prior forecast, simulated forecast) and a per-Level-1 impact
   table, with Excel export. Scenarios save by name (localStorage) for
   reload; the work-in-progress scenario survives refreshes.
-- **Data** — the filtered source rows, paginated with search.
+- **Data** — the filtered source rows, paginated with search. Every text
+  column header carries a **filter button**: it opens a value picker
+  (searchable, Select all / Clear, tick the values to keep) that combines
+  with the page search and the left-pane filters; active funnels highlight
+  and a Clear column filters button drops them all at once. The picker
+  only offers values that can still appear under the other active filters.
 
 Clicking a KPI card (or a KPI in the left pane) focuses the **Mix
 analysis** panel on that KPI — deeper slicing lives in the Query builder

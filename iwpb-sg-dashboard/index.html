@@ -643,6 +643,24 @@ table.fsum tr[draggable="true"] td.nm{cursor:grab}
 .scbox .kv.pc{min-width:56px}
 .scbox .kv.fav{color:var(--status-good)}
 .scbox .kv.unfav{color:var(--status-critical)}
+.thf{display:inline-flex;align-items:center;gap:5px}
+.colfilt{border:1px solid var(--border);background:var(--surface-1);border-radius:4px;cursor:pointer;
+  font-size:9px;line-height:1;padding:2px 4px;color:var(--text-muted)}
+.colfilt:hover{color:var(--text-primary);border-color:var(--text-muted)}
+.colfilt.on{background:var(--brand,#DB0011);border-color:var(--brand,#DB0011);color:#fff}
+.dfpanel{position:absolute;z-index:60;width:272px;background:var(--surface-1);border:1px solid var(--border-strong);
+  border-radius:8px;box-shadow:var(--shadow);padding:10px;font-size:12.5px}
+.dfpanel .dfhead{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+.dfpanel .dfhead b{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary)}
+.dfpanel .dfsearch{width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid var(--border);
+  border-radius:6px;background:var(--surface-2);color:var(--text-primary)}
+.dfpanel .dfacts{display:flex;gap:6px;margin-bottom:6px}
+.dfpanel .dfacts button{border:1px solid var(--border);background:var(--surface-2);border-radius:5px;
+  padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text-secondary)}
+.dfpanel .dfacts button:hover{color:var(--text-primary)}
+.dfpanel .dflist{max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.dfpanel .dflist label{display:flex;align-items:center;gap:7px;padding:3px 4px;border-radius:4px;cursor:pointer}
+.dfpanel .dflist label:hover{background:var(--surface-2)}
 .scoretbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
 .scoretbl th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);
   text-align:right;padding:4px 8px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
@@ -1082,6 +1100,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <div><h4>Filtered source rows</h4><p class="subtitle" id="tableSub"></p></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input class="rvwsearch" id="dataSearch" placeholder="Search rows…" aria-label="Search rows">
+          <button class="btn-quiet" id="btnDataFClear" hidden>✕ Clear column filters</button>
           <button class="btn-quiet" id="btnMonthsToggle">Collapse months</button>
           <button class="btn-quiet" id="btnExportData">⤓ Export all rows to Excel</button>
         </div>
@@ -4931,7 +4950,7 @@ function sumGetter(cols){
 }
 function dataCols(){
   const m=S.model;
-  const cols=outDimKeys().map(k=>({th:ALL_DIM_LABELS[k]||k, xh:String(m.header[m.dimCols[k]]), dim:true, get:r=>r.d[k]}));
+  const cols=outDimKeys().map(k=>({th:ALL_DIM_LABELS[k]||k, xh:String(m.header[m.dimCols[k]]), dim:true, key:k, get:r=>r.d[k]}));
   const per=outPeriodCols();
   if(S.expandMonths===false){
     const mset=monthColSet();
@@ -4947,18 +4966,76 @@ function dataCols(){
   }
   return cols;
 }
+let DATAF={};
+function dataColVals(key){
+  // distinct values under every other active constraint, so the picker only
+  // offers values that can still appear
+  let rows=filteredRows();
+  const dimKeys=outDimKeys();
+  const q=(S.dataQ||'').trim().toLowerCase();
+  if(q) rows=rows.filter(r=>dimKeys.some(k=>String(r.d[k]||'').toLowerCase().includes(q)));
+  for(const k in DATAF){ if(k===key||!DATAF[k]||!DATAF[k].size) continue;
+    rows=rows.filter(r=>DATAF[k].has(String(r.d[k]||''))); }
+  return [...new Set(rows.map(r=>String(r.d[key]||'')))].sort();
+}
+function dfClose(){ const p=document.getElementById('dfPanel'); if(p) p.remove(); }
+function dfOpen(key, th, btn){
+  dfClose();
+  const panel=document.createElement('div'); panel.id='dfPanel'; panel.className='dfpanel';
+  const vals=dataColVals(key);
+  const sel=DATAF[key]||null;   // null = everything ticked
+  panel.innerHTML=`<div class="dfhead"><b>${esc(th)}</b>
+      <input type="text" placeholder="Search values…" class="dfsearch" aria-label="Search values"></div>
+    <div class="dfacts"><button type="button" data-a="all">Select all</button>
+      <button type="button" data-a="none">Clear</button></div>
+    <div class="dflist">${vals.map(v=>
+      `<label><input type="checkbox" data-v="${esc(v)}"${(!sel||sel.has(v))?' checked':''}> ${esc(v)||'(blank)'}</label>`).join('')}</div>`;
+  document.body.appendChild(panel);
+  const r=btn.getBoundingClientRect(), pw=272;
+  panel.style.left=Math.max(8,Math.min(window.innerWidth-pw-12, r.left))+'px';
+  panel.style.top=(r.bottom+window.scrollY+4)+'px';
+  const apply=()=>{
+    const boxes=[...panel.querySelectorAll('.dflist input')];
+    const on=boxes.filter(c=>c.checked).map(c=>c.dataset.v);
+    if(on.length===boxes.length) delete DATAF[key];
+    else DATAF[key]=new Set(on);
+    dataPager.page=1; renderTable();
+  };
+  panel.querySelectorAll('.dflist input').forEach(c=>c.addEventListener('change',apply));
+  panel.querySelector('.dfsearch').addEventListener('input',e=>{
+    const t=e.target.value.toLowerCase();
+    panel.querySelectorAll('.dflist label').forEach(l=>{
+      l.style.display=l.textContent.toLowerCase().includes(t)?'':'none'; });
+  });
+  panel.querySelectorAll('.dfacts button').forEach(b=>b.addEventListener('click',()=>{
+    panel.querySelectorAll('.dflist label').forEach(l=>{
+      if(l.style.display!=='none') l.querySelector('input').checked=(b.dataset.a==='all'); });
+    apply();
+  }));
+  panel.querySelector('.dfsearch').focus();
+  setTimeout(()=>{
+    const away=e=>{ if(!panel.contains(e.target)){ dfClose(); document.removeEventListener('mousedown',away); } };
+    document.addEventListener('mousedown',away);
+  },0);
+}
 function renderTable(){
   const m=S.model;
   let rows=filteredRows();
   const dimKeys=outDimKeys();
   const q=(S.dataQ||'').trim().toLowerCase();
   if(q) rows=rows.filter(r=>dimKeys.some(k=>String(r.d[k]||'').toLowerCase().includes(q)));
+  let nf=0;
+  for(const k in DATAF){ if(!DATAF[k]||!DATAF[k].size) continue; nf++;
+    rows=rows.filter(r=>DATAF[k].has(String(r.d[k]||''))); }
+  $('btnDataFClear').hidden=!nf;
   $('tableSub').textContent=`${rows.length.toLocaleString()} rows`+(q?` match “${S.dataQ}”`:' match the filters')+
+    (nf?` · ${nf} column filter${nf>1?'s':''} active`:'')+
     ' · columns follow the Output fields selection';
   const {start, shown}=renderPager($('dataPager'), dataPager, rows.length, renderTable);
   const cols=dataCols();
   let html='<table class="grid review"><thead><tr>'+cols.map(c=>
-    `<th${c.dim?' style="text-align:left"':''}>${esc(c.th)}</th>`).join('')+'</tr></thead><tbody>';
+    c.dim? `<th style="text-align:left"><span class="thf">${esc(c.th)}<button type="button" class="colfilt${DATAF[c.key]&&DATAF[c.key].size?' on':''}" data-k="${c.key}" data-th="${esc(c.th)}" title="Filter ${esc(c.th)}" aria-label="Filter ${esc(c.th)}">⏷</button></span></th>`
+      : `<th>${esc(c.th)}</th>`).join('')+'</tr></thead><tbody>';
   rows.slice(start,start+shown).forEach(r=>{
     html+='<tr>'+cols.map(c=>{
       const v=c.get(r);
@@ -4966,6 +5043,9 @@ function renderTable(){
     }).join('')+'</tr>';
   });
   $('rawTable').innerHTML=html+'</tbody></table>';
+  $('rawTable').querySelectorAll('.colfilt').forEach(b=>
+    b.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation();
+      dfOpen(b.dataset.k, b.dataset.th, b); }));
   $('rawTable').scrollTop=0;
   $('btnMonthsToggle').textContent=S.expandMonths===false?'Expand months':'Collapse months';
 }
@@ -7179,6 +7259,7 @@ function init(){
   });
   $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA(), money:false}],'IWPB_SG_data'));
   $('dataSearch').addEventListener('input',e=>{ S.dataQ=e.target.value; dataPager.page=1; renderTable(); });
+  $('btnDataFClear').addEventListener('click',()=>{ DATAF={}; dfClose(); dataPager.page=1; renderTable(); });
   $('btnPptMix').addEventListener('click',()=>exportPPT([{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')}],'IWPB_SG_mix'));
   $('btnPptSummary').addEventListener('click',()=>exportSummaryPPT());
   $('btnPptChart').addEventListener('click',()=>{
