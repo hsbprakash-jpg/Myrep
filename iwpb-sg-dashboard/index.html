@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 16:14</div>
+<div id="buildTag">build 2026-08-10 16:23</div>
 </aside>
 <main>
 
@@ -3786,7 +3786,7 @@ function scorecardPack(m){
   };
   return `<div class="scgrid">${sc.items.map(it=>{
     const trs=Object.values(it.map);
-    return `<div class="scbox" data-sc="${esc(it.scope)}" title="Open ${esc(it.name)} on the KPI summary">`+
+    return `<div class="scbox" draggable="true" data-sc="${esc(it.scope)}" data-nm="${esc(it.name)}" title="Open ${esc(it.name)} on the KPI summary · drag onto the grid to add as a card">`+
       `<div class="schead"><span class="scname">${esc(it.name)} <span class="scu">(${esc(it.unit)})</span></span>`+
       `<span class="scval${(it.k.cmpMain||0)<0?' negnum':''}">${(it.k.isBS&&bsUnit())? fmtBS(it.k.cmpMain) : fmt(it.k.cmpMain)}</span></div>`+
       (trs.length? trs.map(r=>rowH(it.k,r)).join('') : '<div class="scrow"><span class="scl">actuals only</span></div>')+
@@ -6743,6 +6743,11 @@ function renderCustom(){
       div.querySelectorAll('tr[data-sc], .scbox[data-sc]').forEach(el=>el.addEventListener('click',()=>{
         MX.l2=el.dataset.sc; saveMix(); setView('summary');
       }));
+      div.querySelectorAll('.scbox[data-sc]').forEach(el=>el.addEventListener('dragstart',e=>{
+        e.stopPropagation();
+        e.dataTransfer.setData('text/x-kpi', el.dataset.sc);
+        e.dataTransfer.effectAllowed='copy';
+      }));
     }
     if(w.type==='chart'){
       const wcb=div.querySelector('.wchartbody');
@@ -7117,7 +7122,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 16:14</td></tr>
+      <tr><td>Build</td><td>2026-08-10 16:23</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
