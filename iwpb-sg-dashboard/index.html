@@ -468,9 +468,9 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .cmppick label{font-size:12.5px;color:var(--text-secondary)}
 #simRules .rnote{grid-column:1 / -1;font-size:11px;color:var(--text-muted);margin:2px 0 0 40px}
 #simRules .rnote.warn{color:#b57a00;font-weight:600}
-#simRules .simrule{display:grid;grid-template-columns:40px 128px minmax(200px,var(--sim-val-w,50ch)) 72px 150px 96px 32px 74px 16px 74px 26px;justify-content:start;
+#simRules .simrule{display:grid;grid-template-columns:40px 128px minmax(200px,var(--sim-val-w,50ch)) 50px 142px 72px 150px 96px 32px 74px 16px 74px 26px;justify-content:start;
   gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:8px;
-  background:var(--surface-2);margin-bottom:8px;font-size:12.5px;min-width:920px}
+  background:var(--surface-2);margin-bottom:8px;font-size:12.5px;min-width:1110px}
 .simrule select,.simrule input{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);width:100%;min-width:0}
 .simrule input[type=number]{width:100%}
 .simrule .rlbl{color:var(--text-muted);font-size:11px}
@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 18:07</div>
+<div id="buildTag">build 2026-08-10 18:22</div>
 </aside>
 <main>
 
@@ -6233,6 +6233,7 @@ function renderSim(){
       ${r.dim?`<select class="rval">${
         (vals(r.dim).includes(String(r.val2))?'':`<option value="${esc(r.val2)}" selected>(not in this file) ${esc(r.val2)||'—'}</option>`)+
         vals(r.dim).map(v=>`<option${r.val2===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`:'<span class="note">all rows</span>'}
+      <span class="rlbl">Apply to</span>
       <select class="rstmt" title="Which statement the rule applies to">${
         [['all','P&L + balances'],['pl','P&L only'],['bs','Balances only']].map(([v,l])=>
           `<option value="${v}"${(r.stmt||'all')===v?' selected':''}>${l}</option>`).join('')}</select>
@@ -7189,7 +7190,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 18:07</td></tr>
+      <tr><td>Build</td><td>2026-08-10 18:22</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
