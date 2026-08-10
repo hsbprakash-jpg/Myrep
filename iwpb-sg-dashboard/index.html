@@ -1780,11 +1780,12 @@ function parseSheet(aoa){
   if(lastAct) for(const p of ytdCols)
     if(!p.fy&&p.ytdM==null&&p.ytdYear==null&&/ytd/i.test(String(p.label))) p.ytdM=lastAct.m;
   const isCYytd=p=>!p.target&&!p.fy&&p.ytdM!=null&&(p.ytdYear==null||p.ytdYear===cyYY);
-  const ytdAsOfCols=ytdCols.filter(p=>isCYytd(p)&&!p.fc).slice(0,1);
-  const ytdFcAsOfCols=ytdCols.filter(p=>isCYytd(p)&&p.fc).slice(0,1);
+  const byM=(a,b)=>a.ytdM-b.ytdM;
+  const ytdAsOfCols=ytdCols.filter(p=>isCYytd(p)&&!p.fc).sort(byM);
+  const ytdFcAsOfCols=ytdCols.filter(p=>isCYytd(p)&&p.fc).sort(byM);
   const pyYY2=String(yearPY).slice(-2);
-  const pyYtdAsOfCols=ytdCols.filter(p=>!p.target&&!p.fy&&!p.fc&&p.ytdM!=null&&p.ytdYear===pyYY2).slice(0,1);
-  const ytdTgtAsOfCols=ytdCols.filter(p=>p.target&&!p.fy&&p.ytdM!=null&&(p.ytdYear==null||p.ytdYear===cyYY)).slice(0,1);
+  const pyYtdAsOfCols=ytdCols.filter(p=>!p.target&&!p.fy&&!p.fc&&p.ytdM!=null&&p.ytdYear===pyYY2).sort(byM);
+  const ytdTgtAsOfCols=ytdCols.filter(p=>p.target&&!p.fy&&p.ytdM!=null&&(p.ytdYear==null||p.ytdYear===cyYY)).sort(byM);
   const fcProfile=cyMonths.map(p=>({m:p.m, w:rows.reduce((s2,r)=>s2+Math.abs(r.v[p.col]||0),0)}));
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
     fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, pyYtdAsOfCols, ytdTgtAsOfCols, fcProfile, yearPY, yearCY};
@@ -1807,11 +1808,11 @@ function kpi(rows, model, ytdM, includeFC){
   const pySel = model.pyMonths.filter(p=>months.has(p.m));
   let cy = sumCols(rows, cySel.map(p=>p.col));
   // a YTD column for exactly the selected month is authoritative — taken as-is
-  const asOf=model.ytdAsOfCols&&model.ytdAsOfCols[0];
+  const asOf=(model.ytdAsOfCols||[]).find(p=>p.ytdM===ytdM);
   if(cfgS('calc_ytd_actuals').toLowerCase()!=='months'&&
      asOf&&asOf.ytdM===ytdM&&!cySel.some(p=>p.fc)) cy=sumCols(rows,[asOf.col]);
   let py = model.pyMonths.length? sumCols(rows, pySel.map(p=>p.col)) : null;
-  const pyAsOf=model.pyYtdAsOfCols&&model.pyYtdAsOfCols[0];
+  const pyAsOf=(model.pyYtdAsOfCols||[]).find(p=>p.ytdM===ytdM);
   if(py!=null&&cfgS('calc_ytd_actuals').toLowerCase()!=='months'&&
      pyAsOf&&pyAsOf.ytdM===ytdM) py=sumCols(rows,[pyAsOf.col]);
   const varAbs = (cy!=null&&py!=null)? cy-py : null;
@@ -1829,7 +1830,7 @@ function kpi(rows, model, ytdM, includeFC){
   const fyFc = (cfgS('calc_fy_forecast').toLowerCase()!=='outlook'&&fyFcCol!=null)? fyFcCol
     : (!model.pyMonths.length&&model.cyMonths.some(p=>p.fc))? outlook
     : fyFcCol;
-  const fcAsOf=model.ytdFcAsOfCols&&model.ytdFcAsOfCols[0];
+  const fcAsOf=(model.ytdFcAsOfCols||[]).find(p=>p.ytdM===ytdM);
   const ytdFc = (fcAsOf&&fcAsOf.ytdM===ytdM)? sumCols(rows,[fcAsOf.col])
     : fyFc!=null? fyFc*phaseFrac(model,cySel) : null;
   const varFc = (cy!=null&&ytdFc!=null)? cy-ytdFc : null;
@@ -1838,7 +1839,7 @@ function kpi(rows, model, ytdM, includeFC){
   const varTgtPct = (varTgt!=null&&target!==0)? varTgt/Math.abs(target) : null;
   // YTD target strictly from a YTD target column matching the month — never
   // phased from the FY number
-  const tgtAsOf=model.ytdTgtAsOfCols&&model.ytdTgtAsOfCols[0];
+  const tgtAsOf=(model.ytdTgtAsOfCols||[]).find(p=>p.ytdM===ytdM);
   const ytdTgt = (tgtAsOf&&tgtAsOf.ytdM===ytdM)? sumCols(rows,[tgtAsOf.col]) : null;
   const varYT = (cy!=null&&ytdTgt!=null)? cy-ytdTgt : null;
   const varYTPct = (varYT!=null&&ytdTgt!==0)? varYT/Math.abs(ytdTgt) : null;
@@ -2295,9 +2296,15 @@ function fillFilters(){
   const actuals=m.cyMonths.filter(p=>!p.fc);
   let lastData=-1;
   for(const p of actuals) if(hasData(p)) lastData=Math.max(lastData,p.m);
+  if(lastData<0){
+    const yc=(m.ytdAsOfCols||[]).filter(hasData);
+    if(yc.length) lastData=yc[yc.length-1].ytdM;
+  }
   if(lastData<0) lastData=actuals.length? actuals[actuals.length-1].m : 11;
   S.lastActualM=lastData;
-  const opts=actuals.filter(p=>p.m<=lastData).map(p=>`<option value="${p.m}">${MON_LBL[p.m]}</option>`);
+  const mset=new Set(actuals.filter(p=>p.m<=lastData).map(p=>p.m));
+  for(const p of (m.ytdAsOfCols||[])) if(p.ytdM<=lastData) mset.add(p.ytdM);
+  const opts=[...mset].sort((a,b)=>a-b).map(mm=>`<option value="${mm}">${MON_LBL[mm]}</option>`);
   for(const p of m.cyMonths) if(p.fc && p.m>lastData)
     opts.push(`<option value="fc${p.m}">${MON_LBL[p.m]} (FC)</option>`);
   mSel.innerHTML=opts.join('');
@@ -2686,7 +2693,8 @@ function renderSummary(){
   const ytdSrc=(()=>{
     if(cfgS('calc_ytd_actuals').toLowerCase()==='months')
       return 'YTD: months added — the config sets calc_ytd_actuals=months';
-    const asOf=m.ytdAsOfCols&&m.ytdAsOfCols[0];
+    const asOf=(m.ytdAsOfCols||[]).find(p=>p.ytdM===S.ytdM)
+      ||((m.ytdAsOfCols||[])[ (m.ytdAsOfCols||[]).length-1 ]||null);
     if(!asOf){
       const cand=(m.ytdCols||[]).find(p=>!p.fy&&!p.target&&!p.fc&&p.ytdM!=null);
       return cand? `YTD: months added — \u201c${cand.label}\u201d isn't read as current-year (${m.yearCY}); check the year in the header`
@@ -3880,8 +3888,7 @@ const B={groupBy:[], splitBy:[], measure:'cy', type:'column', l2:''};
 
 function cmpBases(m){
   if(!m) return [];
-  const fcCol=m.ytdFcAsOfCols&&m.ytdFcAsOfCols[0];
-  const realFc=!!(fcCol&&(typeof S==='undefined'||fcCol.ytdM===S.ytdM));
+  const realFc=!!((m.ytdFcAsOfCols||[]).some(p=>typeof S==='undefined'||p.ytdM===S.ytdM));
   return [
     {id:'cy',     name:`YTD ${m.yearCY} actuals`,  anchor:true, pick:k=>k.cy},
     {id:'ytdfc',  name:'YTD forecast',             pick:k=>(k.isBS||!realFc)? null : k.ytdFc,
@@ -5160,7 +5167,7 @@ function fsumFigs(rows, m, P, ytdM){
   // and a target or forecast baseline is the full-year column as-is — phased
   // targets and summed months belong to flows and would overstate a balance.
   const bs=rows.length&&isBSLine(String(rows[0].d.micaL1||''));
-  const asOf=m.ytdAsOfCols&&m.ytdAsOfCols[0];
+  const asOf=[...(m.ytdAsOfCols||[])].filter(p=>p.ytdM<=ytdM).pop();
   let ytdOv=null;
   if(bs) ytdOv=(useCols&&asOf&&asOf.ytdM===ytdM)? sumCols(rows,[asOf.col]) : k.mth;
   else if(useCols&&asOf&&ytdM>=asOf.ytdM){

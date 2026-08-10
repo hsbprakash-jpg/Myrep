@@ -186,8 +186,13 @@ A single header row with:
   `YTD-Jun'26`, a quarter-named `Q2 YTD-26` (read as through the
   quarter-end month), or a bare `YTD` (read as the file's running YTD,
   through the last actual month) — under an Actuals, Forecast or Target
-  band alike. The column is used when it matches the selected YTD-through
-  month. The same
+  band alike. A file may carry **one YTD column per month** (`Apr YTD-26`,
+  `May YTD-26`, `Jun YTD-26` …, actuals and forecast alike): all are kept
+  and the one matching the selected YTD-through month serves that month —
+  moving the month selector moves between columns, never back to summing
+  months. A file whose actuals exist only as YTD columns (all month
+  columns marked Forecast) takes its month list and default month from
+  the YTD columns themselves. The same
   rule covers the prior year: a PY YTD column (`Jun YTD-25`) matching the
   selected month is authoritative for every vs-PY figure, with PY months
   summed only when the file carries no such column. Target comparisons are
