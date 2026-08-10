@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 16:09</div>
+<div id="buildTag">build 2026-08-10 16:14</div>
 </aside>
 <main>
 
@@ -1458,7 +1458,10 @@ function bsRecast(k){
   const pct=(v!=null&&base)? v/Math.abs(base) : null;
   const decV=k.cySeries.length? k.cySeries[k.cySeries.length-1].val : null;
   const vT=(decV!=null&&k.target!=null)? decV-k.target : null;
+  const bsFc=(k.ytdFcIsCol&&k.ytdFc!=null)? k.ytdFc : null;
+  const vBsFc=(bsFc!=null&&bal!=null)? bal-bsFc : null;
   return {...k, isBS:true, cy:bal, cmpMain:bal, cmpBase:base, cmpVar:v, cmpVarPct:pct,
+    bsFc, varBsFc:vBsFc, varBsFcPct:(vBsFc!=null&&bsFc)? vBsFc/Math.abs(bsFc) : null,
     favVarPct:pct, dirFlip:false, costLike:false, outlook:decV, fyFc:decV,
     ytdFc:base, varFc:(L.mode==='fc'? v : (k.fyFc!=null&&bal!=null? bal-k.fyFc : null)),
     varFcPct:(L.mode==='fc'? pct : (k.fyFc? (bal-k.fyFc)/Math.abs(k.fyFc) : null)),
@@ -1844,7 +1847,8 @@ function kpi(rows, model, ytdM, includeFC){
     : (!model.pyMonths.length&&model.cyMonths.some(p=>p.fc))? outlook
     : fyFcCol;
   const fcAsOf=(model.ytdFcAsOfCols||[]).find(p=>p.ytdM===ytdM);
-  const ytdFc = (fcAsOf&&fcAsOf.ytdM===ytdM)? sumCols(rows,[fcAsOf.col])
+  const ytdFcIsCol=!!fcAsOf;
+  const ytdFc = fcAsOf? sumCols(rows,[fcAsOf.col])
     : fyFc!=null? fyFc*phaseFrac(model,cySel) : null;
   const varFc = (cy!=null&&ytdFc!=null)? cy-ytdFc : null;
   const varFcPct = (varFc!=null&&ytdFc!==0)? varFc/Math.abs(ytdFc) : null;
@@ -1901,7 +1905,7 @@ function kpi(rows, model, ytdM, includeFC){
   return {cy, py, varAbs, varPct, cySeries, pySeries, outlook, target, varTgt, varTgtPct, fyPrior,
     fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct, cmpMain, favVarPct,
     ytdTgt, varYT, varYTPct, mth, mthPrev, mthPy, mthTgt, mthFc, fyMain, fyBase,
-    vp:vpId, dirFlip:flip, costLike};
+    vp:vpId, dirFlip:flip, costLike, ytdFcIsCol};
 }
 /* cost and ECL lines stay actuals-only on landing widgets in target-only files;
    with a forecast basis the YTD actuals vs YTD forecast comparison applies to
@@ -1928,7 +1932,8 @@ function tileRows(k,m){
   // the selected variance period always leads; the standard rows follow
   const L=cmpLabels(m);
   if(k.isBS){
-    if(k.cmpVar!=null) rows.push({lbl:L.vs.replace('YTD ',''), v:k.cmpVar, p:k.cmpVarPct});
+    if(k.cmpVar!=null) rows.push({lbl:k.cmpMode==='py'?'vs PY':L.vs.replace('YTD ',''), v:k.cmpVar, p:k.cmpVarPct});
+    if(k.varBsFc!=null) rows.push({lbl:'vs Fcst', v:k.varBsFc, p:k.varBsFcPct});
     if(k.varTgt!=null) rows.push({lbl:'vs Tgt', v:k.varTgt, p:k.varTgtPct});
     return rows;
   }
@@ -3907,8 +3912,8 @@ function cmpBases(m){
   const realFc=!!((m.ytdFcAsOfCols||[]).some(p=>typeof S==='undefined'||p.ytdM===S.ytdM));
   return [
     {id:'cy',     name:`YTD ${m.yearCY} actuals`,  anchor:true, pick:k=>k.cy},
-    {id:'ytdfc',  name:'YTD forecast',             pick:k=>(k.isBS||!realFc)? null : k.ytdFc,
-      dv:k=>(k.isBS||!realFc)? null : k.varFc},
+    {id:'ytdfc',  name:'YTD forecast',             pick:k=>k.isBS? k.bsFc : (realFc? k.ytdFc : null),
+      dv:k=>k.isBS? k.varBsFc : (realFc? k.varFc : null)},
     {id:'py',     name:`YTD ${m.yearPY}`,          pick:k=>m.pyMonths.length? k.py : null,
       dv:k=>m.pyMonths.length? k.varAbs : null},
     {id:'tgt',    name:'Target',                   pick:k=>k.isBS? k.target : k.ytdTgt,
@@ -7112,7 +7117,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 16:09</td></tr>
+      <tr><td>Build</td><td>2026-08-10 16:14</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
