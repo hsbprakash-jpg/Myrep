@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 17:05</div>
+<div id="buildTag">build 2026-08-10 18:07</div>
 </aside>
 <main>
 
@@ -5974,12 +5974,18 @@ function saveSimCur(){ try{ localStorage.setItem('iwpbsg_sim_cur',JSON.stringify
 function simStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_sims')||'{}'); }catch(e){ return {}; } }
 function simStoreSet(o){ try{ localStorage.setItem('iwpbsg_sims',JSON.stringify(o)); }catch(e){} }
 function simFcMonths(){ return S.model? S.model.cyMonths.filter(p=>p.fc) : []; }
+function simMatchRows(rows, ru){
+  let match=ru.dim? rows.filter(r=>String(r.d[ru.dim]||'')===String(ru.val2)) : rows;
+  if(ru.stmt==='pl') match=match.filter(r=>!isBSLine(String(r.d.micaL1||'')));
+  else if(ru.stmt==='bs') match=match.filter(r=>isBSLine(String(r.d.micaL1||'')));
+  return match;
+}
 /* what a rule actually touches — makes a small or zero impact self-explanatory */
 function simRuleNote(r){
   try{
     const rows=filteredRows(), fc=simFcMonths();
     const months=fc.filter(p=>p.m>=+r.from&&p.m<=+r.to);
-    const match=r.dim? rows.filter(x=>String(x.d[r.dim]||'')===String(r.val2)) : rows;
+    const match=simMatchRows(rows, r);
     if(!match.length) return '<div class="rnote warn">⚠ no rows match this scope under the current filters — this rule changes nothing</div>';
     if(!months.length) return '<div class="rnote warn">⚠ no forecast months in this range — this rule changes nothing</div>';
     const base=sumCols(match, months.map(p=>p.col));
@@ -5990,6 +5996,8 @@ function simRuleNote(r){
       : ((+r.val||0)*months.length - base);
     const dir= eff>0? 'raises the forecast' : eff<0? 'lowers the forecast' : 'no change';
     const bsR=bsUnit()&&match.every(x=>isBSLine(String(x.d.micaL1||'')));
+    if((!r.stmt||r.stmt==='all')&&mixedScope(match))
+      return '<div class="rnote warn">\u26a0 this scope spans P&L and balance rows \u2014 set \u201cApply to\u201d to target one side; applied to all, the impacts land on both statements</div>';
     if(bsR){
       const lastP2=months[months.length-1];
       let simC=null;
@@ -6018,7 +6026,7 @@ function simRuleNote(r){
 function simNewRule(){
   const fc=simFcMonths(), m=S.model, dim='micaL1';
   const first= m? ([...new Set(m.rows.map(r=>String(r.d[dim]||'')).filter(Boolean))].sort()[0]||'') : '';
-  return {dim, val2:first, type:'pct', val:10,
+  return {dim, val2:first, stmt:'all', type:'pct', val:10,
     from:fc.length?fc[0].m:0, to:fc.length?fc[fc.length-1].m:11};
 }
 /* apply the scenario rules to the forecast months; returns per-row simulated values */
@@ -6031,7 +6039,7 @@ function computeSim(rules){
     const val=+ru.val;
     if(!isFinite(val)) continue;
     const months=fcMonths.filter(p=>p.m>=+ru.from&&p.m<=+ru.to);
-    const match=ru.dim? rows.filter(r=>String(r.d[ru.dim]||'')===String(ru.val2)) : rows;
+    const match=simMatchRows(rows, ru);
     if(!match.length||!months.length) continue;
     for(const p of months){
       if(ru.type==='pct'){
@@ -6090,8 +6098,7 @@ function simAgg(rules){
     .sort((a,b)=>Math.abs(b.baseOut||0)-Math.abs(a.baseOut||0));
   const matched=new Set();
   for(const ru of (rules||[])){
-    const mr=ru.dim? rows.filter(r=>String(r.d[ru.dim]||'')===String(ru.val2)) : rows;
-    for(const r of mr) matched.add(r);
+    for(const r of simMatchRows(rows, ru)) matched.add(r);
   }
   const mArr=[...matched];
   const bsFocus=!!(mArr.length&&bsUnit()&&mArr.every(r=>isBSLine(String(r.d.micaL1||''))));
@@ -6226,6 +6233,9 @@ function renderSim(){
       ${r.dim?`<select class="rval">${
         (vals(r.dim).includes(String(r.val2))?'':`<option value="${esc(r.val2)}" selected>(not in this file) ${esc(r.val2)||'—'}</option>`)+
         vals(r.dim).map(v=>`<option${r.val2===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`:'<span class="note">all rows</span>'}
+      <select class="rstmt" title="Which statement the rule applies to">${
+        [['all','P&L + balances'],['pl','P&L only'],['bs','Balances only']].map(([v,l])=>
+          `<option value="${v}"${(r.stmt||'all')===v?' selected':''}>${l}</option>`).join('')}</select>
       <span class="rlbl">Adjustment</span>
       <select class="rtype">
         <option value="pct"${r.type==='pct'?' selected':''}>% change (forecast months)</option>
@@ -6246,6 +6256,7 @@ function renderSim(){
     el.querySelector('.rdim').addEventListener('change',e=>{ r.dim=e.target.value;
       r.val2=r.dim? (vals(r.dim)[0]||'') : ''; upd(); });
     const rv=el.querySelector('.rval'); if(rv) rv.addEventListener('change',e=>{ r.val2=e.target.value; upd(); });
+    const rst=el.querySelector('.rstmt'); if(rst) rst.addEventListener('change',e=>{ r.stmt=e.target.value; upd(); });
     el.querySelector('.rtype').addEventListener('change',e=>{ r.type=e.target.value; upd(); });
     el.querySelector('.rv').addEventListener('change',e=>{ r.val=simValOut(r,e.target.value); upd(); });
     el.querySelector('.rfrom').addEventListener('change',e=>{ r.from=+e.target.value; upd(); });
@@ -7178,7 +7189,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 17:05</td></tr>
+      <tr><td>Build</td><td>2026-08-10 18:07</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
