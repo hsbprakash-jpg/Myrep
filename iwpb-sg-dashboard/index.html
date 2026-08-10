@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 16:46</div>
+<div id="buildTag">build 2026-08-10 16:51</div>
 </aside>
 <main>
 
@@ -5983,14 +5983,17 @@ function simRuleNote(r){
       : r.type==='amt'? (+r.val||0)
       : ((+r.val||0)*months.length - base);
     const dir= eff>0? 'raises the forecast' : eff<0? 'lowers the forecast' : 'no change';
+    const bsR=bsUnit()&&match.every(x=>isBSLine(String(x.d.micaL1||'')));
+    const nf=v=>bsR? fmtBS(v)+bsUnit() : fmt(v);
     const fmtS=v=>{ if(v==null) return '\u2013';
+      if(bsR) return fmtBS(v)+bsUnit();
       if(Math.abs(v)>0&&Math.abs(v)<10){ const t=(Math.round(Math.abs(v)*10)/10).toFixed(1);
         return v<0? '('+t+')' : t; }
       return fmt(v); };
     return `<div class="rnote">${match.length.toLocaleString()} row${match.length>1?'s':''} · `+
-      `${esc(MON_LBL[months[0].m])}–${esc(MON_LBL[months[months.length-1].m])} forecast base ${fmt(base)} `+
-      `→ impact <b>${fmtS(eff)}</b> ${esc(cfgUnit())} · ${dir}`+
-      (fyNow!=null? ` · FY ${fmt(fyNow)} → <b>${fmt(fyNow+eff)}</b>`:'')+`</div>`;
+      `${esc(MON_LBL[months[0].m])}–${esc(MON_LBL[months[months.length-1].m])} forecast base ${nf(base)} `+
+      `→ impact <b>${fmtS(eff)}</b> ${esc(bsR? bsUnitLabel() : cfgUnit())} · ${dir}`+
+      (fyNow!=null? ` · FY ${nf(fyNow)} → <b>${nf(fyNow+eff)}</b>`:'')+`</div>`;
   }catch(e){ return ''; }
 }
 function simNewRule(){
@@ -6041,10 +6044,11 @@ function simAgg(rules){
   const sumBase=(rs,cols)=>rs.reduce((s2,r)=>s2+cols.reduce((s3,p)=>s3+(r.v[p.col]||0),0),0);
   const actMonths=m.cyMonths.filter(p=>!p.fc);
   const gRow=(name,rs)=>{
+    const bs=bsUnit()&&rs.length&&rs.every(x=>isBSLine(String(x.d.micaL1||'')));
     const k=kpi(rs,m,S.ytdM,S.includeFC);
     const baseFc=sumBase(rs,fcMonths), simFc=sumSim(rs,fcMonths);
     const simOut=(k.outlook||0)-baseFc+simFc;
-    return {name, k, baseOut:k.outlook, simOut, delta:simFc-baseFc,
+    return {name, k, bs, baseOut:k.outlook, simOut, delta:simFc-baseFc,
       target:k.target, fyFc:k.fyFc,
       baseVarFc:k.fyFc!=null? (k.outlook-k.fyFc) : null,
       simVarFc:k.fyFc!=null? (simOut-k.fyFc) : null,
@@ -6056,11 +6060,13 @@ function simAgg(rules){
   const by=(SIM.by&&SIM.by in m.dimCols)? SIM.by : 'micaL1';
   const groups=[...groupBy(rows,by).entries()].map(([n,rs])=>gRow(n||'(blank)',rs))
     .sort((a,b)=>Math.abs(b.baseOut||0)-Math.abs(a.baseOut||0));
-  const total=gRow(cfgS('total_label'),rows);
-  const actSeries=actMonths.filter(p=>p.m<=S.ytdM||true).map(p=>({m:p.m,val:sumCols(rows,[p.col])}));
-  const baseSeries=fcMonths.map(p=>({m:p.m,val:sumBase(rows,[p])}));
-  const simSeries=fcMonths.map(p=>({m:p.m,val:sumSim(rows,[p])}));
-  return {groups,total,actSeries,baseSeries,simSeries,fcMonths};
+  const mixed=mixedScope(rows);
+  const tRows=mixed? rows.filter(r=>!isBSLine(String(r.d.micaL1||''))) : rows;
+  const total=gRow(cfgS('total_label'),tRows);
+  const actSeries=actMonths.filter(p=>p.m<=S.ytdM||true).map(p=>({m:p.m,val:sumCols(tRows,[p.col])}));
+  const baseSeries=fcMonths.map(p=>({m:p.m,val:sumBase(tRows,[p])}));
+  const simSeries=fcMonths.map(p=>({m:p.m,val:sumSim(tRows,[p])}));
+  return {groups,total,actSeries,baseSeries,simSeries,fcMonths,mixed};
 }
 function simChart(el, act, base, sim, yearCY){
   const W=880,H=250,Lm=66,T=14,B=30,R=14;
@@ -6224,7 +6230,7 @@ function renderSim(){
     ${stale?`<p class="note" style="color:#9a6a00;background:color-mix(in srgb, var(--status-warning) 12%, transparent);border:1px solid var(--status-warning);border-radius:6px;padding:8px 12px">Rules have changed since the last run — click <b>▶ Run simulation</b> to refresh these results.</p>`:''}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
       <div><h4 style="margin:0 0 4px">Impact — prior vs simulated forecast</h4>
-      <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters · ${esc(cfgUnit())}.</p></div>
+      <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters · ${esc(cfgUnit())}${a.mixed?` · totals and chart cover the P&L side — balances read per line in ${esc(bsUnitLabel())}`:''}.</p></div>
       <label style="font-size:12px;color:var(--text-muted)">View impact by
         <select id="simBy" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)">${
           Object.keys(ALL_DIM_LABELS).filter(k2=>k2 in m.dimCols).map(k2=>
@@ -6232,22 +6238,25 @@ function renderSim(){
       </label>
     </div>
     <div class="trio">
-      <div class="t"><div class="tv${(t.baseOut||0)<0?' negnum':''}">${fmt(t.baseOut)}</div><div class="tl">FY outlook · prior fcst</div></div>
-      <div class="t"><div class="tv${(t.simOut||0)<0?' negnum':''}">${fmt(t.simOut)}</div><div class="tl">FY outlook · simulated</div></div>
-      <div class="t"><div class="tv${dcls(t.delta)}">${t.delta>=0?'+':''}${fmt(t.delta)}</div><div class="tl">Δ forecast</div></div>
+      <div class="t"><div class="tv${(t.baseOut||0)<0?' negnum':''}">${t.bs? fmtBS(t.baseOut)+bsUnit() : fmt(t.baseOut)}</div><div class="tl">FY outlook · prior fcst</div></div>
+      <div class="t"><div class="tv${(t.simOut||0)<0?' negnum':''}">${t.bs? fmtBS(t.simOut)+bsUnit() : fmt(t.simOut)}</div><div class="tl">FY outlook · simulated</div></div>
+      <div class="t"><div class="tv${dcls(t.delta)}">${t.delta>=0?'+':''}${t.bs? fmtBS(t.delta)+bsUnit() : fmt(t.delta)}</div><div class="tl">Δ forecast</div></div>
     </div>
     <div class="chart-wrap" id="simChartEl"></div>
     <div id="simCom"></div>
     <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th></tr></thead>
-    <tbody>${[...a.groups,t].map(g=>`<tr${g.name===cfgS('total_label')?' style="font-weight:700"':''}>
-      <td>${esc(g.name)}</td><td class="num">${fmtCell(g.baseOut)}</td><td class="num">${fmtCell(g.simOut)}</td>
-      <td class="num">${fmtCell(g.delta)}</td></tr>`).join('')}</tbody></table></div>`;
+    <tbody>${[...a.groups,t].map(g=>{
+      const c=v=>g.bs? `<span${v!=null&&v<0?' class="negnum"':''}>${fmtBS(v)}${bsUnit()}</span>` : fmtCell(v);
+      return `<tr${g.name===cfgS('total_label')?' style="font-weight:700"':''}>
+      <td>${esc(g.name)}</td><td class="num">${c(g.baseOut)}</td><td class="num">${c(g.simOut)}</td>
+      <td class="num">${c(g.delta)}</td></tr>`;}).join('')}</tbody></table></div>`;
   $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
   aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote(true)+'|'+(SIM.by||''), {noButtons:true, ctx:filterNote(true)}, ()=>{
     const mv=[...a.groups].sort((x,y)=>Math.abs(y.delta)-Math.abs(x.delta))[0];
     const upl=t.baseOut? t.delta/Math.abs(t.baseOut) : null;
-    let h2=`The scenario moves the FY outlook from <b>${fmt(t.baseOut)}</b> to <b>${fmt(t.simOut)}</b> (<b>${t.delta>=0?'+':''}${fmt(t.delta)}</b>${upl!=null?`, <b>${fmtPct(upl)}</b> on the prior forecast path`:''})`;
+    const nfT=v=>t.bs? fmtBS(v)+bsUnit() : fmt(v);
+    let h2=`The scenario moves the FY outlook from <b>${nfT(t.baseOut)}</b> to <b>${nfT(t.simOut)}</b> (<b>${t.delta>=0?'+':''}${nfT(t.delta)}</b>${upl!=null?`, <b>${fmtPct(upl)}</b> on the prior forecast path`:''})`;
     if(mv&&Math.abs(mv.delta)>0.001){
       const shr=t.delta? Math.abs(mv.delta/t.delta)*100 : null;
       h2+=`, with the largest impact in <b>${esc(mv.name)}</b> (<b>${mv.delta>=0?'+':''}${fmt(mv.delta)}</b>${shr!=null&&isFinite(shr)?`, ${shr.toFixed(0)}% of the move`:''})`;
@@ -7129,7 +7138,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 16:46</td></tr>
+      <tr><td>Build</td><td>2026-08-10 16:51</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
