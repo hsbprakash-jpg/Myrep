@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 16:26</div>
+<div id="buildTag">build 2026-08-10 16:38</div>
 </aside>
 <main>
 
@@ -1621,7 +1621,7 @@ function classifyPeriod(raw, bandVal){
   let q = t.match(/^([1-4])\s*q\s*'?(\d{2,4})/) || t.match(/^q([1-4])(?:\s*[-' ]\s*(\d{2,4}))?/);
   if(q){
     if(isTarget) return {type:'ytd', label:String(raw), target:true};
-    return {type:'quarter', q:+q[1], year:q[2]!=null?(+q[2])%100:null, label:String(raw)};
+    return {type:'quarter', q:+q[1], year:q[2]!=null?(+q[2])%100:null, fc:isFc, label:String(raw)};
   }
   const mi = MON.findIndex(m=>t.startsWith(m));
   if(mi>=0){
@@ -5174,8 +5174,12 @@ function fsumFigs(rows, m, P, ytdM){
   const useCols=cfgS('calc_ytd_actuals').toLowerCase()!=='months';
   const cyy=String(m.yearCY).slice(-2);
   const pyy=m.pyMonths.length? String(m.yearPY).slice(-2) : (m.fyPriorLabel||null);
-  const qFind=(qn,yy)=>yy==null? null : m.quarterCols.find(c=>c.q===qn&&
-    (c.year==null||String(c.year).padStart(2,'0')===String(yy).padStart(2,'0')));
+  const qFind=(qn,yy)=>{
+    if(yy==null) return null;
+    const hits=m.quarterCols.filter(c=>c.q===qn&&
+      (c.year==null||String(c.year).padStart(2,'0')===String(yy).padStart(2,'0')));
+    return hits.find(c=>!c.fc)||hits[0]||null;
+  };
   const qCol=useCols? qFind(P.q+1,cyy) : null;
   const pqCol=useCols? (P.q>0? qFind(P.q,cyy) : qFind(4,pyy)) : null;
   const pyQCol=useCols? qFind(P.q+1,pyy) : null;
@@ -7122,7 +7126,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 16:26</td></tr>
+      <tr><td>Build</td><td>2026-08-10 16:38</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
