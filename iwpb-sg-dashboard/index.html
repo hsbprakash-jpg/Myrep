@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 18:51</div>
+<div id="buildTag">build 2026-08-10 20:46</div>
 </aside>
 <main>
 
@@ -1162,6 +1162,7 @@ const CFG_DEFAULT={
     app_subtitle:'Management reporting · KPI insights',
     eyebrow:'HSBC Management Reporting : IWPB Singapore Driller',
     export_prefix:'',
+    logo_mark:'',
     landing_title:'Financial Performance',
     total_label:'Total P&L',
     total_all_label:'Total (all lines)',
@@ -1355,6 +1356,14 @@ let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null
 let RE_FC,RE_TGT,RE_COST,RE_HIDE,RE_BS,PRIO_RES;
 function cfgS(k){ const v=CFG.settings&&CFG.settings[k]; return (v==null||v==='')? CFG_DEFAULT.settings[k] : String(v); }
 function brandName(){ const t=cfgS('app_title'); return t.replace(/\s*driller\s*$/i,'').trim()||t; }
+function brandMark(){ const v=cfgS('logo_mark'); if(v) return v.slice(0,4);
+  if(cfgS('app_title')===CFG_DEFAULT.settings.app_title) return 'SG';
+  const w=brandName().split(/\s+/).filter(Boolean);
+  return ((w.length>1? w.map(x=>x[0]).join('') : w[0].slice(0,2)).slice(0,3)).toUpperCase(); }
+function fsumTitleS(){ const v=cfgS('fsum_title');
+  if(v===CFG_DEFAULT.settings.fsum_title&&cfgS('app_title')!==CFG_DEFAULT.settings.app_title)
+    return brandName()+': Financial Summary';
+  return v; }
 function brandSlug(){ const p2=cfgS('export_prefix'); if(p2) return p2.replace(/[^A-Za-z0-9_-]+/g,'_');
   return brandName().replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'dashboard'; }
 function cfgYes(k){ return String(cfgS(k)).trim().toUpperCase()!=='N'; }
@@ -5535,7 +5544,7 @@ function fsumHeadRows(P, m){
 function renderFsum(){
   const m=S.model, rows=filteredRows(), P=fsumPlan(m,S.ytdM);
   const H=fsumHeadRows(P,m), u=cfgUnit();
-  $('fsumTitle').textContent=`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`;
+  $('fsumTitle').textContent=`${fsumTitleS()} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`;
   $('fsumLede').textContent=`Month, quarter-to-date and year-to-date against forecast, target, `+
     `prior period and prior year — pulled from the driller under the current filters · figures in ${u} as reported.`;
   const nMon=P.monCols.length;
@@ -5786,7 +5795,7 @@ function fsumCommentary(rows,m,P){
 function fsumAOA(){
   const m=S.model, rows=filteredRows(), P=fsumPlan(m,S.ytdM), u=cfgUnit();
   const H=fsumHeadRows(P,m);
-  const aoa=[[`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`],[filterNote(true)],[]];
+  const aoa=[[`${fsumTitleS()} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`],[filterNote(true)],[]];
   const r1=[''], r2=[''];
   H.mh.forEach(h=>{ r1.push('Month'); r2.push(h); });
   ['vs Fcst','vs Target','vs PM','vs PY'].forEach(h=>{ r1.push(`Month · Variance (${u})`); r2.push(h); });
@@ -5836,7 +5845,7 @@ async function fsumPptx(){
   const GOOD='0B7A0B', BAD='C21A1A';
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const sl=p.addSlide(); sl.background={color:'FFFFFF'};
-  sl.addText(`${cfgS('fsum_title')} \u2014 ${MON_LBL[S.ytdM]}'${P.yy} Actuals`,
+  sl.addText(`${fsumTitleS()} \u2014 ${MON_LBL[S.ytdM]}'${P.yy} Actuals`,
     {x:0.3,y:0.16,w:12.7,h:0.36,fontSize:18,bold:true,color:RED,fontFace:'Segoe UI'});
   sl.addText(filterNote(true),{x:0.3,y:0.52,w:12.7,h:0.2,fontSize:8.5,italic:true,color:GRY,fontFace:'Segoe UI'});
 
@@ -7010,6 +7019,7 @@ function applyCfgDom(){
   cfgCompile();
   document.title=`${cfgS('app_title')} — KPI Dashboard`;
   document.querySelectorAll('.brandTxt').forEach(el=>el.textContent=brandName());
+  document.querySelectorAll('.brand .mark').forEach(el=>el.textContent=brandMark());
   const bh=document.querySelector('.brand h1'); if(bh) bh.textContent=cfgS('app_title');
   const bs=document.querySelector('.brand .sub'); if(bs) bs.textContent=cfgS('app_subtitle');
   document.querySelectorAll('.eyebrow').forEach(el=>el.textContent=cfgS('eyebrow'));
@@ -7196,7 +7206,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 18:51</td></tr>
+      <tr><td>Build</td><td>2026-08-10 20:46</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -7377,10 +7387,10 @@ function init(){
     [{id:'houseCom', heading:cmpLabels(S.model).period, note:filterNote()}],
     `${cfgS('app_title')} — management commentary`));
   $('btnFsumWord').addEventListener('click',()=>comDocx(
-    [{id:'fsumCom', heading:`${cfgS('fsum_title')} — ${MON_LBL[S.ytdM]}'${fsumPlan(S.model,S.ytdM).yy} Actuals`,
+    [{id:'fsumCom', heading:`${fsumTitleS()} — ${MON_LBL[S.ytdM]}'${fsumPlan(S.model,S.ytdM).yy} Actuals`,
       note:filterNote(true)},
      {id:'houseCom', heading:cmpLabels(S.model).period, note:filterNote()}],
-    `${cfgS('fsum_title')} — commentary`));
+    `${fsumTitleS()} — commentary`));
   $('btnHouseCopy').addEventListener('click',()=>{
     const el=$('houseCom').querySelector('.aicom-t'); if(!el) return;
     const txt=el.innerText.replace(/\n{3,}/g,'\n\n');

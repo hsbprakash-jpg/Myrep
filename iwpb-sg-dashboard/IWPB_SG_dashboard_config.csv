@@ -2,6 +2,8 @@ Sheet,Key,Value,Extra1,Extra2,Extra3,Extra4,Extra5
 Settings,app_title,IWPB Singapore Driller,,
 Settings,app_subtitle,Management reporting · KPI insights,,
 Settings,eyebrow,HSBC Management Reporting : IWPB Singapore Driller,,
+Settings,export_prefix,,,
+Settings,logo_mark,,,
 Settings,landing_title,Financial Performance,,
 Settings,total_label,Total P&L,,
 Settings,total_all_label,Total (all lines),,
