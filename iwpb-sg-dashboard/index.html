@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 17:04</div>
+<div id="buildTag">build 2026-08-10 17:05</div>
 </aside>
 <main>
 
@@ -6281,11 +6281,15 @@ function renderSim(){
     <div class="chart-wrap" id="simChartEl"></div>
     <div id="simCom"></div>
     <div class="scroll-x"><table class="atable"><thead><tr><th>${esc(ALL_DIM_LABELS[SIM.by]||'Line')}</th><th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">Δ</th></tr></thead>
-    <tbody>${[...a.groups,t].map(g=>{
+    <tbody>${(()=>{ const moved=a.groups.filter(g=>Math.abs(g.delta||0)>0.0005);
+      return [...(moved.length? moved : a.groups), t]; })().map(g=>{
       const c=v=>g.bs? `<span${v!=null&&v<0?' class="negnum"':''}>${fmtBS(v)}${bsUnit()}</span>` : fmtCell(v);
       return `<tr${g.name===cfgS('total_label')?' style="font-weight:700"':''}>
       <td>${esc(g.name)}</td><td class="num">${c(g.baseOut)}</td><td class="num">${c(g.simOut)}</td>
-      <td class="num">${c(g.delta)}</td></tr>`;}).join('')}</tbody></table></div>`;
+      <td class="num">${c(g.delta)}</td></tr>`;}).join('')}</tbody></table></div>
+    ${(()=>{ const n2=a.groups.filter(g=>Math.abs(g.delta||0)<=0.0005).length;
+      const any=a.groups.length-n2;
+      return (any&&n2)? `<p class="note">${n2} unaffected line${n2>1?'s':''} hidden — the table lists only the lines this scenario moves.</p>` : ''; })()}`;
   $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
   aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote(true)+'|'+(SIM.by||''), {noButtons:true, ctx:filterNote(true)}, ()=>{
@@ -7174,7 +7178,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 17:04</td></tr>
+      <tr><td>Build</td><td>2026-08-10 17:05</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
