@@ -2672,12 +2672,28 @@ function renderSummary(){
   $('commentary').innerHTML=cm;
 
   $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY}`;
+  const ytdSrc=(()=>{
+    if(cfgS('calc_ytd_actuals').toLowerCase()==='months')
+      return 'YTD: months added — the config sets calc_ytd_actuals=months';
+    const asOf=m.ytdAsOfCols&&m.ytdAsOfCols[0];
+    if(!asOf){
+      const cand=(m.ytdCols||[]).find(p=>!p.fy&&!p.target&&!p.fc&&p.ytdM!=null);
+      return cand? `YTD: months added — \u201c${cand.label}\u201d isn't read as current-year (${m.yearCY}); check the year in the header`
+        : 'YTD: months added — no YTD actuals column recognised in the file';
+    }
+    if(asOf.ytdM!==S.ytdM)
+      return `YTD: months added — \u201c${asOf.label}\u201d serves ${MON_LBL[asOf.ytdM]}, the selector is on ${MON_LBL[S.ytdM]}`;
+    const cySel2=m.cyMonths.filter(p=>p.m<=S.ytdM&&(!p.fc||S.includeFC));
+    if(cySel2.some(p=>p.fc))
+      return `YTD: months added incl. forecast — untick \u201cInclude forecast month\u201d to read \u201c${asOf.label}\u201d`;
+    return `YTD from the \u201c${asOf.label}\u201d column`;
+  })();
   const lvl=tileL1?'MICA Level 1':'MICA Level 2';
   const anyBS=cards.some(c=>c.k.isBS)&&bsUnit();
   const unitTxt=anyBS? `P&L in ${cfgUnit()} · balances in ${bsUnitLabel()}` : `figures in ${cfgUnit()} as reported`;
-  $('summaryLede').textContent= L.mode==='none'
-    ? `${lvl} summary — no comparison baseline in this file · ${unitTxt}.`
-    : `RAG by ${lvl} — ${L.main} against ${L.base} · ${unitTxt}.`;
+  $('summaryLede').textContent= (L.mode==='none'
+    ? `${lvl} summary — no comparison baseline in this file · ${unitTxt}`
+    : `RAG by ${lvl} — ${L.main} against ${L.base} · ${unitTxt}`)+` · ${ytdSrc}.`;
 
   // driller-format KPI tiles: name + headline, then vs-comparison rows with
   // direction triangles (colour = favourability, triangle = movement)
