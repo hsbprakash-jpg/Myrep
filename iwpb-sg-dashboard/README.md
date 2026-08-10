@@ -436,7 +436,11 @@ are accepted, both parsed locally:
 
 What each section governs:
 
-- **Settings** — app title/subtitle/eyebrow, landing page title, total
+- **Settings** — app title/subtitle/eyebrow (`app_title` also drives the
+  browser-tab title, the upload-page wording, the greeting and the export
+  headers, so the whole app rebrands from the config; `export_prefix`
+  optionally sets the download filename prefix, otherwise it derives from
+  the title), landing page title, total
   tile label, tile grouping level (`auto`/`level1`/`level2`), collapse of
   non-priority tiles, default RAG tolerance, the regex patterns that
   recognise Forecast and Target columns, the cost/ECL direction patterns,

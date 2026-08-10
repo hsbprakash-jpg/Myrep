@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 18:22</div>
+<div id="buildTag">build 2026-08-10 18:51</div>
 </aside>
 <main>
 
@@ -816,7 +816,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     </div></div>
   </div>
   <div class="panel" style="max-width:640px;margin:0 auto;padding:32px">
-    <p class="lede">Upload the IWPB Singapore driller extract (.xlsx or .csv). The file is processed
+    <p class="lede">Upload the <span class="brandTxt">IWPB Singapore</span> driller extract (.xlsx or .csv). The file is processed
       entirely in your browser — nothing is sent to any server.</p>
     <div id="dropZone" tabindex="0" role="button" aria-label="Upload driller file">
       <div class="big">Drop the driller file here</div>
@@ -1161,6 +1161,7 @@ const CFG_DEFAULT={
     app_title:'IWPB Singapore Driller',
     app_subtitle:'Management reporting · KPI insights',
     eyebrow:'HSBC Management Reporting : IWPB Singapore Driller',
+    export_prefix:'',
     landing_title:'Financial Performance',
     total_label:'Total P&L',
     total_all_label:'Total (all lines)',
@@ -1353,6 +1354,9 @@ let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null
   if(v&&v.settings) return v; }catch(e){} return JSON.parse(JSON.stringify(CFG_DEFAULT)); })();
 let RE_FC,RE_TGT,RE_COST,RE_HIDE,RE_BS,PRIO_RES;
 function cfgS(k){ const v=CFG.settings&&CFG.settings[k]; return (v==null||v==='')? CFG_DEFAULT.settings[k] : String(v); }
+function brandName(){ const t=cfgS('app_title'); return t.replace(/\s*driller\s*$/i,'').trim()||t; }
+function brandSlug(){ const p2=cfgS('export_prefix'); if(p2) return p2.replace(/[^A-Za-z0-9_-]+/g,'_');
+  return brandName().replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'dashboard'; }
 function cfgYes(k){ return String(cfgS(k)).trim().toUpperCase()!=='N'; }
 function cfgRe(str,fb){ try{ return new RegExp(str||fb,'i'); }catch(e){ return new RegExp(fb,'i'); } }
 function cfgCompile(){
@@ -2613,7 +2617,7 @@ function renderSummary(){
   if(cfgYes('show_greeting')){
     const hh=new Date().getHours();
     const greet=hh<12?'Good morning':hh<18?'Good afternoon':'Good evening';
-    $('greetLine').innerHTML=`${greet} — here's your <b>IWPB Singapore</b> snapshot · data through <b>${MON_LBL[S.ytdM]} ${esc(m.yearCY)}</b>${hasFC?', later months forecast':''}.`;
+    $('greetLine').innerHTML=`${greet} — here's your <b>${esc(brandName())}</b> snapshot · data through <b>${MON_LBL[S.ytdM]} ${esc(m.yearCY)}</b>${hasFC?', later months forecast':''}.`;
     $('greetLine').style.display='';
   } else $('greetLine').style.display='none';
 
@@ -3450,7 +3454,7 @@ function comDocx(hostIds, title){
   }
   if(!secs.length){ alert('No commentary on this page yet.'); return; }
   const bytes=buildDocx(title, secs);
-  dlBytes(`IWPB_SG_commentary_${new Date().toISOString().slice(0,10)}.docx`, bytes,
+  dlBytes(`${brandSlug()}_commentary_${new Date().toISOString().slice(0,10)}.docx`, bytes,
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
 }
 
@@ -3619,7 +3623,7 @@ async function exportSummaryPPT(){
     await pptChartSlide(p,{title:trajTitle, el:$('trajPanel'), aoa:null, note:comText('trajCom')});
     await pptChartSlide(p,{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')});
   }
-  await p.writeFile({fileName:'IWPB_SG_financial_dashboard_'+new Date().toISOString().slice(0,10)+'.pptx'});
+  await p.writeFile({fileName:brandSlug()+'_financial_dashboard_'+new Date().toISOString().slice(0,10)+'.pptx'});
 }
 async function exportPPT(items, name){
   const p=new PptxGenJS();
@@ -3674,7 +3678,7 @@ function filterNote(noPeriod){
 function kpiSummaryAOA(){
   const m=S.model, rows=filteredRows();
   const L=cmpLabels(m);
-  const aoa=[['IWPB Singapore Driller — KPI summary'],[filterNote()],[L.period],[],
+  const aoa=[[`${cfgS('app_title')} — KPI summary`],[filterNote()],[L.period],[],
     ['KPI (MICA Level 2)','MICA Level 1',L.main,L.base,'Variance','Variance %','RAG']];
   const byL2=[...groupBy(rows,'micaL2').entries()]
     .map(([l2,rs])=>({l2, l1:rs[0].d.micaL1, k:kpi(rs,m,S.ytdM,S.includeFC)}))
@@ -5910,7 +5914,7 @@ async function fsumPptx(){
     sl.addText(comRuns,{x:0.3, y:comY, w:12.73, h:7.42-comY, fontSize:9,
       fontFace:'Segoe UI', valign:'top', wrap:true, fit:'shrink'});
   }
-  await p.writeFile({fileName:`IWPB_SG_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
+  await p.writeFile({fileName:`${brandSlug()}_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
 }
 
 function renderKpiNav(){
@@ -6911,7 +6915,7 @@ function renderCustom(){
       S.widgets.splice(idx,1); saveWidgets(); renderCustom();
     });
     div.querySelector('.wexport').addEventListener('click',()=>
-      exportWB([{name:'Widget', aoa:widgetAOA(w)}],'IWPB_SG_widget'));
+      exportWB([{name:'Widget', aoa:widgetAOA(w)}],brandSlug()+'_widget'));
     grid.appendChild(div);
   });
 }
@@ -7004,6 +7008,8 @@ function applyHierarchies(m){
 }
 function applyCfgDom(){
   cfgCompile();
+  document.title=`${cfgS('app_title')} — KPI Dashboard`;
+  document.querySelectorAll('.brandTxt').forEach(el=>el.textContent=brandName());
   const bh=document.querySelector('.brand h1'); if(bh) bh.textContent=cfgS('app_title');
   const bs=document.querySelector('.brand .sub'); if(bs) bs.textContent=cfgS('app_subtitle');
   document.querySelectorAll('.eyebrow').forEach(el=>el.textContent=cfgS('eyebrow'));
@@ -7128,7 +7134,7 @@ function cfgTemplateCSV(){
 function downloadCfgTemplate(){
   const blob=new Blob([cfgTemplateCSV()],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='IWPB_SG_dashboard_config.csv'; document.body.appendChild(a); a.click(); a.remove();
+  a.download=brandSlug()+'_dashboard_config.csv'; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),5000);
 }
 function handleFile(file){
@@ -7190,7 +7196,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 18:22</td></tr>
+      <tr><td>Build</td><td>2026-08-10 18:51</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -7249,7 +7255,7 @@ function init(){
   $('navFsum').addEventListener('click',()=>setView('fsum'));
   $('navCustom').addEventListener('click',()=>setView('custom'));
   $('fsumDepthSel').addEventListener('change',e=>{ S.fsumDepth=+e.target.value; renderFsum(); });
-  $('btnFsumXlsx').addEventListener('click',()=>exportWB([{name:'Financial Summary',aoa:fsumAOA()}],'IWPB_SG_financial_summary'));
+  $('btnFsumXlsx').addEventListener('click',()=>exportWB([{name:'Financial Summary',aoa:fsumAOA()}],brandSlug()+'_financial_summary'));
   $('btnFsumPptx').addEventListener('click',()=>fsumPptx());
   $('navBuilder').addEventListener('click',()=>setView('builder'));
   $('navQuery').addEventListener('click',()=>setView('query'));
@@ -7258,7 +7264,7 @@ function init(){
   $('btnQClear').addEventListener('click',()=>{ Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
     $('qResults').hidden=true; renderQuery(); });
   $('btnQExport').addEventListener('click',()=>{
-    if(qLastResult&&qLastResult.viewAoa) exportWB([{name:'Query results', aoa:qLastResult.viewAoa, money:false}],'IWPB_SG_query');
+    if(qLastResult&&qLastResult.viewAoa) exportWB([{name:'Query results', aoa:qLastResult.viewAoa, money:false}],brandSlug()+'_query');
   });
   $('btnQMonths').addEventListener('click',()=>{ qExpandMonths=!qExpandMonths; renderQueryResults(); });
   $('btnMonthsToggle').addEventListener('click',()=>{
@@ -7353,11 +7359,11 @@ function init(){
   });
   $('btnSimCmpXls').addEventListener('click',()=>{
     if(!SIM_CMP.last||!SIM_CMP.last.length){ alert('Run the comparison first.'); return; }
-    exportWB([{name:'Scenario comparison', aoa:simCmpAOA()}],'IWPB_SG_scenario_comparison');
+    exportWB([{name:'Scenario comparison', aoa:simCmpAOA()}],brandSlug()+'_scenario_comparison');
   });
   $('btnSimExport').addEventListener('click',()=>{
     if(!SIM_LAST){ alert('Run the simulation first.'); return; }
-    exportWB([{name:'Simulation', aoa:simAOA()}],'IWPB_SG_simulation');
+    exportWB([{name:'Simulation', aoa:simAOA()}],brandSlug()+'_simulation');
   });
   $('btnAiAsk').addEventListener('click',()=>{ aiAsk($('aiInput').value); $('aiInput').value=''; });
   $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ aiAsk($('aiInput').value); $('aiInput').value=''; } });
@@ -7391,19 +7397,19 @@ function init(){
     {name:'KPI Summary', aoa:kpiSummaryAOA()},
     {name:'Mix analysis', aoa:chartAOA({...MX})},
     {name:'Source rows', aoa:rowsAOA()},
-  ],'IWPB_SG_KPI_Summary'));
-  $('btnExportMix').addEventListener('click',()=>exportWB([{name:'Mix analysis', aoa:chartAOA({...MX})}],'IWPB_SG_mix'));
+  ],brandSlug()+'_KPI_Summary'));
+  $('btnExportMix').addEventListener('click',()=>exportWB([{name:'Mix analysis', aoa:chartAOA({...MX})}],brandSlug()+'_mix'));
   $('btnExportChart').addEventListener('click',()=>{
-    if(B.groupBy.length) exportWB([{name:'Chart data', aoa:chartAOA({...B})}],'IWPB_SG_chart');
+    if(B.groupBy.length) exportWB([{name:'Chart data', aoa:chartAOA({...B})}],brandSlug()+'_chart');
   });
-  $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA(), money:false}],'IWPB_SG_data'));
+  $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA(), money:false}],brandSlug()+'_data'));
   $('dataSearch').addEventListener('input',e=>{ S.dataQ=e.target.value; dataPager.page=1; renderTable(); });
   $('btnDataFClear').addEventListener('click',()=>{ DATAF={}; dfClose(); dataPager.page=1; renderTable(); });
-  $('btnPptMix').addEventListener('click',()=>exportPPT([{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')}],'IWPB_SG_mix'));
+  $('btnPptMix').addEventListener('click',()=>exportPPT([{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')}],brandSlug()+'_mix'));
   $('btnPptSummary').addEventListener('click',()=>exportSummaryPPT());
   $('btnPptChart').addEventListener('click',()=>{
     if(B.groupBy.length)
-      exportPPT([{title:chartTitle(B), el:$('bPreview'), aoa:chartAOA({...B}), note:comText('bCom')}],'IWPB_SG_chart');
+      exportPPT([{title:chartTitle(B), el:$('bPreview'), aoa:chartAOA({...B}), note:comText('bCom')}],brandSlug()+'_chart');
   });
   async function exportDashPPT(widgets, fname){
     // render chart/trend widgets offscreen and convert to images; every widget
@@ -7559,9 +7565,9 @@ function init(){
     await p.writeFile({fileName:fname+'_'+new Date().toISOString().slice(0,10)+'.pptx'});
   }
   $('btnPptDash').addEventListener('click',()=>
-    exportDashPPT(S.widgets.slice((dashPage-1)*cfgPage(),dashPage*cfgPage()),'IWPB_SG_dashboard_p'+dashPage));
+    exportDashPPT(S.widgets.slice((dashPage-1)*cfgPage(),dashPage*cfgPage()),brandSlug()+'_dashboard_p'+dashPage));
   $('btnPptDashAll').addEventListener('click',()=>
-    exportDashPPT(S.widgets,'IWPB_SG_dashboard_all'));
+    exportDashPPT(S.widgets,brandSlug()+'_dashboard_all'));
   $('btnAddWidget').addEventListener('click',()=>{
     S.widgets.push({id:newWidgetId(), type:$('wType').value, l2:$('wKpi').value||null});
     dashPage=Math.ceil(S.widgets.length/cfgPage());
