@@ -357,11 +357,21 @@ A single header row with:
   any number of ordered rules, each scoped to any dimension value (or all
   rows) with three adjustment types: % change, add amount (spread over the
   chosen months, pro-rata across matching rows), or set the monthly total.
-  The prior forecast stays untouched; the page shows prior vs simulated FY
-  outlook, the delta, both against the FY target, a monthly chart
-  (actuals, prior forecast, simulated forecast) and a per-Level-1 impact
-  table, with Excel export. Scenarios save by name (localStorage) for
-  reload; the work-in-progress scenario survives refreshes.
+  Each rule also carries an **Apply to** choice — P&L + balances (default),
+  P&L only, or Balances only — because a product scope such as
+  Product Level 4 = Deposits legitimately tags both the deposit balances
+  and the deposit NII lines; pinning the rule to one statement stops the
+  other side from moving, and the assistant warns when a rule's scope
+  straddles both statements. The prior forecast stays untouched; the page
+  shows prior vs simulated FY outlook, the delta, both against the FY
+  target, a monthly chart (actuals, prior forecast, simulated forecast)
+  and an impact table listing only the lines the scenario actually moves,
+  with Excel export. A scenario whose scope is entirely balance-sheet rows
+  reports on the closing-balance basis in `US$bn` — the last forecast
+  month's closing position, never a sum of monthly balances — and mixed
+  scopes total the P&L side only, with balances stated separately.
+  Scenarios save by name (localStorage) for reload; the work-in-progress
+  scenario survives refreshes.
 - **Data** — the filtered source rows, paginated with search. Every text
   column header carries a **filter button**: it opens a value picker
   (searchable, Select all / Clear, tick the values to keep) that combines
