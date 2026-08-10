@@ -1594,8 +1594,9 @@ function classifyPeriod(raw, bandVal){
   const t = String(raw==null?'':raw).trim().toLowerCase();
   if(!t) return null;
   const b = String(bandVal||'').toLowerCase();
-  const isFc = RE_FC.test(t) || RE_FC.test(b);
-  const isTarget = RE_TGT.test(t) || RE_TGT.test(b);
+  const actLbl = /\bactuals?\b/.test(t) && !RE_FC.test(t) && !RE_TGT.test(t);
+  const isFc = RE_FC.test(t) || (!actLbl && RE_FC.test(b));
+  const isTarget = RE_TGT.test(t) || (!actLbl && RE_TGT.test(b));
   if(t.includes('ytd')){
     let mi=MON.findIndex(mn=>new RegExp('(^|[^a-z])'+mn).test(t));
     if(mi<0){ const q2=t.match(/(?:^|[^a-z0-9])q([1-4])/); if(q2) mi=(+q2[1])*3-1; }
