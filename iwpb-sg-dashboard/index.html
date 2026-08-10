@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 12:27</div>
+<div id="buildTag">build 2026-08-10 16:09</div>
 </aside>
 <main>
 
@@ -1135,6 +1135,10 @@ const DIM_SPECS = [
   {key:'micaL1',   label:'MICA_Level_1',     test:n=>n.includes('micalevel1')},
   {key:'prodCode', label:'Product_code',     test:n=>n.includes('productcode')||n==='productco'},
   {key:'prodL3',   label:'Product_Level_3',  test:n=>n.includes('productlevel3')},
+  {key:'prodL4',   label:'Product_Level_4',  test:n=>n.includes('productlevel4'), opt:true},
+  {key:'prodL5',   label:'Product_Level_5',  test:n=>n.includes('productlevel5'), opt:true},
+  {key:'prodL6',   label:'Product_Level_6',  test:n=>n.includes('productlevel6'), opt:true},
+  {key:'prodL7',   label:'Product_Level_7',  test:n=>n.includes('productlevel7'), opt:true},
   {key:'prodL2',   label:'Product_Level_2',  test:n=>n.includes('productlevel2')},
   {key:'prodL1',   label:'Product_Level_1',  test:n=>n.includes('productlevel1')},
   {key:'segCode',  label:'Segment_code',     test:n=>n.includes('segmentcode')||n.includes('segmentco')},
@@ -1266,7 +1270,7 @@ const CFG_DEFAULT={
     {id:'A22', levels:['PBT','Income from Associates']},
     {id:'A23', levels:['Balance Sheet']},
     {id:'A24', levels:['Balance Sheet','Deposits'], match:'Customer Deposits'},
-    {id:'A25', levels:['Balance Sheet','Loans and Advances'], match:'Loans|Customer Loans'},
+    {id:'A25', levels:['Balance Sheet','Loans and Advances'], match:'Loans|Customer Loans|Loan and Advances'},
     {id:'A26', levels:['Balance Sheet','RWAs']},
     {id:'A27', levels:['Balance Sheet','Wealth Balances']},
     {id:'A28', levels:['Balance Sheet','Wealth Balances','Wealth Deposits']},
@@ -1748,6 +1752,11 @@ function parseSheet(aoa){
     for(const p of quarterCols) v[p.col]=num(raw[p.col]);
     for(const p of ytdCols) v[p.col]=num(raw[p.col]);
     rows.push({d, v});
+  }
+  if(!('micaL1' in dimCols)){
+    for(const r of rows) r.d.micaL1=r.d.micaL2||r.d.micaL3||r.d.micaL4||'';
+    dimCols.micaL1=-1;
+    const mi1=missing.indexOf('MICA_Level_1'); if(mi1>=0) missing.splice(mi1,1);
   }
   // tolerant FY-year extraction: FY-26 / FY26 / FY 2026 / FY'26 all yield '26'
   const fyYY=l=>{ const mm=String(l).match(/fy[\s\-']*(?:20)?(\d{2})\b/i); return mm?mm[1]:null; };
@@ -2249,6 +2258,7 @@ const S = {
   view:'summary', widgets:[],
 };
 const ALL_DIM_LABELS={mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
+  prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
   micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
   prodCode:'Product code', prodL3:'Product Level 3', prodL2:'Product Level 2', prodL1:'Product Level 1',
   segCode:'Segment code', cgL2:'Segment (CG L2)', cgL1:'CG Level 1',
@@ -3884,7 +3894,9 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
 /* ================= drag & drop chart builder ================= */
 const FIELD_LABELS={metric:'Metric', cmp:'Comparison', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
   micaL4:'MICA Level 4', micaL5:'MICA Level 5',
-  prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3', prodCode:'Product code',
+  prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3',
+  prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
+  prodCode:'Product code',
   cgL1:'CG Level 1', cgL2:'Segment (CG L2)', funcL1:'Function Level 1', funcL2:'Function (L2)', entity:'Entity'};
 const CAT_COLORS=['var(--cat1)','var(--cat2)','var(--cat3)','var(--cat4)','var(--cat5)','var(--cat6)','var(--cat7)'];
 const pairFill=si=>si===0?'var(--cat1)':si===1?'var(--series-2)':CAT_COLORS[si%CAT_COLORS.length];
@@ -7100,7 +7112,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 12:27</td></tr>
+      <tr><td>Build</td><td>2026-08-10 16:09</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

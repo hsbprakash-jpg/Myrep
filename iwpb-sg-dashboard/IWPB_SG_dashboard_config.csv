@@ -86,6 +86,10 @@ Dimensions,micaL2,MICA Level 2,Y,Y,
 Dimensions,micaL1,MICA Level 1,Y,Y,
 Dimensions,prodCode,Product code,Y,N,
 Dimensions,prodL3,Product Level 3,Y,N,
+Dimensions,prodL4,Product Level 4,Y,N,
+Dimensions,prodL5,Product Level 5,Y,N,
+Dimensions,prodL6,Product Level 6,Y,N,
+Dimensions,prodL7,Product Level 7,Y,N,
 Dimensions,prodL2,Product Level 2,Y,N,
 Dimensions,prodL1,Product Level 1,Y,N,
 Dimensions,segCode,Segment code,Y,N,
@@ -168,7 +172,7 @@ AccountHierarchy,A21,PBT,Operating Expenses,Indirect Costs,,,Total Indirect Cost
 AccountHierarchy,A22,PBT,Income from Associates,,,,
 AccountHierarchy,A23,Balance Sheet,,,,,
 AccountHierarchy,A24,Balance Sheet,Deposits,,,,Customer Deposits
-AccountHierarchy,A25,Balance Sheet,Loans and Advances,,,,Loans|Customer Loans
+AccountHierarchy,A25,Balance Sheet,Loans and Advances,,,,Loans|Customer Loans|Loan and Advances
 AccountHierarchy,A26,Balance Sheet,RWAs,,,,
 AccountHierarchy,A27,Balance Sheet,Wealth Balances,,,,
 AccountHierarchy,A28,Balance Sheet,Wealth Balances,Wealth Deposits,,,
