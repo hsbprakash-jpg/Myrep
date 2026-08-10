@@ -1599,7 +1599,8 @@ function classifyPeriod(raw, bandVal){
   if(t.includes('ytd')){
     let mi=MON.findIndex(mn=>new RegExp('(^|[^a-z])'+mn).test(t));
     if(mi<0){ const q2=t.match(/(?:^|[^a-z0-9])q([1-4])/); if(q2) mi=(+q2[1])*3-1; }
-    const ym=t.match(/(?:ytd|q[1-4]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[\s\-.']*(?:20)?(\d{2})\b/);
+    const ym=t.match(/\b20(\d{2})\b/)
+      || t.match(/(?:ytd|q[1-4]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[\s\-.']*(?:20)?(\d{2})\b/);
     return {type:'ytd', label:String(raw), target:isTarget, fc:isFc,
       ytdM:mi>=0?mi:null, ytdYear:ym?ym[1]:null};
   }
