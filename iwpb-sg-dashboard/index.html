@@ -362,6 +362,9 @@ main{flex:1;min-width:0;padding:14px 20px}
 #cfgPanel .linklike:hover{text-decoration:underline}
 #ingestReport{margin-top:18px;font-size:13px}
 #ingestReport .ok{color:var(--status-good)}
+#ingestReport details.filemap{margin-top:10px}
+#ingestReport details.filemap summary{cursor:pointer;color:var(--text-secondary);font-size:12px}
+#buildTag{font-size:10px;color:var(--text-muted);padding:10px 16px}
 #ingestReport .err{color:var(--status-critical)}
 #ingestReport table{border-collapse:collapse;margin-top:8px;width:100%}
 #ingestReport td{padding:3px 10px 3px 0;color:var(--text-secondary)}
@@ -800,6 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
+<div id="buildTag">build 2026-08-10 12:27</div>
 </aside>
 <main>
 
@@ -7086,7 +7090,18 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>MICA Level 2 KPIs</td><td>${l2s.size} (${esc([...l2s].slice(0,5).join(', '))}${l2s.size>5?', …':''})</td></tr>
       <tr><td>Periods</td><td>${model.pyMonths.length?`${model.pyMonths.length} months ${esc(model.yearPY)} · `:''}${model.cyMonths.length} months ${esc(model.yearCY)}${model.cyMonths.some(p=>p.fc)?' (incl. forecast)':''}</td></tr>
       ${model.missing.length?`<tr><td>Columns not found</td><td>${esc(model.missing.join(', '))} — related filters disabled</td></tr>`:''}
-      </table>`;
+      </table>
+      <details class="filemap"><summary>How the file was read — every recognised column</summary><table>
+      <tr><td>YTD actuals columns</td><td>${model.ytdAsOfCols.length? esc(model.ytdAsOfCols.map(p=>`${p.label} (${MON_LBL[p.ytdM]})`).join(' · ')) : '<b>none — YTD will be summed from months</b>'}</td></tr>
+      <tr><td>YTD forecast columns</td><td>${model.ytdFcAsOfCols.length? esc(model.ytdFcAsOfCols.map(p=>`${p.label} (${MON_LBL[p.ytdM]})`).join(' · ')) : 'none'}</td></tr>
+      <tr><td>YTD target columns</td><td>${model.ytdTgtAsOfCols.length? esc(model.ytdTgtAsOfCols.map(p=>`${p.label} (${MON_LBL[p.ytdM]})`).join(' · ')) : 'none'}</td></tr>
+      <tr><td>PY YTD columns</td><td>${model.pyYtdAsOfCols.length? esc(model.pyYtdAsOfCols.map(p=>`${p.label} (${MON_LBL[p.ytdM]})`).join(' · ')) : 'none'}</td></tr>
+      <tr><td>${esc(model.yearPY)} months</td><td>${model.pyMonths.length? esc(model.pyMonths.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
+      <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
+      <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
+      <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
+      <tr><td>Build</td><td>2026-08-10 12:27</td></tr>
+      </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
       $('dashView').hidden=false;
