@@ -178,7 +178,13 @@ A single header row with:
   Jan–May. Comparisons a file cannot serve show as `–` with a note saying
   which and why. The QTD figure comes from the file's **quarterly column**
   and the year-to-date from the **YTD column** — months are only added when
-  no such column exists (`calc_ytd_actuals: months` forces sums). The same
+  no such column exists (`calc_ytd_actuals: months` forces sums). YTD
+  headers are recognised in any common shape: `Jun YTD-26`, `YTD Jun-26`,
+  `YTD-Jun'26`, a quarter-named `Q2 YTD-26` (read as through the
+  quarter-end month), or a bare `YTD` (read as the file's running YTD,
+  through the last actual month) — under an Actuals, Forecast or Target
+  band alike. The column is used when it matches the selected YTD-through
+  month. The same
   rule covers the prior year: a PY YTD column (`Jun YTD-25`) matching the
   selected month is authoritative for every vs-PY figure, with PY months
   summed only when the file carries no such column. Target comparisons are
