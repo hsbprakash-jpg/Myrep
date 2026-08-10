@@ -803,7 +803,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 16:23</div>
+<div id="buildTag">build 2026-08-10 16:26</div>
 </aside>
 <main>
 
@@ -907,7 +907,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <option value="traj">YTD actuals vs forecast</option>
         <option value="l3">MICA L3 breakdown</option>
         <option value="products">Product breakdown</option>
-        <option value="scorecard">KPI scorecard table</option>
+        <option value="scorecard">KPI scorecard — pack boxes / flat table</option>
       </select>
       <select id="wKpi" aria-label="Widget KPI"></select>
       <button class="btn-primary" id="btnAddWidget" style="padding:6px 16px;font-size:13px">Add widget</button>
@@ -7122,7 +7122,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 16:23</td></tr>
+      <tr><td>Build</td><td>2026-08-10 16:26</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
