@@ -485,13 +485,30 @@ driven entirely by dropdowns — KPI scope, view-by dimension, measure and
 chart type (donut / column / horizontal bar) — that follows the global
 filters and remembers its last configuration.
 
-- **My dashboard** — a personal, drag-and-drop dashboard. Add widgets (KPI
-  card, monthly trend, MICA L3 breakdown, product breakdown) for any KPI or
-  the total, drag widgets by their header to rearrange, drag a KPI from the
-  left pane onto the canvas to add it as a card, and remove widgets with ✕.
-  The layout persists in the browser (localStorage) across sessions. Pinned
-  charts carry two dropdowns in their header — view-by dimension and chart
-  type — so any chart can be reshaped in place without rebuilding it.
+- **My dashboard** — a personal, drag-and-drop dashboard. A widget is
+  composed on the add bar from four choices: **type** (KPI card, monthly
+  trend, YTD actuals vs forecast, breakdown by field, custom chart, KPI
+  scorecard), **KPI** (any metric, MICA line, or the total), **field** and
+  **graph**. The field picker lists every dimension the loaded file carries —
+  MICA levels, product, segment, function, entity, country, region, business
+  line — and appears for the types where a field means something (breakdown
+  and custom chart); the graph list is the one belonging to the type chosen,
+  so a card offers horizontal bar / sparkline / column / table, a trend or
+  trajectory offers line / area / column / bar, and a breakdown offers table /
+  bar / column / donut / pie / Pareto / treemap. A breakdown drawn as a table
+  keeps the RAG grid; drawn as anything else it renders as that chart.
+- **Every widget can be re-composed in place.** Its header carries the same
+  pickers it was built with — field and graph on a breakdown, graph on a
+  card, trend or trajectory, layout on the scorecard, view-by and chart type
+  on a pinned chart — so nothing has to be deleted and rebuilt to change what
+  it shows. The choice is saved with the widget, and the PowerPoint deck
+  draws each widget the way the page draws it. Drag widgets by their header
+  to rearrange, drag a KPI from the left pane onto the canvas to add it as a
+  card, and remove widgets with ✕. The layout persists in the browser
+  (localStorage) across sessions.
+- A breakdown whose field mixes P&L and balance-sheet lines shows its lines
+  and **no total** — on the page and in the Excel export alike — because the
+  two statements are never added together.
 
 The design follows HSBC management-reporting conventions: a light left pane
 with a red brand block, section headers and pink-highlighted active items; a

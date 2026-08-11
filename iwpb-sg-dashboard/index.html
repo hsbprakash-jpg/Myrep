@@ -867,7 +867,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 17:32</div>
+<div id="buildTag">build 2026-08-11 17:51</div>
 </aside>
 <main>
 
@@ -976,11 +976,13 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <option value="card">KPI card</option>
         <option value="trend">Monthly trend</option>
         <option value="traj">YTD actuals vs forecast</option>
-        <option value="l3">MICA L3 breakdown</option>
-        <option value="products">Product breakdown</option>
+        <option value="l3">Breakdown by field</option>
+        <option value="chart">Custom chart</option>
         <option value="scorecard">KPI scorecard — pack boxes / flat table</option>
       </select>
       <select id="wKpi" aria-label="Widget KPI"></select>
+      <select id="wField" aria-label="Widget field" title="The field the widget breaks down by"></select>
+      <select id="wGraph" aria-label="Widget graph" title="How the widget is drawn"></select>
       <button class="btn-primary" id="btnAddWidget" style="padding:6px 16px;font-size:13px">Add widget</button>
       <button class="btn-quiet" id="btnResetDash">Reset layout</button>
       <button class="btn-quiet" id="btnPptDash" title="Export the widgets on the current page">⤓ PPT (this page)</button>
@@ -2591,7 +2593,8 @@ function widgetCommentaryHtml(w){
   const m=S.model, rows=widgetRows(w.l2), L=cmpLabels(m);
   if(!rows.length) return '';
   if(w.type==='l3'||w.type==='products')
-    return chartCommentaryHtml({l2:w.l2||'', groupBy:w.type==='l3'?'micaL3':'prodL2', splitBy:'', measure:'cy', type:'hbar'});
+    return chartCommentaryHtml({l2:w.l2||'', groupBy:wDim(w), splitBy:'', measure:'cy',
+      type:wGraphOf(w)==='table'?'hbar':wGraphOf(w)});
   const k=kpi(rows,m,S.ytdM,S.includeFC);
   const nm=scopeName(w.l2)||'Total';
   const pts=k.cySeries.filter(p2=>p2.val!=null&&!p2.fc);
@@ -3887,8 +3890,11 @@ function breakdownAOA(rows, key, label){
   const aoa=[[label],[filterNote()],[],
     ['Line',L.main,L.base,'Variance','Variance %','RAG']];
   for(const g of gs) aoa.push([g.name,mainOf(g.k),g.k.cmpBase,g.k.cmpVar,pct(g.k.cmpVarPct),rag(g.k.favVarPct,S.thresh).label]);
-  const kT=kpi(rows,m,S.ytdM,S.includeFC);
-  aoa.push(['Total',mainOf(kT),kT.cmpBase,kT.cmpVar,pct(kT.cmpVarPct),rag(kT.favVarPct,S.thresh).label]);
+  if(mixedScope(rows)) aoa.push(['No total \u2014 P&L and balance-sheet lines are never added together']);
+  else{
+    const kT=kpi(rows,m,S.ytdM,S.includeFC);
+    aoa.push(['Total',mainOf(kT),kT.cmpBase,kT.cmpVar,pct(kT.cmpVarPct),rag(kT.favVarPct,S.thresh).label]);
+  }
   return aoa;
 }
 function chartAOA(cfg){
@@ -4022,8 +4028,8 @@ function widgetAOA(w){
     if(txt){ aoa.push([]); aoa.push(['AI commentary']); aoa.push([txt]); }
     return aoa;
   }
-  if(w.type==='l3') return breakdownAOA(rows,'micaL3', name+' — MICA Level 3 breakdown');
-  if(w.type==='products') return breakdownAOA(rows,'prodL2', name+' — product breakdown');
+  if(w.type==='l3'||w.type==='products')
+    return breakdownAOA(rows, wDim(w), name+' — by '+(FIELD_LABELS[wDim(w)]||wDim(w)));
   const m=S.model, k=kpi(rows,m,S.ytdM,S.includeFC);
   const L=cmpLabels(m);
   const rowsOut=[[name+' — KPI'],[filterNote()],[L.period],[],['Measure','Value'],[L.main,k.cmpMain]];
@@ -4064,11 +4070,15 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
   let totK=kpi(totRows,m,S.ytdM,S.includeFC);
   if(gBS&&bsScope(totRows)) totK=bsRecast(totK);
   const tot={name:'Total', k:totK};
+  // P&L and balances are never added together — a breakdown that spans both
+  // shows its lines and says why it carries no total
+  const noTotal=mixedScope(totRows);
   el.innerHTML=(title?`<h4>${esc(title)}</h4>`:'')+(subtitle?`<p class="subtitle">${esc(subtitle)}</p>`:'')+
     `<div class="rvwwrap slim"><table class="grid review">
     <thead><tr><th>Line</th><th></th><th>${esc(gBS? MON_LBL[S.ytdM]+' closing':L.main)} (${esc(gBS? bsUnitLabel():cfgUnit())})</th><th>${esc(gBS? bsBaseLbl(L.mode):L.base)}</th>
     <th>Δ</th><th>Δ%</th><th style="text-align:left">RAG</th></tr></thead>
-    <tbody>${body}${rowHtml(tot,'total','')}</tbody></table></div>`;
+    <tbody>${body}${noTotal?'':rowHtml(tot,'total','')}</tbody></table></div>`+
+    (noTotal?`<p class="note">No total \u2014 this selection mixes P&L and balance-sheet lines, which are never added together.</p>`:'');
 }
 
 
@@ -7331,6 +7341,60 @@ function render(){
 const WTYPES={card:'KPI card', trend:'Monthly trend', traj:'YTD actuals vs forecast', l3:'MICA L3 breakdown', products:'Product breakdown', scorecard:'KPI scorecard table', chart:'Custom chart'};
 let widgetSeq=0;
 let dashPage=1;
+/* every widget type says what it can be drawn as; the ones that break a
+   scope down also say which field they break it down by, so a widget is
+   composed on the add bar and re-composed from its own header afterwards */
+const BREAK_GRAPHS=[['table','Table'],['hbar','Horizontal bar'],['column','Column'],
+  ['donut','Donut'],['pie','Pie'],['pareto','Pareto'],['treemap','Treemap']];
+const WGRAPHS={
+  card:[['hbar','Horizontal bar'],['line','Sparkline'],['column','Column'],['table','Table']],
+  trend:[['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar'],['table','Table']],
+  traj:[['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar']],
+  scorecard:[['pack','Pack boxes'],['table','Flat table']],
+  l3:BREAK_GRAPHS, products:BREAK_GRAPHS, chart:CHART_TYPES,
+};
+function wBreaks(t){ return t==='l3'||t==='products'||t==='chart'; }
+function wFields(){
+  const m=S.model; if(!m) return [];
+  return Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
+}
+/* the field a breakdown widget groups by: its own choice, else the one its
+   type was born with, else whatever this file can serve */
+function wDim(w){
+  const m=S.model, fs=wFields();
+  if(w.dim&&fs.includes(w.dim)) return w.dim;
+  const born=w.type==='products'?'prodL2':'micaL3';
+  return fs.includes(born)? born : (fs[0]||'micaL2');
+}
+function wGraphOf(w){
+  if(w.type==='trend'||w.type==='traj') return w.ttype||'line';
+  if(w.type==='l3'||w.type==='products') return w.ctype||'table';
+  if(w.type==='scorecard') return w.ctype||'pack';
+  return w.ctype||'hbar';
+}
+function wGraphSel(cls, list, cur){
+  return `<select class="${cls}" aria-label="Chart type">${list.map(([v,l])=>
+    `<option value="${v}"${cur===v?' selected':''}>${esc(l)}</option>`).join('')}</select>`;
+}
+function wFieldSel(cls, cur){
+  return `<select class="${cls}" aria-label="View by">${wFields().map(k=>
+    `<option value="${k}"${cur===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('')}</select>`;
+}
+/* the add bar follows the type chosen: a field picker only where a field
+   means something, and the graph list of that very type */
+function wCtrlSync(){
+  const fs=$('wField'), gs=$('wGraph'), t=$('wType').value;
+  if(!fs||!gs||!S.model) return;
+  const dims=wFields(), keepF=fs.value;
+  fs.innerHTML=dims.map(k=>`<option value="${k}">by ${esc(FIELD_LABELS[k])}</option>`).join('');
+  if(dims.includes(keepF)) fs.value=keepF;
+  else if(dims.includes('micaL3')) fs.value='micaL3';
+  fs.hidden=!wBreaks(t)||!dims.length;
+  const gl=WGRAPHS[t]||BREAK_GRAPHS, keepG=gs.value;
+  gs.innerHTML=gl.map(([v,l])=>`<option value="${v}">${esc(l)}</option>`).join('');
+  if(gl.some(([v])=>v===keepG)) gs.value=keepG;
+  gs.hidden=false;
+}
 function newWidgetId(){ return 'w'+(++widgetSeq)+'_'+Math.floor(Math.random()*1e6); }
 function loadWidgets(){
   try{ const w=JSON.parse(localStorage.getItem('iwpbsg_widgets')||'null');
@@ -7357,6 +7421,8 @@ function widgetTitle(w){
 }
 function widgetTitleBase(w){
   if(w.type==='scorecard') return WTYPES.scorecard;
+  if(w.type==='l3'||w.type==='products')
+    return scopeName(w.l2)+' · by '+(FIELD_LABELS[wDim(w)]||wDim(w));
   return w.type==='chart'? chartTitleBase(w.cfg) : scopeName(w.l2)+' · '+WTYPES[w.type];
 }
 
@@ -7371,6 +7437,7 @@ function renderCustom(){
       `<option value="m:${esc(d2.name)}">${esc(d2.name)}</option>`).join('')}</optgroup>`:'')+
     l2s.map(l2=>`<option value="${esc(l2)}">${esc(l2)}</option>`).join('');
   if([...sel.options].some(o=>o.value===keep)) sel.value=keep;
+  wCtrlSync();
 
   const grid=$('dashGrid');
   grid.innerHTML='';
@@ -7423,9 +7490,9 @@ function renderCustom(){
       : w.type==='scorecard'?`<select class="wctype" aria-label="Layout">${
         [['pack','Pack boxes'],['table','Flat table']].map(([v,l])=>
           `<option value="${v}"${(w.ctype||'pack')===v?' selected':''}>${l}</option>`).join('')}</select>`
-      : w.type==='trend'?`<select class="wttype" aria-label="Chart type">${
-        [['line','Line'],['area','Area'],['column','Column'],['hbar','Horizontal bar'],['table','Table']].map(([v,l])=>
-          `<option value="${v}"${(w.ttype||'line')===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
+      : (w.type==='trend'||w.type==='traj')? wGraphSel('wttype', WGRAPHS[w.type], wGraphOf(w))
+      : (w.type==='l3'||w.type==='products')? wFieldSel('wbdim', wDim(w))+wGraphSel('wctype', BREAK_GRAPHS, wGraphOf(w))
+      : '';
     let head=`<div class="whead" draggable="true" title="Drag to rearrange">
       <span class="grip" aria-hidden="true">⠿</span><h5 title="${esc(widgetTitle(w))}">${esc(widgetTitleBase(w))}</h5><span class="wunit">(${esc(wu)})</span>${typeSel}
       <button class="wexport" title="Export data to Excel" aria-label="Export data to Excel">⤓</button>
@@ -7508,7 +7575,14 @@ function renderCustom(){
       if(lastA&&k.cmpVar!=null)
         annW.push({m:lastA.m, val:lastA.val, color:(k.favVarPct==null?0:k.favVarPct)>=0?'#0b7a0b':'#c21a1a',
           text:`${k.cmpVar>=0?'+':''}${fmt(k.cmpVar)} (${fmtPct(k.cmpVarPct)})\n${Lw.vs}`});
-      trendChart(div.querySelector('.wchart'), tj.act, tj.cmp, m.yearCY, tj.name, 'line', annW);
+      trendChart(div.querySelector('.wchart'), tj.act, tj.cmp, m.yearCY, tj.name, wGraphOf(w), annW);
+      const tsel=div.querySelector('.wttype'), headT=div.querySelector('.whead');
+      if(tsel){
+        tsel.addEventListener('pointerdown',()=>headT.setAttribute('draggable','false'));
+        tsel.addEventListener('pointerup',()=>headT.setAttribute('draggable','true'));
+        tsel.addEventListener('mouseleave',()=>headT.setAttribute('draggable','true'));
+        tsel.addEventListener('change',()=>{ w.ttype=tsel.value; saveWidgets(); renderCustom(); });
+      }
     }
     if(rows.length && w.type==='trend'){
       const ctw=cmpTrend(k,m);
@@ -7529,13 +7603,26 @@ function renderCustom(){
       sel.addEventListener('change',()=>{ w.ttype=sel.value; saveWidgets(); renderCustom(); });
     }
     if(rows.length && (w.type==='l3'||w.type==='products')){
-      const key=w.type==='l3'?'micaL3':'prodL2';
-      const groups=[...groupBy(rows,key).entries()]
-        .map(([name,rs])=>{ let k2=kpi(rs,m,S.ytdM,S.includeFC);
-          if(bsScope(rs)) k2=bsRecast(k2);
-          return {name, rows:rs, k:k2}; })
-        .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
-      breakdownTable(div.querySelector('.wbody'),'','',groups,null);
+      const key=wDim(w);
+      if(wGraphOf(w)==='table'){
+        const groups=[...groupBy(rows,key).entries()]
+          .map(([name,rs])=>{ let k2=kpi(rs,m,S.ytdM,S.includeFC);
+            if(bsScope(rs)) k2=bsRecast(k2);
+            return {name, rows:rs, k:k2}; })
+          .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+        breakdownTable(div.querySelector('.wbody'),'','',groups,null);
+      } else {
+        const bcfg={groupBy:[key], splitBy:null, measure:'cy', type:wGraphOf(w), l2:w.l2||''};
+        ensureType(bcfg);
+        div.querySelector('.wbody').appendChild(buildChartEl(bcfg));
+      }
+      const fsel=div.querySelector('.wbdim'), headB=div.querySelector('.whead');
+      if(fsel){
+        fsel.addEventListener('pointerdown',()=>headB.setAttribute('draggable','false'));
+        fsel.addEventListener('pointerup',()=>headB.setAttribute('draggable','true'));
+        fsel.addEventListener('mouseleave',()=>headB.setAttribute('draggable','true'));
+        fsel.addEventListener('change',()=>{ w.dim=fsel.value; saveWidgets(); renderCustom(); });
+      }
     }
     // the scorecard speaks through its own rows — a narrative would have to
     // total across statements, which is never done
@@ -8026,7 +8113,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 17:32</td></tr>
+      <tr><td>Build</td><td>2026-08-11 17:51</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -8250,15 +8337,20 @@ function init(){
     for(const w of widgets){
       try{
         let png=null;
-        if(w.type==='chart'||w.type==='trend'||w.type==='traj'){
+        const wIsBreakChart=(w.type==='l3'||w.type==='products')&&wGraphOf(w)!=='table';
+        if(w.type==='chart'||w.type==='trend'||w.type==='traj'||wIsBreakChart){
           const host=document.createElement('div');
           host.style.cssText='position:absolute;left:-10000px;top:0;width:820px';
           document.body.appendChild(host); hosts.push(host);
           if(w.type==='chart') host.appendChild(buildChartEl(w.cfg));
+          else if(wIsBreakChart){
+            const bcfg={groupBy:[wDim(w)], splitBy:null, measure:'cy', type:wGraphOf(w), l2:w.l2||''};
+            ensureType(bcfg); host.appendChild(buildChartEl(bcfg));
+          }
           else if(w.type==='traj'){
             const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC), tj=trajSeries(k,m);
             const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
-            trendChart(div, tj.act, tj.cmp, m.yearCY, tj.name, 'line');
+            trendChart(div, tj.act, tj.cmp, m.yearCY, tj.name, wGraphOf(w));
           }
           else if((w.ttype||'line')!=='table'){
             const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
@@ -8403,8 +8495,19 @@ function init(){
     exportDashPPT(S.widgets.slice((dashPage-1)*cfgPage(),dashPage*cfgPage()),brandSlug()+'_dashboard_p'+dashPage));
   $('btnPptDashAll').addEventListener('click',()=>
     exportDashPPT(S.widgets,brandSlug()+'_dashboard_all'));
+  $('wType').addEventListener('change',wCtrlSync);
   $('btnAddWidget').addEventListener('click',()=>{
-    S.widgets.push({id:newWidgetId(), type:$('wType').value, l2:$('wKpi').value||null});
+    const t=$('wType').value, l2=$('wKpi').value||null;
+    const f=$('wField').value, g=$('wGraph').value;
+    const w={id:newWidgetId(), type:t, l2};
+    if(t==='chart'){
+      w.cfg={groupBy:[f||'micaL2'], splitBy:null, measure:'cy', type:g||'column', l2:l2||''};
+      ensureType(w.cfg);
+    } else {
+      if(wBreaks(t)&&f) w.dim=f;
+      if(g){ if(t==='trend'||t==='traj') w.ttype=g; else w.ctype=g; }
+    }
+    S.widgets.push(w);
     dashPage=Math.ceil(S.widgets.length/cfgPage());
     saveWidgets(); renderCustom();
   });
