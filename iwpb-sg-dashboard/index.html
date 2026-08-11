@@ -854,7 +854,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 12:55</div>
+<div id="buildTag">build 2026-08-11 13:01</div>
 </aside>
 <main>
 
@@ -3643,6 +3643,7 @@ async function exportSummaryPPT(){
   const cellFs=t2=>String(t2).length>8? 8.5 : 9.5;
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const slide=p.addSlide(); slide.background={color:'FFFFFF'};
+  pptCriteria(slide);
   slide.addText(`${cfgS('landing_title')} \u2014 ${MON_LBL[S.ytdM]} ${m.yearCY}`,
     {x:0.4,y:0.18,w:12.5,h:0.38,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI',valign:'top'});
   const COLS=4, TW=3.04, TH=1.42, GX=0.11, GY=0.13, X0=0.42, Y0=1.12;
@@ -3717,6 +3718,12 @@ async function exportSummaryPPT(){
   }
   await p.writeFile({fileName:brandSlug()+'_financial_dashboard_'+new Date().toISOString().slice(0,10)+'.pptx'});
 }
+/* every exported slide states the criteria it was produced under —
+   Global Business scope, other filters, YTD basis — at its top right */
+function pptCriteria(sl){
+  sl.addText(filterNote(), {x:5.9, y:0.08, w:7.05, h:0.26, align:'right',
+    fontSize:8, italic:true, color:'8A8A88', fontFace:'Segoe UI'});
+}
 async function exportPPT(items, name){
   const p=new PptxGenJS();
   p.layout='LAYOUT_WIDE';
@@ -3725,6 +3732,7 @@ async function exportPPT(items, name){
 }
 async function pptChartSlide(p, it){
     const slide=p.addSlide();
+    pptCriteria(slide);
     slide.background={color:'FFFFFF'};
     slide.addText(it.title,{x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',
       fontFace:'Segoe UI',fit:'shrink',wrap:true});
@@ -5936,6 +5944,7 @@ async function fsumPptx(){
   const GOOD='0B7A0B', BAD='C21A1A';
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const sl=p.addSlide(); sl.background={color:'FFFFFF'};
+  pptCriteria(sl);
   sl.addText(`${fsumTitleS()} \u2014 ${MON_LBL[S.ytdM]}'${P.yy} Actuals`,
     {x:0.3,y:0.16,w:12.7,h:0.36,fontSize:18,bold:true,color:RED,fontFace:'Segoe UI'});
   sl.addText(filterNote(true),{x:0.3,y:0.52,w:12.7,h:0.2,fontSize:8.5,italic:true,color:GRY,fontFace:'Segoe UI'});
@@ -7609,7 +7618,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 12:55</td></tr>
+      <tr><td>Build</td><td>2026-08-11 13:01</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -7863,6 +7872,7 @@ function init(){
     const X=[0.35,6.85], Y=[1.02,4.32], CW=6.1, CH=2.8, COLH=Y[1]+CH-Y[0];
     let slide=null, cells=null;
     const newGrid=()=>{ slide=p.addSlide(); slide.background={color:'FFFFFF'};
+      pptCriteria(slide);
       slide.addShape('rect',{x:0.35,y:0.3,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
       cells=[false,false,false,false]; };
     // commentary renders at 10pt — never smaller; height comes from the text length
@@ -7898,6 +7908,7 @@ function init(){
     };
     const addTableSlide=it=>{
       const ts=p.addSlide(); ts.background={color:'FFFFFF'};
+      pptCriteria(ts);
       ts.addText(it.title,{x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',
         fontFace:'Segoe UI',fit:'shrink',wrap:true});
       ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
@@ -7927,6 +7938,7 @@ function init(){
       const chunk=cols*rowsFit, nSlides=Math.ceil(sc.items.length/chunk);
       for(let s0=0;s0<sc.items.length;s0+=chunk){
         const ts=p.addSlide(); ts.background={color:'FFFFFF'};
+        pptCriteria(ts);
         ts.addText((it.scTitle||'KPI scorecard')+(nSlides>1?` \u00b7 ${Math.floor(s0/chunk)+1}/${nSlides}`:''),
           {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true,line:{color:'FFFFFF',transparency:100,width:0.25}});
         ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{color:'FFFFFF',transparency:100,width:0.25}});
