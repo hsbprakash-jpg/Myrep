@@ -391,6 +391,18 @@ left-pane strip and the Filters pane.
   YTD-through month moves it. Configurable via `fsum_title`, `fsum_section_label`,
   `fsum_levels`, `fsum_ow` (the "o/w" prefix on the deepest level) and
   `fsum_total_label`.
+- **Renaming the page** — the view is named in two config places: Settings
+  `fsum_title` (the page heading, and with it the Excel title row, sheet name
+  and workbook file name, the PowerPoint slide title and the Word commentary
+  heading) and Labels `nav_fsum` (the item in the left rail). Set both to the
+  same text — `Business Performance`, say — and nothing anywhere still calls
+  it the Financial Summary. The workbook name follows the new title without
+  repeating the entity (`IWPB_Singapore_business_performance.xlsx`), and a
+  title carrying characters Excel refuses in a sheet name (`:` `/` `\` `?`
+  `*` `[` `]`) keeps them on the page while the sheet takes a cleaned,
+  31-character version. The same pair of keys renames any other view:
+  `landing_title` + `nav_summary` for the KPI summary, `nav_custom`,
+  `nav_builder`, `nav_query`, `nav_table`, `nav_assist`, `nav_sim`.
 - **Keeping statements apart** — a driller carrying both a P&L and balance
   sheet must not add them together. `fsum_sections` assigns the lines of a
   column (`fsum_section_dim`, MICA Level 1 by default) to named blocks:
