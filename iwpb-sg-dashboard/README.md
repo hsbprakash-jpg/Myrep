@@ -118,10 +118,13 @@ left-pane strip and the Filters pane.
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
   widescreen slide, built natively in PowerPoint.
-- **One way of writing a movement, everywhere.** The tiles, the KPI
-  scorecard, the auto-written commentary, the executive decisions, the
-  attention chips, the breakdown tables, the chart annotations and the MI
-  Assistant all render variances through the same pair of rules: the
+- **One way of writing a movement, in every view.** The KPI tiles and their
+  trajectory strip, the KPI scorecard, the auto-written commentary, the
+  executive decisions, the attention chips, the Financial Summary grid and
+  its narrative, the management commentary, every breakdown and chart data
+  table, chart annotations and labels, the simulation's impact table and
+  headline, and every MI Assistant answer all render variances through the
+  same pair of rules: the
   **triangle is the direction the line actually moved**, and the **colour is
   what that movement means** — a cost or ECL going up is ▲ red, revenue or a
   balance going up is ▲ green, a cost coming down is ▼ green. Percentages
@@ -132,7 +135,13 @@ left-pane strip and the Filters pane.
   movements — the monthly run-rate a target needs, and the momentum of the
   last three months — say **above** or **below** the current pace in words
   and carry no favourability colour, because a bigger requirement is not a
-  better or a worse result.
+  better or a worse result. The pack's own F/A wording is kept where the
+  pack uses it — the Financial Summary narrative and the management
+  commentary read `▲346A` / `▼18F` — the triangle joining the letter rather
+  than replacing it. The favourability test itself lives in one place
+  (`movFav` / `movUp`), which every one of those surfaces calls, so they
+  cannot drift apart again; a chart category or a scenario line, which has
+  rows but no KPI record, derives the same flags from its own rows.
 - **The result line is opened up** — on a driller whose only P&L rollup is a
   single Level 1 line (a PBT beside Deposits and Loans), the tile grid would
   otherwise show that one result and the balance sheet, and nothing of what

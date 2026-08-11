@@ -886,7 +886,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 18:09</div>
+<div id="buildTag">build 2026-08-11 18:22</div>
 </aside>
 <main>
 
@@ -2061,6 +2061,11 @@ function movUp(k, v, p){
   const raw=(v!=null? v : p)||0;
   return ((k&&k.costLike&&!k.dirFlip)? -raw : raw)>=0;
 }
+function movKeyOf(rows, val){
+  const costLike=!!(rows&&rows.length) && rows.every(r=>
+    RE_COST.test((r.d.micaL1||'')+' '+(r.d.micaL2||'')));
+  return {costLike, dirFlip:costLike&&(val||0)>0};
+}
 function movPct(k, p){
   if(p==null) return '<span class="mv">\u2013</span>';
   return `<span class="mv ${movFav(k,null,p)?'fav':'unfav'}">${movUp(k,null,p)?'\u25B2':'\u25BC'}${pctAbs(p)}</span>`;
@@ -2679,9 +2684,10 @@ function chartCommentaryHtml(cfg){
     // bases are scenarios of one number — no shares, no totals across them
     const act=cats.find(c=>/actuals/i.test(c.name))||cats[0];
     let out2=`<b>${esc(act.name)}</b> stand at <b>${fmt(act.val)}</b>`;
+    const mkA=movKeyOf(act.rows, act.val);
     const bits=cats.filter(c=>c!==act&&/^YTD/.test(c.name)).map(c=>{
       const d=act.val-c.val, pv=Math.abs(c.val)>0.0001? d/Math.abs(c.val) : null;
-      return `${d>=0?'\u25B2':'\u25BC'} <b>${pv==null?fmt(d):fmtPct(pv)}</b> vs ${esc(c.name)} (<b>${fmt(d)}</b>)`;
+      return `${pv==null? movVal(mkA,d,null) : movPct(mkA,pv)} vs ${esc(c.name)} (${movVal(mkA,d,pv)})`;
     });
     if(bits.length) out2+=` — ${bits.join(', ')}`;
     const fy=cats.filter(c=>/^FY/.test(c.name));
@@ -2708,7 +2714,8 @@ function chartCommentaryHtml(cfg){
     const ahead=cats.filter(c=>(c.varFc||0)>0).length;
     const worst=cats.filter(c=>c.varFcPct!=null).sort((a,b)=>a.varFcPct-b.varFcPct)[0];
     out+=` Against the ${esc(cmpName||'baseline')}, ${ahead} of ${cats.length} lines run ahead`;
-    out+= worst? `; <b>${esc(worst.name)}</b> is furthest behind at <b>${fmtPct(worst.varFcPct)}</b> (<b>${fmt(worst.varFc)}</b>).` : '.';
+    out+= worst? (()=>{ const mkW=movKeyOf(worst.rows, worst.val);
+      return `; <b>${esc(worst.name)}</b> is furthest behind at ${movPct(mkW,worst.varFcPct)} (${movVal(mkW,worst.varFc,worst.varFcPct)}).`; })() : '.';
   }
   else if(segNames&&segNames.length) out+=` Mix split by ${esc(fieldLabels(cfg.splitBy))}, led by <b>${esc(segNames[0])}</b>.`;
   // driver analytics vs the comparison baseline
@@ -3043,7 +3050,7 @@ function renderSummary(){
   const baseLblJ=kJ.isBS? bsBaseLbl(L.mode) : L.base;
   const trioAll=[[kJ.isBS? `${MON_LBL[S.ytdM]} closing` : L.main, fj(kJ.cmpMain)]];
   if(kJ.cmpBase!=null) trioAll.push([baseLblJ,fj(kJ.cmpBase)]);
-  if(kJ.cmpVarPct!=null) trioAll.push([kJ.isBS? 'vs '+baseLblJ.toLowerCase() : L.vs,fmtPct(kJ.cmpVarPct)]);
+  if(kJ.cmpVarPct!=null) trioAll.push([kJ.isBS? 'vs '+baseLblJ.toLowerCase() : L.vs,movPct(kJ,kJ.cmpVarPct),true]);
   if(!kJ.isBS&&kJ.cy!=null) trioAll.push([`${MON_LBL[S.ytdM]} YTD actuals`,fj(kJ.cy)]);
   if(kJ.outlook!=null) trioAll.push([kJ.isBS?'Dec closing (fcst)':'FY outlook',fj(kJ.outlook)]);
   if(kJ.target!=null) trioAll.push(['FY target',fj(kJ.target)]);
@@ -3064,7 +3071,7 @@ function renderSummary(){
       <p class="subtitle">${esc(jName)} — ${TJ.mth?'monthly':'cumulative YTD'} actuals${hasFC?' + outlook':''}${cmpName?` vs ${esc(cmpName)}`:''} · rated on <b>${esc(L.period)}</b> · ${esc(cfgUnit())}</p></div>
       ${lineSel}
     </div>
-    <div class="trio">${trio.map(([tl,tv])=>`<div class="t"><div class="tv${String(tv).startsWith('−')||String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
+    <div class="trio">${trio.map(([tl,tv,mv])=>`<div class="t"><div class="tv${!mv&&String(tv).startsWith('(')?' negnum':''}">${tv}</div><div class="tl">${esc(tl)}</div></div>`).join('')}</div>
     <div class="legend">
       <span><span class="swl" style="border-top:3px solid var(--series-1)"></span>${esc(actLbl)}</span>
       ${hasFC?`<span><span class="swl" style="border-top:3px dashed var(--series-1)"></span>${esc(TJ.mth?'Forecast months':'YTD outlook (forecast months)')}</span>`:''}
@@ -3189,8 +3196,8 @@ function slJoin(parts){
 function slVar(k, bs){
   if(k.cmpVar==null) return 'n/a';
   const fav=(k.favVarPct==null? (k.cmpVar>=0) : k.favVarPct>=0);
-  const p=k.cmpVarPct==null? '' : ' / '+fmtPct(Math.abs(k.cmpVarPct)).replace('+','');
-  return `<b${faCls(fav)}>${slAmt(k.cmpVar,bs)}${fav?'F':'A'}</b>${p}`;
+  const p=k.cmpVarPct==null? '' : ' / '+pctAbs(k.cmpVarPct);
+  return `<b${faCls(fav)}>${movUp(k,k.cmpVar,k.cmpVarPct)?'\u25B2':'\u25BC'}${slAmt(k.cmpVar,bs)}${fav?'F':'A'}</b>${p}`;
 }
 function slDrivers(rows, dimKey, n, bs){
   const ds=houseDrivers(rows, dimKey, n);
@@ -3283,8 +3290,8 @@ function faCls(fav){
 function faTxt(k){
   if(k.cmpVar==null) return 'n/a';
   const fav=(k.favVarPct==null? (k.cmpVar>=0) : k.favVarPct>=0);
-  const pctTxt=k.cmpVarPct==null? '' : ' / '+fmtPct(Math.abs(k.cmpVarPct)).replace('+','');
-  return `<b${faCls(fav)}>${fmt(Math.abs(k.cmpVar))}${fav?'F':'A'}</b>${pctTxt}`;
+  const pctTxt=k.cmpVarPct==null? '' : ' / '+pctAbs(k.cmpVarPct);
+  return `<b${faCls(fav)}>${movUp(k,k.cmpVar,k.cmpVarPct)?'\u25B2':'\u25BC'}${fmt(Math.abs(k.cmpVar))}${fav?'F':'A'}</b>${pctTxt}`;
 }
 /* movement of the line itself: a bigger cost charge reads as "higher" even
    though the value is stored as a larger negative */
@@ -4705,7 +4712,8 @@ function buildChartEl(cfg){
           fill="${c.val<0?'var(--cat2)':'var(--cat1)'}"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></rect>`;
       }
       svg+=`<text x="${W-8}" y="${(cy+3.5).toFixed(1)}" text-anchor="end" font-size="11.5" font-weight="600"
-        fill="${v<0?'var(--status-critical)':'var(--text-primary)'}">${paired&&c.varFcPct!=null? fmt(v)+'  ('+fmtPct(c.varFcPct)+')' : fmt(v)}</text>`;
+        fill="${v<0?'var(--status-critical)':'var(--text-primary)'}">${paired&&c.varFcPct!=null?
+          fmt(v)+'  ('+(movUp(movKeyOf(c.rows,v),null,c.varFcPct)?'\u25B2':'\u25BC')+pctAbs(c.varFcPct)+')' : fmt(v)}</text>`;
     });
     html=`<div class="scroll-x"><svg width="${W}" height="${H2}" viewBox="0 0 ${W} ${H2}" role="img" aria-label="${t} chart">${svg}</svg></div>`+segLegend(segNames, paired);
 
@@ -4828,24 +4836,28 @@ function buildChartEl(cfg){
       const unit=bsU? bsUnitLabel() : cfgUnit();
       const hd=bases.map((b,i)=>`<th class="num">${esc(b.name)}${i?'':` (${esc(unit)})`}</th>`+
         (b.hasVar? `<th class="num">Variance</th><th class="num">Var %</th>`:'')).join('');
-      const row=c=>bases.map(b=>{
-        const v=c.segs[b.name];
-        let cells=`<td class="num">${v==null?'\u2013':fmtCell(v)}</td>`;
-        if(b.hasVar){
-          const d=c.vars? c.vars[b.name] : null;
-          const pv=(d!=null&&v!=null&&Math.abs(v)>0.0001)? d/Math.abs(v) : null;
-          cells+=`<td class="num">${d==null?'\u2013':fmtCell(d)}</td><td class="num">${pv==null?'\u2013':fmtPct(pv)}</td>`;
-        }
-        return cells;
-      }).join('');
+      const row=c=>{
+        const mk=movKeyOf(c.rows, c.val);
+        return bases.map(b=>{
+          const v=c.segs[b.name];
+          let cells=`<td class="num">${v==null?'\u2013':fmtCell(v)}</td>`;
+          if(b.hasVar){
+            const d=c.vars? c.vars[b.name] : null;
+            const pv=(d!=null&&v!=null&&Math.abs(v)>0.0001)? d/Math.abs(v) : null;
+            cells+=`<td class="num">${d==null?'\u2013':movVal(mk,d,pv)}</td><td class="num">${movPct(mk,pv)}</td>`;
+          }
+          return cells;
+        }).join('');
+      };
       const totTr=noTot? '' : (()=>{
         const t={}, tv={};
         for(const b of bases){ t[b.name]=cats.reduce((s2,c)=>s2+(c.segs[b.name]||0),0);
           tv[b.name]=cats.reduce((s2,c)=>s2+((c.vars&&c.vars[b.name])||0),0); }
+        const mkT=movKeyOf(cats.flatMap(c=>c.rows||[]), cats.reduce((s2,c)=>s2+(c.val||0),0));
         return `<tr class="tot"><td>Total</td>${bases.map(b=>{
           let cells=`<td class="num">${fmtCell(t[b.name])}</td>`;
           if(b.hasVar){ const d=tv[b.name], pv=Math.abs(t[b.name])>0.0001? d/Math.abs(t[b.name]) : null;
-            cells+=`<td class="num">${fmtCell(d)}</td><td class="num">${pv==null?'\u2013':fmtPct(pv)}</td>`; }
+            cells+=`<td class="num">${movVal(mkT,d,pv)}</td><td class="num">${movPct(mkT,pv)}</td>`; }
           return cells; }).join('')}</tr>`;
       })();
       html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th>${hd}
@@ -4857,11 +4869,14 @@ function buildChartEl(cfg){
       html=`<div class="scroll-x"><table class="ctable"><thead><tr><th>${esc(dim)}</th>
         <th class="num">${esc(segNames[0])} (${esc(cfgUnit())})</th><th class="num">${esc(segNames[1])}</th>
         <th class="num">Variance</th><th class="num">Variance %</th></tr></thead><tbody>${
-        cats.map(c=>`<tr><td>${esc(c.name)}</td><td class="num">${fmtCell(c.segs[segNames[0]]||0)}</td>
-          <td class="num">${fmtCell(c.segs[segNames[1]]||0)}</td><td class="num">${fmtCell(c.varFc)}</td>
-          <td class="num">${c.varFcPct==null?'\u2013':fmtPct(c.varFcPct)}</td></tr>`).join('')}
+        cats.map(c=>{ const mk=movKeyOf(c.rows, c.segs[segNames[0]]);
+          return `<tr><td>${esc(c.name)}</td><td class="num">${fmtCell(c.segs[segNames[0]]||0)}</td>
+          <td class="num">${fmtCell(c.segs[segNames[1]]||0)}</td><td class="num">${movVal(mk,c.varFc,c.varFcPct)}</td>
+          <td class="num">${movPct(mk,c.varFcPct)}</td></tr>`; }).join('')}
         <tr class="tot"><td>Total</td><td class="num">${fmtCell(tA)}</td><td class="num">${fmtCell(tF)}</td>
-          <td class="num">${fmtCell(tA-tF)}</td><td class="num">${Math.abs(tF)>0.0001? fmtPct((tA-tF)/Math.abs(tF)):'\u2013'}</td></tr>
+          ${(()=>{ const mkT=movKeyOf(cats.flatMap(c=>c.rows||[]), tA);
+            const pvT=Math.abs(tF)>0.0001? (tA-tF)/Math.abs(tF) : null;
+            return `<td class="num">${movVal(mkT,tA-tF,pvT)}</td><td class="num">${movPct(mkT,pvT)}</td>`; })()}</tr>
         </tbody></table></div>`;
     } else if(segNames){
       const rows2=cats.map(c=>`<tr><td>${esc(c.name)}</td>${segNames.map(sn=>`<td class="num">${fmtCell(c.segs[sn]||0)}</td>`).join('')}<td class="num">${fmtCell(c.segTotal)}</td></tr>`).join('');
@@ -5776,7 +5791,9 @@ function fsumNum(v, bs){
 function fsumVar(k, v, bs){
   if(v==null) return '<span class="mut">–</span>';
   const r=Math.round(v);
-  return `<span class="${r===0?'':(faOK(k,v)?'up':'dn')}">${bs? fmtBS(v) : fmtFull(r)}</span>`;
+  if(r===0&&!bs) return `<span>${fmtFull(0)}</span>`;
+  const tri=movUp(k,v,null)?'\u25B2':'\u25BC';
+  return `<span class="${faOK(k,v)?'up':'dn'}">${tri}${bs? fmtBS(Math.abs(v)) : fmtFull(Math.abs(r))}</span>`;
 }
 function fsumPctTxt(v){
   if(v==null) return '–';
@@ -5786,7 +5803,8 @@ function fsumPctTxt(v){
 }
 function fsumPct(k, v){
   if(v==null) return '<span class="mut">–</span>';
-  return `<span class="${v===0?'':(faOK(k,v)?'up':'dn')}">${fsumPctTxt(v)}</span>`;
+  if(v===0) return `<span>${fsumPctTxt(0)}</span>`;
+  return `<span class="${faOK(k,v)?'up':'dn'}">${movUp(k,null,v)?'\u25B2':'\u25BC'}${fsumPctTxt(Math.abs(v))}</span>`;
 }
 function fsumHeadRows(P, m){
   const u=cfgUnit();
@@ -5930,11 +5948,11 @@ function faOK(k, v){ return (k&&k.dirFlip)? v<=0 : v>=0; }
 function faAmt(k, v, bs){
   if(v==null) return '–';
   const t=bs? fmtBS(Math.abs(v)) : fmtFull(Math.abs(Math.round(v)));
-  return `<b${faCls(faOK(k,v))}>${t}${faOK(k,v)?'F':'A'}</b>`;
+  return `<b${faCls(faOK(k,v))}>${movUp(k,v,null)?'\u25B2':'\u25BC'}${t}${faOK(k,v)?'F':'A'}</b>`;
 }
 function faPctTxt(k, v){
   if(v==null) return '–';
-  return `<b${faCls(faOK(k,v))}>${fsumPctTxt(Math.abs(v))}${faOK(k,v)?'F':'A'}</b>`;
+  return `<b${faCls(faOK(k,v))}>${movUp(k,null,v)?'\u25B2':'\u25BC'}${fsumPctTxt(Math.abs(v))}${faOK(k,v)?'F':'A'}</b>`;
 }
 function fsumBlockText(name, rows, m, P, sub){
   const f=fsumFigs(rows,m,P,S.ytdM), k=f.k;
@@ -6119,9 +6137,9 @@ async function fsumPptx(){
     hd(`FY Fcst`,1),hd('vs PrF',1),hd('vs Tgt',1),hd('vs PY',1),
     hd('PrF %',1),hd('Tgt %',1),hd('PY %',1)];
   const num=(v,bs)=>({text:v==null?'\u2013':(bs? fmtBS(v):fmtFull(Math.round(v))), options:{align:'right',color:INK}});
-  const fav=(k,v,bs)=>({text:v==null?'\u2013':(bs? fmtBS(v):fmtFull(Math.round(v))),
+  const fav=(k,v,bs)=>({text:v==null?'\u2013':(movUp(k,v,null)?'\u25B2':'\u25BC')+(bs? fmtBS(Math.abs(v)):fmtFull(Math.abs(Math.round(v)))),
     options:{align:'right',color:v==null?GRY:(faOK(k,v)?GOOD:BAD)}});
-  const favP=(k,v)=>({text:v==null?'\u2013':fsumPctTxt(v),
+  const favP=(k,v)=>({text:v==null?'\u2013':(movUp(k,null,v)?'\u25B2':'\u25BC')+fsumPctTxt(Math.abs(v)),
     options:{align:'right',color:v==null?GRY:(faOK(k,v)?GOOD:BAD)}});
   const tblRows=[head1,head2];
   for(const sec of secs){
@@ -6743,7 +6761,7 @@ function renderSim(){
     <div class="trio">
       <div class="t"><div class="tv${(t.baseOut||0)<0?' negnum':''}">${t.bs? fmtBS(t.baseOut)+bsUnit() : fmt(t.baseOut)}</div><div class="tl">${t.bs? MON_LBL[a.lastM]+' closing' : 'FY outlook'} · prior fcst</div></div>
       <div class="t"><div class="tv${(t.simOut||0)<0?' negnum':''}">${t.bs? fmtBS(t.simOut)+bsUnit() : fmt(t.simOut)}</div><div class="tl">${t.bs? MON_LBL[a.lastM]+' closing' : 'FY outlook'} · simulated</div></div>
-      <div class="t"><div class="tv${dcls(t.delta)}">${t.delta>=0?'+':''}${t.bs? fmtBS(t.delta)+bsUnit() : fmt(t.delta)}</div><div class="tl">Δ forecast</div></div>
+      <div class="t"><div class="tv">${movVal({...(t.k||{}), isBS:t.bs}, t.delta, t.baseOut? t.delta/Math.abs(t.baseOut) : null)}</div><div class="tl">Δ forecast</div></div>
     </div>
     <div class="chart-wrap" id="simChartEl"></div>
     <div id="simCom"></div>
@@ -6751,9 +6769,11 @@ function renderSim(){
     <tbody>${(()=>{ const moved=a.groups.filter(g=>Math.abs(g.delta||0)>0.0005);
       return [...(moved.length? moved : a.groups), t]; })().map(g=>{
       const c=v=>g.bs? `<span${v!=null&&v<0?' class="negnum"':''}>${fmtBS(v)}${bsUnit()}</span>` : fmtCell(v);
+      const dk={...(g.k||{}), isBS:g.bs};
+      const dp=g.baseOut? g.delta/Math.abs(g.baseOut) : null;
       return `<tr${g.name===cfgS('total_label')?' style="font-weight:700"':''}>
       <td>${esc(g.name)}</td><td class="num">${c(g.baseOut)}</td><td class="num">${c(g.simOut)}</td>
-      <td class="num">${c(g.delta)}</td></tr>`;}).join('')}</tbody></table></div>
+      <td class="num">${Math.abs(g.delta||0)<0.0005? c(0) : movVal(dk,g.delta,dp)}</td></tr>`;}).join('')}</tbody></table></div>
     ${(()=>{ const n2=a.groups.filter(g=>Math.abs(g.delta||0)<=0.0005).length;
       const any=a.groups.length-n2;
       return (any&&n2)? `<p class="note">${n2} unaffected line${n2>1?'s':''} hidden — the table lists only the lines this scenario moves.</p>` : ''; })()}`;
@@ -6763,7 +6783,7 @@ function renderSim(){
     const mv=[...a.groups].sort((x,y)=>Math.abs(y.delta)-Math.abs(x.delta))[0];
     const upl=t.baseOut? t.delta/Math.abs(t.baseOut) : null;
     const nfT=v=>t.bs? fmtBS(v)+bsUnit() : fmt(v);
-    let h2=`The scenario moves the ${t.bs? MON_LBL[a.lastM]+' closing balance' : 'FY outlook'} from <b>${nfT(t.baseOut)}</b> to <b>${nfT(t.simOut)}</b> (<b>${t.delta>=0?'+':''}${nfT(t.delta)}</b>${upl!=null?`, <b>${fmtPct(upl)}</b> on the prior forecast path`:''})`;
+    let h2=`The scenario moves the ${t.bs? MON_LBL[a.lastM]+' closing balance' : 'FY outlook'} from <b>${nfT(t.baseOut)}</b> to <b>${nfT(t.simOut)}</b> (${movVal({...(t.k||{}), isBS:t.bs},t.delta,upl)}${upl!=null?`, ${movPct({...(t.k||{}), isBS:t.bs},upl)} on the prior forecast path`:''})`;
     if(mv&&Math.abs(mv.delta)>0.001){
       const shr=t.delta? Math.abs(mv.delta/t.delta)*100 : null;
       h2+=`, with the largest impact in <b>${esc(mv.name)}</b> (<b>${mv.delta>=0?'+':''}${mv.bs? fmtBS(mv.delta)+bsUnit() : fmt(mv.delta)}</b>${shr!=null&&isFinite(shr)?`, ${shr.toFixed(0)}% of the move`:''})`;
@@ -8196,7 +8216,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 18:09</td></tr>
+      <tr><td>Build</td><td>2026-08-11 18:22</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
