@@ -120,11 +120,10 @@ left-pane strip and the Filters pane.
   widescreen slide, built natively in PowerPoint.
 - **One way of writing a movement, in every view.** The KPI tiles and their
   trajectory strip, the KPI scorecard, the auto-written commentary, the
-  executive decisions, the attention chips, the Financial Summary grid and
-  its narrative, the management commentary, every breakdown and chart data
-  table, chart annotations and labels, the simulation's impact table and
-  headline, and every MI Assistant answer all render variances through the
-  same pair of rules: the
+  executive decisions, the attention chips, the management commentary, every
+  breakdown and chart data table, chart annotations and labels, the
+  simulation's impact table and headline, and every MI Assistant answer all
+  render variances through the same pair of rules: the
   **triangle is the direction the line actually moved**, and the **colour is
   what that movement means** — a cost or ECL going up is ▲ red, revenue or a
   balance going up is ▲ green, a cost coming down is ▼ green. Percentages
@@ -135,10 +134,15 @@ left-pane strip and the Filters pane.
   movements — the monthly run-rate a target needs, and the momentum of the
   last three months — say **above** or **below** the current pace in words
   and carry no favourability colour, because a bigger requirement is not a
-  better or a worse result. The pack's own F/A wording is kept where the
-  pack uses it — the Financial Summary narrative and the management
-  commentary read `▲346A` / `▼18F` — the triangle joining the letter rather
-  than replacing it. The favourability test itself lives in one place
+  better or a worse result. The management commentary keeps the pack's F/A
+  wording with the triangle joining the letter — `▲346A` / `▼18F`.
+  **The Financial Summary is the one view without arrows**: it replicates the
+  reporting pack, where fifteen variance columns sit on every line and a
+  triangle in each one is clutter rather than signal. There the pack's own
+  reading stands — the colour carries favourability (a cost underspend green,
+  an ECL overshoot red) and the bracket carries the sign — in the grid, in
+  its narrative's F/A wording and on its PowerPoint slide alike. The
+  favourability test itself lives in one place
   (`movFav` / `movUp`), which every one of those surfaces calls, so they
   cannot drift apart again; a chart category or a scenario line, which has
   rows but no KPI record, derives the same flags from its own rows.
