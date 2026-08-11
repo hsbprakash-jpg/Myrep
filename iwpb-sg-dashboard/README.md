@@ -60,10 +60,14 @@ every country — then one row per country with its P&L YTD and RAG; click
 a row to scope every page, chart, export and simulation to that country
 (the Country filter group mirrors the choice). The strip stays quiet:
 the whole section folds from its header like the other left-pane
-sections, and in hierarchical files each business-line and region row
-carries a caret — children stay hidden until expanded (the choice
-persists), while scoping to a node auto-expands its path so the active
-selection is always visible. Region consolidation keeps
+sections, the tree stops at business lines and regions (business rows
+carry a persistent expand/collapse caret), and countries live in a
+**country dropdown** beneath the tree — a picker showing the current
+selection with its RAG dot and value, opening a searchable panel of
+countries grouped by business line and region. Picking a country scopes
+the whole app (keeping the business-line scope), a clear row restores
+the wider scope, and scoping from anywhere else keeps the picker in
+sync. Region consolidation keeps
 all the standing rules: YTD from YTD columns, balances as closing
 positions in `US$bn`, P&L in `US$m`, and P&L and balance sheet never
 totalled together. Country also works as an ordinary column
