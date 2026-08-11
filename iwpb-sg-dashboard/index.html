@@ -542,6 +542,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
   font-weight:700;color:var(--fold-red)}
 .unitbar select{padding:2px 6px;border:1px solid var(--border-strong);border-radius:4px;
   background:var(--surface-2);color:var(--text-primary);font-size:12px}
+.unitbar .scopeSep{width:1px;align-self:stretch;background:var(--border-strong);margin:0 4px}
 .unitbar .unitnote{font-size:10.5px;color:var(--text-muted);font-style:italic}
 .ctxnote{color:var(--text-muted);font-size:10.5px;margin:6px 0 0;font-style:italic}
 .houselist{margin:2px 0 0 20px;padding:0}
@@ -807,7 +808,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 10:03</div>
+<div id="buildTag">build 2026-08-11 10:06</div>
 </aside>
 <main>
 
@@ -834,6 +835,10 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 
 <section id="dashView" hidden>
   <div class="unitbar">
+    <span class="unitlbl" id="scopeLbl" hidden data-lbl="lbl_scope">Scope</span>
+    <select id="fRegion" aria-label="Region scope" hidden></select>
+    <select id="fCountry" aria-label="Country scope" hidden></select>
+    <span class="scopeSep" id="scopeSep" hidden></span>
     <span class="unitlbl" data-lbl="lbl_units">Units</span>
     <select id="fUnits" aria-label="Units"></select>
     <span class="unitnote" id="unitNote"></span>
@@ -5943,7 +5948,7 @@ function renderCountryNav(){
   if(!host||!S.model) return;
   const m=S.model; S.filters=S.filters||{};
   const cs=('country' in m.dimCols)? [...new Set(m.rows.map(r=>String(r.d.country||'')).filter(Boolean))].sort() : [];
-  if(cs.length<2){ sect.hidden=true; host.innerHTML=''; return; }
+  if(cs.length<2){ sect.hidden=true; host.innerHTML=''; fillScopeBar(null); return; }
   sect.hidden=false;
   const hasReg='region' in m.dimCols;
   const selC=S.filters.country, selR=S.filters.region;
@@ -5981,23 +5986,52 @@ function renderCountryNav(){
       <span class="dot ${it.rg.cls}" aria-hidden="true"></span>
       <span class="nm">${esc(it.name)}</span><span class="v">${it.k.cy==null?'\u2013':fmtK(it.k,it.k.cy)}</span></button>`;
   }).join('');
-  // scope through the filter checkbox groups so the strip and the Filters
-  // pane can never disagree; groups missing (dim hidden) fall back to state
+  host.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    const dim=b.dataset.dim, val=b.dataset.c;
+    scopeSet(dim==='region'? val:'', dim==='country'? val:'');
+  }));
+  fillScopeBar({hasReg, cs, curC, curR, topName, m});
+}
+/* scope through the filter checkbox groups so the strip, the top bar and the
+   Filters pane can never disagree; missing groups fall back to plain state */
+function scopeSet(regionVal, countryVal){
   const setGrp=(dim,val)=>{
     const grp=document.querySelector(`#dimFilters details[data-dim="${dim}"]`);
     if(!grp){ if(val) S.filters[dim]=new Set([val]); else delete S.filters[dim]; return null; }
     grp.querySelectorAll('.fltlist input').forEach(x=>{ x.checked=!val||x.value===val; });
     return grp;
   };
-  host.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
-    const dim=b.dataset.dim, val=b.dataset.c;
-    const grps=[setGrp('country', dim==='country'? val:'')];
-    if(hasReg) grps.push(setGrp('region', dim==='region'? val:''));
-    let fired=false;
-    for(const g of grps) if(g){ const f=g.querySelector('.fltlist input');
-      if(f){ f.dispatchEvent(new Event('change')); fired=true; } }
-    if(!fired) render();
-  }));
+  const grps=[setGrp('country', countryVal)];
+  if(S.model&&'region' in S.model.dimCols) grps.push(setGrp('region', regionVal));
+  let fired=false;
+  for(const g of grps) if(g){ const f=g.querySelector('.fltlist input');
+    if(f){ f.dispatchEvent(new Event('change')); fired=true; } }
+  if(!fired) render();
+}
+/* the neat version of the same scope, next to Units: Global/region dropdown
+   plus a country dropdown (countries limited to the chosen region) */
+function fillScopeBar(ctx){
+  const selR=$('fRegion'), selC=$('fCountry'), lbl=$('scopeLbl'), sep=$('scopeSep');
+  if(!selR||!selC) return;
+  const show=!!ctx&&ctx.cs.length>=2;
+  lbl.hidden=sep.hidden=!show; selC.hidden=!show;
+  selR.hidden=!show||!ctx.hasReg;
+  if(!show) return;
+  const {hasReg, curC, curR, topName, m}=ctx;
+  const cOf=c=>String(c==null?'':c);
+  const regOfC=curC&&hasReg? cOf((m.rows.find(r=>String(r.d.country||'')===curC)||{d:{}}).d.region) : '';
+  const regSel=curR||regOfC;
+  if(hasReg){
+    const regs=[...new Set(m.rows.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
+    selR.innerHTML=`<option value="">${esc(topName)}</option>`+
+      regs.map(R=>`<option value="${esc(R)}"${R===regSel?' selected':''}>${esc(R)}</option>`).join('');
+  }
+  const pool=hasReg&&regSel? m.rows.filter(r=>String(r.d.region||'')===regSel) : m.rows;
+  const cs2=[...new Set(pool.map(r=>String(r.d.country||'')).filter(Boolean))].sort();
+  selC.innerHTML=`<option value="">${esc(hasReg&&regSel? 'All \u00b7 '+regSel : cfgL('scope_all_countries')||'All countries')}</option>`+
+    cs2.map(c=>`<option value="${esc(c)}"${c===curC?' selected':''}>${esc(c)}</option>`).join('');
+  selR.onchange=()=>scopeSet(selR.value,'');
+  selC.onchange=()=>scopeSet(selC.value? (selR.hidden?'':selR.value):'', selC.value);
 }
 function renderKpiNav(){
   const m=S.model; if(!m) return;
@@ -7355,7 +7389,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 10:03</td></tr>
+      <tr><td>Build</td><td>2026-08-11 10:06</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

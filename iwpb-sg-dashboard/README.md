@@ -77,7 +77,10 @@ countries indented beneath — and clicking any row scopes the whole app
 to that node. `Region` becomes a full dimension everywhere: filters,
 chart axes, query builder, simulation scopes and "View impact by".
 Countries not in the map group under "Unmapped" so nothing silently
-drops out of the consolidation.
+drops out of the consolidation. The top bar (next to Units) carries the
+same scope as two compact dropdowns — Global/region and country, the
+country list narrowing to the chosen region — always in sync with the
+left-pane strip and the Filters pane.
 
 ## Views
 
