@@ -856,7 +856,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 16:41</div>
+<div id="buildTag">build 2026-08-11 16:48</div>
 </aside>
 <main>
 
@@ -7575,10 +7575,13 @@ function applyHierarchies(m){
       if(!path.length) continue;
       maxD=Math.max(maxD,path.length);
       const key=path[path.length-1].toLowerCase();
-      if(!map.has(key)) map.set(key,path);
+      if(!map.has(key)) map.set(key,[]);
+      map.get(key).push(path);
       for(const al of String(rr.match||'').split(/[|;]/)){
         const ak=al.trim().toLowerCase();
-        if(ak&&!stitch.has(ak)) stitch.set(ak,path);
+        if(!ak) continue;
+        if(!stitch.has(ak)) stitch.set(ak,[]);
+        stitch.get(ak).push(path);
       }
     }
     if(!maxD) continue;
@@ -7588,12 +7591,27 @@ function applyHierarchies(m){
     const specOf=k=>{ const mm=/l(\d)$/i.exec(k); return mm? 10-(+mm[1]) : 0; };
     const src=cfgS(h.from).split(/[,;\s]+/).filter(k=>k in m.dimCols)
       .sort((a,b)=>specOf(a)-specOf(b));
+    // among the branches that claim a name, the one whose ancestors the row
+    // also carries wins — that is what tells Wealth's Private Bank apart from
+    // Banking NII's
+    const ctxPick=(list, vals)=>{
+      if(!list||!list.length) return null;
+      if(list.length===1) return list[0];
+      let best=null, bs=-1;
+      for(const p of list){
+        let sc=0;
+        for(let i=0;i<p.length-1;i++) if(vals.has(String(p[i]).toLowerCase())) sc++;
+        if(sc>bs||(sc===bs&&best&&p.length>best.length)){ bs=sc; best=p; }
+      }
+      return best;
+    };
     let any=false;
     for(const row of m.rows){
+      const vals=new Set(src.map(k=>String(row.d[k]||'').trim().toLowerCase()).filter(Boolean));
       let best=null;
       for(const k of src){
         const v=String(row.d[k]||'').trim().toLowerCase(); if(!v) continue;
-        const ps=stitch.get(v), p2=map.get(v);
+        const ps=ctxPick(stitch.get(v), vals), p2=ctxPick(map.get(v), vals);
         // within one column the deeper path wins, alias or level name alike
         const cand=(ps&&p2)? (p2.length>ps.length? p2 : ps) : (ps||p2);
         if(cand){ best=cand; break; }
@@ -7609,6 +7627,31 @@ function applyHierarchies(m){
       if(!(k in FIELD_LABELS)) FIELD_LABELS[k]=lbl;
     }
   }
+}
+function hierCheck(m, pfx){
+  pfx=pfx||'accH';
+  const depth=[1,2,3,4,5].filter(i=>(pfx+i) in m.dimCols);
+  if(!depth.length) return null;
+  const un=cfgS('hierarchy_unmapped_label')||'Unmapped';
+  const kids={}, direct={}, own={};
+  for(const r of m.rows){
+    const path=depth.map(i=>String(r.d[pfx+i]||'')).filter(Boolean);
+    // a padded path repeats its own leaf, so the real depth stops at the
+    // last change
+    let end=path.length;
+    while(end>1&&path[end-1]===path[end-2]) end--;
+    for(let i=0;i<end;i++){
+      const key=path.slice(0,i+1).join(' \u203a ');
+      own[key]=(own[key]||0)+1;
+      if(i+1<end){ (kids[key]=kids[key]||new Set()).add(path[i+1]); }
+      else direct[key]=(direct[key]||0)+1;
+    }
+  }
+  const resid=[];
+  for(const key of Object.keys(direct))
+    if(kids[key]&&kids[key].size) resid.push({line:key.split(' \u203a ').pop(), path:key, rows:direct[key]});
+  const unmapped=m.rows.filter(r=>String(r.d[pfx+'1']||'')===un).length;
+  return {unmapped, resid};
 }
 function applyCfgDom(){
   cfgCompile();
@@ -7908,6 +7951,12 @@ function ingestArrayBuffer(buf, name, fromCache){
         return esc(sn)+' \u2192 '+(res? esc([res.business, (e2&&e2.region)||'Unmapped', res.country].filter(Boolean).join(' \u00b7 ')) : '<b>not in the hierarchy — shown as its own country, region Unmapped</b>');
       }).join('<br>')}</td></tr>`:''}
       ${model.countryWarn&&model.countryWarn.length? `<tr><td>Tab alignment</td><td>${esc(model.countryWarn.join(' | '))}</td></tr>`:''}
+      ${(()=>{ const hc=hierCheck(model); if(!hc) return '';
+        const bits=[];
+        if(hc.unmapped) bits.push(`<b>${hc.unmapped} row(s) matched no line</b> \u2014 they group under Unmapped`);
+        for(const r of hc.resid) bits.push(`<b>${esc(r.line)}</b> keeps ${r.rows} row(s) of its own while it also has children, so its children do not add to it (${esc(r.path)})`);
+        return `<tr><td>Hierarchy check</td><td>${bits.length? bits.join('<br>') : '\u2713 every row lands on a line, and every parent equals its children'}</td></tr>`;
+      })()}
       <tr><td>Rows</td><td>${model.rows.length.toLocaleString()}</td></tr>
       <tr><td>MICA Level 2 KPIs</td><td>${l2s.size} (${esc([...l2s].slice(0,5).join(', '))}${l2s.size>5?', …':''})</td></tr>
       <tr><td>Periods</td><td>${model.pyMonths.length?`${model.pyMonths.length} months ${esc(model.yearPY)} · `:''}${model.cyMonths.length} months ${esc(model.yearCY)}${model.cyMonths.some(p=>p.fc)?' (incl. forecast)':''}</td></tr>
@@ -7922,7 +7971,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 16:41</td></tr>
+      <tr><td>Build</td><td>2026-08-11 16:48</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

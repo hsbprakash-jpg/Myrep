@@ -535,6 +535,11 @@ What each section governs:
   comparison bases offered in the left pane (any of `auto`, `ytd_py`,
   `ytd_fc`, `ytd_tgt`, `mom`, `mth_py`, `mth_tgt`, `mth_fc`, `fy_tgt`,
   `fy_py`; entries a file cannot serve are hidden automatically).
+- **Hierarchy check** — the ingest report states whether the cascade adds
+  up: it names any row that matched no line (they group under Unmapped)
+  and any line that keeps rows of its own while also having children, so
+  the children would not add to it. A clean file reads "every row lands
+  on a line, and every parent equals its children".
 - **AccountHierarchy** — the reporting pack's own line cascade:
   `ID | Level 1 … Level 5 | Match`, where Level 1 is the statement group
   (`PBT ex Notables`, `Balance Sheet`, `Key Metrics`) and `Match` lists the
