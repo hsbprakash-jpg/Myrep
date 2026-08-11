@@ -856,7 +856,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 14:13</div>
+<div id="buildTag">build 2026-08-11 15:36</div>
 </aside>
 <main>
 
@@ -1245,6 +1245,8 @@ const CFG_DEFAULT={
     fc_label_pattern:'forecast|fcst|\\bfc\\b',
     target_label_pattern:'\\btarget\\b|\\btgt\\b|target|tgt',
     cost_patterns:'cost|\\becl\\b|expected\\s+credit|impair|expense',
+    memo_patterns:'',
+    fsum_memo_label:'Key Metrics',
     balance_sheet_patterns:'deposit|\\bloan|advance|mortgage|\\bcasa\\b|balance|\\basset|liabilit|\\brwa\\b|\\baum\\b|\\bnnm\\b|customer\\s*account',
     hidden_cmp_patterns:'direct\\s*costs?|costs?\\s*[-\u2013]?\\s*(direct|indirect)|indirect\\s*costs?|\\becl\\b|expected\\s+credit',
     dashboard_page_size:'6',
@@ -1420,7 +1422,7 @@ const CFG_DEFAULT={
 for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:'Y'};
 let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null');
   if(v&&v.settings) return v; }catch(e){} return JSON.parse(JSON.stringify(CFG_DEFAULT)); })();
-let RE_FC,RE_TGT,RE_COST,RE_HIDE,RE_BS,PRIO_RES;
+let RE_FC,RE_TGT,RE_COST,RE_HIDE,RE_BS,RE_MEMO,PRIO_RES;
 function cfgS(k){ const v=CFG.settings&&CFG.settings[k]; return (v==null||v==='')? CFG_DEFAULT.settings[k] : String(v); }
 function brandName(){ const t=cfgS('app_title'); return t.replace(/\s*driller\s*$/i,'').trim()||t; }
 function brandMark(){ const v=cfgS('logo_mark'); if(v) return v.slice(0,4);
@@ -1441,6 +1443,7 @@ function cfgCompile(){
   RE_COST=cfgRe(cfgS('cost_patterns'),CFG_DEFAULT.settings.cost_patterns);
   RE_HIDE=cfgRe(cfgS('hidden_cmp_patterns'),CFG_DEFAULT.settings.hidden_cmp_patterns);
   RE_BS=cfgRe(cfgS('balance_sheet_patterns'),CFG_DEFAULT.settings.balance_sheet_patterns);
+  RE_MEMO=cfgS('memo_patterns').trim()? cfgRe(cfgS('memo_patterns'),'') : null;
   PRIO_RES=((CFG.tilePriority&&CFG.tilePriority.length)?CFG.tilePriority:CFG_DEFAULT.tilePriority)
     .map(p2=>{ try{ return new RegExp(p2,'i'); }catch(e){ return null; } }).filter(Boolean);
   cfgSyncDims();
@@ -1551,7 +1554,9 @@ function bsRecast(k){
     varTgt:vT, varTgtPct:(vT!=null&&k.target)? vT/Math.abs(k.target) : null};
 }
 function bsScope(rows){
-  return !!(bsUnit()&&rows&&rows.length&&rows.every(r=>isBSLine(String(r.d.micaL1||''))));
+  if(!rows||!rows.length||!bsUnit()) return false;
+  if(rows.some(r=>isMemoLine(String(r.d.micaL1||'')))) return false;
+  return rows.every(r=>isBSLine(String(r.d.micaL1||'')));
 }
 function scopeUnit(rows){ return bsScope(rows)? bsUnitLabel() : cfgUnit(); }
 function bsBaseLbl(mode){
@@ -5548,7 +5553,10 @@ function fsumSectionDefs(){
    every top-level line in it is a recognised P&L line (the tile-priority
    patterns) — a driller carrying deposits or loans alongside a result is
    never totalled, because adding a balance to a result is not a figure. */
-function isBSLine(name){ return !!(RE_BS&&RE_BS.test(String(name||''))); }
+/* key metrics (customer counts, CER, FTE, NNM…) are memo lines: they never
+   join a P&L or balance-sheet total, and never take the balance unit */
+function isMemoLine(name){ return !!(RE_MEMO&&RE_MEMO.test(String(name||''))); }
+function isBSLine(name){ return isMemoLine(name)||!!(RE_BS&&RE_BS.test(String(name||''))); }
 /* a scope that carries balance-sheet lines beside P&L lines — adding the two
    is never a figure, whatever the configuration says */
 function mixedScope(rows){
@@ -5581,12 +5589,16 @@ function fsumSections(rows){
   // their own block in their own unit, as the pack lays it out
   if(!defs.length&&!dimCfg&&(lvl1 in m.dimCols)){
     const pl=rows.filter(r=>!isBSLine(String(r.d[lvl1]||'')));
-    const bsr=rows.filter(r=>isBSLine(String(r.d[lvl1]||'')));
-    if(pl.length&&bsr.length){
+    const mem=rows.filter(r=>isMemoLine(String(r.d[lvl1]||'')));
+    const bsr=rows.filter(r=>isBSLine(String(r.d[lvl1]||''))&&!isMemoLine(String(r.d[lvl1]||'')));
+    if(pl.length&&(bsr.length||mem.length)){
       const lb=cfgS('fsum_bs_label')||'Balance Sheet';
-      return [{label:`${cfgS('fsum_section_label')} (${u})`, name:cfgS('fsum_section_label'), rows:pl,
-               noTotal:noTot.has(String(cfgS('fsum_section_label')).toLowerCase())},
-              {label:`${lb} (${bsUnitLabel()})`, name:lb, rows:bsr, noTotal:true}];
+      const mlb=cfgS('fsum_memo_label')||'Key Metrics';
+      const out=[{label:`${cfgS('fsum_section_label')} (${u})`, name:cfgS('fsum_section_label'), rows:pl,
+                  noTotal:noTot.has(String(cfgS('fsum_section_label')).toLowerCase())}];
+      if(bsr.length) out.push({label:`${lb} (${bsUnitLabel()})`, name:lb, rows:bsr, noTotal:true});
+      if(mem.length) out.push({label:mlb, name:mlb, rows:mem, noTotal:true});
+      return out;
     }
   }
   if(defs.length){
@@ -7906,7 +7918,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 14:13</td></tr>
+      <tr><td>Build</td><td>2026-08-11 15:36</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

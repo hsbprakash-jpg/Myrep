@@ -535,6 +535,18 @@ What each section governs:
   comparison bases offered in the left pane (any of `auto`, `ytd_py`,
   `ytd_fc`, `ytd_tgt`, `mom`, `mth_py`, `mth_tgt`, `mth_fc`, `fy_tgt`,
   `fy_py`; entries a file cannot serve are hidden automatically).
+- **AccountHierarchy** — the reporting pack's own line cascade:
+  `ID | Level 1 … Level 5 | Match`, where Level 1 is the statement group
+  (`PBT ex Notables`, `Balance Sheet`, `Key Metrics`) and `Match` lists the
+  driller line names that roll into the deepest level. Uploaded rows
+  replace the defaults wholesale.
+- **Key metrics as memo lines** — `memo_patterns` marks lines that are
+  neither P&L nor balance sheet (Premier Customers, CER %, FTE, NNM/NND/
+  NNIA, Wealth balances). They are **never totalled into the P&L or the
+  balance sheet**, are never restated onto the balance unit, and get their
+  own Financial Summary band named by `fsum_memo_label` (default
+  "Key Metrics") — so the pack's three blocks appear as
+  `P&L (US$m)`, `Balance Sheet (US$bn)`, `Key Metrics`.
 - **Calculations** — the calculation rules themselves:
   `calc_ytd_actuals` (`column` = a YTD column matching the selected
   month is authoritative everywhere, months are never added when one
