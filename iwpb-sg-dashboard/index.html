@@ -856,7 +856,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 16:03</div>
+<div id="buildTag">build 2026-08-11 16:41</div>
 </aside>
 <main>
 
@@ -7582,20 +7582,22 @@ function applyHierarchies(m){
       }
     }
     if(!maxD) continue;
-    const src=cfgS(h.from).split(/[,;\s]+/).filter(k=>k in m.dimCols);
+    // read the most specific column first: a code, then the deepest level.
+    // What Level 3 calls a row outranks what Level 2 calls it, so a parent's
+    // own value can never pull the row away from its line.
+    const specOf=k=>{ const mm=/l(\d)$/i.exec(k); return mm? 10-(+mm[1]) : 0; };
+    const src=cfgS(h.from).split(/[,;\s]+/).filter(k=>k in m.dimCols)
+      .sort((a,b)=>specOf(a)-specOf(b));
     let any=false;
     for(const row of m.rows){
-      let bestS=null, bestN=null;
+      let best=null;
       for(const k of src){
         const v=String(row.d[k]||'').trim().toLowerCase(); if(!v) continue;
-        const ps=stitch.get(v);
-        if(ps&&(!bestS||ps.length>bestS.length)) bestS=ps;
-        const p2=map.get(v);
-        if(p2&&(!bestN||p2.length>bestN.length)) bestN=p2;
+        const ps=stitch.get(v), p2=map.get(v);
+        // within one column the deeper path wins, alias or level name alike
+        const cand=(ps&&p2)? (p2.length>ps.length? p2 : ps) : (ps||p2);
+        if(cand){ best=cand; break; }
       }
-      // the deepest match wins wherever it came from: a parent's alias must
-      // never pull a row up out of the child level that names it
-      const best=(bestS&&bestN)? (bestN.length>bestS.length? bestN : bestS) : (bestS||bestN);
       if(best) any=true;
       for(let i=0;i<maxD;i++)
         row.d[h.pfx+(i+1)]= best? (best[i]||best[best.length-1]) : un;
@@ -7920,7 +7922,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 16:03</td></tr>
+      <tr><td>Build</td><td>2026-08-11 16:41</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
