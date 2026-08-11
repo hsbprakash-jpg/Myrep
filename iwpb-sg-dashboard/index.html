@@ -854,7 +854,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 12:52</div>
+<div id="buildTag">build 2026-08-11 12:55</div>
 </aside>
 <main>
 
@@ -2688,7 +2688,7 @@ function renderScopeChips(){
   host.hidden=false;
   const chip=(lbl,val,dim)=>`<span class="schip" title="${esc(lbl)}">${esc(val)}
     <button class="x" data-dim="${dim}" title="Remove the ${esc(lbl)} scope" aria-label="Remove ${esc(val)}">✕</button></span>`;
-  host.innerHTML=`<span class="slbl">Scoped to</span>`+
+  host.innerHTML=`<span class="slbl">Global Business</span>`+
     (b3?chip('Business line',b3,'business'):'')+(r?chip('Region',r,'region'):'')+(c?chip('Country',c,'country'):'');
   host.querySelectorAll('.x').forEach(x=>x.addEventListener('click',()=>{
     const d=x.dataset.dim;
@@ -3043,7 +3043,7 @@ function renderHouse(){
   const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
   const cur=houseDimKey();
   $('houseDim').innerHTML=dims.map(k=>`<option value="${k}"${cur===k?' selected':''}>${esc(FIELD_LABELS[k])}</option>`).join('');
-  $('houseSub').textContent=`${scopeTrail()? 'Scope '+scopeTrail()+' · ':''}${L.period} — reporting-pack narrative, cascading to ${FIELD_LABELS[cur]||cur} · ${cfgUnit()}`;
+  $('houseSub').textContent=`${scopeTrail()? 'Global Business '+scopeTrail()+' · ':''}${L.period} — reporting-pack narrative, cascading to ${FIELD_LABELS[cur]||cur} · ${cfgUnit()}`;
   aiComment($('houseCom'), 'house|'+filterNote()+'|'+S.ytdM+'|'+cur+'|'+L.vp+'|'+L.mode+'|'+
     cfgS('commentary_format')+'|'+drvSig(),
     ()=>cfgS('commentary_format').trim().toLowerCase()==='house'
@@ -3771,7 +3771,7 @@ function filterNote(noPeriod){
     parts.push(`${ALL_DIM_LABELS[k]||k}: ${set.size<=3?[...set].join(' / '):set.size+' selected'}`);
   }
   const per=(!noPeriod&&S.model)? cmpLabels(S.model).period : '';
-  const scope=tr? `Scope ${tr}` : '';
+  const scope=tr? `Global Business ${tr}` : '';
   const rest=parts.length? parts.join(' · ') : (scope?'':'none');
   return `Filters: ${[scope,rest].filter(Boolean).join(' · ')} · YTD ${ytdLabel()}${per?' · '+per:''}`;
 }
@@ -4166,7 +4166,7 @@ function renderDecisions(cards, L){
   const act=pool.filter(c=>c.rg.cls!=='g');
   const show=(act.length? act : pool).slice(0,maxN);
   const cnt=$('decCount'); if(cnt) cnt.textContent=act.length? String(act.length) : '';
-  const sub=$('actSub'); if(sub) sub.textContent=`${scopeTrail()? 'Scope '+scopeTrail()+' · ':''}Inferences from the data · rated on ${L.period}`;
+  const sub=$('actSub'); if(sub) sub.textContent=`${scopeTrail()? 'Global Business '+scopeTrail()+' · ':''}Inferences from the data · rated on ${L.period}`;
   const rem=12-(S.ytdM+1);
   host.innerHTML=show.map(c=>{
     const k=c.k, fav=(k.favVarPct??0)>=0, sfx=fav?'F':'A';
@@ -7609,7 +7609,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 12:52</td></tr>
+      <tr><td>Build</td><td>2026-08-11 12:55</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
