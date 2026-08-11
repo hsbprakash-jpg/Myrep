@@ -73,7 +73,20 @@ sheet in verbatim: a header row then `ID | Level 1 | Level 2 | Level 3`
 retained per entry (e.g. `C14 | IWPB | Global | Asia | Singapore`; a
 Level-2-only row such as Holdings becomes its own region; flat
 `Key=country, Value=region` rows also work). Without the section, a
-multi-tab file shows the flat Region → Country strip. With the map uploaded,
+multi-tab file shows the flat Region → Country strip.
+
+**Business lines (Level 0 / group roll-up)** — when tabs are named
+`<business> <country>` (`IWPB Singapore`, `CIB Singapore`) and the
+hierarchy carries `Level 0`, the same country may appear once per
+business line and the roll-up gains a tier: **Group — all business
+lines → business line → region → country**, with the group total the
+sum across business lines and a group-level country (business line
+"All" + the country in the top bar) summing that country across
+businesses. `Business line` is a full dimension — filters, chart axes,
+simulation scopes — and the top bar gains a business dropdown, with
+region and country lists narrowing to the selection. A plain country
+tab name resolves to its (single) hierarchy entry as before, and
+`group_label` renames the top row. With the map uploaded,
 the left-pane strip becomes three levels — the Level 1 name (Global) on
 top, each region in bold with its consolidated P&L YTD, and its
 countries indented beneath — and clicking any row scopes the whole app

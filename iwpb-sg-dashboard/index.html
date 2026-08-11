@@ -200,6 +200,9 @@ aside.side nav button svg{flex:none;opacity:.9}
 #kpiNav .nm,#countryNav .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #countryNav button.sub{padding-left:30px}
 #countryNav button.reg .nm{font-weight:600}
+#countryNav button.biz .nm{font-weight:700;letter-spacing:.2px}
+#countryNav button.reg.sub{padding-left:26px}
+#countryNav button.sub2{padding-left:42px}
 #kpiNav .v,#countryNav .v{font-variant-numeric:tabular-nums;color:var(--text-muted);font-size:11.5px}
 aside.side .foot{margin-top:auto;padding:12px 18px 2px;border-top:1px solid var(--border)}
 aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
@@ -808,7 +811,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 11:45</div>
+<div id="buildTag">build 2026-08-11 11:55</div>
 </aside>
 <main>
 
@@ -836,6 +839,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 <section id="dashView" hidden>
   <div class="unitbar">
     <span class="unitlbl" id="scopeLbl" hidden data-lbl="lbl_scope">Scope</span>
+    <select id="fBusiness" aria-label="Business line scope" hidden></select>
     <select id="fRegion" aria-label="Region scope" hidden></select>
     <select id="fCountry" aria-label="Country scope" hidden></select>
     <span class="scopeSep" id="scopeSep" hidden></span>
@@ -1138,6 +1142,7 @@ const MON_LBL_BASE = [...MON_LBL];
 const DIM_SPECS = [
   {key:'country',  label:'Country',          test:n=>n==='country'||n==='countryname'||n==='countrycode', opt:true},
   {key:'region',   label:'Region',           test:n=>n==='region'||n==='regionname', opt:true},
+  {key:'business', label:'Business_Line',    test:n=>n==='business'||n==='businessline'||n==='level0', opt:true},
   {key:'mica',     label:'MICA',             test:n=>n==='mica'},
   {key:'micaL3',   label:'MICA_Level_3',     test:n=>n.includes('micalevel3')},
   {key:'micaL4',   label:'MICA_Level_4',     test:n=>n.includes('micalevel4'), opt:true},
@@ -1176,6 +1181,7 @@ const CFG_DEFAULT={
     logo_mark:'',
     country_tabs:'auto',
     region_label:'Region \u2014 all countries',
+    group_label:'Group \u2014 all business lines',
     landing_title:'Financial Performance',
     total_label:'Total P&L',
     total_all_label:'Total (all lines)',
@@ -2292,7 +2298,7 @@ const S = {
   ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'', trajLine:'', fsumDepth:0,
   view:'summary', widgets:[],
 };
-const ALL_DIM_LABELS={country:'Country', region:'Region', mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
+const ALL_DIM_LABELS={country:'Country', region:'Region', business:'Business line', mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
   prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
   micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
   prodCode:'Product code', prodL3:'Product Level 3', prodL2:'Product Level 2', prodL1:'Product Level 1',
@@ -3928,7 +3934,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
 
 
 /* ================= drag & drop chart builder ================= */
-const FIELD_LABELS={metric:'Metric', cmp:'Comparison', country:'Country', region:'Region', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
+const FIELD_LABELS={metric:'Metric', cmp:'Comparison', country:'Country', region:'Region', business:'Business line', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
   micaL4:'MICA Level 4', micaL5:'MICA Level 5',
   prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3',
   prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
@@ -5950,51 +5956,69 @@ function renderCountryNav(){
   const cs=('country' in m.dimCols)? [...new Set(m.rows.map(r=>String(r.d.country||'')).filter(Boolean))].sort() : [];
   if(cs.length<2){ sect.hidden=true; host.innerHTML=''; fillScopeBar(null); return; }
   sect.hidden=false;
-  const hasReg='region' in m.dimCols;
-  const selC=S.filters.country, selR=S.filters.region;
+  const hasReg='region' in m.dimCols, hasBiz='business' in m.dimCols;
+  const bizzes=hasBiz? [...new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean))].sort() : [];
+  const bizTier=bizzes.length>1;
+  const selC=S.filters.country, selR=S.filters.region, selB=S.filters.business;
   const curC=(selC&&selC.size===1)? [...selC][0] : '';
   const curR=(!curC&&selR&&selR.size===1)? [...selR][0] : '';
+  const curB=(selB&&selB.size===1)? [...selB][0] : '';
   // judge every row of the strip inside the current slice of the OTHER filters
-  const saveC=S.filters.country, saveR=S.filters.region;
-  delete S.filters.country; delete S.filters.region;
+  const saveC=S.filters.country, saveR=S.filters.region, saveB=S.filters.business;
+  delete S.filters.country; delete S.filters.region; delete S.filters.business;
   const base=filteredRows();
   if(saveC) S.filters.country=saveC; if(saveR) S.filters.region=saveR;
+  if(saveB) S.filters.business=saveB;
   const mk=rs=>{
     const k=kpi(rs.filter(r=>!isBSLine(String(r.d.micaL1||''))),m,S.ytdM,S.includeFC);
     return {k, rg:rag(k.favVarPct,S.thresh)};
   };
-  const topName=(hasReg&&cfgCountryMap().l1)||cfgS('region_label');
-  const items=[{name:topName, dim:'', val:'', cls:'', ...mk(base)}];
-  if(hasReg){
-    const regs=[...new Set(m.rows.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
+  const l1Name=(hasReg&&cfgCountryMap().l1)||cfgS('region_label');
+  const topName=bizTier? cfgS('group_label') : l1Name;
+  const items=[{name:topName, dim:'', b:'', val:'', cls:'', ...mk(base)}];
+  const addRegions=(rows2, B, nested)=>{
+    const regs=[...new Set(rows2.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
     for(const R of regs){
-      const rRows=base.filter(r=>String(r.d.region||'')===R);
-      items.push({name:R, dim:'region', val:R, cls:'reg', ...mk(rRows)});
+      const rRows=rows2.filter(r=>String(r.d.region||'')===R);
+      items.push({name:R, dim:'region', b:B, val:R, cls:nested?'reg sub':'reg', ...mk(rRows)});
       const kids=[...new Set(rRows.map(r=>String(r.d.country||'')).filter(Boolean))].sort();
       if(!(kids.length===1&&kids[0]===R))
-        for(const c of kids) items.push({name:c, dim:'country', val:c, cls:'sub',
-          ...mk(rRows.filter(r=>String(r.d.country||'')===c))});
+        for(const c of kids) items.push({name:c, dim:'country', b:B, val:c,
+          cls:nested?'sub sub2':'sub', ...mk(rRows.filter(r=>String(r.d.country||'')===c))});
     }
-  } else {
-    for(const c of cs) items.push({name:c, dim:'country', val:c, cls:'',
-      ...mk(base.filter(r=>String(r.d.country||'')===c))});
-  }
+  };
+  if(bizTier){
+    for(const B of bizzes){
+      const bRows=base.filter(r=>String(r.d.business||'')===B);
+      items.push({name:B, dim:'business', b:B, val:B, cls:'biz', ...mk(bRows)});
+      if(hasReg) addRegions(bRows, B, true);
+      else for(const c of [...new Set(bRows.map(r=>String(r.d.country||'')).filter(Boolean))].sort())
+        items.push({name:c, dim:'country', b:B, val:c, cls:'sub',
+          ...mk(bRows.filter(r=>String(r.d.country||'')===c))});
+    }
+  } else if(hasReg) addRegions(base, '', false);
+  else for(const c of cs) items.push({name:c, dim:'country', b:'', val:c, cls:'',
+    ...mk(base.filter(r=>String(r.d.country||'')===c))});
   host.innerHTML=items.map(it=>{
-    const act= it.dim==='country'? curC===it.val : it.dim==='region'? curR===it.val : (!curC&&!curR);
-    return `<button class="${[it.cls,act?'active':''].filter(Boolean).join(' ')}" data-dim="${it.dim}" data-c="${esc(it.val)}"
+    const bOk=!it.b||curB===it.b;
+    const act= it.dim==='country'? (curC===it.val&&bOk)
+      : it.dim==='region'? (curR===it.val&&bOk)
+      : it.dim==='business'? (curB===it.val&&!curR&&!curC)
+      : (!curC&&!curR&&!curB);
+    return `<button class="${[it.cls,act?'active':''].filter(Boolean).join(' ')}" data-dim="${it.dim}" data-b="${esc(it.b)}" data-c="${esc(it.val)}"
       title="${esc(it.name)} \u00b7 P&L YTD \u00b7 click to scope every page">
       <span class="dot ${it.rg.cls}" aria-hidden="true"></span>
       <span class="nm">${esc(it.name)}</span><span class="v">${it.k.cy==null?'\u2013':fmtK(it.k,it.k.cy)}</span></button>`;
   }).join('');
   host.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
-    const dim=b.dataset.dim, val=b.dataset.c;
-    scopeSet(dim==='region'? val:'', dim==='country'? val:'');
+    const dim=b.dataset.dim, val=b.dataset.c, bz=b.dataset.b;
+    scopeSet(dim==='business'? val : bz, dim==='region'? val:'', dim==='country'? val:'');
   }));
-  fillScopeBar({hasReg, cs, curC, curR, topName, m});
+  fillScopeBar({hasReg, hasBiz:bizTier, bizzes, cs, curB, curC, curR, topName, l1Name, m});
 }
 /* scope through the filter checkbox groups so the strip, the top bar and the
    Filters pane can never disagree; missing groups fall back to plain state */
-function scopeSet(regionVal, countryVal){
+function scopeSet(bizVal, regionVal, countryVal){
   const setGrp=(dim,val)=>{
     const grp=document.querySelector(`#dimFilters details[data-dim="${dim}"]`);
     if(!grp){ if(val) S.filters[dim]=new Set([val]); else delete S.filters[dim]; return null; }
@@ -6003,35 +6027,43 @@ function scopeSet(regionVal, countryVal){
   };
   const grps=[setGrp('country', countryVal)];
   if(S.model&&'region' in S.model.dimCols) grps.push(setGrp('region', regionVal));
+  if(S.model&&'business' in S.model.dimCols) grps.push(setGrp('business', bizVal));
   let fired=false;
   for(const g of grps) if(g){ const f=g.querySelector('.fltlist input');
     if(f){ f.dispatchEvent(new Event('change')); fired=true; } }
   if(!fired) render();
 }
-/* the neat version of the same scope, next to Units: Global/region dropdown
-   plus a country dropdown (countries limited to the chosen region) */
+/* the neat version of the same scope, next to Units: business line, region
+   (narrowed to the business) and country (narrowed to both) */
 function fillScopeBar(ctx){
-  const selR=$('fRegion'), selC=$('fCountry'), lbl=$('scopeLbl'), sep=$('scopeSep');
+  const selB=$('fBusiness'), selR=$('fRegion'), selC=$('fCountry'), lbl=$('scopeLbl'), sep=$('scopeSep');
   if(!selR||!selC) return;
   const show=!!ctx&&ctx.cs.length>=2;
   lbl.hidden=sep.hidden=!show; selC.hidden=!show;
   selR.hidden=!show||!ctx.hasReg;
+  if(selB) selB.hidden=!show||!ctx.hasBiz;
   if(!show) return;
-  const {hasReg, curC, curR, topName, m}=ctx;
-  const cOf=c=>String(c==null?'':c);
-  const regOfC=curC&&hasReg? cOf((m.rows.find(r=>String(r.d.country||'')===curC)||{d:{}}).d.region) : '';
+  const {hasReg, hasBiz, bizzes, curB, curC, curR, topName, l1Name, m}=ctx;
+  if(hasBiz&&selB)
+    selB.innerHTML=`<option value="">${esc(topName)}</option>`+
+      bizzes.map(B=>`<option value="${esc(B)}"${B===curB?' selected':''}>${esc(B)}</option>`).join('');
+  const bizSel=hasBiz? curB : '';
+  const bPool=bizSel? m.rows.filter(r=>String(r.d.business||'')===bizSel) : m.rows;
+  const regOfC=curC&&hasReg? String(((bPool.find(r=>String(r.d.country||'')===curC)||{d:{}}).d.region)||'') : '';
   const regSel=curR||regOfC;
   if(hasReg){
-    const regs=[...new Set(m.rows.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
-    selR.innerHTML=`<option value="">${esc(topName)}</option>`+
+    const regs=[...new Set(bPool.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
+    selR.innerHTML=`<option value="">${esc(hasBiz? (bizSel||l1Name) : l1Name)}</option>`+
       regs.map(R=>`<option value="${esc(R)}"${R===regSel?' selected':''}>${esc(R)}</option>`).join('');
   }
-  const pool=hasReg&&regSel? m.rows.filter(r=>String(r.d.region||'')===regSel) : m.rows;
+  const pool=hasReg&&regSel? bPool.filter(r=>String(r.d.region||'')===regSel) : bPool;
   const cs2=[...new Set(pool.map(r=>String(r.d.country||'')).filter(Boolean))].sort();
   selC.innerHTML=`<option value="">${esc(hasReg&&regSel? 'All \u00b7 '+regSel : cfgL('scope_all_countries')||'All countries')}</option>`+
     cs2.map(c=>`<option value="${esc(c)}"${c===curC?' selected':''}>${esc(c)}</option>`).join('');
-  selR.onchange=()=>scopeSet(selR.value,'');
-  selC.onchange=()=>scopeSet(selC.value? (selR.hidden?'':selR.value):'', selC.value);
+  const bizNow=()=>selB&&!selB.hidden? selB.value : '';
+  if(selB) selB.onchange=()=>scopeSet(selB.value,'','');
+  selR.onchange=()=>scopeSet(bizNow(), selR.value,'');
+  selC.onchange=()=>scopeSet(bizNow(), selC.value? (selR.hidden?'':selR.value):'', selC.value);
 }
 function renderKpiNav(){
   const m=S.model; if(!m) return;
@@ -7301,12 +7333,34 @@ function cfgCountryMap(){
   }
   return {map, size:map.size, get:c=>map.get(c), l1};
 }
+/* a tab called "Singapore" or "IWPB Singapore" resolves to its hierarchy
+   entry, so the same country may appear once per business line */
+function chResolveTab(name){
+  const cm=CFG.countrymap||[];
+  const low=String(name).trim().toLowerCase();
+  const exact=cm.filter(e2=>e2.country&&String(e2.country).trim().toLowerCase()===low);
+  if(exact.length) return {business:String(exact[0].l0||'').trim(), country:String(exact[0].country).trim()};
+  for(const e2 of cm){
+    if(!e2.country||!e2.l0) continue;
+    if(low===(String(e2.l0).trim()+' '+String(e2.country).trim()).toLowerCase())
+      return {business:String(e2.l0).trim(), country:String(e2.country).trim()};
+  }
+  return null;
+}
 function applyCountryRegions(m){
   if(!('country' in m.dimCols)||('region' in m.dimCols&&m.dimCols.region>=0)) return;
-  const cm=cfgCountryMap();
-  if(!cm.size) return;
-  for(const r of m.rows) r.d.region=cm.get(String(r.d.country||''))||'Unmapped';
+  const list=CFG.countrymap||[];
+  if(!list.filter(e2=>e2.country).length) return;
+  let anyB=false;
+  for(const r of m.rows){
+    const c=String(r.d.country||''), b3=String(r.d.business||'');
+    const cand=list.filter(e2=>e2.country&&String(e2.country).trim()===c);
+    const e2=cand.find(x=>String(x.l0||'').trim()===b3)||cand[0];
+    r.d.region=(e2&&e2.region)||'Unmapped';
+    if(b3) anyB=true;
+  }
   m.dimCols.region=-1;
+  if(anyB&&!('business' in m.dimCols)) m.dimCols.business=-1;
 }
 function tabPeriodKeys(m){
   const seen={}, out=[];
@@ -7339,7 +7393,9 @@ function mergeCountryModels(tabs){
     for(const r of m.rows){
       const v=[];
       for(const mp of map) if(mp.from!=null&&r.v[mp.from]!=null) v[mp.to]=r.v[mp.from];
-      merged.rows.push({d:{...r.d, country:sn}, v});
+      const res=chResolveTab(sn);
+      merged.rows.push({d:{...r.d, country:res? res.country : sn,
+        business:(res&&res.business)||''}, v});
     }
     merged.countries.push(sn);
   }
@@ -7405,7 +7461,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 11:45</td></tr>
+      <tr><td>Build</td><td>2026-08-11 11:55</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
