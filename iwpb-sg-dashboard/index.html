@@ -421,6 +421,13 @@ main{flex:1;min-width:0;padding:14px 20px}
   border-radius:8px;padding:9px 13px;font-size:13px;line-height:1.5;color:var(--text-secondary)}
 .commentary b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-weight:750;letter-spacing:0}
+#scopeChips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 0}
+#scopeChips .slbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);font-weight:700}
+#scopeChips .schip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hsbc-red);
+  color:var(--hsbc-red);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:700;
+  background:color-mix(in srgb, var(--hsbc-red) 5%, transparent)}
+#scopeChips .schip .x{cursor:pointer;font-weight:400;font-size:12px;opacity:.65;border:none;background:none;color:inherit;padding:0}
+#scopeChips .schip .x:hover{opacity:1}
 .card .vd{margin-top:10px;border-top:1px solid var(--border);padding-top:8px;font-size:12px;
   color:var(--hsbc-red);font-weight:700;text-align:right}
 .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px}
@@ -847,7 +854,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 12:44</div>
+<div id="buildTag">build 2026-08-11 12:52</div>
 </aside>
 <main>
 
@@ -890,6 +897,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="pagehead" style="margin-top:16px"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
       <h2 class="landingTitle" id="landingTitle">Financial Performance</h2>
+      <div id="scopeChips" hidden></div>
       <p class="lede2" id="summaryLede"></p>
     </div>
     <div><button class="btn-quiet" id="btnExportAll">⤓ Export to Excel</button>
@@ -2671,6 +2679,22 @@ function applyTileOrder(list){
   const idx=n=>{ const i=ord.indexOf(n); return i<0? 1e9 : i; };
   return [...list].sort((a,b)=>idx(a.l2)-idx(b.l2));
 }
+/* the active Global Business scope, shown as removable chips on the summary */
+function renderScopeChips(){
+  const host=$('scopeChips'); if(!host) return;
+  const one=k=>{ const s2=S.filters&&S.filters[k]; return (s2&&s2.size===1)? [...s2][0] : ''; };
+  const b3=one('business'), r=one('region'), c=one('country');
+  if(!b3&&!r&&!c){ host.hidden=true; host.innerHTML=''; return; }
+  host.hidden=false;
+  const chip=(lbl,val,dim)=>`<span class="schip" title="${esc(lbl)}">${esc(val)}
+    <button class="x" data-dim="${dim}" title="Remove the ${esc(lbl)} scope" aria-label="Remove ${esc(val)}">✕</button></span>`;
+  host.innerHTML=`<span class="slbl">Scoped to</span>`+
+    (b3?chip('Business line',b3,'business'):'')+(r?chip('Region',r,'region'):'')+(c?chip('Country',c,'country'):'');
+  host.querySelectorAll('.x').forEach(x=>x.addEventListener('click',()=>{
+    const d=x.dataset.dim;
+    scopeSet(d==='business'?'':b3, d==='region'?'':r, d==='country'?'':c);
+  }));
+}
 function renderSummary(){
   const rows=filteredRows();
   $('rowCount').textContent=`${rows.length.toLocaleString()} rows in scope`;
@@ -2783,6 +2807,7 @@ function renderSummary(){
   $('commentary').innerHTML=cm;
 
   $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY}`;
+  renderScopeChips();
   const ytdSrc=(()=>{
     if(cfgS('calc_ytd_actuals').toLowerCase()==='months')
       return 'YTD: months added — the config sets calc_ytd_actuals=months';
@@ -3018,7 +3043,7 @@ function renderHouse(){
   const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
   const cur=houseDimKey();
   $('houseDim').innerHTML=dims.map(k=>`<option value="${k}"${cur===k?' selected':''}>${esc(FIELD_LABELS[k])}</option>`).join('');
-  $('houseSub').textContent=`${L.period} — reporting-pack narrative, cascading to ${FIELD_LABELS[cur]||cur} · ${cfgUnit()}`;
+  $('houseSub').textContent=`${scopeTrail()? 'Scope '+scopeTrail()+' · ':''}${L.period} — reporting-pack narrative, cascading to ${FIELD_LABELS[cur]||cur} · ${cfgUnit()}`;
   aiComment($('houseCom'), 'house|'+filterNote()+'|'+S.ytdM+'|'+cur+'|'+L.vp+'|'+L.mode+'|'+
     cfgS('commentary_format')+'|'+drvSig(),
     ()=>cfgS('commentary_format').trim().toLowerCase()==='house'
@@ -3733,14 +3758,22 @@ async function pptChartSlide(p, it){
         color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
     }
 }
+function scopeTrail(){
+  const one=k=>{ const s2=S.filters&&S.filters[k]; return (s2&&s2.size===1)? [...s2][0] : ''; };
+  return [one('business'),one('region'),one('country')].filter(Boolean).join(' › ');
+}
 function filterNote(noPeriod){
   const parts=[];
+  const tr=scopeTrail();
   for(const [k,set] of Object.entries(S.filters)){
     if(!set||!set.size) continue;
+    if(tr&&set.size===1&&(k==='business'||k==='region'||k==='country')) continue;
     parts.push(`${ALL_DIM_LABELS[k]||k}: ${set.size<=3?[...set].join(' / '):set.size+' selected'}`);
   }
   const per=(!noPeriod&&S.model)? cmpLabels(S.model).period : '';
-  return `Filters: ${parts.length?parts.join(' · '):'none'} · YTD ${ytdLabel()}${per?' · '+per:''}`;
+  const scope=tr? `Scope ${tr}` : '';
+  const rest=parts.length? parts.join(' · ') : (scope?'':'none');
+  return `Filters: ${[scope,rest].filter(Boolean).join(' · ')} · YTD ${ytdLabel()}${per?' · '+per:''}`;
 }
 function kpiSummaryAOA(){
   const m=S.model, rows=filteredRows();
@@ -4133,7 +4166,7 @@ function renderDecisions(cards, L){
   const act=pool.filter(c=>c.rg.cls!=='g');
   const show=(act.length? act : pool).slice(0,maxN);
   const cnt=$('decCount'); if(cnt) cnt.textContent=act.length? String(act.length) : '';
-  const sub=$('actSub'); if(sub) sub.textContent=`Inferences from the data · rated on ${L.period}`;
+  const sub=$('actSub'); if(sub) sub.textContent=`${scopeTrail()? 'Scope '+scopeTrail()+' · ':''}Inferences from the data · rated on ${L.period}`;
   const rem=12-(S.ytdM+1);
   host.innerHTML=show.map(c=>{
     const k=c.k, fav=(k.favVarPct??0)>=0, sfx=fav?'F':'A';
@@ -6922,6 +6955,8 @@ function render(){
   else if(S.view==='assist') renderAssist();
   else if(S.view==='sim') renderSim();
   else renderTable();
+  const scTr=scopeTrail();
+  document.querySelectorAll('.eyebrow').forEach(el=>el.textContent=cfgS('eyebrow')+(scTr? ' — '+scTr : ''));
   renderKpiNav();
   renderCountryNav();
   const rows=filteredRows();
@@ -7574,7 +7609,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 12:44</td></tr>
+      <tr><td>Build</td><td>2026-08-11 12:52</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
