@@ -410,7 +410,14 @@ left-pane strip and the Filters pane.
   comprehension layer works out the intent (how are we doing, why did it
   move, what is behind, break it down by X, monthly trend, run-rate,
   costs, ECL, target) together with anything the question names — a line,
-  product, business line, region or country. **It asks back rather than
+  product, business line, region or country. Names are matched against the
+  values actually in the loaded file, longest first, with the Global
+  Business dimensions (business line, region, country) winning over the
+  same text in an ordinary driller column — so "iwpb" reads as the
+  business line, not the CG Level 1 code. Case does not matter except for
+  codes that are also ordinary words (`US`, `UK`, `IT`), which must be
+  capitalised. Naming two values of one dimension ("Singapore vs
+  Malaysia", "IWPB vs CIB") is read as a comparison and ranks just those. **It asks back rather than
   guessing**: a bare name offers the readings available for it, a term
   living in two dimensions asks which was meant, a basis the file cannot
   serve offers the one it can, and an unrecognised question offers what

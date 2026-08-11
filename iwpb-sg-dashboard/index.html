@@ -856,7 +856,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 13:42</div>
+<div id="buildTag">build 2026-08-11 14:13</div>
 </aside>
 <main>
 
@@ -6850,15 +6850,22 @@ function aIndex(){
   const key=(m.sheetName||'')+':'+m.rows.length;
   if(A_IDX&&A_IDX_KEY===key) return A_IDX;
   const out=[];
+  const PRI={business:0, region:1, country:2, micaL1:3, micaL2:3, micaL3:4, micaL4:4, micaL5:4};
   for(const k of Object.keys(m.dimCols)){
     if(!cfgDimShow(k)) continue;
     for(const v of new Set(m.rows.map(r=>String(r.d[k]||'')).filter(Boolean)))
-      if(String(v).length>=2) out.push({dim:k, val:v, low:String(v).toLowerCase()});
+      if(String(v).length>=2) out.push({dim:k, val:v, low:String(v).toLowerCase(),
+        pri:(k in PRI)? PRI[k] : 9});
   }
-  out.sort((a,b)=>b.val.length-a.val.length);
+  // a name the hierarchy owns (IWPB, CIB, Asia, Singapore) beats the same
+  // text sitting in an ordinary driller column
+  out.sort((a,b)=>(b.val.length-a.val.length)||(a.pri-b.pri));
   A_IDX=out; A_IDX_KEY=key;
   return out;
 }
+/* codes that are also ordinary words must be typed in capitals to count */
+const A_WORDCODES=new Set(['us','uk','it','in','at','on','or','is','as','to','no','so','we',
+  'do','be','by','an','am','if','of','up','the','and','all','can','are','has','was','one','new']);
 const A_BYWORDS=[['country','country'],['countries','country'],['market','country'],['markets','country'],
   ['region','region'],['regions','region'],['business line','business'],['business lines','business'],
   ['global business','business'],['product','prodL2'],['products','prodL2'],
@@ -6872,23 +6879,28 @@ function aUnderstand(text){
   // (US, UK) must be capitalised so "tell us" never becomes the US.
   const taken=[];
   for(const e of aIndex()){
-    if(u.ents.some(x=>x.dim===e.dim)) continue;
-    const hit = e.val.length<=3 ? aWordHit(text, e.val) : aWordHit(low, e.low);
+    if(u.ents.filter(x=>x.dim===e.dim).length>=3) continue;
+    const hit = A_WORDCODES.has(e.low) ? aWordHit(text, e.val) : aWordHit(low, e.low);
     if(!hit) continue;
     if(taken.some(t=>t.includes(e.low)||e.low.includes(t))) continue;
     taken.push(e.low);
     u.ents.push(e);
     if(e.dim==='business'||e.dim==='region'||e.dim==='country') u.geo[e.dim]=e.val;
   }
+  // several values of one dimension: that dimension is what is being compared
+  const perDim={};
+  for(const e of u.ents) (perDim[e.dim]=perDim[e.dim]||[]).push(e.val);
+  u.multi=Object.entries(perDim).filter(([,v])=>v.length>1).map(([k,v])=>({dim:k, vals:v}));
   // the same word living in two dimensions is a real ambiguity
   const dup={};
   for(const e of aIndex()){
-    const hit = e.val.length<=3 ? aWordHit(text, e.val) : aWordHit(low, e.low);
+    const hit = A_WORDCODES.has(e.low) ? aWordHit(text, e.val) : aWordHit(low, e.low);
     if(hit) (dup[e.low]=dup[e.low]||[]).push(e);
   }
   for(const [v,list] of Object.entries(dup)){
     const dims=[...new Set(list.map(x=>x.dim))];
-    if(dims.length>1&&!/\bby\b/.test(low)) { u.amb={val:list[0].val, dims}; break; }
+    const owned=dims.some(d=>d==='business'||d==='region'||d==='country');
+    if(dims.length>1&&!owned&&!/\bby\b/.test(low)) { u.amb={val:list[0].val, dims}; break; }
   }
   // "by <dimension>", and a dimension named in the plural ("which markets…")
   const byW=[...A_BYWORDS].sort((a,b)=>b[0].length-a[0].length);
@@ -7041,6 +7053,10 @@ function assistAnswer(text){
   residue=residue.replace(/[^a-z0-9]+/g,' ').trim();
   const bare=residue.length<=3, connector=/^(and|what about|how about|also|plus)\b/.test(t);
   if(!intent&&u.ents.length&&A_CTX.intent&&(bare&&connector||connector||bare&&A_CTX.asked)) intent=A_CTX.intent;
+  // naming two values of one dimension is itself the question: rank them
+  if(u.multi&&u.multi.length&&(!intent||intent==='perf'||intent==='break')){
+    intent='break'; u.by=u.multi[0].dim;
+  }
   // an entity with no intent at all: offer the readings rather than guess
   if(!exact&&!intent&&u.ents.length){
     const who=u.ents.map(e=>e.val).join(' \u203a ');
@@ -7085,11 +7101,12 @@ function assistAnswer(text){
   if(!temp.length){
     try{ return run(); }catch(e){ return 'That question needs columns this file does not carry.'; }
   }
-  const save={};
-  for(const e of temp){ save[e.dim]=S.filters[e.dim]; S.filters[e.dim]=new Set([e.val]); }
+  const save={}, byDim={};
+  for(const e of temp) (byDim[e.dim]=byDim[e.dim]||[]).push(e.val);
+  for(const k of Object.keys(byDim)){ save[k]=S.filters[k]; S.filters[k]=new Set(byDim[k]); }
   try{
-    const who=temp.map(e=>`${esc(e.val)}`).join(' \u203a ');
-    const dims=temp.map(e=>ALL_DIM_LABELS[e.dim]||e.dim).join(' \u00b7 ');
+    const who=Object.values(byDim).map(v=>v.map(x=>esc(x)).join(' vs ')).join(' \u203a ');
+    const dims=Object.keys(byDim).map(k=>ALL_DIM_LABELS[k]||k).join(' \u00b7 ');
     return `<div class="anote">Answering for <b>${who}</b> (${esc(dims)}) \u2014 the page scope is unchanged.</div>`+run();
   }catch(e){ return 'That question needs columns this file does not carry.'; }
   finally{
@@ -7889,7 +7906,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 13:42</td></tr>
+      <tr><td>Build</td><td>2026-08-11 14:13</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
