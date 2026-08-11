@@ -405,9 +405,21 @@ left-pane strip and the Filters pane.
   hand — that choice then sticks. Month-by-month visuals (the Monthly
   trend widget, the mini-charts under KPI cards, the YTD actuals vs
   forecast widget) stay monthly by definition and do not re-base.
-- **MI Assistant** — a governed Q&A page (left-pane entry): ten approved
-  questions (performance, lines behind forecast, FY target, top/dragging
-  products, costs, ECL, required run-rate, prior year, contribution mix)
+- **MI Assistant** — a governed Q&A page (left-pane entry) driven by
+  **plain language**: type the question in your own words and a
+  comprehension layer works out the intent (how are we doing, why did it
+  move, what is behind, break it down by X, monthly trend, run-rate,
+  costs, ECL, target) together with anything the question names — a line,
+  product, business line, region or country. **It asks back rather than
+  guessing**: a bare name offers the readings available for it, a term
+  living in two dimensions asks which was meant, a basis the file cannot
+  serve offers the one it can, and an unrecognised question offers what
+  this file can answer — each as one-click options. A short follow-up
+  ("and Malaysia?") inherits the previous question. Behind it sit the
+  approved analyses (performance, lines behind forecast, FY target,
+  top/dragging products, costs, ECL, required run-rate, prior year,
+  contribution mix, movement drivers, dimension breakdowns, monthly
+  trend, geography comparisons)
   answered deterministically in the browser from the filtered data on the
   standard comparison basis, plus geography comparisons — countries,
   regions and business lines side by side with share and RAG. Answers

@@ -493,6 +493,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 #aiChips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .achip{background:var(--surface-1);border:1px solid var(--border);border-radius:16px;padding:6px 13px;font-size:12px;cursor:pointer;color:var(--text-secondary);font:inherit}
 .achip:hover{border-color:var(--hsbc-red);color:var(--hsbc-red)}
+.aclar{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.aclar .achip{background:var(--surface-2)}
 #aiInputRow{display:flex;gap:8px}
 #aiInputRow input{flex:1;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font:inherit;font-size:13px;background:var(--surface-1);color:var(--text-primary)}
 #aiInputRow button{background:var(--hsbc-red);color:#fff;border:none;border-radius:6px;padding:9px 20px;font-weight:700;cursor:pointer;font:inherit}
@@ -854,7 +856,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 13:24</div>
+<div id="buildTag">build 2026-08-11 13:42</div>
 </aside>
 <main>
 
@@ -1109,16 +1111,16 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
       <h2>MI Assistant <span class="unitsfx" data-unitsfx></span></h2>
-      <p class="lede2">Governed Q&amp;A over the loaded driller — every answer is computed deterministically in your browser from the filtered data. Nothing leaves this page.</p>
+      <p class="lede2">Ask in plain language — the assistant works out the intent, asks back when unsure, and every answer is computed deterministically in your browser from the filtered data. Nothing leaves this page.</p>
     </div></div>
     <div class="panel">
       <div id="aiLog"></div>
       <div id="aiChips"></div>
       <div id="aiInputRow">
-        <input id="aiInput" type="text" placeholder="Ask a governed question — or pick one above" aria-label="Ask the MI assistant">
+        <input id="aiInput" type="text" placeholder="Ask in your own words — e.g. why is Singapore behind forecast?" aria-label="Ask the MI assistant">
         <button id="btnAiAsk">Ask</button>
       </div>
-      <p class="note">Governed scope: only the approved questions above are answered, always on the variance period selected in the left pane, with figures taken as-is from the driller columns and the left-pane filters applied.</p>
+      <p class="note">Governed scope: questions are read in plain language and answered from the approved set of analyses (performance, movements and drivers, breakdowns, costs, ECL, targets, run-rate, comparisons) — anything outside it is asked back, never guessed. Always on the variance period selected in the left pane, with figures taken as-is from the driller columns and the left-pane filters applied.</p>
     </div>
   </div>
 
@@ -6825,6 +6827,158 @@ function aGeo(dim,label){
     byVar.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct),
       (100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct,S.thresh).label]))+gnote();
 };}
+/* ================= comprehension =================
+   free text in, an intent plus the entities it mentions out. Nothing is
+   guessed silently: when the question is short of an intent, names something
+   that could be two different things, or asks for a basis the file cannot
+   serve, the assistant asks back with one-click options. */
+function aWordHit(hay, needle){
+  let i=0;
+  while((i=hay.indexOf(needle,i))>=0){
+    const b=i===0||!/[a-z0-9]/.test(hay[i-1]);
+    const e=i+needle.length>=hay.length||!/[a-z0-9]/.test(hay[i+needle.length]);
+    if(b&&e) return true;
+    i+=needle.length;
+  }
+  return false;
+}
+/* every dimension value in the file, longest first so "Direct Cost ex VP"
+   wins over "Cost" */
+let A_IDX=null, A_IDX_KEY='';
+function aIndex(){
+  const m=S.model; if(!m) return [];
+  const key=(m.sheetName||'')+':'+m.rows.length;
+  if(A_IDX&&A_IDX_KEY===key) return A_IDX;
+  const out=[];
+  for(const k of Object.keys(m.dimCols)){
+    if(!cfgDimShow(k)) continue;
+    for(const v of new Set(m.rows.map(r=>String(r.d[k]||'')).filter(Boolean)))
+      if(String(v).length>=2) out.push({dim:k, val:v, low:String(v).toLowerCase()});
+  }
+  out.sort((a,b)=>b.val.length-a.val.length);
+  A_IDX=out; A_IDX_KEY=key;
+  return out;
+}
+const A_BYWORDS=[['country','country'],['countries','country'],['market','country'],['markets','country'],
+  ['region','region'],['regions','region'],['business line','business'],['business lines','business'],
+  ['global business','business'],['product','prodL2'],['products','prodL2'],
+  ['segment','cgL2'],['segments','cgL2'],['function','funcL2'],['functions','funcL2'],
+  ['entity','entity'],['line','micaL2'],['lines','micaL2']];
+function aUnderstand(text){
+  const m=S.model, low=String(text).toLowerCase().trim();
+  const u={raw:text, low, ents:[], geo:{}, by:null, basis:null, intent:null, amb:null};
+  if(!m) return u;
+  // entities: dimension values named anywhere in the question. Short codes
+  // (US, UK) must be capitalised so "tell us" never becomes the US.
+  const taken=[];
+  for(const e of aIndex()){
+    if(u.ents.some(x=>x.dim===e.dim)) continue;
+    const hit = e.val.length<=3 ? aWordHit(text, e.val) : aWordHit(low, e.low);
+    if(!hit) continue;
+    if(taken.some(t=>t.includes(e.low)||e.low.includes(t))) continue;
+    taken.push(e.low);
+    u.ents.push(e);
+    if(e.dim==='business'||e.dim==='region'||e.dim==='country') u.geo[e.dim]=e.val;
+  }
+  // the same word living in two dimensions is a real ambiguity
+  const dup={};
+  for(const e of aIndex()){
+    const hit = e.val.length<=3 ? aWordHit(text, e.val) : aWordHit(low, e.low);
+    if(hit) (dup[e.low]=dup[e.low]||[]).push(e);
+  }
+  for(const [v,list] of Object.entries(dup)){
+    const dims=[...new Set(list.map(x=>x.dim))];
+    if(dims.length>1&&!/\bby\b/.test(low)) { u.amb={val:list[0].val, dims}; break; }
+  }
+  // "by <dimension>", and a dimension named in the plural ("which markets…")
+  const byW=[...A_BYWORDS].sort((a,b)=>b[0].length-a[0].length);
+  for(const [w,k] of byW){
+    if(!(k in m.dimCols||k==='micaL2')) continue;
+    if(aWordHit(low,'by '+w)||aWordHit(low,'per '+w)||aWordHit(low,'across '+w)||
+       aWordHit(low,w+' comparison')||aWordHit(low,'each '+w)){ u.by=k; break; }
+    if(/s$/.test(w)&&aWordHit(low,w)){ u.by=k; break; }
+  }
+  // comparison basis asked for
+  if(/\bvs\b.*\b(py|prior|last year|2025)\b|prior year|last year|year on year|yoy/.test(low)) u.basis='py';
+  else if(/forecast|fcst|\bfc\b|plan/.test(low)) u.basis='fc';
+  else if(/target|tgt|budget/.test(low)) u.basis='tgt';
+  // intent
+  const has=(...ws)=>ws.some(w=>aWordHit(low,w));
+  if(has('why','driver','drivers','reason','because','explain','what is driving','driving')) u.intent='why';
+  else if(has('trend','trajectory','over time','month by month','monthly','shape','run rate','run-rate','pace')) u.intent=has('run rate','run-rate','pace')?'run':'trend';
+  else if(has('top','best','largest','biggest','strongest','leading')) u.intent='top';
+  else if(has('worst','bottom','dragging','drag','weakest','behind','lagging','laggard','off track','missing','underperform')) u.intent='behind';
+  else if(u.by) u.intent='break';
+  else if(has('compare','comparison','versus','rank','ranking','league')) u.intent='break';
+  else if(has('ecl','credit loss','impair','provision')) u.intent='ecl';
+  else if(has('cost','costs','spend','expense','opex')) u.intent='costs';
+  else if(has('target','hit','achieve','on track','full year','fy')) u.intent='fytgt';
+  else if(has('last year','prior year','year on year','yoy')) u.intent='prior';
+  else if(has('how much','what is','what are','value','number','stands','total')) u.intent='perf';
+  else if(has('how','performance','performing','doing','summary','overview','update','going','position')) u.intent='perf';
+  return u;
+}
+function aAskBack(prompt, opts){
+  return `<div>${prompt}</div><div class="aclar">`+
+    opts.map(o=>`<button class="achip aask" data-q="${esc(o.q)}">${esc(o.label)}</button>`).join('')+`</div>`;
+}
+/* ---- answers the comprehension layer can reach ---- */
+function aBreak(byKey, mode){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  const key=(byKey in m.dimCols)? byKey : ('micaL2' in m.dimCols? 'micaL2' : null);
+  if(!key) return 'This file carries no dimension to break that down by.'+gnote();
+  const label=ALL_DIM_LABELS[key]||key;
+  const plRows=rows.filter(r=>!isBSLine(String(r.d.micaL1||'')));
+  const useRows=plRows.length?plRows:rows;
+  const g=[...groupBy(useRows,key).entries()].filter(([n])=>n).map(([n,rs])=>({n,k:aKpi(rs)}));
+  if(!g.length) return `Nothing to break down by ${esc(label.toLowerCase())} in the current scope.`+gnote();
+  const tot=g.reduce((s2,x)=>s2+(x.k.cy||0),0)||1;
+  const V=x=>x.k.favVarPct==null?-9e9:x.k.favVarPct;
+  if(mode==='worst') g.sort((a,b)=>V(a)-V(b));
+  else if(mode==='best') g.sort((a,b)=>V(b)-V(a));
+  else g.sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+  const order=mode==='worst'?'weakest first':mode==='best'?'strongest first':'largest first';
+  return `By <b>${esc(label)}</b>${plRows.length&&plRows.length!==rows.length?' (P&L lines)':''}, ${order}:`+
+    aTable([label,L.main,L.base,'Var %','Share','Rating'],
+      g.slice(0,12).map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),
+        fmtPct(x.k.cmpVarPct),(100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct,S.thresh).label]))+gnote();
+}
+function aWhy(){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  const key=('micaL2' in m.dimCols)?'micaL2':'micaL1';
+  const g=[...groupBy(rows,key).entries()].filter(([n])=>n)
+    .map(([n,rs])=>({n,k:aKpi(rs)}))
+    .filter(x=>x.k.cmpVar!=null&&!x.k.isBS);
+  if(!g.length) return 'No comparison baseline in this file, so I cannot attribute the movement.'+gnote();
+  const up=[...g].sort((a,b)=>(b.k.cmpVar||0)-(a.k.cmpVar||0)).filter(x=>x.k.cmpVar>0).slice(0,3);
+  const dn=[...g].sort((a,b)=>(a.k.cmpVar||0)-(b.k.cmpVar||0)).filter(x=>x.k.cmpVar<0).slice(0,3);
+  const kT=aKpi(rows.filter(r=>!isBSLine(String(r.d.micaL1||''))));
+  const drv=definedDrivers();
+  const note=n=>{ const d=drv.find(x=>String(n).toLowerCase().includes(String(x.name).toLowerCase())); return d? ` — ${esc(d.text)}`:''; };
+  let h=`The <b>${fmt(kT.cmpVar)}</b> movement ${esc(L.vs)} comes mostly from:`;
+  h+=aTable(['Line','Movement',L.main,L.base],
+    [...up,...dn].map(x=>[esc(x.n)+note(x.n),aCell(x.k,x.k.cmpVar),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase)]));
+  if(up.length) h+=`<div class="anote">Helping: ${up.map(x=>esc(x.n)).join(', ')}. Hurting: ${dn.length?dn.map(x=>esc(x.n)).join(', '):'nothing material'}.</div>`;
+  return h+gnote();
+}
+function aTrend(){
+  const m=S.model, all=filteredRows();
+  const pl=all.filter(r=>!isBSLine(String(r.d.micaL1||'')));
+  const rows=(pl.length&&pl.length!==all.length)? pl : all;
+  const k=aKpi(rows);
+  const ser=(k.cySeries||[]).filter(p=>p.val!=null);
+  if(ser.length<2) return 'This file has no monthly series to trace under the current scope.'+gnote();
+  const act=ser.filter(p=>!p.fc&&p.m<=S.ytdM);
+  const fcs=ser.filter(p=>p.fc||p.m>S.ytdM);
+  const hi=act.reduce((a,b)=>Math.abs(b.val)>Math.abs(a.val)?b:a, act[0]);
+  const lo=act.reduce((a,b)=>Math.abs(b.val)<Math.abs(a.val)?b:a, act[0]);
+  const first=act[0], last=act[act.length-1];
+  const dir=(last&&first&&last.val!==first.val)? (Math.abs(last.val)>Math.abs(first.val)?'building':'easing') : 'flat';
+  let h=`Across ${act.length} actual month${act.length>1?'s':''} the run is <b>${dir}</b> — ${MON_LBL[first.m]} <b>${fmt(first.val)}</b> to ${MON_LBL[last.m]} <b>${fmt(last.val)}</b>, peaking in ${MON_LBL[hi.m]} at <b>${fmt(hi.val)}</b> and lightest in ${MON_LBL[lo.m]} at <b>${fmt(lo.val)}</b>.`;
+  if(fcs.length) h+=` The remaining ${fcs.length} forecast month${fcs.length>1?'s':''} average <b>${fmt(fcs.reduce((s2,p)=>s2+p.val,0)/fcs.length)}</b>.`;
+  h+=aTable(['Month','Value','Basis'], ser.map(p=>[MON_LBL[p.m],fmtCell(p.val),(p.fc||p.m>S.ytdM)?'Forecast':'Actual']));
+  return h+gnote();
+}
 const AQ=[
   {id:'perf',   q:'How are we performing YTD?',                    kw:['perform','overall','doing','how are we','summary','ytd'], run:aPerf},
   {id:'behind', q:'Which lines are behind forecast?',              kw:['behind','lagging','miss','unfavourable','worst','off track'], run:aBehind},
@@ -6860,27 +7014,83 @@ function aScopeFromText(text){
   }
   return Object.keys(found).length? found : null;
 }
+let A_CTX={intent:null, ents:[]};
 function assistAnswer(text){
-  const t=text.toLowerCase();
-  const eScope=aScopeFromText(text);
+  const m=S.model; if(!m) return 'Load a driller first and I can answer from it.';
+  const u=aUnderstand(text);
+  const t=u.low;
+  // an exact governed question always wins, whatever else the text contains
   let best=null, score=0;
   for(const q of AQ){
     let sc=0;
     for(const kw of q.kw) if(t.includes(kw)) sc+=kw.length;
-    if(t.trim()===q.q.toLowerCase()) sc+=100;
+    if(t.trim()===q.q.toLowerCase()) sc+=1000;
     if(sc>score){ score=sc; best=q; }
   }
-  if(!best){
-    if(!eScope) return `I'm governed to answer only the approved questions — pick a chip above, or ask about performance, forecast, target, products, costs, ECL, run-rate, last year, or a business line / region / country by name.`;
-    best=AQ[0];   // a bare geography ("How is Singapore?") reads as performance
+  const exact=score>=1000;
+  // a name that means two different things: ask which before answering
+  if(!exact&&u.amb){
+    const v=u.amb.val;
+    return aAskBack(`\u201c${esc(v)}\u201d appears in more than one dimension here \u2014 which did you mean?`,
+      u.amb.dims.map(d=>({label:`${v} (${ALL_DIM_LABELS[d]||d})`, q:`${text} by ${(ALL_DIM_LABELS[d]||d).toLowerCase()}`})));
   }
-  if(!eScope){
-    try{ return best.run(); }catch(e){ return 'That question needs columns this file does not carry.'; }
+  // a follow-up like "and Malaysia?" inherits the previous intent
+  let intent=u.intent;
+  let residue=t;
+  for(const e of u.ents) residue=residue.split(e.low).join(' ');
+  residue=residue.replace(/[^a-z0-9]+/g,' ').trim();
+  const bare=residue.length<=3, connector=/^(and|what about|how about|also|plus)\b/.test(t);
+  if(!intent&&u.ents.length&&A_CTX.intent&&(bare&&connector||connector||bare&&A_CTX.asked)) intent=A_CTX.intent;
+  // an entity with no intent at all: offer the readings rather than guess
+  if(!exact&&!intent&&u.ents.length){
+    const who=u.ents.map(e=>e.val).join(' \u203a ');
+    return aAskBack(`I can look at <b>${esc(who)}</b> a few ways \u2014 which would you like?`,[
+      {label:'How it is performing', q:`How is ${who} performing?`},
+      {label:'Why it moved',         q:`Why did ${who} move?`},
+      {label:'Against target',       q:`Will ${who} hit the FY target?`},
+      {label:'Monthly trend',        q:`What is the monthly trend for ${who}?`},
+      {label:'Break it down',        q:`Show ${who} by product`},
+    ]);
+  }
+  // nothing recognised: ask what they want, seeded with what this file can answer
+  if(!exact&&!intent&&!u.ents.length){
+    const opts=[{label:'How are we performing?', q:'How are we performing YTD?'},
+                {label:'What is behind?',        q:'Which lines are behind forecast?'},
+                {label:'Why did it move?',       q:'Why did the result move?'},
+                {label:'How are costs tracking?',q:'How are costs tracking?'}];
+    if('country' in m.dimCols) opts.push({label:'Compare countries', q:'How do the countries compare?'});
+    if('business' in m.dimCols) opts.push({label:'Compare business lines', q:'How do the business lines compare?'});
+    return aAskBack(`I did not catch what you are after. I read the driller directly \u2014 ask in your own words about performance, movements and drivers, costs, ECL, targets, run-rate, products, or any business line, region or country. For example:`, opts);
+  }
+  // a basis the file cannot serve: say so and offer what it can
+  if(!exact&&u.basis){
+    const L=cmpLabels(m);
+    const noPY=u.basis==='py'&&!m.pyMonths.length&&!(m.pyYtdAsOfCols||[]).length;
+    const noTgt=u.basis==='tgt'&&!(m.ytdTgtAsOfCols||[]).length&&!(m.targetCols||[]).length;
+    if(noPY||noTgt) return aAskBack(
+      `This file carries no ${noPY?'prior-year':'target'} column, so I cannot compare against it. The standard basis here is <b>${esc(L.vs)}</b> \u2014 shall I use that?`,
+      [{label:`Yes \u2014 ${L.vs}`, q:text.replace(/vs[^?]*/i,'').trim()||'How are we performing YTD?'}]);
+  }
+  // route the intent, scoping temporarily to whatever the question named
+  const RUN={
+    perf:aPerf, behind:aBehind, top:aTopProducts, fytgt:aFyTgt, costs:aCosts,
+    ecl:aEcl, run:aRunRate, prior:aVsPrior, why:aWhy, trend:aTrend,
+    break:()=>aBreak(u.by||'micaL2'),
+    behindBy:()=>aBreak(u.by,'worst'), topBy:()=>aBreak(u.by,'best'),
+  };
+  const routed = (u.by&&(intent==='behind'||intent==='top'))? (intent==='behind'?'behindBy':'topBy') : intent;
+  const run = exact? best.run : (RUN[routed]||aPerf);
+  A_CTX={intent:intent||(best&&best.id)||'perf', ents:u.ents, asked:true};
+  const temp=exact? [] : u.ents;
+  if(!temp.length){
+    try{ return run(); }catch(e){ return 'That question needs columns this file does not carry.'; }
   }
   const save={};
-  for(const k of Object.keys(eScope)){ save[k]=S.filters[k]; S.filters[k]=new Set([eScope[k]]); }
+  for(const e of temp){ save[e.dim]=S.filters[e.dim]; S.filters[e.dim]=new Set([e.val]); }
   try{
-    return `<div class="anote">Answering for <b>${esc(Object.values(eScope).join(' \u203a '))}</b> \u2014 the page scope is unchanged.</div>`+best.run();
+    const who=temp.map(e=>`${esc(e.val)}`).join(' \u203a ');
+    const dims=temp.map(e=>ALL_DIM_LABELS[e.dim]||e.dim).join(' \u00b7 ');
+    return `<div class="anote">Answering for <b>${who}</b> (${esc(dims)}) \u2014 the page scope is unchanged.</div>`+run();
   }catch(e){ return 'That question needs columns this file does not carry.'; }
   finally{
     for(const k of Object.keys(save)){ if(save[k]) S.filters[k]=save[k]; else delete S.filters[k]; }
@@ -6894,9 +7104,10 @@ function aiAsk(text){
 }
 function renderAssist(){
   if(!A_LOG.length)
-    A_LOG.push({who:'bot', html:`Hello — I'm the governed MI assistant for this driller. I answer a fixed set of approved questions, computed directly from the sheet under your current Global Business scope and filters, on the standard comparison basis. Pick a question below, or name a business line, region or country \u2014 \u201cHow is Singapore doing?\u201d answers for that market without changing your page scope.`});
+    A_LOG.push({who:'bot', html:`Hello — I'm the governed MI assistant for this driller. I answer a fixed set of approved questions, computed directly from the sheet under your current Global Business scope and filters, on the standard comparison basis. Ask in your own words \u2014 I work out what you mean, and if a question is short of a detail or a name could mean two things, I ask before answering. Naming a business line, region or country answers for that slice without changing your page scope. The chips below are shortcuts, not the only way in.`});
   const log=$('aiLog');
   log.innerHTML=A_LOG.map(x=>`<div class="amsg ${x.who}">${x.html}</div>`).join('');
+  log.querySelectorAll('.aask').forEach(b=>b.addEventListener('click',()=>aiAsk(b.dataset.q)));
   log.scrollTop=log.scrollHeight;
   $('aiChips').innerHTML=AQ.map(q=>`<button class="achip" data-id="${q.id}">${esc(q.q)}</button>`).join('');
   $('aiChips').querySelectorAll('.achip').forEach(b=>
@@ -7678,7 +7889,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 13:24</td></tr>
+      <tr><td>Build</td><td>2026-08-11 13:42</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
