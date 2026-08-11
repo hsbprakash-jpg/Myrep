@@ -66,6 +66,19 @@ totalled together. Country also works as an ordinary column
 `country_tabs` (`auto` merges all parsing tabs, `first` restores the old
 first-tab-only behaviour) and `region_label` (the Region row's caption).
 
+**Country hierarchy (multi-region)** — a `CountryHierarchy` config
+section maps countries into regions using the group structure as-is:
+columns `ID | Level 1 | Level 2 | Level 3` (e.g. `C14 | Global | Asia |
+Singapore`; a Level-2-only row such as Holdings becomes its own region;
+flat `Key=country, Value=region` rows also work). With the map uploaded,
+the left-pane strip becomes three levels — the Level 1 name (Global) on
+top, each region in bold with its consolidated P&L YTD, and its
+countries indented beneath — and clicking any row scopes the whole app
+to that node. `Region` becomes a full dimension everywhere: filters,
+chart axes, query builder, simulation scopes and "View impact by".
+Countries not in the map group under "Unmapped" so nothing silently
+drops out of the consolidation.
+
 ## Views
 
 - **KPI summary** — driller-style financial-dashboard tiles: one per MICA

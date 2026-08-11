@@ -198,6 +198,8 @@ aside.side nav button svg{flex:none;opacity:.9}
 #kpiNav .dot.r,#countryNav .dot.r{background:var(--status-critical)}
 #kpiNav .dot.n,#countryNav .dot.n{background:var(--text-muted)}
 #kpiNav .nm,#countryNav .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#countryNav button.sub{padding-left:30px}
+#countryNav button.reg .nm{font-weight:600}
 #kpiNav .v,#countryNav .v{font-variant-numeric:tabular-nums;color:var(--text-muted);font-size:11.5px}
 aside.side .foot{margin-top:auto;padding:12px 18px 2px;border-top:1px solid var(--border)}
 aside.side .hint{font-size:10.5px;color:var(--text-muted);padding:4px 18px 0}
@@ -805,7 +807,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-10 21:06</div>
+<div id="buildTag">build 2026-08-11 10:03</div>
 </aside>
 <main>
 
@@ -1130,6 +1132,7 @@ const MON_LBL_BASE = [...MON_LBL];
 
 const DIM_SPECS = [
   {key:'country',  label:'Country',          test:n=>n==='country'||n==='countryname'||n==='countrycode', opt:true},
+  {key:'region',   label:'Region',           test:n=>n==='region'||n==='regionname', opt:true},
   {key:'mica',     label:'MICA',             test:n=>n==='mica'},
   {key:'micaL3',   label:'MICA_Level_3',     test:n=>n.includes('micalevel3')},
   {key:'micaL4',   label:'MICA_Level_4',     test:n=>n.includes('micalevel4'), opt:true},
@@ -1237,6 +1240,7 @@ const CFG_DEFAULT={
     commentary_collapsed:'N'
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
+  countrymap:[],
   dimensions:{},
   metrics:[
     {name:'Revenue',      scope:'accH2=Revenue'},
@@ -2283,7 +2287,7 @@ const S = {
   ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'', trajLine:'', fsumDepth:0,
   view:'summary', widgets:[],
 };
-const ALL_DIM_LABELS={country:'Country', mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
+const ALL_DIM_LABELS={country:'Country', region:'Region', mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
   prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
   micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
   prodCode:'Product code', prodL3:'Product Level 3', prodL2:'Product Level 2', prodL1:'Product Level 1',
@@ -3919,7 +3923,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
 
 
 /* ================= drag & drop chart builder ================= */
-const FIELD_LABELS={metric:'Metric', cmp:'Comparison', country:'Country', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
+const FIELD_LABELS={metric:'Metric', cmp:'Comparison', country:'Country', region:'Region', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
   micaL4:'MICA Level 4', micaL5:'MICA Level 5',
   prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3',
   prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
@@ -5941,33 +5945,58 @@ function renderCountryNav(){
   const cs=('country' in m.dimCols)? [...new Set(m.rows.map(r=>String(r.d.country||'')).filter(Boolean))].sort() : [];
   if(cs.length<2){ sect.hidden=true; host.innerHTML=''; return; }
   sect.hidden=false;
-  const sel=S.filters.country;
-  const cur=(sel&&sel.size===1)? [...sel][0] : '';
-  // judge each country inside the current slice of every OTHER filter
-  const save=S.filters.country; delete S.filters.country;
+  const hasReg='region' in m.dimCols;
+  const selC=S.filters.country, selR=S.filters.region;
+  const curC=(selC&&selC.size===1)? [...selC][0] : '';
+  const curR=(!curC&&selR&&selR.size===1)? [...selR][0] : '';
+  // judge every row of the strip inside the current slice of the OTHER filters
+  const saveC=S.filters.country, saveR=S.filters.region;
+  delete S.filters.country; delete S.filters.region;
   const base=filteredRows();
-  if(save) S.filters.country=save;
+  if(saveC) S.filters.country=saveC; if(saveR) S.filters.region=saveR;
   const mk=rs=>{
     const k=kpi(rs.filter(r=>!isBSLine(String(r.d.micaL1||''))),m,S.ytdM,S.includeFC);
     return {k, rg:rag(k.favVarPct,S.thresh)};
   };
-  const items=[{name:cfgS('region_label'), val:'', ...mk(base)}]
-    .concat(cs.map(c=>({name:c, val:c, ...mk(base.filter(r=>String(r.d.country||'')===c))})));
-  host.innerHTML=items.map(it=>`
-    <button class="${cur===it.val?'active':''}" data-c="${esc(it.val)}"
+  const topName=(hasReg&&cfgCountryMap().l1)||cfgS('region_label');
+  const items=[{name:topName, dim:'', val:'', cls:'', ...mk(base)}];
+  if(hasReg){
+    const regs=[...new Set(m.rows.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
+    for(const R of regs){
+      const rRows=base.filter(r=>String(r.d.region||'')===R);
+      items.push({name:R, dim:'region', val:R, cls:'reg', ...mk(rRows)});
+      const kids=[...new Set(rRows.map(r=>String(r.d.country||'')).filter(Boolean))].sort();
+      if(!(kids.length===1&&kids[0]===R))
+        for(const c of kids) items.push({name:c, dim:'country', val:c, cls:'sub',
+          ...mk(rRows.filter(r=>String(r.d.country||'')===c))});
+    }
+  } else {
+    for(const c of cs) items.push({name:c, dim:'country', val:c, cls:'',
+      ...mk(base.filter(r=>String(r.d.country||'')===c))});
+  }
+  host.innerHTML=items.map(it=>{
+    const act= it.dim==='country'? curC===it.val : it.dim==='region'? curR===it.val : (!curC&&!curR);
+    return `<button class="${[it.cls,act?'active':''].filter(Boolean).join(' ')}" data-dim="${it.dim}" data-c="${esc(it.val)}"
       title="${esc(it.name)} \u00b7 P&L YTD \u00b7 click to scope every page">
       <span class="dot ${it.rg.cls}" aria-hidden="true"></span>
-      <span class="nm">${esc(it.name)}</span><span class="v">${it.k.cy==null?'\u2013':fmtK(it.k,it.k.cy)}</span></button>`).join('');
+      <span class="nm">${esc(it.name)}</span><span class="v">${it.k.cy==null?'\u2013':fmtK(it.k,it.k.cy)}</span></button>`;
+  }).join('');
+  // scope through the filter checkbox groups so the strip and the Filters
+  // pane can never disagree; groups missing (dim hidden) fall back to state
+  const setGrp=(dim,val)=>{
+    const grp=document.querySelector(`#dimFilters details[data-dim="${dim}"]`);
+    if(!grp){ if(val) S.filters[dim]=new Set([val]); else delete S.filters[dim]; return null; }
+    grp.querySelectorAll('.fltlist input').forEach(x=>{ x.checked=!val||x.value===val; });
+    return grp;
+  };
   host.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
-    const c=b.dataset.c;
-    const grp=document.querySelector('#dimFilters details[data-dim="country"]');
-    if(grp){
-      grp.querySelectorAll('.fltlist input').forEach(x=>{ x.checked=!c||x.value===c; });
-      const first=grp.querySelector('.fltlist input');
-      if(first){ first.dispatchEvent(new Event('change')); return; }
-    }
-    if(c) S.filters.country=new Set([c]); else delete S.filters.country;
-    render();
+    const dim=b.dataset.dim, val=b.dataset.c;
+    const grps=[setGrp('country', dim==='country'? val:'')];
+    if(hasReg) grps.push(setGrp('region', dim==='region'? val:''));
+    let fired=false;
+    for(const g of grps) if(g){ const f=g.querySelector('.fltlist input');
+      if(f){ f.dispatchEvent(new Event('change')); fired=true; } }
+    if(!fired) render();
   }));
 }
 function renderKpiNav(){
@@ -7107,7 +7136,7 @@ function applyCfgDom(){
 function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
   const low=x=>deMoji(String(x==null?'':x).trim()).trim();
-  const tp=[], hb={}; let mz=false;
+  const tp=[], hb={}; let mz=false, cz=false;
   const handle=(section,rows)=>{
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
     for(const r of rows){
@@ -7122,6 +7151,12 @@ function cfgFromWorkbook(wb){
       else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
       else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
         if(a&&b2) cfg.metrics.push({name:a, scope:b2}); }
+      else if(sec==='countryhierarchy'||sec==='countrymap'){
+        if(cz!==true){ cfg.countrymap=[]; cz=true; }
+        if(d) cfg.countrymap.push({country:d, region:c||'', l1:b2||''});
+        else if(c) cfg.countrymap.push({country:c, region:c, l1:b2||''});
+        else if(b2) cfg.countrymap.push({country:a, region:b2, l1:''});
+      }
       else if(sec==='accounthierarchy'||sec==='producthierarchy'){
         const hk=sec==='accounthierarchy'?'account':'product';
         if(hb[hk]!==true){ cfg.hierarchies[hk]=[]; hb[hk]=true; }   // uploaded rows replace the defaults wholesale
@@ -7179,6 +7214,7 @@ function cfgTemplateCSV(){
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
     ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','',''],
+    ['CountryHierarchy','<ID - optional>','<Level 1 - e.g. Global>','<Level 2 region - e.g. Asia>','<Level 3 country = tab name - e.g. Singapore>'],
     ...CFG_DEFAULT.metrics.map(x=>['Metrics',x.name,x.scope,'','']),
     ...['account','product'].flatMap(hk=>CFG_DEFAULT.hierarchies[hk].map(r=>{
       const lv=[...r.levels]; while(lv.length<5) lv.push('');
@@ -7206,6 +7242,22 @@ function handleFile(file){
    canonical one and every other tab's values are matched onto it by column
    label (kind-aware and duplicate-tolerant), so tabs may lay their columns
    out in any order. Rows are tagged with the tab name as their Country. */
+function cfgCountryMap(){
+  const list=CFG.countrymap||[];
+  const map=new Map(); let l1='';
+  for(const e2 of list){
+    if(e2.country) map.set(String(e2.country).trim(), String(e2.region||'').trim());
+    if(e2.l1) l1=String(e2.l1).trim();
+  }
+  return {map, size:map.size, get:c=>map.get(c), l1};
+}
+function applyCountryRegions(m){
+  if(!('country' in m.dimCols)||('region' in m.dimCols&&m.dimCols.region>=0)) return;
+  const cm=cfgCountryMap();
+  if(!cm.size) return;
+  for(const r of m.rows) r.d.region=cm.get(String(r.d.country||''))||'Unmapped';
+  m.dimCols.region=-1;
+}
 function tabPeriodKeys(m){
   const seen={}, out=[];
   const push=(p,kind)=>{
@@ -7277,6 +7329,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     }
     model.sheetName=sheetName;
     applyHierarchies(model);
+    applyCountryRegions(model);
     S.model=model; S.fileName=name;
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
     S.showAllKpis=false;
@@ -7302,7 +7355,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-10 21:06</td></tr>
+      <tr><td>Build</td><td>2026-08-11 10:03</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
