@@ -409,8 +409,14 @@ left-pane strip and the Filters pane.
   questions (performance, lines behind forecast, FY target, top/dragging
   products, costs, ECL, required run-rate, prior year, contribution mix)
   answered deterministically in the browser from the filtered data on the
-  standard comparison basis. Free-text questions are matched to the
-  governed set; anything outside it is declined. Nothing leaves the page.
+  standard comparison basis, plus geography comparisons — countries,
+  regions and business lines side by side with share and RAG. Answers
+  respect the active Global Business scope (stated in each answer's
+  note), and naming a business line, region or country in a question
+  ("How is Singapore doing?", "CIB costs") answers for that slice
+  without changing the page scope. Free-text questions are matched to
+  the governed set; anything outside it is declined. Nothing leaves the
+  page.
 - **Simulation Assistant** — what-if scenarios on the forecast months. Build
   any number of ordered rules, each scoped to any dimension value (or all
   rows) with three adjustment types: % change, add amount (spread over the

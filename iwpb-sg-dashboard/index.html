@@ -854,7 +854,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 13:01</div>
+<div id="buildTag">build 2026-08-11 13:24</div>
 </aside>
 <main>
 
@@ -6801,6 +6801,30 @@ function aFuncMix(){
     aTable([key==='funcL2'?'Function':'Product','YTD','Share'],
       g.map(x=>[esc(x.n),aCell(x.k,x.k.cy),(x.k.cy/tot*100).toFixed(1)+'%']))+gnote();
 }
+function aGeo(dim,label){
+  const plural=label==='Country'? 'countries' : label.toLowerCase()+'s';
+  return function(){
+  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  if(!(dim in m.dimCols)) return `This file carries no ${esc(label.toLowerCase())} breakdown.`+gnote();
+  const plRows=rows.filter(r=>!isBSLine(String(r.d.micaL1||'')));
+  const g=[...groupBy(plRows.length?plRows:rows,dim).entries()].filter(([n])=>n)
+    .map(([n,rs])=>({n,k:aKpi(rs)}));
+  if(g.length<2){
+    const only=g[0]? g[0].n : '\u2014';
+    return `Only one ${esc(label.toLowerCase())} (<b>${esc(only)}</b>) is in the current scope \u2014 widen the Global Business scope to compare.`+gnote();
+  }
+  const tot=g.reduce((s2,x)=>s2+(x.k.cy||0),0)||1;
+  const byVar=[...g].sort((a,b)=>((b.k.favVarPct==null?-9e9:b.k.favVarPct))-((a.k.favVarPct==null?-9e9:a.k.favVarPct)));
+  const best=byVar[0], worst=byVar[byVar.length-1];
+  let h=`Across <b>${g.length}</b> ${esc(plural)} (P&L only), <b>${esc(best.n)}</b> runs strongest`;
+  if(best.k.cmpVarPct!=null) h+=` at <b>${fmtPct(best.k.cmpVarPct)}</b> ${esc(L.vs)}`;
+  h+=`; <b>${esc(worst.n)}</b> sits weakest`;
+  if(worst.k.cmpVarPct!=null) h+=` at <b>${fmtPct(worst.k.cmpVarPct)}</b>`;
+  h+='.';
+  return h+aTable([label,L.main,L.base,'Var %','Share','Rating'],
+    byVar.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct),
+      (100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct,S.thresh).label]))+gnote();
+};}
 const AQ=[
   {id:'perf',   q:'How are we performing YTD?',                    kw:['perform','overall','doing','how are we','summary','ytd'], run:aPerf},
   {id:'behind', q:'Which lines are behind forecast?',              kw:['behind','lagging','miss','unfavourable','worst','off track'], run:aBehind},
@@ -6812,10 +6836,33 @@ const AQ=[
   {id:'run',    q:'What run-rate is needed for the rest of the year?', kw:['run rate','run-rate','pace','monthly','remaining','need per month'], run:aRunRate},
   {id:'prior',  q:'How does this year compare to last year?',      kw:['prior','last year','previous year','fy-25','2025','year on year','yoy'], run:aVsPrior},
   {id:'mix',    q:'Who contributes most to the result?',           kw:['contribut','function','segment','mix','who','largest'], run:aFuncMix},
+  {id:'geoC',   q:'How do the countries compare?',                  kw:['countr','market','which country','by country'], run:aGeo('country','Country')},
+  {id:'geoR',   q:'How do the regions compare?',                    kw:['region','by region'], run:aGeo('region','Region')},
+  {id:'geoB',   q:'How do the business lines compare?',             kw:['business line','business lines','by business','global business','iwpb','cib'], run:aGeo('business','Business line')},
 ];
 let A_LOG=[];
+/* a geography named in the question scopes just that answer: values come from
+   the model's dims, matched as whole words (short codes like US need their
+   own capitals so "tell us" never scopes to the US) */
+function aScopeFromText(text){
+  const m=S.model; if(!m) return null;
+  const low=String(text).toLowerCase();
+  const escRe=v=>v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const found={};
+  for(const k of ['business','region','country']){
+    if(!(k in m.dimCols)) continue;
+    for(const v of [...new Set(m.rows.map(r=>String(r.d[k]||'')).filter(Boolean))]){
+      const ok= v.length<=3
+        ? new RegExp('\\b'+escRe(v)+'\\b').test(text)
+        : new RegExp('\\b'+escRe(v.toLowerCase())+'\\b').test(low);
+      if(ok){ found[k]=v; break; }
+    }
+  }
+  return Object.keys(found).length? found : null;
+}
 function assistAnswer(text){
   const t=text.toLowerCase();
+  const eScope=aScopeFromText(text);
   let best=null, score=0;
   for(const q of AQ){
     let sc=0;
@@ -6823,8 +6870,21 @@ function assistAnswer(text){
     if(t.trim()===q.q.toLowerCase()) sc+=100;
     if(sc>score){ score=sc; best=q; }
   }
-  if(!best) return `I'm governed to answer only the approved questions — pick a chip above, or ask about performance, forecast, target, products, costs, ECL, run-rate or last year.`;
-  try{ return best.run(); }catch(e){ return 'That question needs columns this file does not carry.'; }
+  if(!best){
+    if(!eScope) return `I'm governed to answer only the approved questions — pick a chip above, or ask about performance, forecast, target, products, costs, ECL, run-rate, last year, or a business line / region / country by name.`;
+    best=AQ[0];   // a bare geography ("How is Singapore?") reads as performance
+  }
+  if(!eScope){
+    try{ return best.run(); }catch(e){ return 'That question needs columns this file does not carry.'; }
+  }
+  const save={};
+  for(const k of Object.keys(eScope)){ save[k]=S.filters[k]; S.filters[k]=new Set([eScope[k]]); }
+  try{
+    return `<div class="anote">Answering for <b>${esc(Object.values(eScope).join(' \u203a '))}</b> \u2014 the page scope is unchanged.</div>`+best.run();
+  }catch(e){ return 'That question needs columns this file does not carry.'; }
+  finally{
+    for(const k of Object.keys(save)){ if(save[k]) S.filters[k]=save[k]; else delete S.filters[k]; }
+  }
 }
 function aiAsk(text){
   if(!text||!text.trim()||!S.model) return;
@@ -6834,7 +6894,7 @@ function aiAsk(text){
 }
 function renderAssist(){
   if(!A_LOG.length)
-    A_LOG.push({who:'bot', html:`Hello — I'm the governed MI assistant for this driller. I answer a fixed set of approved questions, computed directly from the sheet under your current filters and on the standard comparison basis. Pick a question below or type one.`});
+    A_LOG.push({who:'bot', html:`Hello — I'm the governed MI assistant for this driller. I answer a fixed set of approved questions, computed directly from the sheet under your current Global Business scope and filters, on the standard comparison basis. Pick a question below, or name a business line, region or country \u2014 \u201cHow is Singapore doing?\u201d answers for that market without changing your page scope.`});
   const log=$('aiLog');
   log.innerHTML=A_LOG.map(x=>`<div class="amsg ${x.who}">${x.html}</div>`).join('');
   log.scrollTop=log.scrollHeight;
@@ -7618,7 +7678,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 13:01</td></tr>
+      <tr><td>Build</td><td>2026-08-11 13:24</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
