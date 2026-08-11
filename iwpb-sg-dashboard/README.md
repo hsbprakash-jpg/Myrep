@@ -58,7 +58,12 @@ missing columns of the first data tab is reported in the ingest summary.
 A **Countries strip** appears in the left pane: a Region row — the sum of
 every country — then one row per country with its P&L YTD and RAG; click
 a row to scope every page, chart, export and simulation to that country
-(the Country filter group mirrors the choice). Region consolidation keeps
+(the Country filter group mirrors the choice). The strip stays quiet:
+the whole section folds from its header like the other left-pane
+sections, and in hierarchical files each business-line and region row
+carries a caret — children stay hidden until expanded (the choice
+persists), while scoping to a node auto-expands its path so the active
+selection is always visible. Region consolidation keeps
 all the standing rules: YTD from YTD columns, balances as closing
 positions in `US$bn`, P&L in `US$m`, and P&L and balance sheet never
 totalled together. Country also works as an ordinary column
