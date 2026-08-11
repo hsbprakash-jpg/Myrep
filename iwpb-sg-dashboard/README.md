@@ -186,8 +186,9 @@ left-pane strip and the Filters pane.
   its declared place rather than jumping the queue. It survives re-rendering,
   re-ingesting the file and reopening the browser, covers collapsed and
   parked tiles as well as the ones on screen, and the PowerPoint one-pager
-  follows it. Once anything has moved, a dashed **↺ Reset tile order** card
-  appears at the end of the grid and puts the file's own order back.
+  follows it. A quiet **↺ Tile order** button appears beside Export to Excel
+  once something has moved — it puts the file's own order back — and stays
+  out of sight until then, so it never takes a tile's place in the grid.
 - **Balance scopes read in billions everywhere** — any tile, chart or
   table whose scope is a balance line switches to the balance unit: Mix
   analysis and builder charts scoped to Deposits or Loans plot and label

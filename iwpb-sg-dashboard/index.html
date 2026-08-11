@@ -886,7 +886,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 18:47</div>
+<div id="buildTag">build 2026-08-11 19:02</div>
 </aside>
 <main>
 
@@ -933,7 +933,8 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       <p class="lede2" id="summaryLede"></p>
     </div>
     <div><button class="btn-quiet" id="btnExportAll">⤓ Export to Excel</button>
-      <button class="btn-quiet" id="btnPptSummary" title="One-slide financial dashboard in the driller tile format">⤓ PPT</button></div></div>
+      <button class="btn-quiet" id="btnPptSummary" title="One-slide financial dashboard in the driller tile format">⤓ PPT</button>
+      <button class="btn-quiet" id="btnTileOrder" hidden title="Put the tiles back in the order this file and its configuration declare">↺ Tile order</button></div></div>
     <div class="cards" id="cardGrid"></div>
     <div class="chiprow" id="chipRow"></div>
     <div class="twocol" id="sumPanels">
@@ -2977,7 +2978,6 @@ function renderSummary(){
     (parked.length?`<button class="card morecard" id="btnParkedKpis">${
       S.showParkedTiles? `Hide ${parked.length} tile${parked.length>1?'s':''} again`
         : `${parked.length} hidden tile${parked.length>1?'s':''} \u2014 show`}</button>`:'')+
-    (tileOrderGet().length?`<button class="card morecard" id="btnTileOrder" title="Put the tiles back in the order this file and its configuration declare">\u21ba Reset tile order</button>`:'')+
     (!named.length&&!mixedFile&&prio.length&&rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'')+
     (missingLines.length?`<div class="card morecard" style="cursor:default">Not found in ${
@@ -2985,7 +2985,7 @@ function renderSummary(){
   const moreBtn=$('btnMoreKpis');
   if(moreBtn) moreBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showAllKpis=!S.showAllKpis; renderSummary(); });
   const ordBtn=$('btnTileOrder');
-  if(ordBtn) ordBtn.addEventListener('click',e=>{ e.stopPropagation(); tileOrderClear(); renderSummary(); });
+  if(ordBtn) ordBtn.hidden=!tileOrderGet().length;
   const parkBtn=$('btnParkedKpis');
   if(parkBtn) parkBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showParkedTiles=!S.showParkedTiles; renderSummary(); });
   $('cardGrid').querySelectorAll('.thide').forEach(el=>{
@@ -8221,7 +8221,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 18:47</td></tr>
+      <tr><td>Build</td><td>2026-08-11 19:02</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -8433,6 +8433,7 @@ function init(){
   $('dataSearch').addEventListener('input',e=>{ S.dataQ=e.target.value; dataPager.page=1; renderTable(); });
   $('btnDataFClear').addEventListener('click',()=>{ DATAF={}; dfClose(); dataPager.page=1; renderTable(); });
   $('btnPptMix').addEventListener('click',()=>exportPPT([{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')}],brandSlug()+'_mix'));
+  $('btnTileOrder').addEventListener('click',()=>{ tileOrderClear(); renderSummary(); });
   $('btnPptSummary').addEventListener('click',()=>exportSummaryPPT());
   $('btnPptChart').addEventListener('click',()=>{
     if(B.groupBy.length)
