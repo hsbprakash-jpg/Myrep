@@ -808,7 +808,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 10:24</div>
+<div id="buildTag">build 2026-08-11 11:35</div>
 </aside>
 <main>
 
@@ -1245,7 +1245,16 @@ const CFG_DEFAULT={
     commentary_collapsed:'N'
   },
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
-  countrymap:[],
+  countrymap:[
+    ...['Australia','Malaysia','Taiwan','India','Indonesia','Vietnam','Sri Lanka','Philippines',
+        'Bangladesh','Japan','AMH','HASE','China','Singapore']
+      .map(c=>({country:c, region:'Asia', l1:'Global', l0:'IWPB'})),
+    {country:'UK PB', region:'UK', l1:'Global', l0:'IWPB'},
+    ...['UAE','Egypt','Turkiye','Qatar'].map(c=>({country:c, region:'MENAT', l1:'Global', l0:'IWPB'})),
+    ...['US','Mexico','France','CIIOM','Switzerland','Bermuda','Malta','Germany','Luxembourg','UK NRFB']
+      .map(c=>({country:c, region:'Americas and Europe', l1:'Global', l0:'IWPB'})),
+    {country:'Holdings', region:'Holdings', l1:'Global', l0:'GROUP'},
+  ],
   dimensions:{},
   metrics:[
     {name:'Revenue',      scope:'accH2=Revenue'},
@@ -7170,13 +7179,15 @@ function applyCfgDom(){
 function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
   const low=x=>deMoji(String(x==null?'':x).trim()).trim();
-  const tp=[], hb={}; let mz=false, cz=false;
+  const tp=[], hb={}; let mz=false, cz=false, chCols=null;
   const handle=(section,rows)=>{
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
     for(const r of rows){
       if(!r||r.every(c=>c==null||c==='')) continue;
       const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]), e2=low(r[4]), f2=low(r[5]), g2=low(r[6]);
-      if(/^(key|order|view|dimension|id)$/i.test(a)||a.startsWith('<')) continue;
+      const isCH=(sec==='countryhierarchy'||sec==='countrymap');
+      if(a.startsWith('<')) continue;
+      if(/^(key|order|view|dimension|id)$/i.test(a)&&!isCH) continue;
       if(sec==='settings'||sec==='calculations'){ if(a) cfg.settings[a.toLowerCase()]=b2; }
       else if(sec==='tilepriority'){ const pat=b2||a; if(pat) tp.push(pat); }
       else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'Y', match:e2||null}; }
@@ -7185,11 +7196,25 @@ function cfgFromWorkbook(wb){
       else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
       else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
         if(a&&b2) cfg.metrics.push({name:a, scope:b2}); }
-      else if(sec==='countryhierarchy'||sec==='countrymap'){
-        if(cz!==true){ cfg.countrymap=[]; cz=true; }
-        if(d) cfg.countrymap.push({country:d, region:c||'', l1:b2||''});
-        else if(c) cfg.countrymap.push({country:c, region:c, l1:b2||''});
-        else if(b2) cfg.countrymap.push({country:a, region:b2, l1:''});
+      else if(isCH){
+        const cells=[a,b2,c,d,e2,f2];
+        const lows=cells.map(x=>String(x).toLowerCase().replace(/[^a-z0-9]/g,''));
+        if(lows.includes('level2')||lows.includes('level3')){
+          chCols={l0:lows.indexOf('level0'), l1:lows.indexOf('level1'),
+                  l2:lows.indexOf('level2'), l3:lows.indexOf('level3')};
+        } else {
+          if(cz!==true){ cfg.countrymap=[]; cz=true; }
+          const push=e3=>cfg.countrymap.push(e3);
+          if(chCols){
+            const g2=i=>i>=0? cells[i]:'';
+            const country=g2(chCols.l3), region=g2(chCols.l2);
+            if(country) push({country, region:region||'', l1:g2(chCols.l1), l0:g2(chCols.l0)});
+            else if(region) push({country:region, region, l1:g2(chCols.l1), l0:g2(chCols.l0)});
+          }
+          else if(d) push({country:d, region:c||'', l1:b2||''});
+          else if(c) push({country:c, region:c, l1:b2||''});
+          else if(b2) push({country:a, region:b2, l1:''});
+        }
       }
       else if(sec==='accounthierarchy'||sec==='producthierarchy'){
         const hk=sec==='accounthierarchy'?'account':'product';
@@ -7249,6 +7274,8 @@ function cfgTemplateCSV(){
     ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
     ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','',''],
     ['CountryHierarchy','<ID - optional>','<Level 1 - e.g. Global>','<Level 2 region - e.g. Asia>','<Level 3 country = tab name - e.g. Singapore>'],
+    ...CFG_DEFAULT.countrymap.map((e2,i)=>['CountryHierarchy','C'+(i+1), e2.l1||'Global', e2.region,
+      e2.country===e2.region? '' : e2.country]),
     ...CFG_DEFAULT.metrics.map(x=>['Metrics',x.name,x.scope,'','']),
     ...['account','product'].flatMap(hk=>CFG_DEFAULT.hierarchies[hk].map(r=>{
       const lv=[...r.levels]; while(lv.length<5) lv.push('');
@@ -7389,7 +7416,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 10:24</td></tr>
+      <tr><td>Build</td><td>2026-08-11 11:35</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
