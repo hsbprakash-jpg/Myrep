@@ -847,7 +847,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 12:42</div>
+<div id="buildTag">build 2026-08-11 12:44</div>
 </aside>
 <main>
 
@@ -874,7 +874,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 
 <section id="dashView" hidden>
   <div class="unitbar">
-    <span class="unitlbl" id="scopeLbl" hidden data-lbl="lbl_scope">Scope</span>
+    <span class="unitlbl" id="scopeLbl" hidden data-lbl="lbl_scope">Global Business</span>
     <span id="scopeBizNote" hidden style="font-size:11px;font-weight:700;color:var(--hsbc-red)"></span>
     <select id="fBusiness" aria-label="Business line scope" hidden></select>
     <select id="fRegion" aria-label="Region scope" hidden></select>
@@ -7574,7 +7574,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 12:42</td></tr>
+      <tr><td>Build</td><td>2026-08-11 12:44</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
