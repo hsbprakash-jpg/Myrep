@@ -66,16 +66,14 @@ totalled together. Country also works as an ordinary column
 `country_tabs` (`auto` merges all parsing tabs, `first` restores the old
 first-tab-only behaviour) and `region_label` (the Region row's caption).
 
-**Country hierarchy (multi-region)** — the group country hierarchy is
-**built in**: Global → Asia / UK / MENAT / Americas and Europe /
-Holdings → their countries (Australia through UK NRFB), so a multi-tab
-driller rolls up correctly with no config at all. A `CountryHierarchy`
-config section replaces it wholesale, pasted in as the group sheet
-verbatim: a header row then `ID | Level 1 | Level 2 | Level 3` — or the
-five-column form with `Level 0` (IWPB / CIB / GROUP), which is retained
-per entry (e.g. `C14 | IWPB | Global | Asia | Singapore`; a
+**Country hierarchy (multi-region)** — a `CountryHierarchy` config
+section defines the roll-up; nothing is hard-coded. Paste the group
+sheet in verbatim: a header row then `ID | Level 1 | Level 2 | Level 3`
+— or the five-column form with `Level 0` (IWPB / CIB / GROUP), which is
+retained per entry (e.g. `C14 | IWPB | Global | Asia | Singapore`; a
 Level-2-only row such as Holdings becomes its own region; flat
-`Key=country, Value=region` rows also work). With the map uploaded,
+`Key=country, Value=region` rows also work). Without the section, a
+multi-tab file shows the flat Region → Country strip. With the map uploaded,
 the left-pane strip becomes three levels — the Level 1 name (Global) on
 top, each region in bold with its consolidated P&L YTD, and its
 countries indented beneath — and clicking any row scopes the whole app

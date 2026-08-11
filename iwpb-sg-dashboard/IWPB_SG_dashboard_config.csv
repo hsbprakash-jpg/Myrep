@@ -143,36 +143,6 @@ Labels,dec_eyebrow,Decisions required,,
 Labels,dec_title,Executive decisions,,
 Drivers,<line or value - e.g. Loans>,<driver note the AI weaves into commentary>,,
 CountryHierarchy,<ID - optional>,<Level 1 - e.g. Global>,<Level 2 region - e.g. Asia>,<Level 3 country = tab name - e.g. Singapore>
-CountryHierarchy,C1,Global,Asia,Australia
-CountryHierarchy,C2,Global,Asia,Malaysia
-CountryHierarchy,C3,Global,Asia,Taiwan
-CountryHierarchy,C4,Global,Asia,India
-CountryHierarchy,C5,Global,Asia,Indonesia
-CountryHierarchy,C6,Global,Asia,Vietnam
-CountryHierarchy,C7,Global,Asia,Sri Lanka
-CountryHierarchy,C8,Global,Asia,Philippines
-CountryHierarchy,C9,Global,Asia,Bangladesh
-CountryHierarchy,C10,Global,Asia,Japan
-CountryHierarchy,C11,Global,Asia,AMH
-CountryHierarchy,C12,Global,Asia,HASE
-CountryHierarchy,C13,Global,Asia,China
-CountryHierarchy,C14,Global,Asia,Singapore
-CountryHierarchy,C15,Global,UK,UK PB
-CountryHierarchy,C16,Global,MENAT,UAE
-CountryHierarchy,C17,Global,MENAT,Egypt
-CountryHierarchy,C18,Global,MENAT,Turkiye
-CountryHierarchy,C19,Global,MENAT,Qatar
-CountryHierarchy,C20,Global,Americas and Europe,US
-CountryHierarchy,C21,Global,Americas and Europe,Mexico
-CountryHierarchy,C22,Global,Americas and Europe,France
-CountryHierarchy,C23,Global,Americas and Europe,CIIOM
-CountryHierarchy,C24,Global,Americas and Europe,Switzerland
-CountryHierarchy,C25,Global,Americas and Europe,Bermuda
-CountryHierarchy,C26,Global,Americas and Europe,Malta
-CountryHierarchy,C27,Global,Americas and Europe,Germany
-CountryHierarchy,C28,Global,Americas and Europe,Luxembourg
-CountryHierarchy,C29,Global,Americas and Europe,UK NRFB
-CountryHierarchy,C30,Global,Holdings,
 Metrics,Revenue,accH2=Revenue,,
 Metrics,Banking NII,accH3=Banking NII,,
 Metrics,Wealth Fees,accH4=Wealth,,
