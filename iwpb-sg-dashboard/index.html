@@ -200,6 +200,32 @@ aside.side nav button svg{flex:none;opacity:.9}
 #kpiNav .nm,#countryNav .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #countryNav button.sub{padding-left:30px}
 #countryNav button.reg .nm{font-weight:600}
+#cpick{margin:6px 14px 8px}
+#cpickBtn{display:flex;align-items:center;gap:8px;width:100%;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-1);padding:8px 10px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--text-primary)}
+#cpickBtn:hover{border-color:var(--border-strong)}
+#cpickBtn .lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+#cpickBtn .cnt{font-size:10.5px;color:var(--text-muted)}
+#cpickBtn .arr{font-size:9px;color:var(--text-muted)}
+#cpickPanel{border:1px solid var(--border);border-radius:8px;background:var(--surface-1);margin-top:6px;
+  box-shadow:0 8px 22px color-mix(in srgb, var(--text-primary) 10%, transparent);overflow:hidden}
+#cpickPanel .srch{width:100%;border:none;border-bottom:1px solid var(--border);padding:8px 10px;font:inherit;
+  font-size:12.5px;background:var(--surface-1);color:var(--text-primary);outline:none;box-sizing:border-box}
+#cpickList{max-height:264px;overflow-y:auto;padding:4px 0}
+#cpickList .grp{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);
+  padding:8px 12px 3px;font-weight:700}
+#cpickList button{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;
+  padding:6px 12px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--text-primary);text-align:left}
+#cpickList button:hover{background:color-mix(in srgb, var(--hsbc-red) 6%, transparent)}
+#cpickList button.cur{color:var(--hsbc-red);font-weight:700}
+#cpickList .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cpickList .v{font-variant-numeric:tabular-nums;color:var(--text-muted);font-size:11.5px}
+#cpickList .dot{width:8px;height:8px;border-radius:50%;flex:none}
+#cpickList .dot.g{background:var(--status-good)}
+#cpickList .dot.a{background:var(--status-warning)}
+#cpickList .dot.r{background:var(--status-critical)}
+#cpickList .dot.n{background:var(--text-muted)}
+#cpickList .none{padding:10px 12px;font-size:12px;color:var(--text-muted)}
 #sectCountries{display:flex;align-items:center;gap:6px;cursor:pointer}
 #sectCountries[hidden]{display:none}
 #countryNav .tw{width:12px;flex:none;font-size:9px;color:var(--text-muted);text-align:center}
@@ -773,6 +799,13 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   </nav>
   <div class="sect sect-fold" id="sectCountries" hidden title="Collapse / expand the countries"><span data-lbl="sect_countries">Countries</span><span id="cnavCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="countryNav"></div>
+  <div id="cpick" hidden>
+    <button id="cpickBtn" aria-haspopup="listbox"></button>
+    <div id="cpickPanel" hidden>
+      <input class="srch" id="cpickSrch" placeholder="Search countries&hellip;" aria-label="Search countries">
+      <div id="cpickList"></div>
+    </div>
+  </div>
   <div class="sect sect-fold" id="sectKpisRow" title="Collapse / expand the KPI list" style="display:flex;align-items:center;gap:6px;cursor:pointer">
     <span data-lbl="sect_kpis">KPIs · MICA Level 2</span><span id="kpiCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="kpiNav"></div>
@@ -814,7 +847,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 12:37</div>
+<div id="buildTag">build 2026-08-11 12:42</div>
 </aside>
 <main>
 
@@ -5982,45 +6015,43 @@ function renderCountryNav(){
   };
   const l1Name=(hasReg&&cfgCountryMap().l1)||cfgS('region_label');
   const topName=bizTier? cfgS('group_label') : l1Name;
-  // closed by default to keep the pane quiet; the scoped path opens itself
+  // the tree stops at regions to stay quiet; the active business opens itself
   const effOpen=new Set(cnavOpen());
   if(curB) effOpen.add('b:'+curB);
-  if(curR){ if(!bizTier) effOpen.add('r:|'+curR);
-    else if(curB) effOpen.add('r:'+curB+'|'+curR);
-    else for(const B of bizzes) effOpen.add('r:'+B+'|'+curR); }
-  if(curC){ const rr=m.rows.find(r=>String(r.d.country||'')===curC&&(!curB||String(r.d.business||'')===curB))||{d:{}};
-    const B2=bizTier? String(rr.d.business||'') : '';
-    if(B2) effOpen.add('b:'+B2);
-    effOpen.add('r:'+B2+'|'+String(rr.d.region||'')); }
+  const openBizOf=cnd=>{ const rr=m.rows.find(cnd); if(rr&&rr.d.business) effOpen.add('b:'+String(rr.d.business)); };
+  if(curR&&bizTier&&!curB) for(const B of bizzes) effOpen.add('b:'+B);
+  if(curC&&bizTier) openBizOf(r=>String(r.d.country||'')===curC&&(!curB||String(r.d.business||'')===curB));
   const items=[{name:topName, dim:'', b:'', val:'', cls:'', ...mk(base)}];
   const addRegions=(rows2, B, nested)=>{
     const regs=[...new Set(rows2.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
     for(const R of regs){
       const rRows=rows2.filter(r=>String(r.d.region||'')===R);
-      const kids=[...new Set(rRows.map(r=>String(r.d.country||'')).filter(Boolean))].sort();
-      const solo=kids.length===1&&kids[0]===R;
-      const key='r:'+B+'|'+R;
-      items.push({name:R, dim:'region', b:B, val:R, cls:nested?'reg sub':'reg',
-        key:solo?'':key, open:effOpen.has(key), ...mk(rRows)});
-      if(!solo&&effOpen.has(key))
-        for(const c of kids) items.push({name:c, dim:'country', b:B, val:c,
-          cls:nested?'sub sub2':'sub', ...mk(rRows.filter(r=>String(r.d.country||'')===c))});
+      items.push({name:R, dim:'region', b:B, val:R, cls:nested?'reg sub':'reg', ...mk(rRows)});
     }
   };
   if(bizTier){
     for(const B of bizzes){
       const bRows=base.filter(r=>String(r.d.business||'')===B);
-      const key='b:'+B;
+      const key=hasReg? 'b:'+B : '';
       items.push({name:B, dim:'business', b:B, val:B, cls:'biz', key, open:effOpen.has(key), ...mk(bRows)});
-      if(!effOpen.has(key)) continue;
-      if(hasReg) addRegions(bRows, B, true);
-      else for(const c of [...new Set(bRows.map(r=>String(r.d.country||'')).filter(Boolean))].sort())
-        items.push({name:c, dim:'country', b:B, val:c, cls:'sub',
-          ...mk(bRows.filter(r=>String(r.d.country||'')===c))});
+      if(hasReg&&effOpen.has(key)) addRegions(bRows, B, true);
     }
   } else if(hasReg) addRegions(base, '', false);
-  else for(const c of cs) items.push({name:c, dim:'country', b:'', val:c, cls:'',
-    ...mk(base.filter(r=>String(r.d.country||'')===c))});
+  // country entries feed the picker below the tree, grouped by their node
+  const entries=[];
+  const addEntries=(rows2, B)=>{
+    const byC=new Map();
+    for(const r of rows2){ const c=String(r.d.country||''); if(!c) continue;
+      (byC.get(c)||byC.set(c,[]).get(c)).push(r); }
+    const keys=[...byC.keys()].sort((x,y)=>{
+      const rx=String(byC.get(x)[0].d.region||''), ry=String(byC.get(y)[0].d.region||'');
+      return rx===ry? (x<y?-1:1) : (rx<ry?-1:1);
+    });
+    for(const c of keys)
+      entries.push({c, b:B, r:String((byC.get(c)[0].d.region)||''), ...mk(byC.get(c))});
+  };
+  if(bizTier) for(const B of bizzes) addEntries(base.filter(r=>String(r.d.business||'')===B), B);
+  else addEntries(base, '');
   host.innerHTML=items.map(it=>{
     const bOk=!it.b||curB===it.b;
     const act= it.dim==='country'? (curC===it.val&&bOk)
@@ -6039,7 +6070,51 @@ function renderCountryNav(){
     const dim=b.dataset.dim, val=b.dataset.c, bz=b.dataset.b;
     scopeSet(dim==='business'? val : bz, dim==='region'? val:'', dim==='country'? val:'');
   }));
+  renderCpick(entries, curC, curB, bizTier, hasReg);
   fillScopeBar({hasReg, hasBiz:bizTier, bizzes, cs, curB, curC, curR, topName, l1Name, m});
+}
+/* the country picker: a compact dropdown under the tree — search, countries
+   grouped by their node, RAG dot and P&L YTD per row, click to scope */
+let CPICK={entries:[], curC:'', curB:'', bizTier:false, hasReg:false};
+function renderCpick(entries, curC, curB, bizTier, hasReg){
+  const wrap=$('cpick'); if(!wrap) return;
+  CPICK={entries, curC, curB, bizTier, hasReg};
+  wrap.hidden=!entries.length;
+  if(!entries.length) return;
+  const btn=$('cpickBtn');
+  const cur=curC? entries.find(e2=>e2.c===curC&&(!curB||e2.b===curB))||entries.find(e2=>e2.c===curC) : null;
+  btn.innerHTML= cur
+    ? `<span class="dot ${cur.rg.cls}"></span><span class="lbl">${esc(cur.c)}${cur.b?` \u00b7 ${esc(cur.b)}`:''}</span>
+       <span class="cnt">${cur.k.cy==null?'':fmtK(cur.k,cur.k.cy)}</span><span class="arr">\u25be</span>`
+    : `<span class="lbl">Select a country\u2026</span><span class="cnt">${new Set(entries.map(e2=>e2.c)).size}</span><span class="arr">\u25be</span>`;
+  $('cpickPanel').hidden=!S.cpickOpen;
+  if(S.cpickOpen) cpickRenderList();
+  btn.onclick=()=>{ S.cpickOpen=!S.cpickOpen; $('cpickPanel').hidden=!S.cpickOpen;
+    if(S.cpickOpen){ cpickRenderList(); $('cpickSrch').focus(); } };
+  $('cpickSrch').oninput=e2=>{ S.cpickQ=e2.target.value; cpickRenderList(); };
+}
+function cpickRenderList(){
+  const list=$('cpickList'); if(!list) return;
+  const q=String(S.cpickQ||'').toLowerCase();
+  const es=CPICK.entries.filter(e2=>!q||e2.c.toLowerCase().includes(q)||String(e2.r).toLowerCase().includes(q));
+  let html='';
+  if(CPICK.curC) html+=`<button data-clear="1"><span class="dot n"></span><span class="nm">\u2715 Clear country \u2014 back to ${esc(CPICK.curB||'all')}</span></button>`;
+  let g='';
+  for(const e2 of es){
+    const gl=[e2.b, e2.r].filter(Boolean).join(' \u00b7 ');
+    if(gl!==g){ g=gl; if(gl) html+=`<div class="grp">${esc(gl)}</div>`; }
+    const cur=e2.c===CPICK.curC&&(!CPICK.curB||e2.b===CPICK.curB);
+    html+=`<button data-c="${esc(e2.c)}" data-b="${esc(e2.b)}" class="${cur?'cur':''}">
+      <span class="dot ${e2.rg.cls}"></span><span class="nm">${esc(e2.c)}</span>
+      <span class="v">${e2.k.cy==null?'\u2013':fmtK(e2.k,e2.k.cy)}</span></button>`;
+  }
+  if(!es.length) html+='<div class="none">No country matches the search.</div>';
+  list.innerHTML=html;
+  list.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    S.cpickOpen=false; S.cpickQ=''; const srch=$('cpickSrch'); if(srch) srch.value='';
+    if(b.dataset.clear){ scopeSet(CPICK.curB||'','',''); return; }
+    scopeSet(b.dataset.b||'','', b.dataset.c);
+  }));
 }
 /* scope through the filter checkbox groups so the strip, the top bar and the
    Filters pane can never disagree; missing groups fall back to plain state */
@@ -7499,7 +7574,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 12:37</td></tr>
+      <tr><td>Build</td><td>2026-08-11 12:42</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -7625,7 +7700,8 @@ function init(){
     apply();
   };
   mkCollapse('sectKpisRow','kpiCaret','iwpbsg_kpinav_collapsed',['#kpiNav','.hint[data-lbl="kpi_hint"]']);
-  mkCollapse('sectCountries','cnavCaret','iwpbsg_cnav_collapsed',['#countryNav']);
+  mkCollapse('sectCountries','cnavCaret','iwpbsg_cnav_collapsed',['#countryNav','#cpick']);
+  document.addEventListener('click',e=>{ if(S.cpickOpen&&!e.target.closest('#cpick')){ S.cpickOpen=false; const pp=$('cpickPanel'); if(pp) pp.hidden=true; } });
   mkCollapse('sectCfgRow','cfgCaret','iwpbsg_cfg_collapsed',['#cfgPanel']);
   mkCollapse('sectPeriodRow','periodCaret','iwpbsg_period_collapsed',['#sideFilters']);
   mkCollapse('sectFiltersRow','filtersCaret','iwpbsg_filters_collapsed',['#dimFilters']);
