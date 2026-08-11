@@ -137,6 +137,18 @@ left-pane strip and the Filters pane.
   the grand-total tile is left off because the lines were chosen by hand.
   The PowerPoint tile grid and the landing narrative follow the same list.
   Leave it blank for the default behaviour (`tile_level` + `tilePriority`).
+- **Hide a tile you don't want on the page** — every KPI tile carries a small
+  **✕** in its top-right corner. Hiding parks the tile rather than deleting
+  it: the grid ends with a dashed *"N hidden tiles — show"* card, one click
+  brings them back as dimmed tiles, and the **↺** on a dimmed tile restores
+  it to the grid. The choice is remembered in the browser (alongside the
+  drag-to-reorder order) and the PowerPoint tile grid follows the page, so a
+  parked line is off the one-pager too. Nothing is recalculated by hiding —
+  a parked tile is only out of view, and the reporting pack, the Financial
+  Summary and the KPI scorecard still carry the line in full. Set
+  `tile_hidden` (a `;`- or `,`-separated list of tile names) to have a build
+  open with those tiles parked out of the box; the reader's own first hide or
+  restore takes over from then on.
 - **Balance scopes read in billions everywhere** — any tile, chart or
   table whose scope is a balance line switches to the balance unit: Mix
   analysis and builder charts scoped to Deposits or Loans plot and label
