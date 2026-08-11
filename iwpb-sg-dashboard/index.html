@@ -547,6 +547,22 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
   border:1px solid transparent;background:var(--surface-1)}
 .card .thide:hover,.card .thide:focus{color:var(--hsbc-red);border-color:var(--border-strong);outline:none}
 .card.parked{border-style:dashed;opacity:.62}
+.scbox{position:relative}
+.scbox .schide,.scoretbl .schide{margin-left:6px;font-size:10.5px;color:var(--text-muted);
+  cursor:pointer;border:1px solid transparent;border-radius:4px;padding:0 3px}
+.scbox .schide{position:absolute;top:4px;right:5px;margin:0;background:var(--surface-1)}
+.scbox .schide:hover,.scoretbl .schide:hover,.schide:focus{color:var(--hsbc-red);border-color:var(--border-strong);outline:none}
+.scbox.parked{border-style:dashed;opacity:.6}
+.scoretbl tr.parked{opacity:.6}
+.scbox.parked:hover,.scoretbl tr.parked:hover{opacity:1}
+.scpark{margin-top:8px}
+.scpark .scparkbtn{font:inherit;font-size:11.5px;font-weight:700;color:var(--series-1);cursor:pointer;
+  background:none;border:1px dashed var(--border-strong);border-radius:6px;padding:4px 10px}
+.scpark .scparkbtn:hover{border-color:var(--hsbc-red);color:var(--hsbc-red)}
+@media (hover:hover){
+  .scbox .schide,.scoretbl .schide{opacity:0;transition:opacity .12s}
+  .scbox:hover .schide,.scoretbl tr:hover .schide,.scbox.parked .schide,.scoretbl tr.parked .schide{opacity:1}
+}
 .card.parked:hover{opacity:1}
 @media (hover:hover){
   .card .thide{opacity:0;transition:opacity .12s}
@@ -617,6 +633,9 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .krow .kv{font-weight:700;font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
 .krow .kv.fav{color:var(--status-good)}
 .krow .kv.unfav{color:var(--status-critical)}
+.mv{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mv.fav{color:var(--status-good)}
+.mv.unfav{color:var(--status-critical)}
 .krow.actonly .kl{color:var(--text-muted)}
 .delta{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
 .card .drill-hint{font-size:11.5px;color:var(--text-muted);margin-top:10px;border-top:1px solid var(--border);padding-top:7px}
@@ -867,7 +886,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 17:51</div>
+<div id="buildTag">build 2026-08-11 18:09</div>
 </aside>
 <main>
 
@@ -1248,6 +1267,7 @@ const CFG_DEFAULT={
     total_tile:'auto',
     tile_lines:'',
     tile_hidden:'',
+    scorecard_hidden:'',
     tile_metrics:'auto',
     tile_dims:'',
     tile_line_levels:'micaL1,micaL2',
@@ -2022,13 +2042,40 @@ function cmpHidden(name){
 const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
   return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
 function kpiRowHtml(k,r){
-  const fav=(k.dirFlip? -(r.p??0) : (r.p??0))>=0;
-  const raw=r.v??r.p??0;
-  const up=((k.costLike&&!k.dirFlip)? -raw : raw)>=0;
+  const fav=movFav(k,r.v,r.p), up=movUp(k,r.v,r.p);
   const c=fav?'fav':'unfav', tri=up?'\u25B2':'\u25BC';
   return `<div class="krow"><span class="kl">${esc(r.lbl)}</span>
     <span class="kv ${c}">${r.v==null?'\u2013':tri+fmtK(k,Math.abs(r.v))}</span>
     <span class="kv ${c}">${r.p==null?'':tri+pctAbs(r.p)}</span></div>`;
+}
+/* One way of writing a movement, everywhere. The triangle is the direction the
+   line actually moved; the colour is what that movement means — a cost going up
+   is red, revenue going up is green. Tiles, the scorecard, the commentary, the
+   executive decisions and the assistant all render through these, so the text
+   and the legend never disagree with each other. */
+function movFav(k, v, p){
+  const sig=(p!=null? p : v)||0;
+  return (k&&k.dirFlip)? -sig>=0 : sig>=0;
+}
+function movUp(k, v, p){
+  const raw=(v!=null? v : p)||0;
+  return ((k&&k.costLike&&!k.dirFlip)? -raw : raw)>=0;
+}
+function movPct(k, p){
+  if(p==null) return '<span class="mv">\u2013</span>';
+  return `<span class="mv ${movFav(k,null,p)?'fav':'unfav'}">${movUp(k,null,p)?'\u25B2':'\u25BC'}${pctAbs(p)}</span>`;
+}
+function movVal(k, v, p){
+  if(v==null) return '<span class="mv">\u2013</span>';
+  const val=(k&&k.isBS&&bsUnit())? fmtBS(Math.abs(v))+bsUnit() : fmtK(k,Math.abs(v));
+  return `<span class="mv ${movFav(k,v,p)?'fav':'unfav'}">${movUp(k,v,p)?'\u25B2':'\u25BC'}${val}</span>`;
+}
+/* the same movement as plain text, for chart annotations and slides */
+function movTxt(k, v, p){
+  const out=[];
+  if(v!=null) out.push((movUp(k,v,p)?'\u25B2':'\u25BC')+fmtK(k,Math.abs(v)));
+  if(p!=null) out.push((v!=null?'(':'')+(v!=null?'':(movUp(k,null,p)?'\u25B2':'\u25BC'))+pctAbs(p)+(v!=null?')':''));
+  return out.join(' ');
 }
 function tileRows(k,m){
   const rows=[];
@@ -2599,7 +2646,7 @@ function widgetCommentaryHtml(w){
   const nm=scopeName(w.l2)||'Total';
   const pts=k.cySeries.filter(p2=>p2.val!=null&&!p2.fc);
   let out=`<b>${esc(nm)}</b> YTD ${esc(m.yearCY)} actuals of <b>${fmt(k.cy)}</b>`;
-  if(k.cmpVarPct!=null) out+=` run <b>${fmtPct(k.cmpVarPct)}</b> ${esc(L.vs)} (${fmt(k.cmpVar)})`;
+  if(k.cmpVarPct!=null) out+=` run ${movPct(k,k.cmpVarPct)} ${esc(L.vs)} (${movVal(k,k.cmpVar,k.cmpVarPct)})`;
   out+='.';
   if(pts.length>1){
     const hi=pts.reduce((a,b)=>b.val>a.val?b:a), lo2=pts.reduce((a,b)=>b.val<a.val?b:a);
@@ -2675,7 +2722,7 @@ function chartCommentaryHtml(cfg){
       const worst=perf.reduce((a,b)=>(b.k.favVarPct??1e9)<(a.k.favVarPct??1e9)?b:a);
       const behind=perf.filter(x2=>(x2.k.favVarPct??0)<0);
       if(best!==worst)
-        out+=` ▲ <b>${esc(best.name)}</b> runs strongest ${esc(L2.vs)} at <b>${fmtPct(best.k.cmpVarPct)}</b>; ▼ <b>${esc(worst.name)}</b> lags at <b>${fmtPct(worst.k.cmpVarPct)}</b> (<b>${fmt(worst.k.cmpVar)}</b>).`;
+        out+=` <b>${esc(best.name)}</b> runs strongest ${esc(L2.vs)} at ${movPct(best.k,best.k.cmpVarPct)}; <b>${esc(worst.name)}</b> lags at ${movPct(worst.k,worst.k.cmpVarPct)} (${movVal(worst.k,worst.k.cmpVar,worst.k.cmpVarPct)}).`;
       out+=` ${behind.length} of ${perf.length} lines sit behind the ${esc(L2.base)}.`;
     }
   }
@@ -2837,13 +2884,13 @@ function renderSummary(){
   const worst=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct<=b.k.favVarPct?a:b):null;
   let cm=`${esc(hName)} of <b>${fmtK(kH)}</b> for ${esc(kH.isBS? MON_LBL[S.ytdM]+' closing' : L.main)}`;
   if(kH.cmpVarPct!=null){
-    cm+=` runs <b>${fmtPct(kH.cmpVarPct)}</b> ${kH.cmpVarPct>=0?'ahead of':'behind'} ${esc(kH.isBS? bsBaseLbl(L.mode).toLowerCase() : L.base)}`;
+    cm+=` runs ${movPct(kH,kH.cmpVarPct)} ${(kH.favVarPct??kH.cmpVarPct)>=0?'ahead of':'behind'} ${esc(kH.isBS? bsBaseLbl(L.mode).toLowerCase() : L.base)}`;
     if(kH.cmpBase!=null) cm+=` of <b>${fmtK(kH,kH.cmpBase)}</b>`;
     if(kH.outlook!=null&&kH.target!=null&&L.mode!=='tgt')
       cm+=`, with ${kH.isBS?'a December closing':'a full-year outlook'} of <b>${fmtK(kH,kH.outlook)}</b> against a target of <b>${fmtK(kH,kH.target)}</b>`;
     cm+='.';
     if(best&&worst&&best!==worst)
-      cm+=` <b>${esc(best.l2)}</b> leads at <b>${fmtPct(best.k.cmpVarPct)}</b>; <b>${esc(worst.l2)}</b> is the weakest line at <b>${fmtPct(worst.k.cmpVarPct)}</b>.`;
+      cm+=` <b>${esc(best.l2)}</b> leads at ${movPct(best.k,best.k.cmpVarPct)}; <b>${esc(worst.l2)}</b> is the weakest line at ${movPct(worst.k,worst.k.cmpVarPct)}.`;
   } else cm+='; this file carries no comparison baseline.';
   $('commentary').innerHTML=cm;
 
@@ -3029,13 +3076,13 @@ function renderSummary(){
   if(lastAct&&kJ.cmpVar!=null){
     const favA=(kJ.favVarPct==null?0:kJ.favVarPct)>=0;
     annots.push({m:lastAct.m, val:lastAct.val, color:favA?'#0b7a0b':'#c21a1a',
-      text:`${kJ.cmpVar>=0?'+':''}${fmtK(kJ,kJ.cmpVar)} (${fmtPct(kJ.cmpVarPct)})\n${L.vs}`});
+      text:`${movTxt(kJ,kJ.cmpVar,kJ.cmpVarPct)}\n${L.vs}`});
   }
   const endPt=(!TJ.mth&&cumAct.length)? cumAct[cumAct.length-1] : null;
   if(endPt&&endPt.val!=null&&kJ.varTgt!=null&&(!lastAct||endPt.m!==lastAct.m)){
     const favT=kJ.varTgt>=0;
     annots.push({m:endPt.m, val:endPt.val, color:favT?'#0b7a0b':'#c21a1a',
-      text:`${kJ.varTgt>=0?'+':''}${fmt(kJ.varTgt)} (${fmtPct(kJ.varTgtPct)})\nvs Target`});
+      text:`${movTxt(kJ,kJ.varTgt,kJ.varTgtPct)}\nvs Target`});
   }
   $('trajChart').dataset.h='205';
   trendChart($('trajChart'), cumAct, cmpCum, m.yearCY, cmpName, 'line', annots);
@@ -3044,24 +3091,24 @@ function renderSummary(){
     const best=act.length? act.reduce((a,b)=>b.val>a.val?b:a) : null;
     const avg=arr=>arr.reduce((s2,p2)=>s2+p2.val,0)/arr.length;
     const items=[];
-    let pos=`<b>${esc(jName)}</b> — ${esc(L.main)} of <b>${fmt(kJ.cmpMain)}</b> runs <b>${fmtPct(kJ.cmpVarPct)}</b> ${esc(L.vs)}`;
+    let pos=`<b>${esc(jName)}</b> — ${esc(L.main)} of <b>${fmt(kJ.cmpMain)}</b> runs ${movPct(kJ,kJ.cmpVarPct)} ${esc(L.vs)}`;
     if(kJ.cmpBase!=null) pos+=` (baseline <b>${fmt(kJ.cmpBase)}</b>)`;
     items.push(pos+'.');
     if(act.length>=4){
       const l3=avg(act.slice(-3)), e3=avg(act.slice(0,act.length-3));
       if(e3!==0){
         const mom=(l3-e3)/Math.abs(e3);
-        items.push(`Momentum is ${mom>=0.02?'building':mom<=-0.02?'fading':'flat'}: the last three actual months average <b>${fmt(l3)}</b> against <b>${fmt(e3)}</b> before (<b>${fmtPct(mom)}</b>).`);
+        items.push(`Momentum is ${mom>=0.02?'building':mom<=-0.02?'fading':'flat'}: the last three actual months average <b>${fmt(l3)}</b> against <b>${fmt(e3)}</b> before (<b>${pctAbs(mom)} ${mom>=0?'higher':'lower'}</b>).`);
       }
     } else if(best) items.push(`The strongest actual month is <b>${MON_LBL[best.m]}</b> at <b>${fmt(best.val)}</b>.`);
     if(kJ.outlook!=null&&kJ.target!=null)
-      items.push(`The full-year outlook of <b>${fmt(kJ.outlook)}</b> lands <b>${fmtPct(kJ.varTgtPct)}</b> vs the FY target of <b>${fmt(kJ.target)}</b>.`);
+      items.push(`The full-year outlook of <b>${fmt(kJ.outlook)}</b> lands ${movPct(kJ,kJ.varTgtPct)} vs the FY target of <b>${fmt(kJ.target)}</b>.`);
     const rem=12-(S.ytdM+1);
     if(kJ.target!=null&&rem>0&&act.length){
       const req=(kJ.target-kJ.cy)/rem, cur=kJ.cy/act.length;
       if(cur!==0){
         const gap=(req-cur)/Math.abs(cur);
-        items.push(`Hitting target needs the remaining <b>${rem}</b> months to average <b>${fmt(req)}</b> — <b>${fmtPct(gap)}</b> vs the current run-rate of <b>${fmt(cur)}</b>/month.`);
+        items.push(`Hitting target needs the remaining <b>${rem}</b> months to average <b>${fmt(req)}</b> — <b>${pctAbs(gap)} ${movUp(kJ,req-cur)?'above':'below'}</b> the current run-rate of <b>${fmt(cur)}</b>/month.`);
       }
     }
     return `<ul class="actlist">${items.map(t2=>`<li>${t2}</li>`).join('')}</ul>`;
@@ -3078,7 +3125,7 @@ function renderSummary(){
     const rg=rag(c.k.favVarPct,S.thresh);
     const cls=rg.cls==='r'?'attn-r':'attn-a';
     return `<button class="chip attnchip ${cls}" data-l2="${scPfx}${esc(c.l2)}" title="Review this line below">
-      ${rg.cls==='r'?'▼':'●'} <b>${esc(c.l2)}</b> ${fmtPct(c.k.cmpVarPct)} ${esc(L.vs)} →</button>`;
+      ${rg.cls==='r'?'⚠':'●'} <b>${esc(c.l2)}</b> ${movTxt(c.k,null,c.k.cmpVarPct)} ${esc(L.vs)} →</button>`;
   };
   $('chipRow').insertAdjacentHTML('beforeend', attn.map(aChip).join(''));
   $('chipRow').querySelectorAll('.attnchip').forEach(b=>
@@ -3737,9 +3784,7 @@ async function exportSummaryPPT(){
       slide.addText(`${cmpLabels(m).main} actuals`,{x:tx+0.1,y:ty+0.56,w:TW-0.2,h:0.24,
         fontSize:9.5,color:'8A8880',fontFace:'Segoe UI'});
     trs.forEach((r,ri)=>{
-      const fav=(t.k.dirFlip? -(r.p??0):(r.p??0))>=0;
-      const raw=r.v??r.p??0;
-      const up=((t.k.costLike&&!t.k.dirFlip)? -raw : raw)>=0;
+      const fav=movFav(t.k,r.v,r.p), up=movUp(t.k,r.v,r.p);
       const col=fav?'0B7A0B':'C21A1A', tri=up?'\u25B2':'\u25BC';
       const ry=ty+0.55+ri*0.27;
       const aTxt=r.v==null?'\u2013':tri+((t.k.isBS&&bsUnit())? fmtBS(Math.abs(r.v)) : fmt(Math.abs(r.v)));
@@ -3952,50 +3997,80 @@ function scorecardData(m){
     items.push({name:f.name, k, map, scope:f.scope||f.name,
       unit:(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit()});
   }
-  return {items, cols};
+  const parked=items.filter(it=>scHidden(it.name));
+  return {items:items.filter(it=>!scHidden(it.name)), parked, cols};
+}
+/* metrics the reader has parked on the scorecard — the same idea as a parked
+   KPI tile, kept in its own list so the two surfaces stay independent */
+function scHideGet(){
+  try{ const v=localStorage.getItem('iwpbsg_schide'); if(v!=null) return JSON.parse(v)||[]; }catch(e){}
+  return cfgNameList('scorecard_hidden');
+}
+function scHideSet(a){ try{ localStorage.setItem('iwpbsg_schide',JSON.stringify(a)); }catch(e){} }
+function scHidden(name){
+  const n=String(name).trim().toLowerCase();
+  return scHideGet().some(x=>String(x).trim().toLowerCase()===n);
+}
+function scHideToggle(name){
+  const n=String(name).trim().toLowerCase();
+  const cur=scHideGet().filter(x=>String(x).trim().toLowerCase()!==n);
+  if(!scHidden(name)) cur.push(String(name));
+  scHideSet(cur);
+  if(!scHideGet().length) S.showParkedSc=false;
+}
+function scHideCtl(name, parked){
+  return `<span class="schide" role="button" tabindex="0" data-schide="${esc(name)}"
+    title="${parked?'Bring this metric back':'Hide this metric \u2014 it stays one click away'}"
+    aria-label="${parked?'Show':'Hide'} ${esc(name)}">${parked?'\u21ba':'\u2715'}</span>`;
+}
+function scParkBtn(n){
+  return `<button class="scparkbtn" type="button">${S.showParkedSc
+    ? `Hide ${n} metric${n>1?'s':''} again` : `${n} hidden metric${n>1?'s':''} \u2014 show`}</button>`;
 }
 function scorecardPack(m){
   const sc=scorecardData(m);
   if(!sc.items.length) return '<p class="note">No KPIs resolve against this file.</p>';
   const rowH=(k,r)=>{
-    const fav=(k.dirFlip? -(r.p??0) : (r.p??0))>=0;
-    const raw=r.v??r.p??0;
-    const up=((k.costLike&&!k.dirFlip)? -raw : raw)>=0;
+    const fav=movFav(k,r.v,r.p), up=movUp(k,r.v,r.p);
     const c=fav?'fav':'unfav', tri=up?'\u25B2':'\u25BC';
     return `<div class="scrow"><span class="scl">${esc(r.lbl)}</span>`+
       `<span class="kv ${c}">${r.v==null?'\u2013':tri+fmtK(k,Math.abs(r.v))}</span>`+
       `<span class="kv ${c} pc">${r.p==null?'':tri+pctAbs(r.p)}</span></div>`;
   };
-  return `<div class="scgrid">${sc.items.map(it=>{
+  const box=(it,parked)=>{
     const trs=Object.values(it.map);
-    return `<div class="scbox" draggable="true" data-sc="${esc(it.scope)}" data-nm="${esc(it.name)}" title="Open ${esc(it.name)} on the KPI summary · drag onto the grid to add as a card">`+
+    return `<div class="scbox${parked?' parked':''}" draggable="true" data-sc="${esc(it.scope)}" data-nm="${esc(it.name)}" title="Open ${esc(it.name)} on the KPI summary · drag onto the grid to add as a card">`+
+      scHideCtl(it.name, parked)+
       `<div class="schead"><span class="scname">${esc(it.name)} <span class="scu">(${esc(it.unit)})</span></span>`+
       `<span class="scval${(it.k.cmpMain||0)<0?' negnum':''}">${(it.k.isBS&&bsUnit())? fmtBS(it.k.cmpMain) : fmt(it.k.cmpMain)}</span></div>`+
       (trs.length? trs.map(r=>rowH(it.k,r)).join('') : '<div class="scrow"><span class="scl">actuals only</span></div>')+
       `</div>`;
-  }).join('')}</div>`;
+  };
+  return `<div class="scgrid">${sc.items.map(it=>box(it,false)).join('')}${
+    (S.showParkedSc? sc.parked.map(it=>box(it,true)).join('') : '')}</div>`+
+    (sc.parked.length? `<div class="scpark">${scParkBtn(sc.parked.length)}</div>` : '');
 }
 function scorecardTable(m){
   const sc=scorecardData(m);
   if(!sc.items.length) return '<p class="note">No KPIs resolve against this file.</p>';
   const cell=(k,r)=>{
     if(!r) return '<td></td><td></td>';
-    const fav=(k.dirFlip? -(r.p??0) : (r.p??0))>=0;
-    const raw=r.v??r.p??0;
-    const up=((k.costLike&&!k.dirFlip)? -raw : raw)>=0;
+    const fav=movFav(k,r.v,r.p), up=movUp(k,r.v,r.p);
     const c=fav?'fav':'unfav', tri=up?'\u25B2':'\u25BC';
     return `<td class="kv ${c}">${r.v==null?'\u2013':tri+fmtK(k,Math.abs(r.v))}</td>`+
       `<td class="kv ${c} pc">${r.p==null?'':tri+pctAbs(r.p)}</td>`;
   };
   return `<table class="scoretbl"><thead><tr><th></th><th>Value</th><th class="un">Unit</th>${
       sc.cols.map(c=>`<th colspan="2">${esc(c)}</th>`).join('')}</tr></thead><tbody>${
-    sc.items.map(it=>{
+    [...sc.items.map(it=>[it,false]), ...(S.showParkedSc? sc.parked.map(it=>[it,true]) : [])]
+      .map(([it,parked])=>{
       const rg=cmpHidden(it.name)? {cls:'n'} : rag(it.k.favVarPct,S.thresh);
-      return `<tr data-sc="${esc(it.scope)}" title="Open ${esc(it.name)} on the KPI summary">`+
-        `<td class="nm"><span class="dot ${rg.cls}"></span>${esc(it.name)}</td>`+
+      return `<tr class="${parked?'parked':''}" data-sc="${esc(it.scope)}" title="Open ${esc(it.name)} on the KPI summary">`+
+        `<td class="nm"><span class="dot ${rg.cls}"></span>${esc(it.name)}${scHideCtl(it.name, parked)}</td>`+
         `<td class="val${(it.k.cmpMain||0)<0?' negnum':''}">${(it.k.isBS&&bsUnit())? fmtBS(it.k.cmpMain) : fmt(it.k.cmpMain)}</td>`+
         `<td class="un">${esc(it.unit)}</td>${sc.cols.map(c=>cell(it.k,it.map[c])).join('')}</tr>`;
-    }).join('')}</tbody></table>`;
+    }).join('')}</tbody></table>`+
+    (sc.parked.length? `<div class="scpark">${scParkBtn(sc.parked.length)}</div>` : '');
 }
 function widgetAOA(w){
   if(w.type==='chart'){
@@ -4058,7 +4133,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
       <td>${bar}</td>
       <td>${cellB(mainOf(g.k))}</td><td>${cellB(g.k.cmpBase)}</td>
       <td>${cellB(g.k.cmpVar)}</td>
-      <td><span${(g.k.cmpVarPct||0)<0?' class="negnum"':''}>${fmtPct(g.k.cmpVarPct)}</span></td>
+      <td>${movPct(g.k,g.k.cmpVarPct)}</td>
       <td style="text-align:left">${ragPill(rg)}</td></tr>`;
   };
   let body='';
@@ -4251,20 +4326,20 @@ function renderDecisions(cards, L){
     const k=c.k, fav=(k.favVarPct??0)>=0, sfx=fav?'F':'A';
     const inf=[];
     if(k.cmpMain!=null&&k.cmpBase!=null)
-      inf.push(`${esc(L.main)} <b>${fmtK(k,k.cmpMain)}</b> vs ${esc(k.isBS? bsBaseLbl(L.mode) : L.base)} <b>${fmtK(k,k.cmpBase)}</b> — <b>${fmtPct(k.cmpVarPct)}</b>.`);
+      inf.push(`${esc(L.main)} <b>${fmtK(k,k.cmpMain)}</b> vs ${esc(k.isBS? bsBaseLbl(L.mode) : L.base)} <b>${fmtK(k,k.cmpBase)}</b> — ${movVal(k,k.cmpVar,k.cmpVarPct)} / ${movPct(k,k.cmpVarPct)}.`);
     if(k.outlook!=null&&k.target!=null)
-      inf.push(`${k.isBS?'Dec closing (fcst)':'FY outlook'} <b>${fmtK(k,k.outlook)}</b> vs target <b>${fmtK(k,k.target)}</b> — <b>${fmtPct(k.varTgtPct)}</b>.`);
+      inf.push(`${k.isBS?'Dec closing (fcst)':'FY outlook'} <b>${fmtK(k,k.outlook)}</b> vs target <b>${fmtK(k,k.target)}</b> — ${movPct(k,k.varTgtPct)}.`);
     if(!k.isBS&&k.target!=null&&rem>0&&k.cy!=null){
       const act3=(k.cySeries||[]).filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
       if(act3.length){
         const req=(k.target-k.cy)/rem, cur=k.cy/act3.length;
-        if(cur!==0) inf.push(`Needs <b>${fmt(req)}</b>/month over the remaining <b>${rem}</b> months vs run-rate <b>${fmt(cur)}</b> — <b>${fmtPct((req-cur)/Math.abs(cur))}</b>.`);
+        if(cur!==0) inf.push(`Needs <b>${fmt(req)}</b>/month over the remaining <b>${rem}</b> months — <b>${pctAbs((req-cur)/Math.abs(cur))} ${movUp(k,req-cur)?'above':'below'}</b> the current run-rate of <b>${fmt(cur)}</b>.`);
       }
     }
     return `<div class="deccard sev-${c.rg.cls}">
       <div class="dechead"><span class="decicon" aria-hidden="true">${c.rg.cls==='r'?'\u26a0':'\u25cf'}</span>
         <b>${esc(c.l2)}</b>
-        <span class="decimp ${fav?'pos':'neg'}">${k.cmpVar!=null? fmtK(k,Math.abs(k.cmpVar))+sfx : ''}${k.cmpVarPct!=null? ' / '+fmtPct(Math.abs(k.cmpVarPct)):''}</span></div>
+        <span class="decimp ${fav?'pos':'neg'}">${k.cmpVar!=null? (movUp(k,k.cmpVar,k.cmpVarPct)?'\u25B2':'\u25BC')+fmtK(k,Math.abs(k.cmpVar))+sfx : ''}${k.cmpVarPct!=null? ' / '+pctAbs(k.cmpVarPct):''}</span></div>
       <div class="decbody">${inf.join('<br>')}</div>
       <div class="decfoot"><span>${esc(c.rg.label)} \u00b7 ${esc(L.vs)}</span>
         <button class="btn-quiet decgo" data-name="${esc(c.l2)}">Review trajectory \u2192</button></div>
@@ -6777,9 +6852,9 @@ function aPerf(){
     .sort((a,b)=>(a.k.isBS?1:0)-(b.k.isBS?1:0)||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const rg=rag(kT.favVarPct,S.thresh);
   let h=`${esc(hdName)}${esc(L.main)} stands at <b>${fmt(kT.cmpMain)}</b>`;
-  h+= kT.cmpVarPct!=null? `, <b>${fmtPct(kT.cmpVarPct)}</b> ${esc(L.vs)} — rated <b>${rg.label}</b>.` : ' with no comparison baseline in this file.';
+  h+= kT.cmpVarPct!=null? `, ${movPct(kT,kT.cmpVarPct)} ${esc(L.vs)} — rated <b>${rg.label}</b>.` : ' with no comparison baseline in this file.';
   if(g.length>1) h+=aTable(['Line',L.main,L.base,'Var %','Rating'],
-    g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
+    g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),movPct(x.k,x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
   return h+gnote();
 }
 function aBehind(){
@@ -6790,16 +6865,16 @@ function aBehind(){
   if(!g.length) return `Nothing is behind — every line is at or ahead of the ${esc(L.base)} under the current filters.`+gnote();
   return `<b>${g.length}</b> line${g.length>1?'s run':' runs'} behind the ${esc(L.base)}, worst first:`+
     aTable(['Line',L.main,L.base,'Var','Var %'],
-      g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),aCell(x.k,x.k.cmpVar),fmtPct(x.k.cmpVarPct)]))+gnote();
+      g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),movVal(x.k,x.k.cmpVar,x.k.cmpVarPct),movPct(x.k,x.k.cmpVarPct)]))+gnote();
 }
 function aFyTgt(){
   const m=S.model, rows=filteredRows(), kT=aKpi(rows);
   if(kT.target==null) return 'This file carries no FY target column, so I cannot compare against target.'+gnote();
   const g=[...groupBy(rows,'micaL1').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
     .sort((a,b)=>Math.abs(b.k.outlook||0)-Math.abs(a.k.outlook||0));
-  let h=`The full-year outlook (actual + forecast months, Jan–Dec) is <b>${fmt(kT.outlook)}</b> against an FY target of <b>${fmt(kT.target)}</b> — <b>${fmt(kT.varTgt)}</b> (<b>${fmtPct(kT.varTgtPct)}</b>) ${kT.varTgt>=0?'ahead of':'short of'} target.`;
+  let h=`The full-year outlook (actual + forecast months, Jan–Dec) is <b>${fmt(kT.outlook)}</b> against an FY target of <b>${fmt(kT.target)}</b> — ${movVal(kT,kT.varTgt,kT.varTgtPct)} / ${movPct(kT,kT.varTgtPct)} ${movFav(kT,kT.varTgt,kT.varTgtPct)?'ahead of':'short of'} target.`;
   if(g.length>1) h+=aTable(['Line','FY outlook','FY target','Var','Var %'],
-    g.map(x=>[esc(x.n),fmtCell(x.k.outlook),fmtCell(x.k.target),fmtCell(x.k.varTgt),fmtPct(x.k.varTgtPct)]));
+    g.map(x=>[esc(x.n),fmtCell(x.k.outlook),fmtCell(x.k.target),movVal(x.k,x.k.varTgt,x.k.varTgtPct),movPct(x.k,x.k.varTgtPct)]));
   return h+gnote();
 }
 function aTopProducts(){
@@ -6821,7 +6896,7 @@ function aDragProducts(){
   if(!g.length) return 'No comparison baseline available for products in this file.'+gnote();
   return `Products dragging performance the most ${esc(L.vs)}:`+
     aTable(['Product',L.main,L.base,'Var %'],
-      g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct)]))+gnote();
+      g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),movPct(x.k,x.k.cmpVarPct)]))+gnote();
 }
 function aCosts(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
@@ -6831,7 +6906,7 @@ function aCosts(){
   const g=[...groupBy(cr,'micaL2').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   let h=`Total costs run at <b>${fmt(kC.cy)}</b> YTD`;
-  h+= kC.cmpVarPct!=null? `, <b>${fmtPct(kC.cmpVarPct)}</b> ${esc(L.vs)} — rated <b>${rg.label}</b> (cost increases rate unfavourable).`:'.';
+  h+= kC.cmpVarPct!=null? `, ${movPct(kC,kC.cmpVarPct)} ${esc(L.vs)} — rated <b>${rg.label}</b> (cost increases rate unfavourable).`:'.';
   if(g.length>1) h+=aTable(['Cost line',L.main,L.base,'Var %','Rating'],
     g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
   return h+gnote();
@@ -6844,7 +6919,7 @@ function aEcl(){
   const act=k.cySeries.filter(p=>!p.fc&&p.m<=S.ytdM&&p.val!=null);
   const last=act[act.length-1], avg=act.length?act.reduce((s,p)=>s+p.val,0)/act.length:null;
   let h=`ECL stands at <b>${fmt(k.cy)}</b> YTD`;
-  h+= k.cmpVarPct!=null? `, <b>${fmtPct(k.cmpVarPct)}</b> ${esc(L.vs)} — rated <b>${rg.label}</b> (a rising charge rates unfavourable).`:'.';
+  h+= k.cmpVarPct!=null? `, ${movPct(k,k.cmpVarPct)} ${esc(L.vs)} — rated <b>${rg.label}</b> (a rising charge rates unfavourable).`:'.';
   if(last&&avg!=null) h+=` The latest actual month (${MON_LBL[last.m]}) came in at <b>${fmt(last.val)}</b> against a monthly average of <b>${fmt(avg)}</b>.`;
   return h+gnote();
 }
@@ -6896,12 +6971,12 @@ function aGeo(dim,label){
   const byVar=[...g].sort((a,b)=>((b.k.favVarPct==null?-9e9:b.k.favVarPct))-((a.k.favVarPct==null?-9e9:a.k.favVarPct)));
   const best=byVar[0], worst=byVar[byVar.length-1];
   let h=`Across <b>${g.length}</b> ${esc(plural)} (P&L only), <b>${esc(best.n)}</b> runs strongest`;
-  if(best.k.cmpVarPct!=null) h+=` at <b>${fmtPct(best.k.cmpVarPct)}</b> ${esc(L.vs)}`;
+  if(best.k.cmpVarPct!=null) h+=` at ${movPct(best.k,best.k.cmpVarPct)} ${esc(L.vs)}`;
   h+=`; <b>${esc(worst.n)}</b> sits weakest`;
-  if(worst.k.cmpVarPct!=null) h+=` at <b>${fmtPct(worst.k.cmpVarPct)}</b>`;
+  if(worst.k.cmpVarPct!=null) h+=` at ${movPct(worst.k,worst.k.cmpVarPct)}`;
   h+='.';
   return h+aTable([label,L.main,L.base,'Var %','Share','Rating'],
-    byVar.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct),
+    byVar.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),movPct(x.k,x.k.cmpVarPct),
       (100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct,S.thresh).label]))+gnote();
 };}
 /* ================= comprehension =================
@@ -7030,7 +7105,7 @@ function aBreak(byKey, mode){
   return `By <b>${esc(label)}</b>${plRows.length&&plRows.length!==rows.length?' (P&L lines)':''}, ${order}:`+
     aTable([label,L.main,L.base,'Var %','Share','Rating'],
       g.slice(0,12).map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),
-        fmtPct(x.k.cmpVarPct),(100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct,S.thresh).label]))+gnote();
+        movPct(x.k,x.k.cmpVarPct),(100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct,S.thresh).label]))+gnote();
 }
 function aWhy(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
@@ -7044,9 +7119,9 @@ function aWhy(){
   const kT=aKpi(rows.filter(r=>!isBSLine(String(r.d.micaL1||''))));
   const drv=definedDrivers();
   const note=n=>{ const d=drv.find(x=>String(n).toLowerCase().includes(String(x.name).toLowerCase())); return d? ` — ${esc(d.text)}`:''; };
-  let h=`The <b>${fmt(kT.cmpVar)}</b> movement ${esc(L.vs)} comes mostly from:`;
+  let h=`The ${movVal(kT,kT.cmpVar,kT.cmpVarPct)} movement ${esc(L.vs)} comes mostly from:`;
   h+=aTable(['Line','Movement',L.main,L.base],
-    [...up,...dn].map(x=>[esc(x.n)+note(x.n),aCell(x.k,x.k.cmpVar),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase)]));
+    [...up,...dn].map(x=>[esc(x.n)+note(x.n),movVal(x.k,x.k.cmpVar,x.k.cmpVarPct),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase)]));
   if(up.length) h+=`<div class="anote">Helping: ${up.map(x=>esc(x.n)).join(', ')}. Hurting: ${dn.length?dn.map(x=>esc(x.n)).join(', '):'nothing material'}.</div>`;
   return h+gnote();
 }
@@ -7534,6 +7609,14 @@ function renderCustom(){
     }
     div.innerHTML=head+`<div class="wbody">${body}</div>`;
     if(w.type==='scorecard'){
+      div.querySelectorAll('.schide').forEach(el=>{
+        const go=e=>{ e.stopPropagation(); e.preventDefault();
+          scHideToggle(el.dataset.schide); renderCustom(); };
+        el.addEventListener('click',go);
+        el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') go(e); });
+      });
+      const spb=div.querySelector('.scparkbtn');
+      if(spb) spb.addEventListener('click',e=>{ e.stopPropagation(); S.showParkedSc=!S.showParkedSc; renderCustom(); });
       div.querySelectorAll('tr[data-sc], .scbox[data-sc]').forEach(el=>el.addEventListener('click',()=>{
         MX.l2=el.dataset.sc; saveMix(); setView('summary');
       }));
@@ -7574,7 +7657,7 @@ function renderCustom(){
       const lastA=tj.act.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM).pop();
       if(lastA&&k.cmpVar!=null)
         annW.push({m:lastA.m, val:lastA.val, color:(k.favVarPct==null?0:k.favVarPct)>=0?'#0b7a0b':'#c21a1a',
-          text:`${k.cmpVar>=0?'+':''}${fmt(k.cmpVar)} (${fmtPct(k.cmpVarPct)})\n${Lw.vs}`});
+          text:`${movTxt(k,k.cmpVar,k.cmpVarPct)}\n${Lw.vs}`});
       trendChart(div.querySelector('.wchart'), tj.act, tj.cmp, m.yearCY, tj.name, wGraphOf(w), annW);
       const tsel=div.querySelector('.wttype'), headT=div.querySelector('.whead');
       if(tsel){
@@ -8078,7 +8161,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     applyCountryRegions(model);
     S.model=model; S.fileName=name;
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
-    S.showAllKpis=false; S.showParkedTiles=false;
+    S.showAllKpis=false; S.showParkedTiles=false; S.showParkedSc=false;
     Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
     const dlh=document.getElementById('qDlHost'); if(dlh) dlh.dataset.done='';
     const l2s=new Set(model.rows.map(r=>r.d.micaL2).filter(Boolean));
@@ -8113,7 +8196,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 17:51</td></tr>
+      <tr><td>Build</td><td>2026-08-11 18:09</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -8464,9 +8547,7 @@ function init(){
           ts.addShape('line',{x:bx+pad,y:by+headH,w:bw-pad*2,h:0,line:{color:'E2E1DD',pt:0.75}});
           const trs=Object.values(x.map);
           trs.forEach((r,ri)=>{
-            const fav=(x.k.dirFlip? -(r.p??0):(r.p??0))>=0;
-            const raw=r.v??r.p??0;
-            const up=((x.k.costLike&&!x.k.dirFlip)? -raw : raw)>=0;
+            const fav=movFav(x.k,r.v,r.p), up=movUp(x.k,r.v,r.p);
             const cc=fav?'0CA30C':'D03B3B', tri=up?'\u25B2':'\u25BC';
             const ry=by+headH+0.05+ri*rowH;
             ts.addText(r.lbl,{x:bx+pad,y:ry,w:lblW,h:rowH,fontSize:9.5,color:'52514E',

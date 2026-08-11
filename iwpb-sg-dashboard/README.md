@@ -118,6 +118,21 @@ left-pane strip and the Filters pane.
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
   widescreen slide, built natively in PowerPoint.
+- **One way of writing a movement, everywhere.** The tiles, the KPI
+  scorecard, the auto-written commentary, the executive decisions, the
+  attention chips, the breakdown tables, the chart annotations and the MI
+  Assistant all render variances through the same pair of rules: the
+  **triangle is the direction the line actually moved**, and the **colour is
+  what that movement means** — a cost or ECL going up is ▲ red, revenue or a
+  balance going up is ▲ green, a cost coming down is ▼ green. Percentages
+  are written as magnitudes (`▲15.6%`), never as a signed number that flips
+  meaning between a file storing costs as negatives and one storing them as
+  positives, so the text and the legend can never disagree with each other or
+  with the tile they sit beside. Two figures that are demands rather than
+  movements — the monthly run-rate a target needs, and the momentum of the
+  last three months — say **above** or **below** the current pace in words
+  and carry no favourability colour, because a bigger requirement is not a
+  better or a worse result.
 - **The result line is opened up** — on a driller whose only P&L rollup is a
   single Level 1 line (a PBT beside Deposits and Loans), the tile grid would
   otherwise show that one result and the balance sheet, and nothing of what
@@ -673,6 +688,15 @@ What each section governs:
   column pairs) instead. Boxes and rows click through to the KPI
   summary, the widget exports to Excel, and it never totals across
   statements (each metric keeps its own unit and no narrative is drawn).
+  **Any metric can be hidden**, exactly as a KPI tile can: the **✕** on a
+  box (or beside a row name in the flat table) parks it, the widget ends
+  with a *"N hidden metrics — show"* button that brings them back dimmed,
+  and the **↺** on a parked metric restores it. The choice is remembered in
+  the browser, kept separate from the parked KPI tiles so the two surfaces
+  stay independent, and carried into the widget's Excel export and its
+  PowerPoint slide so the pack matches the page. Set `scorecard_hidden` (a
+  `;`- or `,`-separated list of metric names) to open with metrics already
+  parked; the reader's first hide or restore takes over from then on.
   The dashboard's PPT export renders the scorecard in the same pack-box
   format — native PowerPoint shapes (bordered box per KPI, name + headline
   value, coloured triangle variance rows, three boxes per row, paginating
