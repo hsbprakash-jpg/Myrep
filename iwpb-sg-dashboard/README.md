@@ -141,7 +141,9 @@ left-pane strip and the Filters pane.
   table whose scope is a balance line switches to the balance unit: Mix
   analysis and builder charts scoped to Deposits or Loans plot and label
   in `US$bn`, dashboard cards and breakdown tables restate to closings in
-  bn, and the MI Assistant's tables show each line in its own unit. A
+  bn (a balance's YTD figure is the file's own YTD column when it carries
+  one at the selected month — the same figure the Financial Summary shows —
+  and the month's closing balance otherwise), and the MI Assistant's tables show each line in its own unit. A
   chart over a mixed scope (the whole file) stays in the file's unit.
 - **Collapsible commentary** — the Management commentary folds behind its
   header: click the caret (or the title) to collapse it to a single line
