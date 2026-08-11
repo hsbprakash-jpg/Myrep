@@ -886,7 +886,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 18:40</div>
+<div id="buildTag">build 2026-08-11 18:47</div>
 </aside>
 <main>
 
@@ -2771,9 +2771,12 @@ function tileHideToggle(name){
 }
 function applyTileOrder(list){
   const ord=tileOrderGet(); if(!ord.length) return list;
+  // a name the stored order never saw keeps its place behind the ones it did
+  // (Array.prototype.sort is stable), so a new line never jumps the queue
   const idx=n=>{ const i=ord.indexOf(n); return i<0? 1e9 : i; };
   return [...list].sort((a,b)=>idx(a.l2)-idx(b.l2));
 }
+function tileOrderClear(){ try{ localStorage.removeItem('iwpbsg_tileorder'); }catch(e){} }
 /* the active Global Business scope, shown as removable chips on the summary */
 function renderScopeChips(){
   const host=$('scopeChips'); if(!host) return;
@@ -2955,7 +2958,7 @@ function renderSummary(){
     const i=rest.findIndex(c=>rx.test(c.l2)&&!isBSLine(c.l2));   // never hoist a balance
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  const orderedAll=(named.length||fixedOrder)? cards
+  const orderedAll=(named.length||fixedOrder)? applyTileOrder(cards)
     : applyTileOrder([...prio,...rest]).sort((a,b)=>(isBSLine(a.l2)?1:0)-(isBSLine(b.l2)?1:0));
   TILE_ALL=orderedAll.map(c=>c.l2);
   // a file carrying a balance sheet shows every top line — collapsing would
@@ -2974,12 +2977,15 @@ function renderSummary(){
     (parked.length?`<button class="card morecard" id="btnParkedKpis">${
       S.showParkedTiles? `Hide ${parked.length} tile${parked.length>1?'s':''} again`
         : `${parked.length} hidden tile${parked.length>1?'s':''} \u2014 show`}</button>`:'')+
+    (tileOrderGet().length?`<button class="card morecard" id="btnTileOrder" title="Put the tiles back in the order this file and its configuration declare">\u21ba Reset tile order</button>`:'')+
     (!named.length&&!mixedFile&&prio.length&&rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'')+
     (missingLines.length?`<div class="card morecard" style="cursor:default">Not found in ${
       esc(tileLevelNames())}: ${esc(missingLines.join(', '))}</div>`:'');
   const moreBtn=$('btnMoreKpis');
   if(moreBtn) moreBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showAllKpis=!S.showAllKpis; renderSummary(); });
+  const ordBtn=$('btnTileOrder');
+  if(ordBtn) ordBtn.addEventListener('click',e=>{ e.stopPropagation(); tileOrderClear(); renderSummary(); });
   const parkBtn=$('btnParkedKpis');
   if(parkBtn) parkBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showParkedTiles=!S.showParkedTiles; renderSummary(); });
   $('cardGrid').querySelectorAll('.thide').forEach(el=>{
@@ -3018,6 +3024,8 @@ function renderSummary(){
       const rect=el.getBoundingClientRect();
       if(e.clientX>rect.left+rect.width/2) to+=1;
       vis.splice(to,0,TILE_DRAG);
+      // TILE_ALL holds every tile this file resolves, shown or collapsed or
+      // parked, so nothing drops out of the order by being off screen
       tileOrderSet(vis.concat(TILE_ALL.filter(n=>!vis.includes(n))));
       TILE_DRAG=null;
       renderSummary();
@@ -3730,7 +3738,7 @@ async function exportSummaryPPT(){
     const i=rest.findIndex(c=>rx.test(c.l2));
     if(i>=0) prio.push(rest.splice(i,1)[0]);
   }
-  let ordered=named.length? byL2 : applyTileOrder([...prio,...rest]);
+  let ordered=named.length? applyTileOrder(byL2) : applyTileOrder([...prio,...rest]);
   // mirror the page: a lone P&L rollup opens into its Level 2 lines
   if(!named.length&&tileL1&&cfgYes('tile_expand_result')){
     const pl=ordered.filter(c=>!c.k.isBS);
@@ -8213,7 +8221,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 18:40</td></tr>
+      <tr><td>Build</td><td>2026-08-11 18:47</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

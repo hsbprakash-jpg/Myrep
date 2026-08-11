@@ -177,6 +177,17 @@ left-pane strip and the Filters pane.
   `tile_hidden` (a `;`- or `,`-separated list of tile names) to have a build
   open with those tiles parked out of the box; the reader's own first hide or
   restore takes over from then on.
+- **Move a tile where you want it** — drag any KPI tile onto another and it
+  lands there, before or after depending on which half of the target you drop
+  on. The order holds whatever produced the tiles: a config-named set
+  (`Metrics` / `tile_lines`), a priority-ordered set, or a plain MICA
+  grouping — a dragged order is an explicit act and leads, with the declared
+  order filling in behind it, so a line the stored order has never seen keeps
+  its declared place rather than jumping the queue. It survives re-rendering,
+  re-ingesting the file and reopening the browser, covers collapsed and
+  parked tiles as well as the ones on screen, and the PowerPoint one-pager
+  follows it. Once anything has moved, a dashed **↺ Reset tile order** card
+  appears at the end of the grid and puts the file's own order back.
 - **Balance scopes read in billions everywhere** — any tile, chart or
   table whose scope is a balance line switches to the balance unit: Mix
   analysis and builder charts scoped to Deposits or Loans plot and label
