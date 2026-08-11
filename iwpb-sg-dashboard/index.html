@@ -811,7 +811,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 11:55</div>
+<div id="buildTag">build 2026-08-11 12:26</div>
 </aside>
 <main>
 
@@ -839,6 +839,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
 <section id="dashView" hidden>
   <div class="unitbar">
     <span class="unitlbl" id="scopeLbl" hidden data-lbl="lbl_scope">Scope</span>
+    <span id="scopeBizNote" hidden style="font-size:11px;font-weight:700;color:var(--hsbc-red)"></span>
     <select id="fBusiness" aria-label="Business line scope" hidden></select>
     <select id="fRegion" aria-label="Region scope" hidden></select>
     <select id="fCountry" aria-label="Country scope" hidden></select>
@@ -6042,6 +6043,13 @@ function fillScopeBar(ctx){
   lbl.hidden=sep.hidden=!show; selC.hidden=!show;
   selR.hidden=!show||!ctx.hasReg;
   if(selB) selB.hidden=!show||!ctx.hasBiz;
+  const bn=$('scopeBizNote');
+  if(bn){
+    const one=show&&!ctx.hasBiz&&ctx.m&&('business' in ctx.m.dimCols)?
+      [...new Set(ctx.m.rows.map(r=>String(r.d.business||'')).filter(Boolean))] : [];
+    bn.hidden=one.length!==1;
+    if(one.length===1) bn.textContent=one[0];
+  }
   if(!show) return;
   const {hasReg, hasBiz, bizzes, curB, curC, curR, topName, l1Name, m}=ctx;
   if(hasBiz&&selB)
@@ -7445,7 +7453,13 @@ function ingestArrayBuffer(buf, name, fromCache){
     rep.innerHTML=`<span class="ok">✔ ${fromCache?'Restored from cache':'Ingested'} ${esc(name)}</span>
       <table>
       <tr><td>Sheet</td><td>${esc(sheetName)}</td></tr>
-      ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — regional total is their sum; pick a country in the left pane</td></tr>`:''}
+      ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — the top of the left pane is their sum; pick a node in the left pane or top bar</td></tr>`:''}
+      ${model.countries&&model.countries.length? `<tr><td>Roll-up</td><td>${model.countries.map(sn=>{
+        const res=chResolveTab(sn);
+        const rr=res? (CFG.countrymap||[]).filter(e2=>e2.country&&String(e2.country).trim()===res.country) : [];
+        const e2=res? (rr.find(x=>String(x.l0||'').trim()===res.business)||rr[0]) : null;
+        return esc(sn)+' \u2192 '+(res? esc([res.business, (e2&&e2.region)||'Unmapped', res.country].filter(Boolean).join(' \u00b7 ')) : '<b>not in the hierarchy — shown as its own country, region Unmapped</b>');
+      }).join('<br>')}</td></tr>`:''}
       ${model.countryWarn&&model.countryWarn.length? `<tr><td>Tab alignment</td><td>${esc(model.countryWarn.join(' | '))}</td></tr>`:''}
       <tr><td>Rows</td><td>${model.rows.length.toLocaleString()}</td></tr>
       <tr><td>MICA Level 2 KPIs</td><td>${l2s.size} (${esc([...l2s].slice(0,5).join(', '))}${l2s.size>5?', …':''})</td></tr>
@@ -7461,7 +7475,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 11:55</td></tr>
+      <tr><td>Build</td><td>2026-08-11 12:26</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
