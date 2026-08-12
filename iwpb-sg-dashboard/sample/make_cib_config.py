@@ -33,7 +33,7 @@ SET = [
  ('fsum_section_label',   'P&L'),
  ('fsum_bs_label',        'Balance Sheet'),
  ('fsum_memo_label',      'Key Metrics'),
- ('fsum_levels',          'accH1,accH2,accH3,accH4,accH5,cgL2,country'),
+ ('fsum_levels',          'accH1,accH2,accH3,accH4,accH5,prodH2,prodH3,prodH4,cgL2,country'),
  ('fsum_default_levels',  'accH1,accH2,accH3,accH4'),
  ('fsum_ow',              'N'),
  ('fsum_residual_label',  'Other'),
@@ -101,8 +101,51 @@ MET = [
 ]
 sheet('Metrics', ['Key','Scope'], MET, [42, 48])
 
+# ---------------- ProductHierarchy ----------------
+# The pack prints the revenue engines as P&L lines, so they live in the
+# account hierarchy. This is the other cut: what the revenue is earned on,
+# and which product raises each balance. Costs, RWAs and the key metrics are
+# not product aligned and say so rather than being spread across a product.
+P = []
+def pr(*levels, match=''):
+    P.append([f'B{len(P)+1}', *list(levels) + ['']*(5-len(levels)), match])
+
+CIB = 'CIB'
+pr(CIB)
+pr(CIB, 'Markets and Securities Services')
+pr(CIB, 'Markets and Securities Services', 'Markets')
+pr(CIB, 'Markets and Securities Services', 'Markets', 'Foreign Exchange', match='Foreign Exchange|FX')
+pr(CIB, 'Markets and Securities Services', 'Markets', 'Rates',            match='Rates')
+pr(CIB, 'Markets and Securities Services', 'Markets', 'Credit',           match='Credit Trading')
+pr(CIB, 'Markets and Securities Services', 'Markets', 'Equities',         match='Equities')
+pr(CIB, 'Markets and Securities Services', 'Securities Services')
+pr(CIB, 'Markets and Securities Services', 'Securities Services', 'Custody', match='Custody')
+pr(CIB, 'Markets and Securities Services', 'Securities Services', 'Fund Administration',
+   match='Fund Administration')
+pr(CIB, 'Markets and Securities Services', 'Securities Services', 'Issuer Services',
+   match='Issuer Services')
+pr(CIB, 'Global Payments Solutions')
+pr(CIB, 'Global Payments Solutions', 'Payments and Cash Management',
+   match='Payments and Cash Management|PCM')
+pr(CIB, 'Global Payments Solutions', 'Liquidity Management', match='Liquidity Management')
+pr(CIB, 'Global Payments Solutions', 'Commercial Cards',     match='Commercial Cards')
+pr(CIB, 'Global Trade Solutions')
+pr(CIB, 'Global Trade Solutions', 'Documentary Trade',   match='Documentary Trade')
+pr(CIB, 'Global Trade Solutions', 'Receivables Finance', match='Receivables Finance')
+pr(CIB, 'Global Trade Solutions', 'Guarantees',          match='Guarantees')
+pr(CIB, 'Credit and Lending')
+pr(CIB, 'Credit and Lending', 'Corporate Lending',    match='Corporate Lending')
+pr(CIB, 'Credit and Lending', 'Structured Finance',   match='Structured Finance')
+pr(CIB, 'Credit and Lending', 'Portfolio Management', match='Portfolio Management')
+pr(CIB, 'Capital Markets and Advisory')
+pr(CIB, 'Capital Markets and Advisory', 'Debt Capital Markets',   match='Debt Capital Markets|DCM')
+pr(CIB, 'Capital Markets and Advisory', 'Equity Capital Markets', match='Equity Capital Markets|ECM')
+pr(CIB, 'Capital Markets and Advisory', 'Advisory',               match='Advisory')
+pr(CIB, 'HIF',   match='HIF')
+pr(CIB, 'Other', match='Other')
+pr('Non product aligned', match='Non product aligned')
 sheet('ProductHierarchy', ['ID','Level 1','Level 2','Level 3','Level 4','Level 5','Match'],
-      [], [8, 20, 22, 24, 22, 22, 40])
+      P, [8, 22, 34, 24, 26, 22, 40])
 
 # ---------------- AccountHierarchy ----------------
 # a node with no Match is a subtotal: it claims no rows and equals its children
@@ -171,4 +214,5 @@ sheet('CountryHierarchy', ['ID','Level 0','Level 1','Level 2','Level 3'], C, [10
 
 out = 'CIB_dashboard_config_pack.xlsx'
 wb.save(out)
-print('wrote', out, '| account rows:', len(A), '| metrics:', len(MET), '| countries:', len(C))
+print('wrote', out, '| account rows:', len(A), '| product rows:', len(P),
+      '| metrics:', len(MET), '| countries:', len(C))

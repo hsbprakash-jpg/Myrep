@@ -896,7 +896,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-12 07:44</div>
+<div id="buildTag">build 2026-08-12 08:03</div>
 </aside>
 <main>
 
@@ -4177,7 +4177,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
       <td class="namecell">${esc(g.name)}</td>
       <td>${bar}</td>
       <td>${cellB(mainOf(g.k))}</td><td>${cellB(g.k.cmpBase)}</td>
-      <td>${cellB(g.k.cmpVar)}</td>
+      <td>${movVal(g.k,g.k.cmpVar,g.k.cmpVarPct)}</td>
       <td>${movPct(g.k,g.k.cmpVarPct)}</td>
       <td style="text-align:left">${ragPill(rg)}</td></tr>`;
   };
@@ -8334,7 +8334,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-12 07:44</td></tr>
+      <tr><td>Build</td><td>2026-08-12 08:03</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

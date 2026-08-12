@@ -66,6 +66,32 @@ KM = [
 CTRY = [('Hong Kong','Asia',0.30), ('Singapore','Asia',0.20), ('India','Asia',0.15),
         ('China','Asia',0.15), ('UAE','MENAT',0.12), ('Egypt','MENAT',0.08)]
 
+# the product each line is earned on: family, product, share of the line.
+# Revenue is earned on products; costs, RWAs and the key metrics are not
+# product aligned and say so rather than being spread across one.
+NP = [('Non product aligned', 'Non product aligned', 1.0)]
+PROD = {
+ 'MSS':                        [('Markets','Foreign Exchange',0.42), ('Markets','Rates',0.33),
+                                ('Securities Services','Custody',0.25)],
+ 'Corporate Lending':          [('Credit and Lending','Corporate Lending',0.80),
+                                ('Credit and Lending','Structured Finance',0.20)],
+ 'Portfolio Management':       [('Credit and Lending','Portfolio Management',1.0)],
+ 'Global Trade Solutions':     [('Global Trade Solutions','Documentary Trade',0.55),
+                                ('Global Trade Solutions','Receivables Finance',0.45)],
+ 'HIF':                        [('HIF','HIF',1.0)],
+ 'Global Payments Solutions':  [('Global Payments Solutions','Payments and Cash Management',0.72),
+                                ('Global Payments Solutions','Liquidity Management',0.28)],
+ 'CMA Net':                    [('Capital Markets and Advisory','Debt Capital Markets',0.60),
+                                ('Capital Markets and Advisory','Advisory',0.40)],
+ 'Other Revenue':              [('Other','Other',1.0)],
+ 'Revenue Notables':           [('Other','Other',1.0)],
+ # balances sit with the product that raises them
+ 'Customer Deposits (PE)':     [('Global Payments Solutions','Payments and Cash Management',1.0)],
+ 'Bank Deposits (PE)':         [('Global Payments Solutions','Liquidity Management',1.0)],
+ 'Loans and Advances to Customers (PE)': [('Credit and Lending','Corporate Lending',1.0)],
+ 'Loans and Advances to Banks (PE)':     [('Credit and Lending','Structured Finance',1.0)],
+}
+
 def split(total):
     """weights that add back to the total exactly"""
     out, run = [], 0.0
@@ -76,7 +102,8 @@ def split(total):
 
 wb = Workbook(); ws = wb.active; ws.title = 'CIB Asia and MENAT'
 HEAD = ['MICA','MICA_Level_4','MICA_Level_3','MICA_Level_2','MICA_Level_1',
-        'Income_Type','Product_Level_2','Product_Level_1','Segment_code','CG_Level_2','CG_Level_1',
+        'Income_Type','Product_Level_3','Product_Level_2','Product_Level_1',
+        'Segment_code','CG_Level_2','CG_Level_1',
         'Country','Region','Business_Line','Entity code']
 PERIOD = [f'{m}-26' for m in MON] + ['Jun YTD-26','Jun YTD-25','Jun YTD-26 Target',
                                      'FY-26 Forecast','FY-26 Target']
@@ -99,13 +126,17 @@ def emit(l1, l2, l3, l4, ytd, apr, may, jun, seg, income, balance=False, memo=Fa
         months = [round(rest/3, 3)]*3 + [apr,may,jun] + [round(jun*(1+0.01*(i+1)), 3) for i in range(6)]
         fy_fc = round(ytd + sum(months[6:]), 3)
         fy_tgt, py, ytd_tgt = fy_fc*1.03, ytd*0.93, ytd*1.02
-    for c, r, w in split(1.0):
-        mi += 1
-        vals = [round(v*w, 4) for v in months] + \
-               [round(ytd*w,4), round(py*w,4), round(ytd_tgt*w,4), round(fy_fc*w,4), round(fy_tgt*w,4)]
-        ws.append([f'C{mi:04d}', l4, l3, l2, l1, income,
-                   l3 if l1.startswith('PBT') else l2, 'CIB', 'SEG'+c[:2].upper(),
-                   seg, 'CIB', c, r, 'CIB', 'CIB'+c[:2].upper()] + vals)
+    prods = PROD.get(l4 or l3, NP)
+    for fam, prod, pw in prods:
+        for c, r, w in split(1.0):
+            mi += 1
+            f2 = w*pw
+            vals = [round(v*f2, 4) for v in months] + \
+                   [round(ytd*f2,4), round(py*f2,4), round(ytd_tgt*f2,4),
+                    round(fy_fc*f2,4), round(fy_tgt*f2,4)]
+            ws.append([f'C{mi:04d}', l4, l3, l2, l1, income,
+                       prod, fam, 'CIB', 'SEG'+c[:2].upper(),
+                       seg, 'CIB', c, r, 'CIB', 'CIB'+c[:2].upper()] + vals)
 
 for l1, l2, l3, l4, ytd, apr, may, jun, seg in PL:
     leaf = l4 or l3
@@ -125,7 +156,7 @@ for l1, l2, l3, l4, ytd, apr, may, jun in BS:
 for l1, l2, l3, l4, ytd, apr, may, jun in KM:
     emit(l1, l2, l3, l4, ytd, apr, may, jun, 'Corporate', '', memo=True)
 
-for col, w in zip('ABCDEFGHIJKLMNO', [8,30,30,38,22,20,26,12,12,22,10,12,10,12,10]):
+for col, w in zip('ABCDEFGHIJKLMNOP', [8,30,30,38,22,20,30,26,10,12,22,10,12,10,12,10]):
     ws.column_dimensions[col].width = w
 out = 'CIB_AME_Jun26_Driller.xlsx'
 wb.save(out)
