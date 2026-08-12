@@ -51,6 +51,15 @@ SET = [
  ('tile_hidden',          'Credit and Lending;Global Trade Solutions;HIF;CMA Net;'
                           'Other Revenue;Total RWAs'),
  ('calc_ytd_actuals',     'column'),
+ # the pack's right-hand column: one note per line, in the pack's own order.
+ # Write the business narrative into the Drivers sheet (or the Drivers pane)
+ # against the same names and it replaces the figures the line reads out.
+ ('fsum_notes',           'Y'),
+ ('fsum_note_lines',      'MSS;Global Payments Solutions;Global Trade Solutions;'
+                          'Credit and Lending;HIF;CMA Net;Other Revenue;'
+                          'ECLs (ex Notables);Direct Costs (ex VP);Variable Pay (VP);'
+                          'Indirect Costs;Customers and Banks Deposits (PE);'
+                          'Loans and Advances to Customers and Banks (PE)'),
  ('show_greeting',        'N'),
 ]
 sheet('Settings', ['Key','Value'], SET, [26, 66])

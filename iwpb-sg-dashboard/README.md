@@ -391,6 +391,18 @@ left-pane strip and the Filters pane.
   YTD-through month moves it. Configurable via `fsum_title`, `fsum_section_label`,
   `fsum_levels`, `fsum_ow` (the "o/w" prefix on the deepest level) and
   `fsum_total_label`.
+- **Line commentary, as the pack prints it** — the reporting pack sets a
+  short note beside each line, and the Financial Summary now carries the same
+  column beneath the grid. A note written by the business leads — from the
+  **Drivers** pane in the left rail or the config's `Drivers` sheet, keyed by
+  the line's name — and a line without one reads its own figures in the
+  page's own words (`JUN YTD 2,293 — ▼46 vs target; JUN ▼4 vs forecast`),
+  each in that line's unit, so a note and the row beside it can never
+  disagree. `fsum_note_lines` sets which lines are commented on and in what
+  order (blank = every line that carries a written note), and `fsum_notes`
+  (`auto` / `Y` / `N`) decides whether the column appears at all — `auto`
+  shows it once a note exists or a line list is set. The column travels into
+  the Word export with the rest of the commentary.
 - **Renaming the page** — the view is named in two config places: Settings
   `fsum_title` (the page heading, and with it the Excel title row, sheet name
   and workbook file name, the PowerPoint slide title and the Word commentary

@@ -613,6 +613,16 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .unitbar .scopeSep{width:1px;align-self:stretch;background:var(--border-strong);margin:0 4px}
 .unitbar .unitnote{font-size:10.5px;color:var(--text-muted);font-style:italic}
 .ctxnote{color:var(--text-muted);font-size:10.5px;margin:6px 0 0;font-style:italic}
+#fsumNotes{margin-top:14px;border-top:2px solid var(--text-primary);padding-top:10px}
+#fsumNotes h4{margin:0 0 2px;font-size:13px}
+#fsumNotes .subtitle{margin:0 0 8px}
+#fsumNotes .lnotes{columns:2;column-gap:26px}
+@media (max-width:1100px){ #fsumNotes .lnotes{columns:1} }
+#fsumNotes .lnote{break-inside:avoid;margin:0 0 9px;font-size:12.5px;line-height:1.5;
+  border-left:3px solid var(--hsbc-red);padding-left:10px}
+#fsumNotes .lnote .ln{font-weight:750;color:var(--hsbc-red)}
+#fsumNotes .lnote .own{color:var(--text-primary)}
+#fsumNotes .lnote .auto{color:var(--text-secondary)}
 .houselist{margin:2px 0 0 20px;padding:0}
 .houselist li{margin:3px 0;line-height:1.5}
 .ctable{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:4px}
@@ -886,7 +896,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-12 07:38</div>
+<div id="buildTag">build 2026-08-12 07:44</div>
 </aside>
 <main>
 
@@ -1182,6 +1192,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="panel">
       <div class="fsumwrap"><table class="fsum" id="fsumTable"></table></div>
       <p class="note" id="fsumNote"></p>
+      <div id="fsumNotes" hidden></div>
       <div id="fsumCom"></div>
     </div>
   </div>
@@ -1330,6 +1341,8 @@ const CFG_DEFAULT={
     fsum_default_levels:'accH1,accH2,accH3',
     decisions_max:'3',
     fsum_detail:'',
+    fsum_notes:'auto',
+    fsum_note_lines:'',
     bs_unit:'bn',
     fsum_bs_label:'Balance Sheet',
     show_greeting:'N',
@@ -5983,6 +5996,7 @@ function renderFsum(){
   if(colB) colB.onclick=()=>{ try{ localStorage.removeItem('iwpbsg_fsumcol'); }catch(e){} renderFsum(); };
   const lblB=$('fsumLblReset');
   if(lblB) lblB.onclick=()=>{ try{ localStorage.removeItem('iwpbsg_fsumlbl'); }catch(e){} renderFsum(); };
+  renderFsumNotes(rows, m, P);
   aiComment($('fsumCom'), 'fsum|'+filterNote(true)+'|'+S.ytdM+'|'+drvSig(),
     {ctx:filterNote(true)}, ()=>fsumCommentary(rows,m,P));
 }
@@ -6088,6 +6102,63 @@ function renderFsumLv(){
     if(key&&!cur.includes(key)){ e.preventDefault(); place(key,null); } };
   pal.querySelectorAll('.lvchip').forEach(el=>
     el.addEventListener('click',()=>place(el.dataset.k,null)));
+}
+/* The pack prints a short note beside each line. A note the business has
+   written — from the Drivers pane or the config's Drivers sheet — always
+   leads; where none exists the line describes itself from its own figures,
+   in the same words the grid uses, so the column is never blank and never
+   invented. */
+function fsumNoteLines(rows){
+  const named=cfgNameList('fsum_note_lines');
+  const tree=fsumTree(rows).filter(r=>!r.band&&r.name);
+  if(named.length){
+    const by=new Map(tree.map(r=>[String(r.name).trim().toLowerCase(), r]));
+    return named.map(n=>{
+      const r=by.get(String(n).trim().toLowerCase())
+        ||tree.find(x=>String(x.name).toLowerCase().includes(String(n).toLowerCase()));
+      return r? {name:r.name, rows:r.rows} : null;
+    }).filter(Boolean);
+  }
+  return tree.filter(r=>driverFor(r.name)).map(r=>({name:r.name, rows:r.rows}));
+}
+function fsumNoteText(name, rs, m, P){
+  const own=driverFor(name);
+  if(own) return {html:esc(own), own:true};
+  const f=fsumFigs(rs, m, P, S.ytdM, name), k=f.k;
+  const nf=v=>f.ratio? fsumRatioTxt(v) : f.bsFmt? fmtBS(v)+bsUnit() : fmtFull(Math.round(v==null?0:v));
+  // the line's own unit and the page's movement convention, so the note and
+  // the row beside it can never read differently
+  const va=(v,pc)=>{
+    if(v==null) return '';
+    return `<span class="mv ${movFav(k,v,pc)?'fav':'unfav'}">${movUp(k,v,pc)?'\u25B2':'\u25BC'}${nf(Math.abs(v))}</span>`;
+  };
+  const bits=[];
+  if(f.yVsTgt!=null) bits.push(`${va(f.yVsTgt,f.yVsTgtP)} vs target`);
+  if(f.yVsPY!=null)  bits.push(`${va(f.yVsPY,f.yVsPYP)} vs prior year`);
+  let h=`${esc(P.ytdLbl)} <b>${nf(f.ytd)}</b>${bits.length? ' \u2014 '+bits.join(', ') : ''}`;
+  if(f.mVsFc!=null) h+=`; ${esc(MON_LBL[S.ytdM])} ${va(f.mVsFc,null)} vs forecast`;
+  return {html:h+'.', own:false};
+}
+function renderFsumNotes(rows, m, P){
+  const host=$('fsumNotes'); if(!host) return;
+  const mode=String(cfgS('fsum_notes')||'auto').trim().toLowerCase();
+  if(mode==='n'){ host.hidden=true; host.innerHTML=''; return; }
+  const lines=fsumNoteLines(rows);
+  const anyOwn=lines.some(l=>driverFor(l.name));
+  if(!lines.length||(mode!=='y'&&!anyOwn&&!cfgNameList('fsum_note_lines').length)){
+    host.hidden=true; host.innerHTML=''; return;
+  }
+  host.hidden=false;
+  const items=lines.map(l=>{
+    const t=fsumNoteText(l.name, l.rows, m, P);
+    return `<p class="lnote"><span class="ln">${esc(l.name)}:</span>
+      <span class="${t.own?'own':'auto'}">${t.html}</span></p>`;
+  }).join('');
+  host.innerHTML=`<h4>Line commentary</h4>
+    <p class="subtitle">${esc(P.ytdLbl)} \u00b7 ${scopeTrail()? 'Global Business '+esc(scopeTrail())+' \u00b7 ' : ''}${
+      anyOwn? 'your notes lead; a line without one reads its own figures'
+            : 'each line reads its own figures \u2014 add a note in Drivers to replace it'}</p>
+    <div class="lnotes">${items}</div>`;
 }
 function fsumCommentary(rows,m,P){
   const secs=fsumSections(rows);
@@ -8263,7 +8334,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-12 07:38</td></tr>
+      <tr><td>Build</td><td>2026-08-12 07:44</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -8448,6 +8519,7 @@ function init(){
   $('btnFsumWord').addEventListener('click',()=>comDocx(
     [{id:'fsumCom', heading:`${fsumTitleS()} — ${MON_LBL[S.ytdM]}'${fsumPlan(S.model,S.ytdM).yy} Actuals`,
       note:filterNote(true)},
+     {id:'fsumNotes', heading:'Line commentary', note:''},
      {id:'houseCom', heading:cmpLabels(S.model).period, note:filterNote()}],
     `${fsumTitleS()} — commentary`));
   $('btnHouseCopy').addEventListener('click',()=>{
