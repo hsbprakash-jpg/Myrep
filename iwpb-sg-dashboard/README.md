@@ -407,6 +407,12 @@ left-pane strip and the Filters pane.
   crosses another. A chart that is not on screen yet (a collapsed panel, a
   view not yet opened) waits to be measured rather than pinning its notes at
   the origin.
+- **The note names its mark** — the category's own name heads the note in
+  small red caps, with the comment beneath, so a callout lifted onto a slide
+  still says what it is about. The speech bubble carries a swept tail rather
+  than a spike, and a note now clears the *other bars* as well as the other
+  notes: where a tall bar leaves no room, the chart grows upward and the note
+  floats above the plot instead of covering the data.
 - **A note reads as a card, not an outline** — a quiet grey border, a soft
   shadow lifting it off the plot, a red accent bar down its leading edge (the
   same accent the commentary blocks carry), 11px text with room to breathe,

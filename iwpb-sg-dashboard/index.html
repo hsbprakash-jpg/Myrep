@@ -901,7 +901,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-12 19:06</div>
+<div id="buildTag">build 2026-08-12 19:11</div>
 </aside>
 <main>
 
@@ -4737,10 +4737,14 @@ function annDraw(svg, key){
     let bb; try{ bb=el.getBBox(); }catch(e){ continue; }
     if(!bb||(!bb.width&&!bb.height)) continue;
     const lines=annWrap(txt, 30);
-    const pad=shape==='oval'? 32 : shape==='plain'? 4 : shape==='tag'? 28 : 22;
-    const w=Math.min(Math.max(vw*0.9,130), Math.max(104, 6.35*Math.max(...lines.map(l=>l.length))+pad));
-    items.push({cat, txt, shape, bb, lines, w,
-      h:lines.length*14+(shape==='oval'? 22 : shape==='plain'? 6 : 16),
+    // the mark's own name heads the note, as the pack's callouts do
+    const head=(shape==='plain')? '' : String(cat).toUpperCase();
+    const headW=head? 6.6*Math.min(head.length,34)+4 : 0;
+    const pad=shape==='oval'? 32 : shape==='plain'? 4 : shape==='tag'? 28 : 24;
+    const w=Math.min(Math.max(vw*0.9,140),
+      Math.max(112, Math.max(6.35*Math.max(...lines.map(l=>l.length)), headW)+pad));
+    items.push({cat, txt, shape, bb, lines, head, w, el,
+      h:lines.length*14+(head? 17 : 0)+(shape==='oval'? 22 : shape==='plain'? 6 : 16),
       horiz:bb.width>bb.height*1.6});   // a horizontal bar is written to its right
   }
   // a chart that is not laid out yet (a collapsed panel, a tab not yet shown)
@@ -4766,7 +4770,12 @@ function annDraw(svg, key){
   // every note still points down at the bar it describes — and the chart
   // gains exactly the headroom that took.
   const placed=[];
-  const clash=(x,y,w,h)=>placed.find(q=>
+  // the other marks on the chart are obstacles too: a note explains one bar,
+  // it should not sit on top of another
+  const marks=[...svg.querySelectorAll('[data-cat]')].filter(e=>!e.closest('g.annote'))
+    .map(e=>{ try{ const b=e.getBBox(); return {el:e, x:b.x, y:b.y, w:b.width, h:b.height}; }
+             catch(err){ return null; } }).filter(Boolean).filter(q=>q.w&&q.h);
+  const clash=(x,y,w,h,own)=>[...placed, ...marks.filter(mk=>mk.el!==own)].find(q=>
     !(x+w+4<=q.x||q.x+q.w+4<=x||y+h+4<=q.y||q.y+q.h+4<=y));
   let padTop=0, padRight=0;
   // place in the order the marks read: left to right on a column chart, top to
@@ -4780,7 +4789,7 @@ function annDraw(svg, key){
       // the value labels; a clash moves the note down its own column
       const x=vx+vw+(it.shape==='bubble'? GAP+11 : GAP);
       let y=Math.max(vy+2, it.bb.y+it.bb.height/2-it.h/2);
-      for(let g=0; g<40; g++){ const hit=clash(x,y,it.w,it.h); if(!hit) break; y=hit.y+hit.h+ROW; }
+      for(let g=0; g<40; g++){ const hit=clash(x,y,it.w,it.h,it.el); if(!hit) break; y=hit.y+hit.h+ROW; }
       it.x=x; it.y=y;
       padRight=Math.max(padRight, (x+it.w+4)-(vx+vw));
       padTop=Math.max(padTop, 0);
@@ -4789,7 +4798,7 @@ function annDraw(svg, key){
       const cx=it.bb.x+it.bb.width/2;
       const x=Math.min(Math.max(vx+2, cx-it.w/2), vx+vw-it.w-2);
       let y=it.bb.y-(GAP+(it.shape==='bubble'? 11 : 0))-it.h;
-      for(let g=0; g<40; g++){ const hit=clash(x,y,it.w,it.h); if(!hit) break; y=hit.y-it.h-ROW; }
+      for(let g=0; g<40; g++){ const hit=clash(x,y,it.w,it.h,it.el); if(!hit) break; y=hit.y-it.h-ROW; }
       it.x=x; it.y=y;
       padTop=Math.max(padTop, (vy+2)-y);
     }
@@ -4823,27 +4832,34 @@ function annDraw(svg, key){
     // whole outline, which fought the bars for attention.
     const CARD='fill="var(--surface-1)" stroke="var(--border-strong)" stroke-width="1"';
     const SHADOW='fill="#101010" fill-opacity="0.10"';
-    const R=8, ACC=3;                       // corner radius, accent bar width
+    const R=(sh==='bubble')? 15 : 8, ACC=3;   // corner radius, accent bar width
     const shadow=(sh==='plain')? '' :
       sh==='oval'? `<ellipse cx="${(it.x+it.w/2+1).toFixed(1)}" cy="${(it.y+it.h/2+2).toFixed(1)}"
                       rx="${(it.w/2).toFixed(1)}" ry="${(it.h/2).toFixed(1)}" ${SHADOW}/>`
       : `<rect x="${(it.x+1).toFixed(1)}" y="${(it.y+2).toFixed(1)}" width="${it.w.toFixed(1)}"
              height="${it.h.toFixed(1)}" rx="${sh==='box'? 0 : R}" ${SHADOW}/>`;
     // the tail belongs to the card, so it carries the card's own edge
+    // a swept tail, drawn as one piece with the card so no seam shows
     const tail=(sh==='bubble')
       ? (it.horiz
-        ? `<path d="M ${it.x.toFixed(1)} ${(y1-7).toFixed(1)} L ${(it.x-10).toFixed(1)} ${y1.toFixed(1)}
-             L ${it.x.toFixed(1)} ${(y1+7).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>
-           <rect x="${(it.x).toFixed(1)}" y="${(y1-7).toFixed(1)}" width="2" height="14" fill="var(--surface-1)"/>`
-        : `<path d="M ${(x1-7).toFixed(1)} ${(it.y+it.h).toFixed(1)} L ${x1.toFixed(1)} ${(it.y+it.h+10).toFixed(1)}
-             L ${(x1+7).toFixed(1)} ${(it.y+it.h).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>
-           <rect x="${(x1-7).toFixed(1)}" y="${(it.y+it.h-2).toFixed(1)}" width="14" height="2" fill="var(--surface-1)"/>`)
+        ? `<path d="M ${it.x.toFixed(1)} ${(y1-11).toFixed(1)}
+             C ${(it.x-6).toFixed(1)} ${(y1-6).toFixed(1)} ${(it.x-12).toFixed(1)} ${(y1-2).toFixed(1)}
+               ${(it.x-19).toFixed(1)} ${(y1+3).toFixed(1)}
+             C ${(it.x-9).toFixed(1)} ${(y1+3).toFixed(1)} ${(it.x-3).toFixed(1)} ${(y1+6).toFixed(1)}
+               ${it.x.toFixed(1)} ${(y1+10).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>
+           <rect x="${(it.x-1).toFixed(1)}" y="${(y1-11).toFixed(1)}" width="3" height="21" fill="var(--surface-1)"/>`
+        : `<path d="M ${(x1-13).toFixed(1)} ${(it.y+it.h).toFixed(1)}
+             C ${(x1-9).toFixed(1)} ${(it.y+it.h+7).toFixed(1)} ${(x1-6).toFixed(1)} ${(it.y+it.h+12).toFixed(1)}
+               ${(x1-3).toFixed(1)} ${(it.y+it.h+20).toFixed(1)}
+             C ${(x1+2).toFixed(1)} ${(it.y+it.h+11).toFixed(1)} ${(x1+7).toFixed(1)} ${(it.y+it.h+5).toFixed(1)}
+               ${(x1+12).toFixed(1)} ${(it.y+it.h).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>
+           <rect x="${(x1-13).toFixed(1)}" y="${(it.y+it.h-2).toFixed(1)}" width="25" height="3" fill="var(--surface-1)"/>`)
       : '';
     // a hairline to the mark, and a dot where it lands, so the link is read
     // without the line having to shout
     // the bubble's tail is short by design, so where the note sits well clear
     // of its mark the same hairline carries on from the tail's tip
-    const tailTip=it.horiz? {x:it.x-10, y:y1} : {x:x1, y:it.y+it.h+10};
+    const tailTip=it.horiz? {x:it.x-19, y:y1+3} : {x:x1-3, y:it.y+it.h+20};
     const from=(sh==='bubble')? tailTip : {x:x1, y:y1};
     const far=Math.abs(from.x-x2)+Math.abs(from.y-y2)>12;
     const leader=(sh==='bubble'&&!far)? ''
@@ -4871,12 +4887,16 @@ function annDraw(svg, key){
                         V ${(it.y+it.h).toFixed(1)} h ${-ACC}
                         L ${it.x.toFixed(1)} ${(it.y+it.h/2).toFixed(1)} Z" fill="var(--hsbc-red)"/>`
     : '';
-    const tx=it.x+(sh==='oval'? 15 : sh==='tag'? 18 : sh==='plain'? 2 : 11);
-    const ty=it.y+(sh==='oval'? 19 : sh==='plain'? 11 : 16);
+    const tx=it.x+(sh==='oval'? 15 : sh==='tag'? 18 : sh==='plain'? 2 : 13);
+    const ty=it.y+(sh==='oval'? 19 : sh==='plain'? 11 : 17);
+    const head=it.head? `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="9"
+        font-weight="800" letter-spacing="0.8" fill="var(--hsbc-red)">${
+        esc(it.head.length>34? it.head.slice(0,33)+'\u2026' : it.head)}</text>` : '';
+    const ty0=ty+(it.head? 17 : 0);
     const g=document.createElementNS(NS,'g');
     g.setAttribute('class','annote annote-'+sh); g.setAttribute('data-cat',it.cat);
-    g.innerHTML=leader+dot+shadow+body+accent+tail+
-      it.lines.map((l,i)=>`<text x="${tx.toFixed(1)}" y="${(ty+i*14).toFixed(1)}" font-size="11"
+    g.innerHTML=leader+dot+shadow+body+accent+tail+head+
+      it.lines.map((l,i)=>`<text x="${tx.toFixed(1)}" y="${(ty0+i*14).toFixed(1)}" font-size="11"
          fill="var(--text-primary)"${sh==='plain'? ' font-weight="700"':''}>${esc(l)}</text>`).join('')+
       `<title>${esc(it.cat)}: ${esc(it.txt)} \u2014 click to edit, double-click to change its shape (${
          esc(ANN_SHAPE_LBL[sh]||sh)}), clear the box to remove</title>`;
@@ -8616,7 +8636,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-12 19:06</td></tr>
+      <tr><td>Build</td><td>2026-08-12 19:11</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
