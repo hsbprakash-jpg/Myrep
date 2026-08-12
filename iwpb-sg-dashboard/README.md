@@ -407,6 +407,15 @@ left-pane strip and the Filters pane.
   crosses another. A chart that is not on screen yet (a collapsed panel, a
   view not yet opened) waits to be measured rather than pinning its notes at
   the origin.
+- **Five shapes for a note** — **double-click the note itself** to step it
+  through them: a **speech bubble** that points at its mark with a tail, a
+  **square box**, an **oval**, a **tag** with a pointed notch, and **plain
+  text** with no box at all for a light touch. Every shape but the speech
+  bubble keeps the dotted leader back to its mark; the bubble's tail does
+  that job instead. The shape is stored with the note, so it survives a
+  re-render and a reload and travels into the PNG and the slide. Set
+  `chart_note_shape` (`bubble` / `box` / `oval` / `tag` / `plain`) for the
+  shape a new note starts as.
 - **Line commentary, as the pack prints it** — the reporting pack sets a
   short note beside each line, and the Financial Summary now carries the same
   column beneath the grid. A note written by the business leads — from the
