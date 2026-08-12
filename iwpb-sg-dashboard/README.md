@@ -398,9 +398,15 @@ left-pane strip and the Filters pane.
   on that chart, so it survives a re-render, a change of chart type and a
   reload — it is kept in the browser beside the tile order and the parked
   tiles. Notes are drawn into the SVG itself, so the PNG capture and the
-  PowerPoint slide carry them exactly as the page shows them. Placement puts
-  the callout above the mark where there is room, otherwise beside it, never
-  over another note and never outside the plot.
+  PowerPoint slide carry them exactly as the page shows them. A note sits
+  **directly over the bar it belongs to** — the chart grows the headroom it
+  needs rather than the note drifting sideways — and where two would collide
+  the later one moves straight up until it clears, so every note still points
+  down at its own mark. On a horizontal bar the notes form a clean column
+  beyond the value labels, in the same order as the bars, so no leader
+  crosses another. A chart that is not on screen yet (a collapsed panel, a
+  view not yet opened) waits to be measured rather than pinning its notes at
+  the origin.
 - **Line commentary, as the pack prints it** — the reporting pack sets a
   short note beside each line, and the Financial Summary now carries the same
   column beneath the grid. A note written by the business leads — from the

@@ -899,7 +899,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-12 18:48</div>
+<div id="buildTag">build 2026-08-12 18:56</div>
 </aside>
 <main>
 
@@ -4676,51 +4676,124 @@ function annWrap(txt, per){
 }
 function annDraw(svg, key){
   svg.querySelectorAll('g.annote').forEach(g=>g.remove());
+  // the chart is rebuilt to its own size each time, so start from the size it
+  // was drawn at rather than from the last headroom this function added
+  if(svg.dataset.annVb0){ svg.setAttribute('viewBox', svg.dataset.annVb0);
+    svg.setAttribute('width', svg.dataset.annW0); svg.setAttribute('height', svg.dataset.annH0);
+    if(svg.dataset.annStyle0!=null) svg.setAttribute('style', svg.dataset.annStyle0); }
   const notes=annNotes(key); if(!Object.keys(notes).length) return;
-  const vb=(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number);
-  const [vx,vy,vw,vh]=vb.length===4? vb : [0,0,svg.clientWidth||680,svg.clientHeight||300];
+  // a chart drawn without a viewBox gets one, so the note can be laid out in
+  // the same coordinates the chart was drawn in
+  let vb0=(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number);
+  if(vb0.length!==4||vb0.some(n=>!isFinite(n))){
+    const w0=parseFloat(svg.getAttribute('width'))||svg.clientWidth||680;
+    const h0=parseFloat(svg.getAttribute('height'))||svg.clientHeight||300;
+    vb0=[0,0,w0,h0];
+    svg.setAttribute('viewBox', `0 0 ${w0} ${h0}`);
+  }
+  if(!svg.dataset.annVb0){ svg.dataset.annVb0=svg.getAttribute('viewBox');
+    svg.dataset.annW0=svg.getAttribute('width')||''; svg.dataset.annH0=svg.getAttribute('height')||'';
+    svg.dataset.annStyle0=svg.getAttribute('style')||''; }
+  let [vx,vy,vw,vh]=vb0;
   const NS='http://www.w3.org/2000/svg';
-  const placed=[];
-  const hits=(r)=>placed.some(q=>!(r.x+r.w<=q.x||q.x+q.w<=r.x||r.y+r.h<=q.y||q.y+q.h<=r.y));
-  const inside=(r)=>r.x>=vx+2&&r.y>=vy+2&&r.x+r.w<=vx+vw-2&&r.y+r.h<=vy+vh-2;
+  const GAP=14, ROW=6;
+
+  // measure every note against the mark it belongs to
+  const items=[];
   for(const [cat,txt] of Object.entries(notes)){
     const sel=(window.CSS&&CSS.escape)? CSS.escape(cat) : String(cat).replace(/"/g,'\\"');
     const el=svg.querySelector(`[data-cat="${sel}"]`);
     if(!el) continue;
     let bb; try{ bb=el.getBBox(); }catch(e){ continue; }
-    const cx=bb.x+bb.width/2, cy=bb.y+bb.height/2;
+    if(!bb||(!bb.width&&!bb.height)) continue;
     const lines=annWrap(txt, 30);
-    const w=Math.min(vw-16, Math.max(90, 6.1*Math.max(...lines.map(l=>l.length))+18));
-    const h=lines.length*13+14;
-    // above the mark first, then beside it, then below — whichever fits the
-    // drawing area without covering a note already pinned
-    const cand=[
-      {x:cx-w/2,           y:bb.y-h-16},
-      {x:bb.x+bb.width+14, y:cy-h/2},
-      {x:bb.x-w-14,        y:cy-h/2},
-      {x:cx-w/2,           y:bb.y+bb.height+16},
-    ].map(c=>({x:c.x, y:c.y, w, h}));
-    let box=cand.find(c=>inside(c)&&!hits(c))
-      || cand.find(c=>inside(c))
-      || {x:Math.min(Math.max(vx+4,cx-w/2), vx+vw-w-4), y:Math.max(vy+4, bb.y-h-16), w, h};
-    box={...box, x:Math.min(Math.max(vx+2,box.x), vx+vw-w-2),
-                 y:Math.min(Math.max(vy+2,box.y), vy+vh-h-2)};
-    placed.push(box);
-    // the leader leaves the bubble edge nearest the mark it belongs to
-    const lx=Math.max(box.x, Math.min(cx, box.x+w));
-    const ly=box.y+h<=bb.y? box.y+h : (box.y>=bb.y+bb.height? box.y : box.y+h/2);
-    const tx=(box.x+w<=bb.x)? bb.x : (box.x>=bb.x+bb.width? bb.x+bb.width : cx);
-    const ty=(box.y+h<=bb.y)? bb.y : (box.y>=bb.y+bb.height? bb.y+bb.height : cy);
+    const w=Math.min(Math.max(vw*0.9,120), Math.max(96, 6.1*Math.max(...lines.map(l=>l.length))+18));
+    items.push({cat, txt, bb, lines, w, h:lines.length*13+14,
+      horiz:bb.width>bb.height*1.6});   // a horizontal bar is written to its right
+  }
+  // a chart that is not laid out yet (a collapsed panel, a tab not yet shown)
+  // measures as nothing — wait for it to appear rather than pinning notes at
+  // the origin
+  if(!items.length){
+    const n=+(svg.dataset.annRetry||0);
+    if(Object.keys(notes).length&&n<6){
+      svg.dataset.annRetry=String(n+1);
+      requestAnimationFrame(()=>annDraw(svg,key));
+      if(n===0&&window.IntersectionObserver){
+        const io=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){
+          io.disconnect(); svg.dataset.annRetry='0'; annDraw(svg,key); } });
+        try{ io.observe(svg); }catch(e){}
+      }
+    }
+    return;
+  }
+  svg.dataset.annRetry='0';
+
+  // A note sits directly over its own bar. Where one would land on a note
+  // already placed it moves straight up until it clears — never sideways, so
+  // every note still points down at the bar it describes — and the chart
+  // gains exactly the headroom that took.
+  const placed=[];
+  const clash=(x,y,w,h)=>placed.find(q=>
+    !(x+w+4<=q.x||q.x+q.w+4<=x||y+h+4<=q.y||q.y+q.h+4<=y));
+  let padTop=0, padRight=0;
+  // place in the order the marks read: left to right on a column chart, top to
+  // bottom on a horizontal bar, so the leaders never cross
+  items.sort((a,b)=> (a.horiz||b.horiz)
+    ? (a.bb.y+a.bb.height/2)-(b.bb.y+b.bb.height/2)
+    : (a.bb.x+a.bb.width/2)-(b.bb.x+b.bb.width/2));
+  for(const it of items){
+    if(it.horiz){
+      // a horizontal bar is written in a clean column beyond the plot, clear of
+      // the value labels; a clash moves the note down its own column
+      const x=vx+vw+GAP;
+      let y=Math.max(vy+2, it.bb.y+it.bb.height/2-it.h/2);
+      for(let g=0; g<40; g++){ const hit=clash(x,y,it.w,it.h); if(!hit) break; y=hit.y+hit.h+ROW; }
+      it.x=x; it.y=y;
+      padRight=Math.max(padRight, (x+it.w+4)-(vx+vw));
+      padTop=Math.max(padTop, 0);
+      if(y+it.h+2>vy+vh) vh=y+it.h+2-vy;   // let the frame grow rather than clip
+    } else {
+      const cx=it.bb.x+it.bb.width/2;
+      const x=Math.min(Math.max(vx+2, cx-it.w/2), vx+vw-it.w-2);
+      let y=it.bb.y-GAP-it.h;
+      for(let g=0; g<40; g++){ const hit=clash(x,y,it.w,it.h); if(!hit) break; y=hit.y-it.h-ROW; }
+      it.x=x; it.y=y;
+      padTop=Math.max(padTop, (vy+2)-y);
+    }
+    placed.push({x:it.x, y:it.y, w:it.w, h:it.h});
+  }
+  if(padTop>0||padRight>0){
+    const grewDown=vh-vb0[3];
+    vy-=Math.max(0,padTop); vh+=Math.max(0,padTop); vw+=Math.max(0,padRight);
+    svg.setAttribute('viewBox', `${vx} ${vy} ${vw} ${vh}`);
+    const wA=parseFloat(svg.getAttribute('width'))||vw, hA=parseFloat(svg.getAttribute('height'))||vh;
+    svg.setAttribute('width', (wA+Math.max(0,padRight)).toFixed(1));
+    svg.setAttribute('height', (hA+Math.max(0,padTop)+Math.max(0,grewDown)).toFixed(1));
+    const st=svg.getAttribute('style')||'';
+    if(/max-width:\s*[\d.]+px/.test(st))
+      svg.setAttribute('style', st.replace(/max-width:\s*([\d.]+)px/,
+        (mm,v)=>`max-width:${(parseFloat(v)+Math.max(0,padRight)).toFixed(1)}px`));
+  }
+  for(const it of items){
+    const {bb}=it;
+    const cx=bb.x+bb.width/2, cy=bb.y+bb.height/2;
+    // the leader drops from the middle of the bubble's lower edge onto the
+    // top of the mark — or across from its side for a horizontal bar
+    const x1=it.horiz? it.x : Math.max(it.x+8, Math.min(cx, it.x+it.w-8));
+    const y1=it.horiz? it.y+it.h/2 : it.y+it.h;
+    const x2=it.horiz? bb.x+bb.width+3 : x1;
+    const y2=it.horiz? cy : bb.y-3;
     const g=document.createElementNS(NS,'g');
-    g.setAttribute('class','annote'); g.setAttribute('data-cat',cat);
+    g.setAttribute('class','annote'); g.setAttribute('data-cat',it.cat);
     g.innerHTML=
-      `<line x1="${lx.toFixed(1)}" y1="${ly.toFixed(1)}" x2="${tx.toFixed(1)}" y2="${ty.toFixed(1)}"
+      `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
          stroke="var(--hsbc-red)" stroke-width="1" stroke-dasharray="2 2"/>`+
-      `<rect x="${box.x.toFixed(1)}" y="${box.y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="7"
-         fill="var(--surface-1)" fill-opacity="0.97" stroke="var(--hsbc-red)" stroke-width="1"/>`+
-      lines.map((l,i)=>`<text x="${(box.x+9).toFixed(1)}" y="${(box.y+15+i*13).toFixed(1)}" font-size="10.5"
+      `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${it.w.toFixed(1)}" height="${it.h.toFixed(1)}" rx="7"
+         fill="var(--surface-1)" stroke="var(--hsbc-red)" stroke-width="1"/>`+
+      it.lines.map((l,i)=>`<text x="${(it.x+9).toFixed(1)}" y="${(it.y+15+i*13).toFixed(1)}" font-size="10.5"
          fill="var(--text-primary)">${esc(l)}</text>`).join('')+
-      `<title>${esc(cat)}: ${esc(txt)} \u2014 click to edit, clear the box to remove</title>`;
+      `<title>${esc(it.cat)}: ${esc(it.txt)} \u2014 click to edit, clear the box to remove</title>`;
     g.style.cursor='pointer';
     svg.appendChild(g);
   }
@@ -8454,7 +8527,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-12 18:48</td></tr>
+      <tr><td>Build</td><td>2026-08-12 18:56</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
