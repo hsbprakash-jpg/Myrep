@@ -391,6 +391,16 @@ left-pane strip and the Filters pane.
   YTD-through month moves it. Configurable via `fsum_title`, `fsum_section_label`,
   `fsum_levels`, `fsum_ow` (the "o/w" prefix on the deepest level) and
   `fsum_total_label`.
+- **Notes pinned on a chart** — double-click any bar, point, slice or
+  bubble and write what it means; the note is drawn on the chart as a
+  callout with a leader line back to the mark it belongs to. Click a note to
+  rewrite it, clear the box to remove it. Each note belongs to that category
+  on that chart, so it survives a re-render, a change of chart type and a
+  reload — it is kept in the browser beside the tile order and the parked
+  tiles. Notes are drawn into the SVG itself, so the PNG capture and the
+  PowerPoint slide carry them exactly as the page shows them. Placement puts
+  the callout above the mark where there is room, otherwise beside it, never
+  over another note and never outside the plot.
 - **Line commentary, as the pack prints it** — the reporting pack sets a
   short note beside each line, and the Financial Summary now carries the same
   column beneath the grid. A note written by the business leads — from the

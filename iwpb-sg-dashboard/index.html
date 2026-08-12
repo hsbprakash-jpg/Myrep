@@ -613,6 +613,9 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .unitbar .scopeSep{width:1px;align-self:stretch;background:var(--border-strong);margin:0 4px}
 .unitbar .unitnote{font-size:10.5px;color:var(--text-muted);font-style:italic}
 .ctxnote{color:var(--text-muted);font-size:10.5px;margin:6px 0 0;font-style:italic}
+.annhint{opacity:0;transition:opacity .12s}
+.chart-wrap:hover .annhint,div:hover>.annhint{opacity:1}
+svg g.annote text{pointer-events:none}
 #fsumNotes{margin-top:14px;border-top:2px solid var(--text-primary);padding-top:10px}
 #fsumNotes h4{margin:0 0 2px;font-size:13px}
 #fsumNotes .subtitle{margin:0 0 8px}
@@ -896,7 +899,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-12 08:03</div>
+<div id="buildTag">build 2026-08-12 18:48</div>
 </aside>
 <main>
 
@@ -3708,6 +3711,7 @@ function comDocx(hostIds, title){
 /* ---------- PowerPoint export ---------- */
 function svgToPngData(svgEl, scale){
   scale=scale||2;
+  try{ if(svgEl&&svgEl.dataset&&svgEl.dataset.annKey) annDraw(svgEl, svgEl.dataset.annKey); }catch(e){}
   return new Promise(res=>{
     const clone=svgEl.cloneNode(true);
     (function walk(src,dst){
@@ -4640,6 +4644,120 @@ function segLegend(segNames, paired){
   return `<div class="legend">`+segNames.map((sn,i)=>
     `<span><span class="sw" style="background:${paired? pairFill(i) : CAT_COLORS[i%CAT_COLORS.length]};height:9px;width:9px;border-radius:2px"></span>${esc(sn)}</span>`).join('')+`</div>`;
 }
+/* ================= notes pinned on a chart =================
+   Click a bar, point or slice and write what it means. The note belongs to
+   that category on that chart, is drawn into the SVG itself so the PNG and
+   the PowerPoint slide carry it, and lives in this browser beside the tile
+   order and the parked tiles. */
+function annStoreGet(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_chartnotes')||'{}')||{}; }catch(e){ return {}; } }
+function annStoreSet(o){ try{ localStorage.setItem('iwpbsg_chartnotes',JSON.stringify(o)); }catch(e){} }
+function annKey(cfg){
+  if(cfg&&cfg.annKey) return String(cfg.annKey);
+  const c=cfg||{};
+  return 'c|'+[c.l2||'', gArr(c.groupBy).join('+'), gArr(c.splitBy).join('+'), effMeasure(c)].join('|');
+}
+function annNotes(key){ return annStoreGet()[key]||{}; }
+function annSet(key, cat, txt){
+  const o=annStoreGet(); const n=o[key]||{};
+  if(txt&&txt.trim()) n[cat]=txt.trim(); else delete n[cat];
+  if(Object.keys(n).length) o[key]=n; else delete o[key];
+  annStoreSet(o);
+}
+/* wrap the note to a readable width, at most four lines */
+function annWrap(txt, per){
+  const words=String(txt).split(/\s+/), out=[]; let line='';
+  for(const w of words){
+    if((line+' '+w).trim().length>per){ out.push(line.trim()); line=w; if(out.length===3) break; }
+    else line=(line+' '+w).trim();
+  }
+  if(line&&out.length<4) out.push(line.trim());
+  if(out.length===4&&words.join(' ').length>out.join(' ').length) out[3]=out[3].slice(0,per-1)+'\u2026';
+  return out.filter(Boolean);
+}
+function annDraw(svg, key){
+  svg.querySelectorAll('g.annote').forEach(g=>g.remove());
+  const notes=annNotes(key); if(!Object.keys(notes).length) return;
+  const vb=(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number);
+  const [vx,vy,vw,vh]=vb.length===4? vb : [0,0,svg.clientWidth||680,svg.clientHeight||300];
+  const NS='http://www.w3.org/2000/svg';
+  const placed=[];
+  const hits=(r)=>placed.some(q=>!(r.x+r.w<=q.x||q.x+q.w<=r.x||r.y+r.h<=q.y||q.y+q.h<=r.y));
+  const inside=(r)=>r.x>=vx+2&&r.y>=vy+2&&r.x+r.w<=vx+vw-2&&r.y+r.h<=vy+vh-2;
+  for(const [cat,txt] of Object.entries(notes)){
+    const sel=(window.CSS&&CSS.escape)? CSS.escape(cat) : String(cat).replace(/"/g,'\\"');
+    const el=svg.querySelector(`[data-cat="${sel}"]`);
+    if(!el) continue;
+    let bb; try{ bb=el.getBBox(); }catch(e){ continue; }
+    const cx=bb.x+bb.width/2, cy=bb.y+bb.height/2;
+    const lines=annWrap(txt, 30);
+    const w=Math.min(vw-16, Math.max(90, 6.1*Math.max(...lines.map(l=>l.length))+18));
+    const h=lines.length*13+14;
+    // above the mark first, then beside it, then below — whichever fits the
+    // drawing area without covering a note already pinned
+    const cand=[
+      {x:cx-w/2,           y:bb.y-h-16},
+      {x:bb.x+bb.width+14, y:cy-h/2},
+      {x:bb.x-w-14,        y:cy-h/2},
+      {x:cx-w/2,           y:bb.y+bb.height+16},
+    ].map(c=>({x:c.x, y:c.y, w, h}));
+    let box=cand.find(c=>inside(c)&&!hits(c))
+      || cand.find(c=>inside(c))
+      || {x:Math.min(Math.max(vx+4,cx-w/2), vx+vw-w-4), y:Math.max(vy+4, bb.y-h-16), w, h};
+    box={...box, x:Math.min(Math.max(vx+2,box.x), vx+vw-w-2),
+                 y:Math.min(Math.max(vy+2,box.y), vy+vh-h-2)};
+    placed.push(box);
+    // the leader leaves the bubble edge nearest the mark it belongs to
+    const lx=Math.max(box.x, Math.min(cx, box.x+w));
+    const ly=box.y+h<=bb.y? box.y+h : (box.y>=bb.y+bb.height? box.y : box.y+h/2);
+    const tx=(box.x+w<=bb.x)? bb.x : (box.x>=bb.x+bb.width? bb.x+bb.width : cx);
+    const ty=(box.y+h<=bb.y)? bb.y : (box.y>=bb.y+bb.height? bb.y+bb.height : cy);
+    const g=document.createElementNS(NS,'g');
+    g.setAttribute('class','annote'); g.setAttribute('data-cat',cat);
+    g.innerHTML=
+      `<line x1="${lx.toFixed(1)}" y1="${ly.toFixed(1)}" x2="${tx.toFixed(1)}" y2="${ty.toFixed(1)}"
+         stroke="var(--hsbc-red)" stroke-width="1" stroke-dasharray="2 2"/>`+
+      `<rect x="${box.x.toFixed(1)}" y="${box.y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="7"
+         fill="var(--surface-1)" fill-opacity="0.97" stroke="var(--hsbc-red)" stroke-width="1"/>`+
+      lines.map((l,i)=>`<text x="${(box.x+9).toFixed(1)}" y="${(box.y+15+i*13).toFixed(1)}" font-size="10.5"
+         fill="var(--text-primary)">${esc(l)}</text>`).join('')+
+      `<title>${esc(cat)}: ${esc(txt)} \u2014 click to edit, clear the box to remove</title>`;
+    g.style.cursor='pointer';
+    svg.appendChild(g);
+  }
+}
+function annPrompt(key, cat){
+  const cur=annNotes(key)[cat]||'';
+  const t=window.prompt(`Note on \u201c${cat}\u201d — leave empty to remove`, cur);
+  if(t==null) return false;
+  annSet(key, cat, t);
+  return true;
+}
+/* the generic layer: any chart whose categories are tagged gets notes */
+function annAttach(wrap, cfg, redraw){
+  const key=annKey(cfg);
+  const go=()=>{
+    const svg=wrap.querySelector('svg'); if(!svg) return;
+    svg.dataset.annKey=key;
+    annDraw(svg, key);
+    if(svg.dataset.annWired) return;
+    svg.dataset.annWired='1';
+    // double-click anything that carries a category — a bar, a point, a
+    // slice, or a note already pinned to it — to write or rewrite its note
+    svg.addEventListener('dblclick',e=>{
+      const t=e.target.closest('[data-cat]'); if(!t) return;
+      e.preventDefault(); e.stopPropagation();
+      if(annPrompt(key, t.getAttribute('data-cat'))) redraw? redraw() : annDraw(svg, key);
+    });
+    // a single click on a note edits it, so a pinned note never needs hunting
+    svg.addEventListener('click',e=>{
+      const g=e.target.closest('g.annote'); if(!g) return;
+      e.preventDefault(); e.stopPropagation();
+      if(annPrompt(key, g.getAttribute('data-cat'))) redraw? redraw() : annDraw(svg, key);
+    });
+  };
+  go();
+  setTimeout(go, 0);   // again once the wrap is in the document and measurable
+}
 function buildChartEl(cfg){
   const wrap=document.createElement('div');
   const m=S.model;
@@ -4696,7 +4814,7 @@ function buildChartEl(cfg){
       } else {
         d=`M${CX} ${CY} L${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z`;
       }
-      arcs+=`<path d="${d}" fill="${CAT_COLORS[i%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="2"><title>${esc(c.name)}: ${fmtFull(c.val)} · ${(c.val/total*100).toFixed(1)}%</title></path>`;
+      arcs+=`<path d="${d}" fill="${CAT_COLORS[i%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="2" data-cat="${esc(c.name)}"><title>${esc(c.name)}: ${fmtFull(c.val)} · ${(c.val/total*100).toFixed(1)}%</title></path>`;
       a0=a1;
     });
     const center=t==='donut'?`<text x="100" y="96" text-anchor="middle" font-size="19" font-weight="750" fill="var(--text-primary)">${fmt(total)}</text>
@@ -4729,25 +4847,25 @@ function buildChartEl(cfg){
           const sv=c.segs[sn]; if(sv==null) return;
           const w=Math.max(1,Math.round(Math.abs(sv)/maxAbs*maxBar));
           svg+=`<rect x="${labelW}" y="${(y0+si*9).toFixed(1)}" width="${w}" height="7" rx="1.5"
-            fill="${pairFill(si)}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(sv)}</title></rect>`;
+            fill="${pairFill(si)}" data-cat="${esc(c.name)}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(sv)}</title></rect>`;
         });
       } else if(segNames){
         let x=labelW;
         for(const [sn,sv] of Object.entries(c.segs).sort((a,b)=>b[1]-a[1])){
           const w=Math.max(1,Math.round(sv/maxAbs*maxBar));
           svg+=`<rect x="${x}" y="${(cy-7).toFixed(1)}" width="${w}" height="14"
-            fill="${CAT_COLORS[segNames.indexOf(sn)%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="1"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(sv)}</title></rect>`;
+            fill="${CAT_COLORS[segNames.indexOf(sn)%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="1" data-cat="${esc(c.name)}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(sv)}</title></rect>`;
           x+=w+1;
         }
       } else if(t==='lollipop'){
         const w=Math.max(2,Math.round(Math.abs(c.val)/maxAbs*(maxBar-8)));
         const col=c.val<0?'var(--cat2)':'var(--cat1)';
         svg+=`<line x1="${labelW}" x2="${labelW+w}" y1="${cy.toFixed(1)}" y2="${cy.toFixed(1)}" stroke="${col}" stroke-width="2.5"/>`+
-          `<circle cx="${labelW+w}" cy="${cy.toFixed(1)}" r="5.5" fill="${col}"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></circle>`;
+          `<circle cx="${labelW+w}" cy="${cy.toFixed(1)}" r="5.5" fill="${col}" data-cat="${esc(c.name)}"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></circle>`;
       } else {
         const w=Math.max(2,Math.round(Math.abs(c.val)/maxAbs*maxBar));
         svg+=`<rect x="${labelW}" y="${(cy-7).toFixed(1)}" width="${w}" height="14" rx="3"
-          fill="${c.val<0?'var(--cat2)':'var(--cat1)'}"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></rect>`;
+          fill="${c.val<0?'var(--cat2)':'var(--cat1)'}" data-cat="${esc(c.name)}"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></rect>`;
       }
       svg+=`<text x="${W-8}" y="${(cy+3.5).toFixed(1)}" text-anchor="end" font-size="11.5" font-weight="600"
         fill="${v<0?'var(--status-critical)':'var(--text-primary)'}">${paired&&c.varFcPct!=null?
@@ -4773,7 +4891,7 @@ function buildChartEl(cfg){
     }
     svg+=`<path d="${path}" fill="none" stroke="var(--cat1)" stroke-width="2" stroke-linejoin="round"/>`;
     cats.forEach((c,i)=>{
-      svg+=`<circle cx="${x(i).toFixed(1)}" cy="${y(c.val).toFixed(1)}" r="3.5" fill="var(--cat1)"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></circle>`;
+      svg+=`<circle cx="${x(i).toFixed(1)}" cy="${y(c.val).toFixed(1)}" r="3.5" fill="var(--cat1)" data-cat="${esc(c.name)}"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></circle>`;
       if(cats.length<=9) svg+=`<text x="${x(i).toFixed(1)}" y="${(y(c.val)-8).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${c.val<0?'var(--status-critical)':'var(--text-primary)'}">${fmt(c.val)}</text>`;
       svg+=xLabel(x(i),H-BOT+16)(c);
     });
@@ -4823,7 +4941,7 @@ function buildChartEl(cfg){
     let cum=0; const pts=[];
     items.forEach((c,i)=>{
       const cx=L+14+i*step;
-      svg+=`<rect x="${cx.toFixed(1)}" y="${y(c.val).toFixed(1)}" width="${bw}" height="${Math.max(2,(H-T-BOT)-(y(c.val)-T)).toFixed(1)}" rx="2" fill="var(--cat1)"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></rect>`;
+      svg+=`<rect x="${cx.toFixed(1)}" y="${y(c.val).toFixed(1)}" width="${bw}" height="${Math.max(2,(H-T-BOT)-(y(c.val)-T)).toFixed(1)}" rx="2" fill="var(--cat1)" data-cat="${esc(c.name)}"><title>${esc(c.name)}: ${fmtFull(c.val)}</title></rect>`;
       cum+=c.val;
       pts.push([cx+bw/2, yPct(cum/total), cum/total]);
       svg+=xLabel(cx+bw/2,H-BOT+16)(c);
@@ -4943,7 +5061,7 @@ function buildChartEl(cfg){
     }
     svg+=`<line x1="${x(lo).toFixed(1)}" y1="${y(lo).toFixed(1)}" x2="${x(hi).toFixed(1)}" y2="${y(hi).toFixed(1)}" stroke="var(--border-strong)" stroke-dasharray="4 4"/>`;
     cats.forEach((c,i)=>{
-      svg+=`<circle cx="${x(c.py).toFixed(1)}" cy="${y(c.cy).toFixed(1)}" r="5.5" fill="var(--cat1)" fill-opacity="0.85" stroke="var(--surface-1)" stroke-width="1.5"><title>${esc(c.name)} — YTD ${m.yearCY}: ${fmtFull(c.cy)} · ${scatterBaseLbl(m)}: ${fmtFull(c.py)}</title></circle>`;
+      svg+=`<circle cx="${x(c.py).toFixed(1)}" cy="${y(c.cy).toFixed(1)}" r="5.5" fill="var(--cat1)" fill-opacity="0.85" stroke="var(--surface-1)" stroke-width="1.5" data-cat="${esc(c.name)}"><title>${esc(c.name)} — YTD ${m.yearCY}: ${fmtFull(c.cy)} · ${scatterBaseLbl(m)}: ${fmtFull(c.py)}</title></circle>`;
       if(i<5) svg+=`<text x="${(x(c.py)+8).toFixed(1)}" y="${(y(c.cy)+3.5).toFixed(1)}" font-size="10" fill="var(--text-primary)">${esc(c.name.length>14?c.name.slice(0,13)+'…':c.name)}</text>`;
     });
     svg+=`<text x="${((L+W-8)/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-secondary)">${esc(scatterBaseLbl(m))}</text>`;
@@ -4970,7 +5088,7 @@ function buildChartEl(cfg){
           const v2=c.segs[sn]||0, y1=y(Math.max(0,v2)), y2=y(Math.min(0,v2));
           svg+=`<rect x="${(cx+si*(sw+1)).toFixed(1)}" y="${y1.toFixed(1)}" width="${sw}"
             height="${Math.max(2,y2-y1).toFixed(1)}" rx="2"
-            fill="${pairFill(si)}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(v2)}</title></rect>`;
+            fill="${pairFill(si)}" data-cat="${esc(c.name)}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(v2)}</title></rect>`;
         });
       } else if(segNames){
         let acc=0;
@@ -4978,13 +5096,13 @@ function buildChartEl(cfg){
           const v=c.segs[sn]||0; if(!v) continue;
           const y1=y(acc+v), y2=y(acc);
           svg+=`<rect x="${cx.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw}" height="${Math.max(1,y2-y1).toFixed(1)}"
-            fill="${CAT_COLORS[segNames.indexOf(sn)%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="1"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(v)}</title></rect>`;
+            fill="${CAT_COLORS[segNames.indexOf(sn)%CAT_COLORS.length]}" stroke="var(--surface-1)" stroke-width="1" data-cat="${esc(c.name)}"><title>${esc(c.name)} · ${esc(sn)}: ${fmtFull(v)}</title></rect>`;
           acc+=v;
         }
       } else {
         const v=c.val, y1=y(Math.max(0,v)), y2=y(Math.min(0,v));
         svg+=`<rect x="${cx.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw}" height="${Math.max(2,y2-y1).toFixed(1)}" rx="2"
-          fill="${v<0?'var(--cat2)':'var(--cat1)'}"><title>${esc(c.name)}: ${fmtFull(v)}</title></rect>`;
+          fill="${v<0?'var(--cat2)':'var(--cat1)'}" data-cat="${esc(c.name)}"><title>${esc(c.name)}: ${fmtFull(v)}</title></rect>`;
       }
       const tv=segNames?c.segTotal:c.val;
       if(cats.length<=9) svg+=`<text x="${(cx+bw/2).toFixed(1)}" y="${(y(Math.max(0,tv))-5).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${tv<0?'var(--status-critical)':'var(--text-primary)'}">${fmt(tv)}</text>`;
@@ -4998,7 +5116,9 @@ function buildChartEl(cfg){
   // become unreadable, at which point .scroll-x takes over
   html=html.replace(/<svg width="(\d+(?:\.\d+)?)" height="(\d+(?:\.\d+)?)"/g,
     (mm,w0,h0)=>`<svg width="${w0}" height="${h0}" style="width:100%;height:auto;max-width:${w0}px;min-width:${Math.min(+w0,430)}px"`);
-  wrap.innerHTML=html+notes.map(n=>`<p class="note">${esc(n)}</p>`).join('');
+  wrap.innerHTML=html+notes.map(n=>`<p class="note">${esc(n)}</p>`).join('')+
+    `<p class="note annhint">Double-click a bar, point or slice to pin a note on it \u00b7 click a note to edit it</p>`;
+  annAttach(wrap, cfg, ()=>{ const s2=wrap.querySelector('svg'); if(s2) annDraw(s2, annKey(cfg)); });
   return wrap;
 }
 
@@ -8334,7 +8454,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-12 08:03</td></tr>
+      <tr><td>Build</td><td>2026-08-12 18:48</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
