@@ -428,7 +428,14 @@ left-pane strip and the Filters pane.
   PNG and the slide. Set `chart_note_shape` (`bubble` / `callout` / `cloud` /
   `oval` / `box` / `tag` / `plain`) for the shape a new note starts as.
 - **Drag a shape onto a bar** — a small palette of the seven shapes sits
-  under every chart, labelled **Note shapes**. Drag one onto a bar, point or
+  under every category chart, labelled **Note shapes**: the drag-and-drop
+  builder's preview, every chart widget and breakdown widget on the Dynamic
+  Dashboard, and the Summary mix panel all carry it, because they are all the
+  same chart. (The monthly trend, trajectory and simulation charts plot a
+  series of months rather than categories, so there is no mark to pin a note
+  to and they carry no palette.) A note is held against the chart's own
+  shape — its scope, grouping, split and measure — so one written in the
+  builder is already there when the same chart is pinned to the dashboard. Drag one onto a bar, point or
   slice: the mark lights up as you cross it, and on the drop the note is
   written in that shape. Drop a shape onto a note already there and it is
   simply redrawn that way — it never asks for the words again. There is no
