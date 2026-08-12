@@ -615,6 +615,22 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .ctxnote{color:var(--text-muted);font-size:10.5px;margin:6px 0 0;font-style:italic}
 .annhint{opacity:0;transition:opacity .12s}
 .chart-wrap:hover .annhint,div:hover>.annhint{opacity:1}
+.annpal{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:6px 0 0;
+  opacity:.5;transition:opacity .12s}
+.chart-wrap:hover .annpal,div:hover>.annpal,.annpal:hover,.annpal:focus-within{opacity:1}
+.annpal .annpal-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;
+  font-weight:700;color:var(--fold-red)}
+.annpal .annpal-hint{font-size:10.5px;color:var(--text-muted);font-style:italic;margin-left:4px;
+  opacity:0;transition:opacity .12s}
+.chart-wrap:hover .annpal-hint,div:hover>.annpal .annpal-hint,.annpal:hover .annpal-hint{opacity:1}
+.annchip{display:inline-flex;align-items:center;justify-content:center;width:30px;height:22px;
+  border:1px solid var(--border-strong);border-radius:4px;background:var(--surface-1);
+  color:var(--text-muted);cursor:grab}
+.annchip:hover{border-color:var(--hsbc-red);color:var(--hsbc-red)}
+.annchip.armed{border-color:var(--hsbc-red);color:var(--hsbc-red);
+  box-shadow:0 0 0 2px rgba(219,0,17,.18)}
+.annchip.dragging{opacity:.45}
+svg .anndrop{stroke:var(--hsbc-red);stroke-width:2;stroke-dasharray:3 2}
 svg g.annote text{pointer-events:none}
 svg g.annote-plain text{pointer-events:auto;paint-order:stroke}
 svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
@@ -901,7 +917,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-12 19:11</div>
+<div id="buildTag">build 2026-08-12 19:24</div>
 </aside>
 <main>
 
@@ -4661,9 +4677,24 @@ function annKey(cfg){
 }
 /* the shapes a note can take. A speech bubble points at its mark with a
    tail; the others use the dotted leader. */
-const ANN_SHAPES=['bubble','box','oval','tag','plain'];
-const ANN_SHAPE_LBL={bubble:'Speech bubble', box:'Square box', oval:'Oval',
-  tag:'Tag', plain:'Plain text'};
+const ANN_SHAPES=['bubble','callout','cloud','oval','box','tag','plain'];
+const ANN_SHAPE_LBL={bubble:'Speech bubble', callout:'Callout', cloud:'Thought cloud',
+  oval:'Oval', box:'Square box', tag:'Tag', plain:'Plain text'};
+/* how far a shape's pointer reaches past its card, so placement leaves the room
+   for it and the note still clears the value label on the bar */
+const ANN_TAIL={bubble:11, callout:20, cloud:16};
+/* a thought cloud: bumps around the card, drawn clockwise from the top left */
+function annCloudPath(x,y,w,h){
+  const b=Math.min(11, h/3.2);
+  const l=x+b, r=x+w-b, t=y+b, bo=y+h-b, ry=(bo-t)/2;
+  const n=Math.max(2, Math.round((r-l)/38)), sw=(r-l)/n;
+  let d=`M ${l.toFixed(1)} ${t.toFixed(1)}`;
+  for(let i=0;i<n;i++) d+=` A ${(sw/2).toFixed(1)} ${b.toFixed(1)} 0 0 1 ${(l+sw*(i+1)).toFixed(1)} ${t.toFixed(1)}`;
+  d+=` A ${b.toFixed(1)} ${ry.toFixed(1)} 0 0 1 ${r.toFixed(1)} ${bo.toFixed(1)}`;
+  for(let i=n;i>0;i--) d+=` A ${(sw/2).toFixed(1)} ${b.toFixed(1)} 0 0 1 ${(l+sw*(i-1)).toFixed(1)} ${bo.toFixed(1)}`;
+  d+=` A ${b.toFixed(1)} ${ry.toFixed(1)} 0 0 1 ${l.toFixed(1)} ${t.toFixed(1)} Z`;
+  return d;
+}
 function annShapeDefault(){
   const v=String(cfgS('chart_note_shape')||'').trim().toLowerCase();
   return ANN_SHAPES.includes(v)? v : 'bubble';
@@ -4685,12 +4716,55 @@ function annSet(key, cat, txt, shape){
   if(Object.keys(n).length) o[key]=n; else delete o[key];
   annStoreSet(o);
 }
+/* a shape dropped on a mark: a note already there is simply redrawn that way,
+   a bare mark is asked for its words first */
+function annDrop(key, cat, shape){
+  if(!ANN_SHAPES.includes(shape)) return false;
+  const cur=annNotes(key)[cat];
+  if(cur){ annSet(key, cat, cur.t, shape); return true; }
+  const t=window.prompt(`Note on \u201c${cat}\u201d (${ANN_SHAPE_LBL[shape]||shape})`, '');
+  if(t==null||!String(t).trim()) return false;
+  annSet(key, cat, t, shape);
+  return true;
+}
 /* step a note through the shapes — the same note, drawn another way */
 function annCycleShape(key, cat){
   const cur=annNotes(key)[cat]; if(!cur) return null;
   const next=ANN_SHAPES[(ANN_SHAPES.indexOf(cur.s)+1)%ANN_SHAPES.length];
   annSet(key, cat, cur.t, next);
   return next;
+}
+/* the palette: one small glyph per shape, dragged onto the chart. On a phone
+   there is no dragging, so tapping a glyph arms it and the next tap on a bar
+   places it. */
+const ANN_ICONS={
+  bubble:'<rect x="1.5" y="1.5" width="19" height="10" rx="4"/><path d="M6.5 11.5 L5 15.5 L10.5 11.5"/>',
+  callout:'<rect x="1.5" y="1.5" width="19" height="10" rx="1.5"/><path d="M9 11.5 L11 15.5 L13 11.5"/>',
+  cloud:'<path d="M5 10.6 A3 3 0 0 1 5 4.6 A4 4 0 0 1 11.5 3.2 A3.4 3.4 0 0 1 17.6 5.2 A3 3 0 0 1 17.6 10.6 Z"/>'
+       +'<circle cx="6.5" cy="13.2" r="1.4"/><circle cx="3.6" cy="15.6" r="1"/>',
+  oval:'<ellipse cx="11" cy="7.5" rx="9.3" ry="5.8"/>',
+  box:'<rect x="1.5" y="2" width="19" height="11"/>',
+  tag:'<path d="M6 2 H20.5 V13 H6 L1.5 7.5 Z"/>',
+  plain:'<path d="M2 5 H20 M2 9.5 H14"/>'
+};
+function annShapeIcon(sh){
+  return `<svg viewBox="0 0 22 17" width="22" height="17" fill="none" stroke="currentColor"
+    stroke-width="1.3" stroke-linejoin="round" aria-hidden="true">${ANN_ICONS[sh]||ANN_ICONS.box}</svg>`;
+}
+function annPaletteHtml(){
+  return `<div class="annpal"><span class="annpal-lbl">Note shapes</span>`+
+    ANN_SHAPES.map(sh=>`<span class="annchip" draggable="true" data-shape="${sh}" role="button" tabindex="0"
+      title="${esc(ANN_SHAPE_LBL[sh]||sh)} \u2014 drag it onto a bar, or tap it and then tap a bar"
+      aria-label="${esc(ANN_SHAPE_LBL[sh]||sh)}">${annShapeIcon(sh)}</span>`).join('')+
+    `<span class="annpal-hint">drag a shape onto a bar \u00b7 double-click a bar to write a note \u00b7
+       click a note to edit it</span></div>`;
+}
+/* the shape currently being dragged — a drag over an SVG cannot read the
+   dataTransfer, so the palette says here what is in flight */
+let ANN_DRAG=null;
+function annHover(svg, el){
+  svg.querySelectorAll('.anndrop').forEach(e=>e.classList.remove('anndrop'));
+  if(el&&!el.closest('g.annote')) el.classList.add('anndrop');
 }
 /* wrap the note to a readable width, at most four lines */
 function annWrap(txt, per){
@@ -4704,7 +4778,7 @@ function annWrap(txt, per){
   return out.filter(Boolean);
 }
 function annDraw(svg, key){
-  svg.querySelectorAll('g.annote').forEach(g=>g.remove());
+  svg.querySelectorAll('g.annote, g.annleads').forEach(g=>g.remove());
   // the chart is rebuilt to its own size each time, so start from the size it
   // was drawn at rather than from the last headroom this function added
   if(svg.dataset.annVb0){ svg.setAttribute('viewBox', svg.dataset.annVb0);
@@ -4740,11 +4814,11 @@ function annDraw(svg, key){
     // the mark's own name heads the note, as the pack's callouts do
     const head=(shape==='plain')? '' : String(cat).toUpperCase();
     const headW=head? 6.6*Math.min(head.length,34)+4 : 0;
-    const pad=shape==='oval'? 32 : shape==='plain'? 4 : shape==='tag'? 28 : 24;
+    const pad=shape==='oval'? 32 : shape==='cloud'? 44 : shape==='plain'? 4 : shape==='tag'? 28 : 24;
     const w=Math.min(Math.max(vw*0.9,140),
       Math.max(112, Math.max(6.35*Math.max(...lines.map(l=>l.length)), headW)+pad));
     items.push({cat, txt, shape, bb, lines, head, w, el,
-      h:lines.length*14+(head? 17 : 0)+(shape==='oval'? 22 : shape==='plain'? 6 : 16),
+      h:lines.length*14+(head? 17 : 0)+(shape==='oval'? 22 : shape==='cloud'? 30 : shape==='plain'? 6 : 16),
       horiz:bb.width>bb.height*1.6});   // a horizontal bar is written to its right
   }
   // a chart that is not laid out yet (a collapsed panel, a tab not yet shown)
@@ -4772,7 +4846,10 @@ function annDraw(svg, key){
   const placed=[];
   // the other marks on the chart are obstacles too: a note explains one bar,
   // it should not sit on top of another
-  const marks=[...svg.querySelectorAll('[data-cat]')].filter(e=>!e.closest('g.annote'))
+  // — and so are the value labels: covering the number a bar is worth is as
+  // bad as covering the bar
+  const marks=[...svg.querySelectorAll('[data-cat], text[font-weight="700"]')]
+    .filter(e=>!e.closest('g.annote'))
     .map(e=>{ try{ const b=e.getBBox(); return {el:e, x:b.x, y:b.y, w:b.width, h:b.height}; }
              catch(err){ return null; } }).filter(Boolean).filter(q=>q.w&&q.h);
   const clash=(x,y,w,h,own)=>[...placed, ...marks.filter(mk=>mk.el!==own)].find(q=>
@@ -4787,7 +4864,7 @@ function annDraw(svg, key){
     if(it.horiz){
       // a horizontal bar is written in a clean column beyond the plot, clear of
       // the value labels; a clash moves the note down its own column
-      const x=vx+vw+(it.shape==='bubble'? GAP+11 : GAP);
+      const x=vx+vw+GAP+(ANN_TAIL[it.shape]||0);
       let y=Math.max(vy+2, it.bb.y+it.bb.height/2-it.h/2);
       for(let g=0; g<40; g++){ const hit=clash(x,y,it.w,it.h,it.el); if(!hit) break; y=hit.y+hit.h+ROW; }
       it.x=x; it.y=y;
@@ -4797,7 +4874,7 @@ function annDraw(svg, key){
     } else {
       const cx=it.bb.x+it.bb.width/2;
       const x=Math.min(Math.max(vx+2, cx-it.w/2), vx+vw-it.w-2);
-      let y=it.bb.y-(GAP+(it.shape==='bubble'? 11 : 0))-it.h;
+      let y=it.bb.y-(GAP+(ANN_TAIL[it.shape]||0))-it.h;
       for(let g=0; g<40; g++){ const hit=clash(x,y,it.w,it.h,it.el); if(!hit) break; y=hit.y-it.h-ROW; }
       it.x=x; it.y=y;
       padTop=Math.max(padTop, (vy+2)-y);
@@ -4816,6 +4893,10 @@ function annDraw(svg, key){
       svg.setAttribute('style', st.replace(/max-width:\s*([\d.]+)px/,
         (mm,v)=>`max-width:${(parseFloat(v)+Math.max(0,padRight)).toFixed(1)}px`));
   }
+  const leads=document.createElementNS(NS,'g');
+  leads.setAttribute('class','annleads'); leads.setAttribute('pointer-events','none');
+  svg.appendChild(leads);
+  let leadHtml='';
   for(const it of items){
     const {bb}=it;
     const cx=bb.x+bb.width/2, cy=bb.y+bb.height/2;
@@ -4836,8 +4917,9 @@ function annDraw(svg, key){
     const shadow=(sh==='plain')? '' :
       sh==='oval'? `<ellipse cx="${(it.x+it.w/2+1).toFixed(1)}" cy="${(it.y+it.h/2+2).toFixed(1)}"
                       rx="${(it.w/2).toFixed(1)}" ry="${(it.h/2).toFixed(1)}" ${SHADOW}/>`
+      : sh==='cloud'? `<path d="${annCloudPath(it.x+1, it.y+2, it.w, it.h)}" ${SHADOW}/>`
       : `<rect x="${(it.x+1).toFixed(1)}" y="${(it.y+2).toFixed(1)}" width="${it.w.toFixed(1)}"
-             height="${it.h.toFixed(1)}" rx="${sh==='box'? 0 : R}" ${SHADOW}/>`;
+             height="${it.h.toFixed(1)}" rx="${sh==='box'? 0 : sh==='callout'? 3 : R}" ${SHADOW}/>`;
     // the tail belongs to the card, so it carries the card's own edge
     // a swept tail, drawn as one piece with the card so no seam shows
     const tail=(sh==='bubble')
@@ -4854,15 +4936,39 @@ function annDraw(svg, key){
              C ${(x1+2).toFixed(1)} ${(it.y+it.h+11).toFixed(1)} ${(x1+7).toFixed(1)} ${(it.y+it.h+5).toFixed(1)}
                ${(x1+12).toFixed(1)} ${(it.y+it.h).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>
            <rect x="${(x1-13).toFixed(1)}" y="${(it.y+it.h-2).toFixed(1)}" width="25" height="3" fill="var(--surface-1)"/>`)
+      : (sh==='callout')
+        ? (it.horiz
+          ? `<path d="M ${it.x.toFixed(1)} ${(y1-6).toFixed(1)} L ${(it.x-20).toFixed(1)} ${y1.toFixed(1)}
+               L ${it.x.toFixed(1)} ${(y1+6).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>
+             <rect x="${(it.x-1).toFixed(1)}" y="${(y1-6).toFixed(1)}" width="3" height="12" fill="var(--surface-1)"/>`
+          : `<path d="M ${(x1-6).toFixed(1)} ${(it.y+it.h).toFixed(1)} L ${(x1+1).toFixed(1)} ${(it.y+it.h+20).toFixed(1)}
+               L ${(x1+6).toFixed(1)} ${(it.y+it.h).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>
+             <rect x="${(x1-6).toFixed(1)}" y="${(it.y+it.h-2).toFixed(1)}" width="12" height="3" fill="var(--surface-1)"/>`)
       : '';
+    // the cloud's trail: three shrinking puffs that stay with the cloud and
+    // lean toward its mark. They never run the whole way — a note pushed well
+    // clear of its bar would otherwise trail puffs across everything between.
+    const cloud=(sh==='cloud')? (()=>{
+      const sx=it.horiz? it.x+4 : x1, sy=it.horiz? y1 : it.y+it.h-4;
+      const len=Math.hypot(x2-sx, y2-sy)||1, ux=(x2-sx)/len, uy=(y2-sy)/len;
+      const at=[[11,5],[23,3.2],[33,2]].filter(([d])=>d<len-2);
+      const end=at.length? at[at.length-1][0]+2 : 0;
+      return {svg:at.map(([d,r])=>
+          `<circle class="annpuff" cx="${(sx+ux*d).toFixed(1)}" cy="${(sy+uy*d).toFixed(1)}" r="${r}" ${CARD}/>`).join(''),
+        tip:{x:sx+ux*end, y:sy+uy*end}};
+    })() : null;
+    const puffs=cloud? cloud.svg : '';
     // a hairline to the mark, and a dot where it lands, so the link is read
     // without the line having to shout
     // the bubble's tail is short by design, so where the note sits well clear
     // of its mark the same hairline carries on from the tail's tip
-    const tailTip=it.horiz? {x:it.x-19, y:y1+3} : {x:x1-3, y:it.y+it.h+20};
-    const from=(sh==='bubble')? tailTip : {x:x1, y:y1};
+    const tailTip=cloud? cloud.tip
+      : (sh==='callout')
+      ? (it.horiz? {x:it.x-20, y:y1} : {x:x1+1, y:it.y+it.h+20})
+      : (it.horiz? {x:it.x-19, y:y1+3} : {x:x1-3, y:it.y+it.h+20});
+    const from=ANN_TAIL[sh]? tailTip : {x:x1, y:y1};
     const far=Math.abs(from.x-x2)+Math.abs(from.y-y2)>12;
-    const leader=(sh==='bubble'&&!far)? ''
+    const leader=(ANN_TAIL[sh]&&!far)? ''
       : `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
            stroke="var(--hsbc-red)" stroke-width="1" stroke-opacity="0.55" stroke-dasharray="3 3"/>`;
     const dot=`<circle cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="2.6" fill="var(--hsbc-red)"/>`;
@@ -4870,6 +4976,8 @@ function annDraw(svg, key){
       sh==='oval'? `<ellipse cx="${(it.x+it.w/2).toFixed(1)}" cy="${(it.y+it.h/2).toFixed(1)}"
                       rx="${(it.w/2).toFixed(1)}" ry="${(it.h/2).toFixed(1)}" ${CARD}/>`
     : sh==='box' ? `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${it.w.toFixed(1)}" height="${it.h.toFixed(1)}" ${CARD}/>`
+    : sh==='callout'? `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${it.w.toFixed(1)}" height="${it.h.toFixed(1)}" rx="3" ${CARD}/>`
+    : sh==='cloud'? `<path d="${annCloudPath(it.x, it.y, it.w, it.h)}" ${CARD} stroke-linejoin="round"/>`
     : sh==='tag' ? `<path d="M ${(it.x+10).toFixed(1)} ${it.y.toFixed(1)} H ${(it.x+it.w-R).toFixed(1)}
                       a ${R} ${R} 0 0 1 ${R} ${R} V ${(it.y+it.h-R).toFixed(1)}
                       a ${R} ${R} 0 0 1 ${-R} ${R} H ${(it.x+10).toFixed(1)}
@@ -4879,7 +4987,8 @@ function annDraw(svg, key){
     // the accent: a red bar down the card's leading edge, as the commentary
     // blocks carry on the page
     const accent=
-      (sh==='box')?  `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${ACC}" height="${it.h.toFixed(1)}" fill="var(--hsbc-red)"/>`
+      (sh==='callout')? `<rect x="${it.x.toFixed(1)}" y="${(it.y+3).toFixed(1)}" width="${ACC}" height="${(it.h-6).toFixed(1)}" fill="var(--hsbc-red)"/>`
+    : (sh==='box')?  `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${ACC}" height="${it.h.toFixed(1)}" fill="var(--hsbc-red)"/>`
     : (sh==='bubble')? `<path d="M ${(it.x+ACC).toFixed(1)} ${it.y.toFixed(1)} H ${(it.x+R).toFixed(1)}
                           a ${R} ${R} 0 0 0 ${-R} ${R} V ${(it.y+it.h-R).toFixed(1)}
                           a ${R} ${R} 0 0 0 ${R} ${R} H ${(it.x+ACC).toFixed(1)} Z" fill="var(--hsbc-red)"/>`
@@ -4887,22 +4996,24 @@ function annDraw(svg, key){
                         V ${(it.y+it.h).toFixed(1)} h ${-ACC}
                         L ${it.x.toFixed(1)} ${(it.y+it.h/2).toFixed(1)} Z" fill="var(--hsbc-red)"/>`
     : '';
-    const tx=it.x+(sh==='oval'? 15 : sh==='tag'? 18 : sh==='plain'? 2 : 13);
-    const ty=it.y+(sh==='oval'? 19 : sh==='plain'? 11 : 17);
+    const tx=it.x+(sh==='oval'? 15 : sh==='cloud'? 22 : sh==='tag'? 18 : sh==='plain'? 2 : 13);
+    const ty=it.y+(sh==='oval'? 19 : sh==='cloud'? 26 : sh==='plain'? 11 : 17);
     const head=it.head? `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="9"
         font-weight="800" letter-spacing="0.8" fill="var(--hsbc-red)">${
         esc(it.head.length>34? it.head.slice(0,33)+'\u2026' : it.head)}</text>` : '';
     const ty0=ty+(it.head? 17 : 0);
     const g=document.createElementNS(NS,'g');
     g.setAttribute('class','annote annote-'+sh); g.setAttribute('data-cat',it.cat);
-    g.innerHTML=leader+dot+shadow+body+accent+tail+head+
+    leadHtml+=leader+dot+puffs;
+    g.innerHTML=shadow+body+accent+tail+head+
       it.lines.map((l,i)=>`<text x="${tx.toFixed(1)}" y="${(ty0+i*14).toFixed(1)}" font-size="11"
          fill="var(--text-primary)"${sh==='plain'? ' font-weight="700"':''}>${esc(l)}</text>`).join('')+
-      `<title>${esc(it.cat)}: ${esc(it.txt)} \u2014 click to edit, double-click to change its shape (${
-         esc(ANN_SHAPE_LBL[sh]||sh)}), clear the box to remove</title>`;
+      `<title>${esc(it.cat)}: ${esc(it.txt)} \u2014 ${esc(ANN_SHAPE_LBL[sh]||sh)}. Click to edit, drag another
+         shape onto it to change it, double-click to step through the shapes, clear the box to remove</title>`;
     g.style.cursor='pointer';
     svg.appendChild(g);
   }
+  leads.innerHTML=leadHtml;
 }
 function annPrompt(key, cat){
   const cur=annNotes(key)[cat]||'';
@@ -4930,15 +5041,66 @@ function annAttach(wrap, cfg, redraw){
       if(t.closest('g.annote')){ annCycleShape(key, cat); redraw? redraw() : annDraw(svg, key); return; }
       if(annPrompt(key, cat)) redraw? redraw() : annDraw(svg, key);
     });
-    // a single click on a note edits it, so a pinned note never needs hunting
+    // a single click on a note edits it, so a pinned note never needs hunting —
+    // unless a shape is armed on the palette, in which case the click places it
     svg.addEventListener('click',e=>{
+      const t=e.target.closest('[data-cat]');
+      const armed=wrap.querySelector('.annchip.armed');
+      if(armed&&t){
+        e.preventDefault(); e.stopPropagation();
+        const sh=armed.dataset.shape; armed.classList.remove('armed');
+        if(annDrop(key, t.getAttribute('data-cat'), sh)) redraw? redraw() : annDraw(svg, key);
+        return;
+      }
       const g=e.target.closest('g.annote'); if(!g) return;
       e.preventDefault(); e.stopPropagation();
       if(annPrompt(key, g.getAttribute('data-cat'))) redraw? redraw() : annDraw(svg, key);
     });
+    // a shape dragged off the palette and dropped on a bar, a point or a slice
+    svg.addEventListener('dragover',e=>{
+      if(!ANN_DRAG) return;
+      e.preventDefault();
+      try{ e.dataTransfer.dropEffect='copy'; }catch(err){}
+      annHover(svg, e.target.closest? e.target.closest('[data-cat]') : null);
+    });
+    svg.addEventListener('dragleave',()=>annHover(svg, null));
+    svg.addEventListener('drop',e=>{
+      let sh=ANN_DRAG;
+      if(!sh){ try{ const d=e.dataTransfer.getData('text/plain')||'';
+        if(d.indexOf('annshape:')===0) sh=d.slice(9); }catch(err){} }
+      ANN_DRAG=null; annHover(svg, null);
+      if(!sh) return;
+      e.preventDefault(); e.stopPropagation();
+      const t=e.target.closest('[data-cat]'); if(!t) return;
+      if(annDrop(key, t.getAttribute('data-cat'), sh)) redraw? redraw() : annDraw(svg, key);
+    });
   };
   go();
   setTimeout(go, 0);   // again once the wrap is in the document and measurable
+  const pal=wrap.querySelector('.annpal');
+  if(pal&&!pal.dataset.annWired){
+    pal.dataset.annWired='1';
+    pal.querySelectorAll('.annchip').forEach(ch=>{
+      ch.addEventListener('dragstart',e=>{
+        ANN_DRAG=ch.dataset.shape; ch.classList.add('dragging');
+        try{ e.dataTransfer.setData('text/plain','annshape:'+ANN_DRAG);
+             e.dataTransfer.effectAllowed='copy'; }catch(err){}
+      });
+      ch.addEventListener('dragend',()=>{
+        ANN_DRAG=null; ch.classList.remove('dragging');
+        const svg=wrap.querySelector('svg'); if(svg) annHover(svg, null);
+      });
+      // tap to arm, tap again to disarm — the same gesture works on a phone
+      const arm=e=>{
+        e.preventDefault();
+        const on=ch.classList.contains('armed');
+        pal.querySelectorAll('.annchip.armed').forEach(c=>c.classList.remove('armed'));
+        if(!on) ch.classList.add('armed');
+      };
+      ch.addEventListener('click', arm);
+      ch.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') arm(e); });
+    });
+  }
 }
 function buildChartEl(cfg){
   const wrap=document.createElement('div');
@@ -5299,7 +5461,7 @@ function buildChartEl(cfg){
   html=html.replace(/<svg width="(\d+(?:\.\d+)?)" height="(\d+(?:\.\d+)?)"/g,
     (mm,w0,h0)=>`<svg width="${w0}" height="${h0}" style="width:100%;height:auto;max-width:${w0}px;min-width:${Math.min(+w0,430)}px"`);
   wrap.innerHTML=html+notes.map(n=>`<p class="note">${esc(n)}</p>`).join('')+
-    `<p class="note annhint">Double-click a bar, point or slice to pin a note on it \u00b7 click a note to edit it \u00b7 double-click a note to change its shape</p>`;
+    annPaletteHtml();
   annAttach(wrap, cfg, ()=>{ const s2=wrap.querySelector('svg'); if(s2) annDraw(s2, annKey(cfg)); });
   return wrap;
 }
@@ -8636,7 +8798,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-12 19:11</td></tr>
+      <tr><td>Build</td><td>2026-08-12 19:24</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

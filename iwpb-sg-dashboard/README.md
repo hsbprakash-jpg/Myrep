@@ -419,15 +419,29 @@ left-pane strip and the Filters pane.
   and a hairline in red at 55% opacity running to a small red dot on the mark
   itself. The red is the accent and the anchor rather than the whole outline,
   which used to fight the bars for attention.
-- **Five shapes for a note** — **double-click the note itself** to step it
-  through them: a **speech bubble** that points at its mark with a tail, a
-  **square box**, an **oval**, a **tag** with a pointed notch, and **plain
-  text** with no box at all for a light touch. Every shape but the speech
-  bubble keeps the dotted leader back to its mark; the bubble's tail does
-  that job instead. The shape is stored with the note, so it survives a
-  re-render and a reload and travels into the PNG and the slide. Set
-  `chart_note_shape` (`bubble` / `box` / `oval` / `tag` / `plain`) for the
-  shape a new note starts as.
+- **Seven shapes for a note** — a **speech bubble** that points at its mark
+  with a swept tail, a **callout** — a square-cut card with a straight spike
+  beneath it, a **thought cloud** that trails shrinking puffs toward its
+  mark, an **oval**, a **square box**, a **tag** with a pointed notch, and
+  **plain text** with no box at all for a light touch. The shape is stored
+  with the note, so it survives a re-render and a reload and travels into the
+  PNG and the slide. Set `chart_note_shape` (`bubble` / `callout` / `cloud` /
+  `oval` / `box` / `tag` / `plain`) for the shape a new note starts as.
+- **Drag a shape onto a bar** — a small palette of the seven shapes sits
+  under every chart, labelled **Note shapes**. Drag one onto a bar, point or
+  slice: the mark lights up as you cross it, and on the drop the note is
+  written in that shape. Drop a shape onto a note already there and it is
+  simply redrawn that way — it never asks for the words again. There is no
+  dragging on a phone, so **tapping a shape arms it** (it takes the red
+  outline) and the next tap on a bar places it; tap it again to put it back.
+  Double-clicking a bar still writes a note in the default shape, clicking a
+  note still edits it, and double-clicking a note still steps it through the
+  shapes.
+- **Leaders run beneath the cards** — every hairline, anchor dot and cloud
+  puff is drawn in one layer under all the note cards, so a line to one bar
+  never runs across the note pinned on another. A note also clears the
+  **value labels**: covering the number a bar is worth is as bad as covering
+  the bar itself, so the placement steps over those too.
 - **Line commentary, as the pack prints it** — the reporting pack sets a
   short note beside each line, and the Financial Summary now carries the same
   column beneath the grid. A note written by the business leads — from the
