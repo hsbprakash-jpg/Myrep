@@ -886,7 +886,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-11 19:10</div>
+<div id="buildTag">build 2026-08-12 07:38</div>
 </aside>
 <main>
 
@@ -1279,11 +1279,12 @@ const CFG_DEFAULT={
     rag_tolerance_options:'0,0.03,0.05,0.10',
     fc_label_pattern:'forecast|fcst|\\bfc\\b',
     target_label_pattern:'\\btarget\\b|\\btgt\\b|target|tgt',
-    cost_patterns:'cost|\\becl\\b|expected\\s+credit|impair|expense',
+    cost_patterns:'cost|\\becls?\\b|expected\\s+credit|impair|expense',
     memo_patterns:'',
+    ratio_patterns:'%|\\bbps\\b|\\brote\\b|\\bcer\\b|\\bratio\\b|headcount|\\bfte\\b|\\bcount\\b',
     fsum_memo_label:'Key Metrics',
     balance_sheet_patterns:'deposit|\\bloan|advance|mortgage|\\bcasa\\b|balance|\\basset|liabilit|\\brwa\\b|\\baum\\b|\\bnnm\\b|customer\\s*account',
-    hidden_cmp_patterns:'direct\\s*costs?|costs?\\s*[-\u2013]?\\s*(direct|indirect)|indirect\\s*costs?|\\becl\\b|expected\\s+credit',
+    hidden_cmp_patterns:'direct\\s*costs?|costs?\\s*[-\u2013]?\\s*(direct|indirect)|indirect\\s*costs?|\\becls?\\b|expected\\s+credit',
     dashboard_page_size:'6',
     font_greeting:'', font_commentary:'', font_eyebrow:'',
     sim_value_width:'50',
@@ -1457,7 +1458,7 @@ const CFG_DEFAULT={
 for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:'Y'};
 let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null');
   if(v&&v.settings) return v; }catch(e){} return JSON.parse(JSON.stringify(CFG_DEFAULT)); })();
-let RE_FC,RE_TGT,RE_COST,RE_HIDE,RE_BS,RE_MEMO,PRIO_RES;
+let RE_FC,RE_TGT,RE_COST,RE_HIDE,RE_BS,RE_MEMO,RE_RATIO,PRIO_RES;
 function cfgS(k){ const v=CFG.settings&&CFG.settings[k]; return (v==null||v==='')? CFG_DEFAULT.settings[k] : String(v); }
 function brandName(){ const t=cfgS('app_title'); return t.replace(/\s*driller\s*$/i,'').trim()||t; }
 function brandMark(){ const v=cfgS('logo_mark'); if(v) return v.slice(0,4);
@@ -1494,6 +1495,7 @@ function cfgCompile(){
   RE_HIDE=cfgRe(cfgS('hidden_cmp_patterns'),CFG_DEFAULT.settings.hidden_cmp_patterns);
   RE_BS=cfgRe(cfgS('balance_sheet_patterns'),CFG_DEFAULT.settings.balance_sheet_patterns);
   RE_MEMO=cfgS('memo_patterns').trim()? cfgRe(cfgS('memo_patterns'),'') : null;
+  RE_RATIO=cfgRe(cfgS('ratio_patterns'),CFG_DEFAULT.settings.ratio_patterns);
   PRIO_RES=((CFG.tilePriority&&CFG.tilePriority.length)?CFG.tilePriority:CFG_DEFAULT.tilePriority)
     .map(p2=>{ try{ return new RegExp(p2,'i'); }catch(e){ return null; } }).filter(Boolean);
   cfgSyncDims();
@@ -5463,7 +5465,7 @@ function fsumPlan(m, ytdM){
     ytdLbl:`${MON_LBL[ytdM]} YTD`};
 }
 /* every figure one line of the summary needs */
-function fsumFigs(rows, m, P, ytdM){
+function fsumFigs(rows, m, P, ytdM, name){
   const k=kpi(rows,m,ytdM,S.includeFC);
   const sum=cols=>cols.length? sumCols(rows, cols.map(p=>p.col)) : null;
   // The file's own roll-up columns are authoritative: the quarter figure comes
@@ -5492,6 +5494,10 @@ function fsumFigs(rows, m, P, ytdM){
   // and a target or forecast baseline is the full-year column as-is — phased
   // targets and summed months belong to flows and would overstate a balance.
   const bs=rows.length&&isBSLine(String(rows[0].d.micaL1||''));
+  // the line's own name decides how it prints: a closing balance restates to
+  // billions, a ratio or a count stays as reported
+  const ratio=isRatioLine(name||(rows.length? String(rows[0].d.micaL1||'') : ''));
+  const bsFmt=!!bs&&!ratio;
   const asOf=[...(m.ytdAsOfCols||[])].filter(p=>p.ytdM<=ytdM).pop();
   let ytdOv=null;
   if(bs) ytdOv=(useCols&&asOf&&asOf.ytdM===ytdM)? sumCols(rows,[asOf.col]) : k.mth;
@@ -5503,6 +5509,11 @@ function fsumFigs(rows, m, P, ytdM){
   }
   const ytd=ytdOv!=null? ytdOv : k.cy;
   const qtdB=bs? (qCol? qtd : k.mth) : qtd;
+  // ...and neither is its prior quarter: with no quarterly column the closing
+  // of the prior quarter's last month stands for it, so a stock is compared
+  // against a stock rather than against three months added together
+  const pqLast=(P.pqMonths&&P.pqMonths.length)? P.pqMonths[P.pqMonths.length-1] : null;
+  const pqB=bs? (pqCol? pq : (pqLast? sumCols(rows,[pqLast.col]) : null)) : pq;
   const wq=P.qMonths.reduce((a,p)=>a+fcWeight(m,p.m),0);
   const qTgt=bs? k.target : (k.target!=null? k.target*wq : null);
   const yTgt=bs? k.target : k.ytdTgt;
@@ -5520,9 +5531,9 @@ function fsumFigs(rows, m, P, ytdM){
     : (m.pyMonths.length? (bs? sumCols(rows,[m.pyMonths[m.pyMonths.length-1].col])
                              : sumCols(rows,m.pyMonths.map(p=>p.col))) : null);
   const mFc=bs? k.fyFc : k.mthFc;
-  return {k, bs, mon:P.monCols.map(p=>sumCols(rows,[p.col])),
+  return {k, bs, ratio, bsFmt, mon:P.monCols.map(p=>sumCols(rows,[p.col])),
     mVsFc:d(k.mth,mFc), mVsTgt:d(k.mth,mTgt), mVsPM:d(k.mth,k.mthPrev), mVsPY:d(k.mth,k.mthPy),
-    qtd:qtdB, qVsTgt:d(qtdB,qTgt), qVsPQ:d(qtdB,pq), qVsPY:d(qtdB,pyQ),
+    qtd:qtdB, qVsTgt:d(qtdB,qTgt), qVsPQ:d(qtdB,pqB), qVsPY:d(qtdB,pyQ),
     ytd, yVsTgt:d(ytd,yTgt), yVsPY:d(ytd,yPY),
     yVsTgtP:pc(d(ytd,yTgt),yTgt), yVsPYP:pc(d(ytd,yPY),yPY),
     fy, fVsPrF:d(fy,fyPrFc), fVsTgt:d(fy,k.target), fVsPY:d(fy,fyPY),
@@ -5733,6 +5744,10 @@ function fsumSectionDefs(){
    never totalled, because adding a balance to a result is not a figure. */
 /* key metrics (customer counts, CER, FTE, NNM…) are memo lines: they never
    join a P&L or balance-sheet total, and never take the balance unit */
+/* a percentage, a rate or a headcount is read as it is written: it is carried
+   beside the balances but it is not an amount, so the balance unit never
+   applies to it — 14,186 people must not print as 14.2bn */
+function isRatioLine(name){ return !!(RE_RATIO&&RE_RATIO.test(String(name||''))); }
 function isMemoLine(name){ return !!(RE_MEMO&&RE_MEMO.test(String(name||''))); }
 function isBSLine(name){ return isMemoLine(name)||!!(RE_BS&&RE_BS.test(String(name||''))); }
 /* a scope that carries balance-sheet lines beside P&L lines — adding the two
@@ -5807,12 +5822,23 @@ function fsumSections(rows){
 }
 /* management-report number styling: parentheses for negatives, whole percents,
    >100% past the scale, and the sign carried in the colour */
-function fsumNum(v, bs){
+/* as reported, never restated: a rate keeps its decimals, a headcount stays a
+   whole number with its thousands separator */
+function fsumRatioTxt(v){
+  const a=Math.abs(v);
+  const t=a>=100? Math.round(a).toLocaleString() : a>=10? a.toFixed(1) : a.toFixed(2);
+  return v<0? '('+t+')' : t;
+}
+function fsumNum(v, bs, ratio){
   if(v==null) return '<span class="mut">–</span>';
+  if(ratio) return fsumRatioTxt(v);
   return bs? fmtBS(v) : fmtFull(Math.round(v));
 }
-function fsumVar(k, v, bs){
+function fsumNumF(f, v){ return fsumNum(v, f.bsFmt, f.ratio); }
+function fsumVarF(f, v){ return fsumVar(f.k, v, f.bsFmt, f.ratio); }
+function fsumVar(k, v, bs, ratio){
   if(v==null) return '<span class="mut">–</span>';
+  if(ratio) return `<span class="${Math.abs(v)<0.005?'':(faOK(k,v)?'up':'dn')}">${fsumRatioTxt(v)}</span>`;
   const r=Math.round(v);
   return `<span class="${r===0?'':(faOK(k,v)?'up':'dn')}">${bs? fmtBS(v) : fmtFull(r)}</span>`;
 }
@@ -5870,21 +5896,21 @@ function renderFsum(){
   let body='';
   for(const r of tree){
     if(r.band){ body+=`<tr class="band"><td class="nm" colspan="${nCols}">${esc(r.band)}</td></tr>`; continue; }
-    const f=fsumFigs(r.rows,m,P,S.ytdM);
+    const f=fsumFigs(r.rows,m,P,S.ytdM,r.name);
     const cls=(r.tot?'tot':r.sub?'sub':'lvl'+r.lvl);
     const drag=(r.ord? ` draggable="true" data-oscope="${esc(r.ord.scope)}" data-oname="${esc(r.ord.name)}"` : '')
       +(r.raw? ` data-raw="${esc(r.raw)}"` : '');
     const tog=r.kids? `<button class="fsumtog" data-key="${esc(r.key)}" title="${r.closed?'Expand':'Collapse'} ${esc(r.name)}" aria-expanded="${!r.closed}">${r.closed?'+':'\u2212'}</button>` : '';
     body+=`<tr class="${cls}"${drag}><td class="nm" title="${esc(r.name)}${r.ord?' — drag onto a sibling line to reorder; its o/w lines move with it':''}">${tog}${esc(r.name)}</td>`+
-      f.mon.map(v=>`<td>${fsumNum(v,f.bs)}</td>`).join('')+
-      `<td>${fsumVar(f.k,f.mVsFc,f.bs)}</td><td>${fsumVar(f.k,f.mVsTgt,f.bs)}</td><td>${fsumVar(f.k,f.mVsPM,f.bs)}</td>`+
-      `<td class="bandend">${fsumVar(f.k,f.mVsPY,f.bs)}</td>`+
-      `<td>${fsumNum(f.qtd,f.bs)}</td><td>${fsumVar(f.k,f.qVsTgt,f.bs)}</td><td>${fsumVar(f.k,f.qVsPQ,f.bs)}</td>`+
-      `<td class="bandend">${fsumVar(f.k,f.qVsPY,f.bs)}</td>`+
-      `<td>${fsumNum(f.ytd,f.bs)}</td><td>${fsumVar(f.k,f.yVsTgt,f.bs)}</td><td>${fsumVar(f.k,f.yVsPY,f.bs)}</td>`+
+      f.mon.map(v=>`<td>${fsumNumF(f,v)}</td>`).join('')+
+      `<td>${fsumVarF(f,f.mVsFc)}</td><td>${fsumVarF(f,f.mVsTgt)}</td><td>${fsumVarF(f,f.mVsPM)}</td>`+
+      `<td class="bandend">${fsumVarF(f,f.mVsPY)}</td>`+
+      `<td>${fsumNumF(f,f.qtd)}</td><td>${fsumVarF(f,f.qVsTgt)}</td><td>${fsumVarF(f,f.qVsPQ)}</td>`+
+      `<td class="bandend">${fsumVarF(f,f.qVsPY)}</td>`+
+      `<td>${fsumNumF(f,f.ytd)}</td><td>${fsumVarF(f,f.yVsTgt)}</td><td>${fsumVarF(f,f.yVsPY)}</td>`+
       `<td>${fsumPct(f.k,f.yVsTgtP)}</td><td class="bandend">${fsumPct(f.k,f.yVsPYP)}</td>`+
-      `<td>${fsumNum(f.fy,f.bs)}</td><td>${fsumVar(f.k,f.fVsPrF,f.bs)}</td><td>${fsumVar(f.k,f.fVsTgt,f.bs)}</td>`+
-      `<td>${fsumVar(f.k,f.fVsPY,f.bs)}</td><td>${fsumPct(f.k,f.fVsPrFP)}</td>`+
+      `<td>${fsumNumF(f,f.fy)}</td><td>${fsumVarF(f,f.fVsPrF)}</td><td>${fsumVarF(f,f.fVsTgt)}</td>`+
+      `<td>${fsumVarF(f,f.fVsPY)}</td><td>${fsumPct(f.k,f.fVsPrFP)}</td>`+
       `<td>${fsumPct(f.k,f.fVsTgtP)}</td><td>${fsumPct(f.k,f.fVsPYP)}</td></tr>`;
   }
   $('fsumTable').innerHTML=head+`<tbody>${body}</tbody>`;
@@ -5975,24 +6001,24 @@ function faPctTxt(k, v){
   return `<b${faCls(faOK(k,v))}>${fsumPctTxt(Math.abs(v))}${faOK(k,v)?'F':'A'}</b>`;
 }
 function fsumBlockText(name, rows, m, P, sub){
-  const f=fsumFigs(rows,m,P,S.ytdM), k=f.k;
-  const nf=v=>f.bs? fmtBS(v) : fmtFull(Math.round(v==null?0:v));
-  const un=f.bs&&bsUnit()? ` ${bsUnitLabel()}` : '';
+  const f=fsumFigs(rows,m,P,S.ytdM,name), k=f.k;
+  const nf=v=>f.ratio? fsumRatioTxt(v==null?0:v) : f.bsFmt? fmtBS(v) : fmtFull(Math.round(v==null?0:v));
+  const un=f.bsFmt&&bsUnit()? ` ${bsUnitLabel()}` : '';
   const mon=MON_LBL[S.ytdM]+"'"+P.yy;
   let h=`<b>${esc(name)}</b> for <b>${mon}</b> is <b>${nf(f.k.mth)}${un}</b>`;
-  if(f.mVsFc!=null) h+=`, ${faAmt(k,f.mVsFc,f.bs)} vs forecast`;
-  if(f.mVsTgt!=null) h+=` and ${faAmt(k,f.mVsTgt,f.bs)} vs target`;
+  if(f.mVsFc!=null) h+=`, ${faAmt(k,f.mVsFc,f.bsFmt)} vs forecast`;
+  if(f.mVsTgt!=null) h+=` and ${faAmt(k,f.mVsTgt,f.bsFmt)} vs target`;
   h+=`. ${esc(P.qLbl)} stands at <b>${nf(f.qtd)}</b>`;
-  if(f.qVsPQ!=null) h+=` (${faAmt(k,f.qVsPQ,f.bs)} vs prior quarter)`;
+  if(f.qVsPQ!=null) h+=` (${faAmt(k,f.qVsPQ,f.bsFmt)} vs prior quarter)`;
   h+=`; ${esc(P.ytdLbl)} at <b>${nf(f.ytd)}</b>`;
   if(f.yVsTgtP!=null) h+=` — ${faPctTxt(k,f.yVsTgtP)} vs target`;
   if(f.yVsPYP!=null) h+=` and ${faPctTxt(k,f.yVsPYP)} vs prior year`;
   h+='.';
   if(f.fy!=null){
     const bits=[];
-    if(f.fVsPrF!=null) bits.push(`${faAmt(k,f.fVsPrF,f.bs)} / ${faPctTxt(k,f.fVsPrFP)} vs prior forecast`);
-    if(f.fVsTgt!=null) bits.push(`${faAmt(k,f.fVsTgt,f.bs)} / ${faPctTxt(k,f.fVsTgtP)} vs target`);
-    if(f.fVsPY!=null) bits.push(`${faAmt(k,f.fVsPY,f.bs)} / ${faPctTxt(k,f.fVsPYP)} vs PY`);
+    if(f.fVsPrF!=null) bits.push(`${faAmt(k,f.fVsPrF,f.bsFmt)} / ${faPctTxt(k,f.fVsPrFP)} vs prior forecast`);
+    if(f.fVsTgt!=null) bits.push(`${faAmt(k,f.fVsTgt,f.bsFmt)} / ${faPctTxt(k,f.fVsTgtP)} vs target`);
+    if(f.fVsPY!=null) bits.push(`${faAmt(k,f.fVsPY,f.bsFmt)} / ${faPctTxt(k,f.fVsPYP)} vs PY`);
     h+=` FY'${esc(P.yy)} forecast at <b>${nf(f.fy)}${un}</b>${bits.length? ' — '+bits.join(', '):''}.`;
   }
   if(sub&&sub.length) h+=` Movement against forecast is led by `+
@@ -6001,7 +6027,7 @@ function fsumBlockText(name, rows, m, P, sub){
 }
 function fsumMovers(rows,m,P){
   return fsumTree(rows).filter(r=>r.sub&&!r.band)
-    .map(r=>({name:r.name, f:fsumFigs(r.rows,m,P,S.ytdM)}))
+    .map(r=>({name:r.name, f:fsumFigs(r.rows,m,P,S.ytdM,r.name)}))
     .filter(x=>x.f.mVsFc!=null).sort((a,b)=>Math.abs(b.f.mVsFc)-Math.abs(a.f.mVsFc)).slice(0,3);
 }
 /* the cascade builder: which dimensions the summary rolls through, in what
@@ -6112,10 +6138,10 @@ function fsumAOA(){
 }
 function fsumAoaRow(r,m,P){
   {
-    const f=fsumFigs(r.rows,m,P,S.ytdM);
+    const f=fsumFigs(r.rows,m,P,S.ytdM,r.name);
     const rnd=v=>v==null?null:Math.round(v);
-    const dv=f.bs? bsUnitDiv() : 1;
-    const rnd2=v=>v==null?null:(dv!==1? +(v/dv).toFixed(1) : Math.round(v));
+    const dv=f.bsFmt? bsUnitDiv() : 1;
+    const rnd2=v=>v==null?null:(f.ratio? +v.toFixed(2) : dv!==1? +(v/dv).toFixed(1) : Math.round(v));
     return [('\u00a0\u00a0\u00a0'.repeat(r.lvl))+r.name, ...f.mon.map(rnd2),
       rnd2(f.mVsFc), rnd2(f.mVsTgt), rnd2(f.mVsPM), rnd2(f.mVsPY),
       rnd2(f.qtd), rnd2(f.qVsTgt), rnd2(f.qVsPQ), rnd2(f.qVsPY),
@@ -6156,8 +6182,9 @@ async function fsumPptx(){
     hd('YTD',1),hd('vs Tgt',1),hd('vs PY',1),hd('Tgt %',1),hd('PY %',1),
     hd(`FY Fcst`,1),hd('vs PrF',1),hd('vs Tgt',1),hd('vs PY',1),
     hd('PrF %',1),hd('Tgt %',1),hd('PY %',1)];
-  const num=(v,bs)=>({text:v==null?'\u2013':(bs? fmtBS(v):fmtFull(Math.round(v))), options:{align:'right',color:INK}});
-  const fav=(k,v,bs)=>({text:v==null?'\u2013':(bs? fmtBS(v):fmtFull(Math.round(v))),
+  const num=(v,bs,ratio)=>({text:v==null?'\u2013':(ratio? fsumRatioTxt(v) : bs? fmtBS(v):fmtFull(Math.round(v))),
+    options:{align:'right',color:INK}});
+  const fav=(k,v,bs,ratio)=>({text:v==null?'\u2013':(ratio? fsumRatioTxt(v) : bs? fmtBS(v):fmtFull(Math.round(v))),
     options:{align:'right',color:v==null?GRY:(faOK(k,v)?GOOD:BAD)}});
   const favP=(k,v)=>({text:v==null?'\u2013':fsumPctTxt(v),
     options:{align:'right',color:v==null?GRY:(faOK(k,v)?GOOD:BAD)}});
@@ -6169,15 +6196,15 @@ async function fsumPptx(){
         ||(secs.length>1?`Total ${sec.name}`:totalLabel(l1Names(sec.rows)))), rows:sec.rows, lvl:0, tot:true}]:[];
     const tree=fsumParentTop()? [...totP, ...fsumTree(sec.rows)] : [...fsumTree(sec.rows), ...totP];
     for(const r of tree){
-      const f=fsumFigs(r.rows,m,P,S.ytdM), k=f.k;
+      const f=fsumFigs(r.rows,m,P,S.ytdM,r.name), k=f.k;
       const bold=!!(r.tot||r.sub);
       const nm={text:('  '.repeat(r.lvl))+r.name, options:{align:'left',bold,color:INK}};
       tblRows.push([nm,
-        ...f.mon.map(v=>num(v,f.bs)),
-        fav(k,f.mVsFc,f.bs),fav(k,f.mVsTgt,f.bs),fav(k,f.mVsPM,f.bs),fav(k,f.mVsPY,f.bs),
-        num(f.qtd,f.bs),fav(k,f.qVsTgt,f.bs),fav(k,f.qVsPQ,f.bs),fav(k,f.qVsPY,f.bs),
-        num(f.ytd,f.bs),fav(k,f.yVsTgt,f.bs),fav(k,f.yVsPY,f.bs),favP(k,f.yVsTgtP),favP(k,f.yVsPYP),
-        num(f.fy,f.bs),fav(k,f.fVsPrF,f.bs),fav(k,f.fVsTgt,f.bs),fav(k,f.fVsPY,f.bs),
+        ...f.mon.map(v=>num(v,f.bsFmt,f.ratio)),
+        fav(k,f.mVsFc,f.bsFmt,f.ratio),fav(k,f.mVsTgt,f.bsFmt,f.ratio),fav(k,f.mVsPM,f.bsFmt,f.ratio),fav(k,f.mVsPY,f.bsFmt,f.ratio),
+        num(f.qtd,f.bsFmt,f.ratio),fav(k,f.qVsTgt,f.bsFmt,f.ratio),fav(k,f.qVsPQ,f.bsFmt,f.ratio),fav(k,f.qVsPY,f.bsFmt,f.ratio),
+        num(f.ytd,f.bsFmt,f.ratio),fav(k,f.yVsTgt,f.bsFmt,f.ratio),fav(k,f.yVsPY,f.bsFmt,f.ratio),favP(k,f.yVsTgtP),favP(k,f.yVsPYP),
+        num(f.fy,f.bsFmt,f.ratio),fav(k,f.fVsPrF,f.bsFmt,f.ratio),fav(k,f.fVsTgt,f.bsFmt,f.ratio),fav(k,f.fVsPY,f.bsFmt,f.ratio),
         favP(k,f.fVsPrFP),favP(k,f.fVsTgtP),favP(k,f.fVsPYP)
       ].map(c=>{ if(bold&&c.options) c.options.bold=true; return c; }));
     }
@@ -8236,7 +8263,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-11 19:10</td></tr>
+      <tr><td>Build</td><td>2026-08-12 07:38</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
