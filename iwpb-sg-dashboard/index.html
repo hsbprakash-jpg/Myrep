@@ -901,7 +901,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-12 19:01</div>
+<div id="buildTag">build 2026-08-12 19:06</div>
 </aside>
 <main>
 
@@ -4737,10 +4737,10 @@ function annDraw(svg, key){
     let bb; try{ bb=el.getBBox(); }catch(e){ continue; }
     if(!bb||(!bb.width&&!bb.height)) continue;
     const lines=annWrap(txt, 30);
-    const pad=shape==='oval'? 26 : shape==='plain'? 4 : 18;
-    const w=Math.min(Math.max(vw*0.9,120), Math.max(96, 6.1*Math.max(...lines.map(l=>l.length))+pad));
+    const pad=shape==='oval'? 32 : shape==='plain'? 4 : shape==='tag'? 28 : 22;
+    const w=Math.min(Math.max(vw*0.9,130), Math.max(104, 6.35*Math.max(...lines.map(l=>l.length))+pad));
     items.push({cat, txt, shape, bb, lines, w,
-      h:lines.length*13+(shape==='oval'? 20 : shape==='plain'? 6 : 14),
+      h:lines.length*14+(shape==='oval'? 22 : shape==='plain'? 6 : 16),
       horiz:bb.width>bb.height*1.6});   // a horizontal bar is written to its right
   }
   // a chart that is not laid out yet (a collapsed panel, a tab not yet shown)
@@ -4816,32 +4816,67 @@ function annDraw(svg, key){
     const y1=it.horiz? it.y+it.h/2 : it.y+it.h;
     const x2=it.horiz? bb.x+bb.width+3 : x1;
     const y2=it.horiz? cy : bb.y-3;
-    const F='fill="var(--surface-1)" stroke="var(--hsbc-red)" stroke-width="1"';
     const sh=it.shape||'bubble';
-    // a speech bubble points with a tail; every other shape uses the leader
+    // A note reads as a small card off the reporting pack: a quiet border, a
+    // soft shadow to lift it off the plot, and one red accent that ties it to
+    // the mark it belongs to. The red is the accent and the anchor — never the
+    // whole outline, which fought the bars for attention.
+    const CARD='fill="var(--surface-1)" stroke="var(--border-strong)" stroke-width="1"';
+    const SHADOW='fill="#101010" fill-opacity="0.10"';
+    const R=8, ACC=3;                       // corner radius, accent bar width
+    const shadow=(sh==='plain')? '' :
+      sh==='oval'? `<ellipse cx="${(it.x+it.w/2+1).toFixed(1)}" cy="${(it.y+it.h/2+2).toFixed(1)}"
+                      rx="${(it.w/2).toFixed(1)}" ry="${(it.h/2).toFixed(1)}" ${SHADOW}/>`
+      : `<rect x="${(it.x+1).toFixed(1)}" y="${(it.y+2).toFixed(1)}" width="${it.w.toFixed(1)}"
+             height="${it.h.toFixed(1)}" rx="${sh==='box'? 0 : R}" ${SHADOW}/>`;
+    // the tail belongs to the card, so it carries the card's own edge
     const tail=(sh==='bubble')
-      ? `<path d="${it.horiz
-          ? `M ${(it.x).toFixed(1)} ${(y1-6).toFixed(1)} L ${(it.x-11).toFixed(1)} ${y1.toFixed(1)} L ${(it.x).toFixed(1)} ${(y1+6).toFixed(1)} Z`
-          : `M ${(x1-6).toFixed(1)} ${(it.y+it.h).toFixed(1)} L ${x1.toFixed(1)} ${(it.y+it.h+11).toFixed(1)} L ${(x1+6).toFixed(1)} ${(it.y+it.h).toFixed(1)} Z`}"
-         fill="var(--surface-1)" stroke="var(--hsbc-red)" stroke-width="1" stroke-linejoin="round"/>`
+      ? (it.horiz
+        ? `<path d="M ${it.x.toFixed(1)} ${(y1-7).toFixed(1)} L ${(it.x-10).toFixed(1)} ${y1.toFixed(1)}
+             L ${it.x.toFixed(1)} ${(y1+7).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>
+           <rect x="${(it.x).toFixed(1)}" y="${(y1-7).toFixed(1)}" width="2" height="14" fill="var(--surface-1)"/>`
+        : `<path d="M ${(x1-7).toFixed(1)} ${(it.y+it.h).toFixed(1)} L ${x1.toFixed(1)} ${(it.y+it.h+10).toFixed(1)}
+             L ${(x1+7).toFixed(1)} ${(it.y+it.h).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>
+           <rect x="${(x1-7).toFixed(1)}" y="${(it.y+it.h-2).toFixed(1)}" width="14" height="2" fill="var(--surface-1)"/>`)
       : '';
-    const leader=(sh==='bubble')? ''
-      : `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
-           stroke="var(--hsbc-red)" stroke-width="1" stroke-dasharray="2 2"/>`;
+    // a hairline to the mark, and a dot where it lands, so the link is read
+    // without the line having to shout
+    // the bubble's tail is short by design, so where the note sits well clear
+    // of its mark the same hairline carries on from the tail's tip
+    const tailTip=it.horiz? {x:it.x-10, y:y1} : {x:x1, y:it.y+it.h+10};
+    const from=(sh==='bubble')? tailTip : {x:x1, y:y1};
+    const far=Math.abs(from.x-x2)+Math.abs(from.y-y2)>12;
+    const leader=(sh==='bubble'&&!far)? ''
+      : `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
+           stroke="var(--hsbc-red)" stroke-width="1" stroke-opacity="0.55" stroke-dasharray="3 3"/>`;
+    const dot=`<circle cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="2.6" fill="var(--hsbc-red)"/>`;
     const body=
       sh==='oval'? `<ellipse cx="${(it.x+it.w/2).toFixed(1)}" cy="${(it.y+it.h/2).toFixed(1)}"
-                      rx="${(it.w/2).toFixed(1)}" ry="${(it.h/2).toFixed(1)}" ${F}/>`
-    : sh==='box' ? `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${it.w.toFixed(1)}" height="${it.h.toFixed(1)}" ${F}/>`
-    : sh==='tag' ? `<path d="M ${(it.x+8).toFixed(1)} ${it.y.toFixed(1)} H ${(it.x+it.w).toFixed(1)}
-                      V ${(it.y+it.h).toFixed(1)} H ${(it.x+8).toFixed(1)} L ${it.x.toFixed(1)} ${(it.y+it.h/2).toFixed(1)} Z" ${F}/>`
+                      rx="${(it.w/2).toFixed(1)}" ry="${(it.h/2).toFixed(1)}" ${CARD}/>`
+    : sh==='box' ? `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${it.w.toFixed(1)}" height="${it.h.toFixed(1)}" ${CARD}/>`
+    : sh==='tag' ? `<path d="M ${(it.x+10).toFixed(1)} ${it.y.toFixed(1)} H ${(it.x+it.w-R).toFixed(1)}
+                      a ${R} ${R} 0 0 1 ${R} ${R} V ${(it.y+it.h-R).toFixed(1)}
+                      a ${R} ${R} 0 0 1 ${-R} ${R} H ${(it.x+10).toFixed(1)}
+                      L ${it.x.toFixed(1)} ${(it.y+it.h/2).toFixed(1)} Z" ${CARD} stroke-linejoin="round"/>`
     : sh==='plain'? ''
-    : `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${it.w.toFixed(1)}" height="${it.h.toFixed(1)}" rx="7" ${F}/>`;
-    const tx=it.x+(sh==='oval'? 13 : sh==='tag'? 14 : sh==='plain'? 2 : 9);
-    const ty=it.y+(sh==='oval'? 18 : sh==='plain'? 11 : 15);
+    : `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${it.w.toFixed(1)}" height="${it.h.toFixed(1)}" rx="${R}" ${CARD}/>`;
+    // the accent: a red bar down the card's leading edge, as the commentary
+    // blocks carry on the page
+    const accent=
+      (sh==='box')?  `<rect x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" width="${ACC}" height="${it.h.toFixed(1)}" fill="var(--hsbc-red)"/>`
+    : (sh==='bubble')? `<path d="M ${(it.x+ACC).toFixed(1)} ${it.y.toFixed(1)} H ${(it.x+R).toFixed(1)}
+                          a ${R} ${R} 0 0 0 ${-R} ${R} V ${(it.y+it.h-R).toFixed(1)}
+                          a ${R} ${R} 0 0 0 ${R} ${R} H ${(it.x+ACC).toFixed(1)} Z" fill="var(--hsbc-red)"/>`
+    : (sh==='tag')? `<path d="M ${(it.x+10).toFixed(1)} ${it.y.toFixed(1)} h ${ACC}
+                        V ${(it.y+it.h).toFixed(1)} h ${-ACC}
+                        L ${it.x.toFixed(1)} ${(it.y+it.h/2).toFixed(1)} Z" fill="var(--hsbc-red)"/>`
+    : '';
+    const tx=it.x+(sh==='oval'? 15 : sh==='tag'? 18 : sh==='plain'? 2 : 11);
+    const ty=it.y+(sh==='oval'? 19 : sh==='plain'? 11 : 16);
     const g=document.createElementNS(NS,'g');
     g.setAttribute('class','annote annote-'+sh); g.setAttribute('data-cat',it.cat);
-    g.innerHTML=leader+body+tail+
-      it.lines.map((l,i)=>`<text x="${tx.toFixed(1)}" y="${(ty+i*13).toFixed(1)}" font-size="10.5"
+    g.innerHTML=leader+dot+shadow+body+accent+tail+
+      it.lines.map((l,i)=>`<text x="${tx.toFixed(1)}" y="${(ty+i*14).toFixed(1)}" font-size="11"
          fill="var(--text-primary)"${sh==='plain'? ' font-weight="700"':''}>${esc(l)}</text>`).join('')+
       `<title>${esc(it.cat)}: ${esc(it.txt)} \u2014 click to edit, double-click to change its shape (${
          esc(ANN_SHAPE_LBL[sh]||sh)}), clear the box to remove</title>`;
@@ -8581,7 +8616,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-12 19:01</td></tr>
+      <tr><td>Build</td><td>2026-08-12 19:06</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

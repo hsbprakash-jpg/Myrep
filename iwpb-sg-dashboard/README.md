@@ -407,6 +407,12 @@ left-pane strip and the Filters pane.
   crosses another. A chart that is not on screen yet (a collapsed panel, a
   view not yet opened) waits to be measured rather than pinning its notes at
   the origin.
+- **A note reads as a card, not an outline** — a quiet grey border, a soft
+  shadow lifting it off the plot, a red accent bar down its leading edge (the
+  same accent the commentary blocks carry), 11px text with room to breathe,
+  and a hairline in red at 55% opacity running to a small red dot on the mark
+  itself. The red is the accent and the anchor rather than the whole outline,
+  which used to fight the bars for attention.
 - **Five shapes for a note** — **double-click the note itself** to step it
   through them: a **speech bubble** that points at its mark with a tail, a
   **square box**, an **oval**, a **tag** with a pointed notch, and **plain
