@@ -174,13 +174,7 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 #comMatchReport .cmhow{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted)}
 #comMatchReport .cmalso{color:var(--text-muted);font-style:italic}
 #comMatchReport .cmvague{display:block;color:#b57a00;font-size:10px;font-style:italic}
-#comInBox{margin:6px 18px 0 18px}
-#comInBox textarea{width:100%;box-sizing:border-box;font:inherit;font-size:11.5px;line-height:1.45;
-  padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
-  background:var(--surface-2);color:var(--text-primary);resize:vertical}
-#comInBox textarea:focus{border-color:var(--hsbc-red);box-shadow:0 0 0 2px var(--fold-bg);outline:none}
-#comInBox .cominbtns{display:flex;gap:6px;margin-top:5px}
-#comInBox #comInNote{margin:5px 0 0;color:var(--status-good)}
+#drvPanel #comInNote{margin:5px 18px 0;color:var(--status-good)}
 #drvPanel .drvhint{grid-column:1 / span 2;font-size:10px;color:var(--status-good);margin-top:1px}
 #drvPanel .drvhint.warn{color:#b57a00}
 #drvPanel .drv-dd{position:absolute;top:31px;left:0;right:28px;z-index:40;background:var(--surface-2);
@@ -958,27 +952,16 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <input type="file" id="comFileInput" accept=".docx,.txt,.md,.csv,.xlsx,.xlsm,.xls" hidden>
     <div class="note" id="comLoadStatus" style="margin:4px 18px 0"></div>
     <div id="comMatchReport"></div>
-    <button class="btn-quiet" id="btnComIn" style="margin:6px 18px 0" data-lbl="btn_comin">✐ Paste commentary</button>
-    <div id="comInBox" hidden>
-      <p class="hint2" data-lbl="comin_hint">One written line per row. <b>View | Line | Text</b> aims it —
-        view blank means every view, line blank means the whole view. <b>Line: Text</b> and a bare
-        sentence work too. These words lead the commentary blocks they name; nothing is reworded.</p>
-      <textarea id="comInTxt" rows="6" spellcheck="false"
-        placeholder="Financial Summary | Revenue | Rates and FX carried the half; deposit margin narrowed as expected.
-Chart | Global Trade Solutions | Drawdowns slipped into July — timing, not demand.
-Wealth: Insurance new business held up against a soft market."></textarea>
-      <div class="cominbtns">
-        <button class="btn-quiet" id="btnComApply">Use this commentary</button>
-        <button class="btn-quiet" id="btnComClear">Clear</button>
-      </div>
-      <p class="hint2" id="comInNote"></p>
-    </div>
+    <div style="margin:2px 18px 0"><button class="linklike" id="btnComClear" hidden>Remove this commentary</button></div>
+    <p class="hint2" data-lbl="comload_hint">Word, text or a workbook of the month's written commentary.
+      It is read against the names in the driller and leads the blocks it names — nothing is reworded.</p>
+    <p class="hint2" id="comInNote"></p>
   </div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 08:38</div>
+<div id="buildTag">build 2026-08-13 08:46</div>
 </aside>
 <main>
 
@@ -8204,10 +8187,30 @@ function definedDrivers(){
    A written line is aimed with two columns: which view it belongs to (blank =
    all of them) and which line, product or region it is about (blank = the view
    as a whole). */
-function comInPasted(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_comin')||'[]')||[]; }catch(e){ return []; } }
-function comInSetPasted(list){ try{ localStorage.setItem('iwpbsg_comin', JSON.stringify(list||[])); }catch(e){} }
+/* The commentary document itself is kept, not the answers it was matched to.
+   Every time it is read the names come from whichever driller is loaded now, so
+   next month's file re-matches the words against next month's lines without
+   anyone opening the document again. */
+function comDoc(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_comdoc')||'null'); }catch(e){ return null; } }
+function comDocSet(doc){
+  try{ if(doc) localStorage.setItem('iwpbsg_comdoc', JSON.stringify(doc));
+       else localStorage.removeItem('iwpbsg_comdoc'); }catch(e){}
+  COM_DOC_CACHE=null;
+}
+let COM_DOC_CACHE=null, COM_DOC_M=null;
+function comDocRead(){
+  const doc=comDoc(); if(!doc||!doc.text) return {items:[], report:[], skipped:[], name:''};
+  const m=S&&S.model;
+  if(COM_DOC_CACHE&&COM_DOC_M===m) return COM_DOC_CACHE;
+  const out=comIngestText(doc.text, {fromFile:true});
+  out.name=doc.name||'';
+  out.items=out.items.map(i=>({...i, src:out.name}));
+  COM_DOC_CACHE=out; COM_DOC_M=m;
+  return out;
+}
+function comInLoaded(){ return comDocRead().items; }
 function comInAll(){
-  return [...((CFG&&CFG.commentary)||[]), ...((S&&S.comFile)||[]), ...comInPasted()]
+  return [...((CFG&&CFG.commentary)||[]), ...((S&&S.comFile)||[]), ...comInLoaded()]
     .filter(c=>c&&String(c.text==null?'':c.text).trim());
 }
 const COM_VIEWS={
@@ -9402,6 +9405,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     applyHierarchies(model);
     applyCountryRegions(model);
     S.model=model; S.fileName=name; S.comFile=comFile;
+    COM_DOC_CACHE=null;      // the commentary is matched again against this file
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
     S.showAllKpis=false; S.showParkedTiles=false; S.showParkedSc=false;
     Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
@@ -9439,7 +9443,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 08:38</td></tr>
+      <tr><td>Build</td><td>2026-08-13 08:46</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -9448,6 +9452,8 @@ function ingestArrayBuffer(buf, name, fromCache){
       $('sideNav').hidden=false;
       $('fileNote').textContent=`${name}${fromCache?' · restored from cache':''}`;
       fillFilters();
+      // the held commentary is read again against this file's own names
+      try{ if(window.comShow) window.comShow(); }catch(e){}
       setView('summary');
     };
     if(fromCache) go(); else setTimeout(go,700);
@@ -9549,19 +9555,38 @@ function init(){
   $('navAssist').addEventListener('click',()=>setView('assist'));
   $('navSim').addEventListener('click',()=>setView('sim'));
   $('btnDrvAdd').addEventListener('click',()=>{ driversDef().push({name:'',text:''}); driversSave(); drawDrivers(); });
-  // commentary pasted in: the same words the pack carries, read rather than written
+  // commentary the business wrote: read from a document, never typed in here
   function comNote(){
     const n=$('comInNote'); if(!n) return;
-    const mine=comInPasted(), file=((S&&S.comFile)||[]).length, cfgn=((CFG&&CFG.commentary)||[]).length;
+    const doc=comDocRead(), file=((S&&S.comFile)||[]).length, cfgn=((CFG&&CFG.commentary)||[]).length;
     const bits=[];
-    const bySrc=new Map();
-    for(const c of mine){ const k=c.src||'pasted'; bySrc.set(k,(bySrc.get(k)||0)+1); }
-    for(const [k,n] of bySrc) bits.push(k==='pasted'? `${n} pasted` : `${n} from ${k}`);
+    if(doc.items.length) bits.push(`${doc.items.length} from ${doc.name||'the commentary file'}`);
     if(file) bits.push(`${file} from the file's Commentary tab`);
     if(cfgn) bits.push(`${cfgn} from the configuration`);
     n.textContent=bits.length? '\u2713 '+bits.join(' \u00b7 ')+' \u2014 leading the blocks they name.'
                              : 'No written commentary yet \u2014 every block reads its own figures.';
+    const cb=$('btnComClear'); if(cb) cb.hidden=!comDoc();
   }
+  /* the document is re-read against whichever driller is loaded, so the status
+     and the matches shown are always the current ones */
+  function comShow(){
+    const st=$('comLoadStatus'); if(!st) return;
+    const doc=comDoc();
+    if(!doc){ st.textContent=''; comReport([]); comNote(); return; }
+    if(!S.model){ st.innerHTML='<span class="note">'+esc(doc.name||'Commentary')+
+      ' is held \u2014 it will be read against the driller once one is loaded.</span>';
+      comReport([]); comNote(); return; }
+    const {items, report, skipped, name}=comDocRead();
+    const named=report.filter(r=>r.line).length;
+    st.innerHTML= items.length
+      ? `<span class="ok">\u2713 ${esc(name)} \u2014 ${items.length} written line${items.length===1?'':'s'}, `+
+        `${named} pinned to a name${items.length-named? `, ${items.length-named} to the view` : ''}.</span>`+
+        (skipped.length? `<div class="note" style="font-size:10px">Heading skipped: ${esc(skipped[0])}</div>` : '')
+      : '<span class="err">No commentary was found in that file.</span>';
+    comReport(report);
+    comNote();
+  }
+  window.comShow=comShow;
   const comReport=rep=>{
     const host=$('comMatchReport'); if(!host) return;
     if(!rep||!rep.length){ host.innerHTML=''; return; }
@@ -9580,37 +9605,20 @@ function init(){
   $('comFileInput').addEventListener('change',e=>{
     const f=e.target.files[0]; e.target.value=''; if(!f) return;
     const st=$('comLoadStatus'); st.textContent='Reading '+f.name+'\u2026';
-    if(!S.model){ st.innerHTML='<span class="err">Load the driller first \u2014 the commentary is matched against the names in it.</span>'; return; }
+    // a commentary loaded before the driller is held rather than refused: it is
+    // read against the names as soon as a driller arrives
     comFileText(f).then(txt=>{
-      const {items, report, skipped}=comIngestText(txt, {fromFile:true});
-      if(!items.length){ st.innerHTML='<span class="err">No commentary was found in that file.</span>'; comReport([]); return; }
-      comInSetPasted(items.map(i=>({...i, src:f.name})));
-      const named=report.filter(r=>r.line).length;
-      st.innerHTML=`<span class="ok">\u2713 ${esc(f.name)} \u2014 ${items.length} written line${items.length===1?'':'s'}, `+
-        `${named} pinned to a name${items.length-named? `, ${items.length-named} to the view` : ''}.</span>`+
-        (skipped.length? `<div class="note" style="font-size:10px">Heading skipped: ${esc(skipped[0])}</div>` : '');
-      comReport(report);
-      comNote(); render();
+      // the document is kept as it was written; the matching is done again
+      // every time it is read, against whatever driller is loaded then
+      comDocSet({name:f.name, text:txt, at:Date.now()});
+      comShow();
+      if(S.model) render();
     }).catch(err=>{ st.innerHTML='<span class="err">'+esc(err.message||String(err))+'</span>'; });
   });
-  $('btnComIn').addEventListener('click',()=>{
-    const box=$('comInBox'); box.hidden=!box.hidden;
-    if(!box.hidden){
-      $('comInTxt').value=comInPasted().map(c=>[c.view||'',c.line||'',c.text].join(' | ')).join('\n');
-      comNote(); $('comInTxt').focus();
-    }
-  });
-  $('btnComApply').addEventListener('click',()=>{
-    // edited by hand, whatever they came in as
-    comInSetPasted(comInParse($('comInTxt').value).map(i=>({...i, src:'pasted'})));
-    $('comLoadStatus').textContent='';
-    comNote(); if(S.model) render();
-  });
   $('btnComClear').addEventListener('click',()=>{
-    comInSetPasted([]); $('comInTxt').value='';
-    $('comLoadStatus').textContent=''; comReport([]);
-    comNote(); if(S.model) render();
+    comDocSet(null); comShow(); if(S.model) render();
   });
+  comShow();
 
   const mkCollapse=(rowId,caretId,key,sels)=>{
     const apply=()=>{

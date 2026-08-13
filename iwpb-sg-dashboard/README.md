@@ -485,18 +485,30 @@ left-pane strip and the Filters pane.
   - a **`Commentary` section in the configuration** (a sheet in the workbook, or
     `Commentary` rows in the single-sheet CSV), for wording that holds from
     month to month.
-  - the **Paste commentary** box under Drivers in the left pane, for words that
-    arrive in an email. One line each: `View | Line | Text`, or `Line: Text`, or
-    a bare sentence.
-  - **Load commentary file** — a separate upload beside it, taking the commentary
-    exactly as it was written: **.docx**, .txt, .md, .csv or .xlsx. Nothing about
-    its layout is assumed. A Word file is unzipped and read in the browser from
-    its own zip directory — no library, and the file never leaves the machine.
-    Its title line is recognised as a heading and skipped, then each paragraph is
-    matched against the names your driller carries (see below). A paragraph
-    covering several lines is split so each sentence keeps its own; a paragraph
-    naming nothing belongs to the view. Rows that aim themselves — a three-column
-    sheet, or `Wealth: …` — are taken at their word rather than matched.
+  - **Load commentary file** — under Drivers in the left pane, taking the
+    commentary exactly as it was written: **.docx**, .txt, .md, .csv or .xlsx.
+    Nothing about its layout is assumed. A Word file is unzipped and read in the
+    browser from its own zip directory — no library, and the file never leaves
+    the machine. Its title line is recognised as a heading and skipped, then each
+    paragraph is matched against the names your driller carries (see below). A
+    paragraph covering several lines is split so each sentence keeps its own; a
+    paragraph naming nothing belongs to the view. Rows that aim themselves — a
+    three-column sheet, or `Wealth: …` — are taken at their word rather than
+    matched. There is nothing to type: load the document and it is read.
+
+  **The document is kept, not the answers.** What is stored is the commentary as
+  written, and the matching is done afresh every time it is read — so loading
+  next month's driller re-reads the same document against next month's names
+  with nobody opening it again, and the pane's report always describes the file
+  that is loaded now. A commentary loaded before any driller is held and read as
+  soon as one arrives. **Remove this commentary** clears it; it does not touch
+  the `Commentary` tab inside a driller or the `Commentary` section in a config,
+  which belong to those files.
+
+  **To correct a match** there are three ways, and none of them is retyping the
+  commentary: set an `Aliases` row in the configuration (permanent, and it wins
+  over everything), click the note on the chart and edit it there (it becomes
+  your own note), or edit the commentary block and keep it.
 
   `View` aims the line — `Summary`, `Financial Summary` (or whatever the view has
   been renamed to), `Chart`, `Dashboard`, or blank for all of them. `Line` names
