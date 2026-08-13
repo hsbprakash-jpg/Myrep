@@ -1099,6 +1099,9 @@ quarters, a June YTD target, July–December forecast months, an FY-26 forecast,
 an FY-25 actual and an FY-26 target — so **All commentaries** offers all six
 bases and the **⤓ Word** download comes out complete. Regenerate with
 `python3 make_sample_sixbasis.py`.
+`sample/IWPB_SG_Jun26_SixBasis_Commentary.docx` is what that download produces
+from it, with `IWPB_SG_Jun26_Commentary.docx` loaded as the written commentary
+— a worked example of the six bases as a document.
 
 ### Two worked reporting packs
 
