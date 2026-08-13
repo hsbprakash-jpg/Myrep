@@ -171,6 +171,9 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 #comMatchReport .cmrow{font-size:10.5px;line-height:1.4;margin:2px 0;color:var(--text-secondary)}
 #comMatchReport .cmln{font-weight:700;color:var(--hsbc-red)}
 #comMatchReport .cmview{font-weight:700;color:var(--text-muted)}
+#comMatchReport .cmhow{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted)}
+#comMatchReport .cmalso{color:var(--text-muted);font-style:italic}
+#comMatchReport .cmvague{display:block;color:#b57a00;font-size:10px;font-style:italic}
 #comInBox{margin:6px 18px 0 18px}
 #comInBox textarea{width:100%;box-sizing:border-box;font:inherit;font-size:11.5px;line-height:1.45;
   padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
@@ -975,7 +978,7 @@ Wealth: Insurance new business held up against a soft market."></textarea>
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 07:37</div>
+<div id="buildTag">build 2026-08-13 07:43</div>
 </aside>
 <main>
 
@@ -1534,6 +1537,7 @@ const CFG_DEFAULT={
   ]},
   drivers:{},
   commentary:[],
+  aliases:[],
   views:{summary:'Y',fsum:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
   labels:{
     nav_summary:'KPI summary', nav_custom:'My dashboard', nav_builder:'Drag & drop charts',
@@ -8322,29 +8326,138 @@ function docxXmlToText(xml){
     .replace(/&#39;|&apos;/g,"'").replace(/&amp;/g,'&')
     .split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean).join('\n');
 }
-/* every name the loaded file actually carries, longest first so the most
-   specific one wins — "Global Trade Solutions" before "Global" */
-let COM_VOCAB=null, COM_VOCAB_M=null;
-function comVocab(){
-  const m=S.model; if(!m) return [];
-  if(COM_VOCAB&&COM_VOCAB_M===m) return COM_VOCAB;
+/* ---- which line a sentence is about ------------------------------------
+   Everything here is text matching against the names the loaded file itself
+   carries. It reads names; it does not understand banking. Four things decide
+   it, and the pane reports which one fired so the answer can be checked:
+
+     1. an alias set in the configuration      NII \u2192 NII - Interest Income
+     2. the name itself, written out           "Banking NII held up"
+     3. the name's acronym                     GTS \u2192 Global Trade Solutions
+     4. a short form that can only mean one    NII \u2192 the NII line, where every
+        line — every other candidate is a         other NII line is beneath it
+        sub-line of it
+
+   Where two names are mentioned the earlier one wins, because a sentence is
+   about its subject: "NII was the main driver of the revenue beat" is about
+   NII, not about Revenue. The other names are reported rather than silently
+   dropped. Where nothing resolves, the sentence belongs to the view — a wrong
+   line is worse than no line. */
+const COM_SYN=[
+  [/\bnet interest income\b/g,'nii'],
+  [/\bexpected credit loss(es)?\b/g,'ecl'],
+  [/\brisk weighted assets\b/g,'rwa'],
+  [/\bprofit before tax\b/g,'pbt'],
+  [/\bvariable pay\b/g,'vp'],
+  [/\bassets under management\b/g,'aum'],
+  [/\breturn on tangible equity\b/g,'rote'],
+  [/\bcost efficiency ratio\b/g,'cer'],
+  [/\bnet new invested assets\b/g,'nnia'],
+  [/\becls\b/g,'ecl'], [/\brwas\b/g,'rwa'],   // the plural the pack writes
+  [/\bloans and advances\b/g,'loans and advances']
+];
+const COM_STOP=new Set(['and','the','of','to','in','on','for','a','an','sub','total','ow','o','w','net','other']);
+function comNorm(t){
+  let x=' '+String(t).toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim()+' ';
+  for(const [re,to] of COM_SYN) x=x.replace(re,to);
+  return ' '+x.trim()+' ';
+}
+function comWords(t){ return comNorm(t).trim().split(' ').filter(Boolean); }
+/* the acronym a name would be written as: the initials of its telling words */
+function comAcronym(name){
+  const ws=comWords(name).filter(w=>!COM_STOP.has(w));
+  // every word must be a real word and there must be at least three of them:
+  // a two-letter acronym collides with English — "Opex Notables" gave ON, and
+  // every sentence with the word "on" in it matched that line
+  if(ws.length<3||ws.some(w=>w.length<3)) return '';
+  const a=ws.map(w=>w[0]).join('');
+  return (a.length>=3&&a.length<=5)? a : '';
+}
+let COM_IDX=null, COM_IDX_M=null, COM_IDX_A=null;
+function comIndex(){
+  const m=S.model; if(!m) return null;
+  const aliasSig=JSON.stringify((CFG&&CFG.aliases)||[]);
+  if(COM_IDX&&COM_IDX_M===m&&COM_IDX_A===aliasSig) return COM_IDX;
   const seen=new Map();
   const add=v=>{ const t=String(v==null?'':v).trim();
     if(t.length<3||t.length>60) return;
     const k=t.toLowerCase(); if(!seen.has(k)) seen.set(k,t); };
   for(const r of m.rows){ const d=r.d||{}; for(const k in d) add(d[k]); }
   try{ for(const x of (CFG.metrics||[])) add(x.name); }catch(e){}
-  COM_VOCAB=[...seen.values()].sort((a,b)=>b.length-a.length); COM_VOCAB_M=m;
-  return COM_VOCAB;
-}
-function comNorm(t){ return ' '+String(t).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()+' '; }
-function comMatchName(txt, vocab){
-  const low=comNorm(txt);
-  for(const nm of (vocab||comVocab())){
-    const n=comNorm(nm);
-    if(n.length>4&&low.includes(n)) return nm;
+  const names=[...seen.values()];
+  const norm=new Map(names.map(n=>[n, comNorm(n)]));
+  // an acronym or a short form is only usable where every name it could mean
+  // sits beneath one of them — otherwise it is ambiguous and no help
+  const resolve=cands=>{
+    if(!cands.length) return '';
+    const short=cands.reduce((a,b)=>norm.get(a).length<=norm.get(b).length? a : b);
+    const head=norm.get(short).trim();
+    return cands.every(c=>norm.get(c).trim().indexOf(head)===0)? short : '';
+  };
+  const acro=new Map();
+  const byAcro=new Map();
+  for(const n of names){ const a=comAcronym(n); if(!a) continue;
+    (byAcro.get(a)||byAcro.set(a,[]).get(a)).push(n); }
+  for(const [a,cands] of byAcro){ const one=resolve(cands); if(one) acro.set(a, one); }
+  // the first telling word of a name, where it can only mean one line
+  const byHead=new Map();
+  for(const n of names){ const ws=comWords(n).filter(w=>!COM_STOP.has(w));
+    if(!ws.length) continue;
+    (byHead.get(ws[0])||byHead.set(ws[0],[]).get(ws[0])).push(n); }
+  const head=new Map();
+  for(const [h,cands] of byHead){ if(h.length<3) continue;
+    const one=resolve(cands); if(one) head.set(h, one); }
+  // a telling word only one line carries — "deposits" finds "Customers and
+  // Banks Deposits (PE)", which nobody writes out in full
+  const byWord=new Map();
+  for(const n of names) for(const w of new Set(comWords(n))){
+    if(w.length<4||COM_STOP.has(w)||/^\d+$/.test(w)) continue;
+    (byWord.get(w)||byWord.set(w,[]).get(w)).push(n);
   }
-  return '';
+  const word=new Map();
+  for(const [w,cands] of byWord) if(cands.length===1) word.set(w, cands[0]);
+  // and what stayed ambiguous, so the pane can say why nothing was pinned
+  const vague=new Map();
+  for(const [a,cands] of byAcro) if(cands.length>1&&!acro.has(a)) vague.set(a, cands.slice(0,3));
+  for(const [h,cands] of byHead) if(h.length>=3&&cands.length>1&&!head.has(h)) vague.set(h, cands.slice(0,3));
+  for(const [w,cands] of byWord) if(cands.length>1&&!word.has(w)&&!head.has(w)) vague.set(w, cands.slice(0,3));
+  const aliases=new Map();
+  for(const a of ((CFG&&CFG.aliases)||[])){
+    const to=String(a.line||'').trim(); if(!to) continue;
+    const hit=names.find(n=>n.toLowerCase()===to.toLowerCase())
+      ||names.find(n=>n.toLowerCase().indexOf(to.toLowerCase())>=0);
+    if(hit) aliases.set(comNorm(a.alias).trim(), hit);
+  }
+  COM_IDX={names, norm, acro, head, word, vague, aliases}; COM_IDX_M=m; COM_IDX_A=aliasSig;
+  return COM_IDX;
+}
+function comVocab(){ const ix=comIndex(); return ix? ix.names : []; }
+/* every name a sentence mentions, best first */
+function comMatchList(txt){
+  const ix=comIndex(); if(!ix) return [];
+  const low=comNorm(txt);
+  const hits=[];
+  const at=(needle)=>{ const i=low.indexOf(' '+needle.trim()+' '); return i<0? -1 : i; };
+  for(const [al,name] of ix.aliases){ const i=at(al); if(i>=0) hits.push({name, at:i, how:'alias', len:al.length}); }
+  for(const n of ix.names){ const i=at(ix.norm.get(n)); if(i>=0) hits.push({name:n, at:i, how:'name', len:ix.norm.get(n).length}); }
+  for(const [a,name] of ix.acro){ const i=at(a); if(i>=0) hits.push({name, at:i, how:'acronym', len:a.length}); }
+  for(const [h,name] of ix.head){ const i=at(h); if(i>=0) hits.push({name, at:i, how:'short form', len:h.length}); }
+  for(const [w,name] of ix.word){ const i=at(w); if(i>=0) hits.push({name, at:i, how:'word', len:w.length}); }
+  const rank={alias:0, name:1, acronym:2, 'short form':3, word:4};
+  hits.sort((a,b)=> a.at-b.at || rank[a.how]-rank[b.how] || b.len-a.len);
+  const out=[], seenN=new Set();
+  for(const h of hits){ if(seenN.has(h.name)) continue; seenN.add(h.name); out.push(h); }
+  return out;
+}
+function comMatchName(txt){ const l=comMatchList(txt); return l.length? l[0].name : ''; }
+/* terms a sentence uses that could mean more than one line. Reported rather
+   than guessed at — an alias in the configuration settles it. */
+function comVague(txt){
+  const ix=comIndex(); if(!ix) return [];
+  const low=comNorm(txt), out=[];
+  for(const [term,cands] of ix.vague)
+    if(low.indexOf(' '+term+' ')>=0) out.push({term, options:cands});
+  return out.slice(0,2);
 }
 /* read the words, then work out what each one is about */
 function comIngestText(txt, opts){
@@ -8360,23 +8473,34 @@ function comIngestText(txt, opts){
       skipped.push(first); lines[i]='';
     }
   }
-  const vocab=comVocab(), items=[], report=[];
+  const items=[], report=[];
+  const take=(view, txt)=>{
+    const hits=comMatchList(txt);
+    const best=hits[0];
+    items.push({view, line:best? best.name : '', text:txt});
+    report.push({line:best? best.name : '', text:txt, how:best? best.how : 'view',
+      also:hits.slice(1,3).map(h=>h.name), vague:best? [] : comVague(txt)});
+    return !!best;
+  };
   for(const it of comInParse(lines.join('\n'))){
-    if(it.line){ items.push(it); report.push({line:it.line, text:it.text, how:'named'}); continue; }
-    const whole=comMatchName(it.text, vocab);
-    if(whole){ items.push({...it, line:whole}); report.push({line:whole, text:it.text, how:'matched'}); continue; }
-    // a paragraph covering several lines is split so each keeps its own sentence
+    if(it.line){ items.push(it); report.push({line:it.line, text:it.text, how:'as written', also:[]}); continue; }
+    if(take(it.view, it.text)) continue;
+    items.pop(); report.pop();     // nothing whole-paragraph: try it sentence by sentence
     const sents=String(it.text).split(/(?<=[.;:])\s+(?=[A-Z(\u201c"])/).map(x=>x.trim()).filter(Boolean);
+    if(sents.length<2){ take(it.view, it.text); continue; }
     const left=[];
     let any=false;
-    if(sents.length>1) for(const sn of sents){
-      const nm=comMatchName(sn, vocab);
-      if(nm){ items.push({view:it.view, line:nm, text:sn}); report.push({line:nm, text:sn, how:'matched'}); any=true; }
+    for(const sn of sents){
+      const hits=comMatchList(sn);
+      if(hits.length){ items.push({view:it.view, line:hits[0].name, text:sn});
+        report.push({line:hits[0].name, text:sn, how:hits[0].how,
+          also:hits.slice(1,3).map(h=>h.name), vague:[]});
+        any=true; }
       else left.push(sn);
     }
     const rest=any? left.join(' ') : it.text;
     if(rest.trim()){ items.push({view:it.view, line:'', text:rest.trim()});
-      report.push({line:'', text:rest.trim(), how:'view'}); }
+      report.push({line:'', text:rest.trim(), how:'view', also:[]}); }
   }
   return {items, report, skipped};
 }
@@ -9031,6 +9155,10 @@ function cfgFromWorkbook(wb){
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
       else if(sec==='labels'){ if(a) cfg.labels[a.toLowerCase()]=b2; }
       else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
+      else if(sec==='aliases'||sec==='alias'){
+        // Alias | Line — what the commentary calls it, and the line in the file
+        if(a&&b2) cfg.aliases.push({alias:a, line:b2});
+      }
       else if(sec==='commentary'){
         // View | Line | Text — and with only two columns, Line | Text
         if(c) cfg.commentary.push({view:a, line:b2, text:c});
@@ -9117,6 +9245,7 @@ function cfgTemplateCSV(){
     ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','',''],
     ['Commentary','<view - Summary / Financial Summary / Chart / Dashboard / blank = all>',
       '<line - e.g. Revenue; blank = the whole view>','<the words the business wrote>','',''],
+    ['Aliases','<what the commentary calls it - e.g. NII>','<the line in the driller - e.g. NII - Interest Income>','','',''],
     ['CountryHierarchy','<ID - optional>','<Level 1 - e.g. Global>','<Level 2 region - e.g. Asia>','<Level 3 country = tab name - e.g. Singapore>'],
     ...CFG_DEFAULT.metrics.map(x=>['Metrics',x.name,x.scope,'','']),
     ...['account','product'].flatMap(hk=>CFG_DEFAULT.hierarchies[hk].map(r=>{
@@ -9310,7 +9439,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 07:37</td></tr>
+      <tr><td>Build</td><td>2026-08-13 07:43</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -9437,7 +9566,12 @@ function init(){
     const cut=t=>String(t).length>64? String(t).slice(0,63)+'\u2026' : String(t);
     host.innerHTML=rep.slice(0,8).map(r=>`<p class="cmrow">${
       r.line? `<span class="cmln">${esc(r.line)}</span>` : `<span class="cmview">every view</span>`
-      } \u2190 ${esc(cut(r.text))}</p>`).join('')+
+      }${r.how&&r.line? ` <span class="cmhow">${esc(r.how)}</span>` : ''
+      } \u2190 ${esc(cut(r.text))}${
+        (r.also&&r.also.length)? `<span class="cmalso"> also mentions ${esc(r.also.join(', '))}</span>` : ''
+      }${(r.vague&&r.vague.length)? r.vague.map(v=>
+        `<span class="cmvague">\u201c${esc(v.term)}\u201d could be ${esc(v.options.join(' or '))} \u2014 set an alias</span>`).join('') : ''
+      }</p>`).join('')+
       (rep.length>8? `<p class="cmrow">\u2026 and ${rep.length-8} more</p>` : '');
   };
   $('btnComLoad').addEventListener('click',()=>$('comFileInput').click());
