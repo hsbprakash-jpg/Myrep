@@ -961,7 +961,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 09:07</div>
+<div id="buildTag">build 2026-08-13 09:29</div>
 </aside>
 <main>
 
@@ -3305,8 +3305,11 @@ function renderHouse(){
   aiComment($('houseCom'), 'house|'+filterNote()+'|'+S.ytdM+'|'+cur+'|'+L.vp+'|'+L.mode+'|'+
     cfgS('commentary_format')+'|'+drvSig(),
     ()=>cfgS('commentary_format').trim().toLowerCase()==='house'
-      ? comLead('summary', comNamesOf(filteredRows()))+houseCommentaryHtml()
-      : comLead('summary', comNamesOf(filteredRows()))+slideCommentaryHtml());
+      // the per-line reasons are woven into the sentences below; the lead
+      // carries what was written about the period as a whole, and anything
+      // about a line the statement never named
+      ? (()=>{ const body=houseCommentaryHtml(); return comSumLead()+body; })()
+      : (()=>{ const body=slideCommentaryHtml(); return comSumLead()+body; })());
 }
 
 /* ---- slide-format management commentary -------------------------------
@@ -3353,6 +3356,7 @@ function slGroups(rows, key){
     .sort((a,b)=>atF(a.rs)-atF(b.rs));
 }
 function slideCommentaryHtml(){
+  comSaidReset();
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
   if(!rows.length) return '';
   const LV=houseLevels(); if(!LV.length) return '';
@@ -3386,11 +3390,11 @@ function slideCommentaryHtml(){
     const kids=LV[2]? slGroups(g.rs, LV[2]) : [];
     if(kids.length>1){
       h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${slVal(g.k.cmpMain)}</b> `+
-        `is ${slVar(g.k)}${nt}:</p><ul class="houselist">`;
-      for(const c of kids) h+=`<li><b>${esc(c.name)}</b> ${slVar(c.k)}${slDrivers(c.rs,dimKey,N)}</li>`;
+        `is ${slVar(g.k)}${nt}${comTail(g.name)}:</p><ul class="houselist">`;
+      for(const c of kids) h+=`<li><b>${esc(c.name)}</b> ${slVar(c.k)}${slDrivers(c.rs,dimKey,N)}${comTail(c.name)}</li>`;
       h+='</ul>';
     } else {
-      h+=`<p style="margin:8px 0 2px"><b>${esc(g.name)}</b> ${slVar(g.k)}${slDrivers(g.rs,dimKey,N)}</p>`;
+      h+=`<p style="margin:8px 0 2px"><b>${esc(g.name)}</b> ${slVar(g.k)}${slDrivers(g.rs,dimKey,N)}${comTail(g.name)}</p>`;
     }
   }
   // balance-sheet lines keep to themselves, after the statement, in their
@@ -3464,7 +3468,16 @@ function houseDrvCount(){
 }
 /* one narrative per statement when the Financial Summary defines blocks —
    a P&L result and a balance-sheet line are never spoken of as one figure */
+function comSumLead(){
+  const bits=[...comWritten('summary', []).map(esc),
+    ...comUnsaid('summary', comNamesOf(filteredRows())).map(q=>{
+      const d=comDigest(q.text, q.name);
+      return `<b>${esc(q.name)}</b> \u2014 ${esc(d)}${/[\u2026.!?]$/.test(d)?'':'.'}`;
+    })];
+  return bits.length? `<span class="drvlead">${bits.join(' ')}</span> ` : '';
+}
 function houseCommentaryHtml(){
+  comSaidReset();
   const all=filteredRows();
   if(!all.length) return '';
   if(fsumSectionDefs().length){
@@ -3497,7 +3510,7 @@ function houseBlock(rows, secName){
     const k=kpi(rs,m,S.ytdM,S.includeFC);
     const dr=houseDrivers(rs,dimKey,depth===1?NDRV:Math.max(2,NDRV-1));
     const drTxt=dr.length? ` driven by ${dr.map(g=>`${esc(g.name)} (${faTxt(g.k)})`).join(', ')}` : '';
-    return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}</li>`;
+    return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}${comTail(name)}</li>`;
   };
   const l1=[...groupBy(rows,LV[0]).entries()]
     .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
@@ -3521,7 +3534,7 @@ function houseBlock(rows, secName){
   }
   for(const g of l1){
     // a lone line is already the headline — go straight to what drove it
-    if(!single) h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${fmt(mainOf(g.k))}</b> is ${faTxt(g.k)}</p>`;
+    if(!single) h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${fmt(mainOf(g.k))}</b> is ${faTxt(g.k)}${comTail(g.name)}</p>`;
     h+=`<ul class="houselist">`;
     const kids=(LV.length>1? [...groupBy(g.rs,LV[1]).entries()] : [])
       .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
@@ -6803,6 +6816,8 @@ function fsumBlockText(name, rows, m, P, sub){
   }
   if(sub&&sub.length) h+=` Movement against forecast is led by `+
     sub.map(x=>`<b>${esc(x.name)}</b> (${faAmt(x.f.k,x.f.mVsFc)})`).join(', ')+'.';
+  const tail=comTail(name,'fsum');
+  if(tail) h+=tail+'.';
   return h;
 }
 function fsumMovers(rows,m,P){
@@ -6943,6 +6958,7 @@ function comNamesOf(rows){
   return out;
 }
 function fsumCommentary(rows,m,P){
+  comSaidReset();
   const secs=fsumSections(rows);
   const parts=secs.map(sec=>{
     const one=fsumTopCount(sec.rows)===1;
@@ -6958,7 +6974,11 @@ function fsumCommentary(rows,m,P){
   let h=parts.join('<br><br>');
   const movers=fsumMovers(rows,m,P);
   const dt=movers.map(x=>driverFor(x.name)).filter(Boolean);
-  const wrote=[...comWritten('fsum', comNamesOf(rows)).map(esc),
+  const wrote=[...comWritten('fsum', []).map(esc),
+    ...comUnsaid('fsum', comNamesOf(rows)).map(q=>{
+      const d=comDigest(q.text, q.name);
+      return `<b>${esc(q.name)}</b> \u2014 ${esc(d)}${/[\u2026.!?]$/.test(d)?'':'.'}`;
+    }),
     ...(dt.length? [esc(dt[0])+'.'] : [])];
   if(wrote.length) h=`<span class="drvlead">${wrote.join(' ')}</span> `+h;
   return h;
@@ -8362,6 +8382,31 @@ function comForLine(name, view){
     &&comViewOK(c.view, view||'chart')&&comMatchLine(c.line,[name]))
     .map(c=>String(c.text).trim());
 }
+/* The reason the commentary gave for one line, ready to sit on the end of a
+   sentence the page has already written. A line matches its own sub-lines
+   loosely — "Trading Income" also finds "Trading Income - NII" — so within one
+   block a reason is given once, at the first line it belongs to, which is the
+   highest. */
+let COM_SAID=null;
+function comSaidReset(){ COM_SAID=new Set(); }
+function comTail(name, view){
+  const t=comForLine(name, view||'summary')[0];
+  if(!t) return '';
+  if(COM_SAID){ if(COM_SAID.has(t)) return ''; COM_SAID.add(t); }
+  const d=comDigest(t, name);
+  return d? ` \u2014 ${esc(d)}` : '';
+}
+/* Anything written for a line that no sentence in this block could carry — a
+   line the statement does not print by that name — still belongs in the block,
+   at the top. Nothing the business wrote is dropped for want of a home. */
+function comUnsaid(view, names){
+  const out=[];
+  for(const n of (names||[])) for(const t of comForLine(n, view)){
+    if(COM_SAID){ if(COM_SAID.has(t)) continue; COM_SAID.add(t); }
+    out.push({name:n, text:t});
+  }
+  return out;
+}
 function comInSig(){ return comInAll().map(c=>[c.view,c.line,c.text].join('~')).join(';'); }
 /* ---- a commentary file, read as it comes -------------------------------
    Word, plain text, markdown, CSV or a workbook. Nothing about its layout is
@@ -9568,7 +9613,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 09:07</td></tr>
+      <tr><td>Build</td><td>2026-08-13 09:29</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
