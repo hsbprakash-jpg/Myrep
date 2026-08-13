@@ -167,6 +167,13 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 #simCmpOut .ctable{width:auto;min-width:min(100%,460px);max-width:100%}
 #simCmpOut .ctable td:first-child,#simCmpOut .ctable th:first-child{min-width:160px;padding-right:26px}
 #simCmpOut .ctable td.num,#simCmpOut .ctable th.num{white-space:nowrap}
+#comInBox{margin:6px 18px 0 18px}
+#comInBox textarea{width:100%;box-sizing:border-box;font:inherit;font-size:11.5px;line-height:1.45;
+  padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
+  background:var(--surface-2);color:var(--text-primary);resize:vertical}
+#comInBox textarea:focus{border-color:var(--hsbc-red);box-shadow:0 0 0 2px var(--fold-bg);outline:none}
+#comInBox .cominbtns{display:flex;gap:6px;margin-top:5px}
+#comInBox #comInNote{margin:5px 0 0;color:var(--status-good)}
 #drvPanel .drvhint{grid-column:1 / span 2;font-size:10px;color:var(--status-good);margin-top:1px}
 #drvPanel .drvhint.warn{color:#b57a00}
 #drvPanel .drv-dd{position:absolute;top:31px;left:0;right:28px;z-index:40;background:var(--surface-2);
@@ -914,12 +921,27 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <p class="hint2" data-lbl="drv_hint">Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.</p>
     <div id="drvList"></div>
     <button class="btn-quiet" id="btnDrvAdd" style="margin:6px 18px 0">+ Add driver</button>
+    <button class="btn-quiet" id="btnComIn" style="margin:6px 18px 0" data-lbl="btn_comin">✐ Paste commentary</button>
+    <div id="comInBox" hidden>
+      <p class="hint2" data-lbl="comin_hint">One written line per row. <b>View | Line | Text</b> aims it —
+        view blank means every view, line blank means the whole view. <b>Line: Text</b> and a bare
+        sentence work too. These words lead the commentary blocks they name; nothing is reworded.</p>
+      <textarea id="comInTxt" rows="6" spellcheck="false"
+        placeholder="Financial Summary | Revenue | Rates and FX carried the half; deposit margin narrowed as expected.
+Chart | Global Trade Solutions | Drawdowns slipped into July — timing, not demand.
+Wealth: Insurance new business held up against a soft market."></textarea>
+      <div class="cominbtns">
+        <button class="btn-quiet" id="btnComApply">Use this commentary</button>
+        <button class="btn-quiet" id="btnComClear">Clear</button>
+      </div>
+      <p class="hint2" id="comInNote"></p>
+    </div>
   </div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 06:11</div>
+<div id="buildTag">build 2026-08-13 07:12</div>
 </aside>
 <main>
 
@@ -1476,6 +1498,7 @@ const CFG_DEFAULT={
     {id:'B47', levels:['IWPB','Others','Wealth Lending','','']}
   ]},
   drivers:{},
+  commentary:[],
   views:{summary:'Y',fsum:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
   labels:{
     nav_summary:'KPI summary', nav_custom:'My dashboard', nav_builder:'Drag & drop charts',
@@ -2720,7 +2743,9 @@ function widgetCommentaryHtml(w){
   }
   if(k.outlook!=null&&L.mode!=='py') out+=` Full-year outlook <b>${fmt(k.outlook)}</b>${k.target!=null?` vs target ${fmt(k.target)} (${fmt(k.varTgt)})`:''}.`;
   const dt=driverFor(nm);
-  if(dt) out=`<span class="drvlead"><b>${esc(nm)}</b> — ${esc(dt)}.</span> `+out;
+  const wrote=[...comWritten('dashboard', [nm]).map(esc),
+    ...(dt? [`<b>${esc(nm)}</b> \u2014 ${esc(dt)}.`] : [])];
+  if(wrote.length) out=`<span class="drvlead">${wrote.join(' ')}</span> `+out;
   return out;
 }
 function widgetCommentText(w){
@@ -2793,16 +2818,15 @@ function chartCommentaryHtml(cfg){
     const share=Math.abs(v(lead)/total);
     if(share>0.5) out+=` Concentration risk: over half the total sits in one line.`;
   }
-  // user-defined drivers lead the commentary; the built analytics follow.
+  // What the business has written leads the commentary, then the drivers, then
+  // the figures the page computed. One span holds the written words so an
+  // edited commentary still picks up a change to what was ingested.
   const dnotes=cats.map(c=>({c, t:driverFor(c.name)})).filter(x2=>x2.t)
     .filter((x2,i2,arr)=>arr.findIndex(y2=>y2.t===x2.t)===i2)
     .sort((a,b)=>Math.abs(v(b.c))-Math.abs(v(a.c))).slice(0,4);
-  let drvLead='';
-  if(dnotes.length){
-    drvLead='<span class="drvlead">'+dnotes.map(x2=>
-      `<b>${esc(x2.c.name)}</b> — ${esc(x2.t)}`).join('. ')+'.</span> ';
-  }
-  return drvLead+out;
+  const wrote=[...comWritten('chart', cats.map(c=>c.name)).map(esc),
+    ...dnotes.map(x2=>`<b>${esc(x2.c.name)}</b> \u2014 ${esc(x2.t)}.`)];
+  return (wrote.length? `<span class="drvlead">${wrote.join(' ')}</span> ` : '')+out;
 }
 let TILE_DRAG=null, TILE_ALL=[];
 function tileOrderGet(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_tileorder')||'[]'); }catch(e){ return []; } }
@@ -3227,7 +3251,8 @@ function renderHouse(){
   aiComment($('houseCom'), 'house|'+filterNote()+'|'+S.ytdM+'|'+cur+'|'+L.vp+'|'+L.mode+'|'+
     cfgS('commentary_format')+'|'+drvSig(),
     ()=>cfgS('commentary_format').trim().toLowerCase()==='house'
-      ? houseCommentaryHtml() : slideCommentaryHtml());
+      ? comLead('summary', comNamesOf(filteredRows()))+houseCommentaryHtml()
+      : comLead('summary', comNamesOf(filteredRows()))+slideCommentaryHtml());
 }
 
 /* ---- slide-format management commentary -------------------------------
@@ -6663,6 +6688,7 @@ function renderFsumLv(){
    invented. */
 function fsumNoteLines(rows){
   const named=cfgNameList('fsum_note_lines');
+  const hasWritten=n=>!!(comWritten('line',[n])[0]||driverFor(n));
   const tree=fsumTree(rows).filter(r=>!r.band&&r.name);
   if(named.length){
     const by=new Map(tree.map(r=>[String(r.name).trim().toLowerCase(), r]));
@@ -6672,10 +6698,12 @@ function fsumNoteLines(rows){
       return r? {name:r.name, rows:r.rows} : null;
     }).filter(Boolean);
   }
-  return tree.filter(r=>driverFor(r.name)).map(r=>({name:r.name, rows:r.rows}));
+  return tree.filter(r=>hasWritten(r.name)).map(r=>({name:r.name, rows:r.rows}));
 }
 function fsumNoteText(name, rs, m, P){
-  const own=driverFor(name);
+  // what the business wrote about this line, else the driver note, else the
+  // line reads its own figures
+  const own=comWritten('line', [name])[0]||driverFor(name);
   if(own) return {html:esc(own), own:true};
   const f=fsumFigs(rs, m, P, S.ytdM, name), k=f.k;
   const nf=v=>f.ratio? fsumRatioTxt(v) : f.bsFmt? fmtBS(v)+bsUnit() : fmtFull(Math.round(v==null?0:v));
@@ -6697,7 +6725,7 @@ function renderFsumNotes(rows, m, P){
   const mode=String(cfgS('fsum_notes')||'auto').trim().toLowerCase();
   if(mode==='n'){ host.hidden=true; host.innerHTML=''; return; }
   const lines=fsumNoteLines(rows);
-  const anyOwn=lines.some(l=>driverFor(l.name));
+  const anyOwn=lines.some(l=>comWritten('line',[l.name])[0]||driverFor(l.name));
   if(!lines.length||(mode!=='y'&&!anyOwn&&!cfgNameList('fsum_note_lines').length)){
     host.hidden=true; host.innerHTML=''; return;
   }
@@ -6712,6 +6740,16 @@ function renderFsumNotes(rows, m, P){
       anyOwn? 'your notes lead; a line without one reads its own figures'
             : 'each line reads its own figures \u2014 add a note in Drivers to replace it'}</p>
     <div class="lnotes">${items}</div>`;
+}
+/* the lines a page-level block is about, so a note written for one of them is
+   picked up there as well as on its own chart */
+function comNamesOf(rows){
+  const out=[];
+  try{ for(const r of fsumTree(rows)) if(r&&r.name) out.push(r.name); }catch(e){}
+  if(!out.length){
+    try{ const k=fsumLevels()[0]; out.push(...[...groupBy(rows,k).keys()].filter(Boolean)); }catch(e){}
+  }
+  return out;
 }
 function fsumCommentary(rows,m,P){
   const secs=fsumSections(rows);
@@ -6729,7 +6767,9 @@ function fsumCommentary(rows,m,P){
   let h=parts.join('<br><br>');
   const movers=fsumMovers(rows,m,P);
   const dt=movers.map(x=>driverFor(x.name)).filter(Boolean);
-  if(dt.length) h=`<span class="drvlead">${esc(dt[0])}.</span> `+h;
+  const wrote=[...comWritten('fsum', comNamesOf(rows)).map(esc),
+    ...(dt.length? [esc(dt[0])+'.'] : [])];
+  if(wrote.length) h=`<span class="drvlead">${wrote.join(' ')}</span> `+h;
   return h;
 }
 /* Excel / PowerPoint use the very same header text and figures */
@@ -7994,6 +8034,71 @@ function definedDrivers(){
   for(const [n,t] of Object.entries(cd)) if(n&&t&&!/^</.test(n)) out.push({name:n,text:t});
   return out;
 }
+/* ================= commentary the business has written =================
+   The page computes figures; it never writes narrative. Where the business has
+   written the narrative — a Commentary sheet in the config, a Commentary tab in
+   the driller itself, or text pasted into the left pane — those words lead the
+   block and the figures the page computed follow them, word for word, neither
+   paraphrased nor summarised.
+
+   A written line is aimed with two columns: which view it belongs to (blank =
+   all of them) and which line, product or region it is about (blank = the view
+   as a whole). */
+function comInPasted(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_comin')||'[]')||[]; }catch(e){ return []; } }
+function comInSetPasted(list){ try{ localStorage.setItem('iwpbsg_comin', JSON.stringify(list||[])); }catch(e){} }
+function comInAll(){
+  return [...((CFG&&CFG.commentary)||[]), ...((S&&S.comFile)||[]), ...comInPasted()]
+    .filter(c=>c&&String(c.text==null?'':c.text).trim());
+}
+const COM_VIEWS={
+  summary:['summary','kpisummary','kpi','house','overview','decisions','slide','executive'],
+  fsum:['fsum','financialsummary','businessperformance','statement','pack'],
+  chart:['chart','charts','graph','graphs','builder'],
+  dashboard:['dashboard','widget','widgets','custom','dynamic','mydashboard'],
+  line:['line','lines','linecommentary','note','notes']
+};
+function comViewOK(cv, view){
+  const c=String(cv==null?'':cv).toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(!c||c==='all'||c==='any'||c==='every') return true;
+  if((COM_VIEWS[view]||[view]).includes(c)) return true;
+  // a view the config has renamed answers to its new name as well as its old one
+  const nm=(view==='fsum')? String(fsumTitleS()||'').toLowerCase().replace(/[^a-z0-9]/g,'')
+         : (view==='summary')? String(cfgL('nav_summary')||'').toLowerCase().replace(/[^a-z0-9]/g,'')
+         : (view==='dashboard')? String(cfgL('nav_custom')||'').toLowerCase().replace(/[^a-z0-9]/g,'')
+         : '';
+  return !!(nm&&nm===c);
+}
+function comMatchLine(cl, names){
+  const l=String(cl==null?'':cl).trim().toLowerCase();
+  if(!l) return true;                       // written for the view as a whole
+  return (names||[]).some(n=>{ n=String(n==null?'':n).trim().toLowerCase();
+    return !!n&&(n===l||n.includes(l)||l.includes(n)); });
+}
+function comWritten(view, names){
+  return comInAll().filter(c=>comViewOK(c.view, view)&&comMatchLine(c.line, names))
+    .map(c=>String(c.text).trim());
+}
+/* the written words, in the same span the Drivers text uses, so a commentary
+   the reader has edited still picks up a change to what was ingested */
+function comLead(view, names){
+  const t=comWritten(view, names);
+  return t.length? `<span class="drvlead">${t.map(x=>esc(x)).join(' ')}</span> ` : '';
+}
+function comInSig(){ return comInAll().map(c=>[c.view,c.line,c.text].join('~')).join(';'); }
+/* free text pasted in: "View | Line | Text", "Line: Text", or a bare sentence */
+function comInParse(txt){
+  const out=[];
+  for(const raw of String(txt||'').split(/\r?\n/)){
+    const ln=raw.trim(); if(!ln||ln.startsWith('#')) continue;
+    const bars=ln.split('|').map(x=>x.trim());
+    if(bars.length>=3){ out.push({view:bars[0], line:bars[1], text:bars.slice(2).join(' | ')}); continue; }
+    if(bars.length===2){ out.push({view:'', line:bars[0], text:bars[1]}); continue; }
+    const m=ln.match(/^([^:]{1,60}):\s+(.+)$/);
+    if(m) out.push({view:'', line:m[1].trim(), text:m[2].trim()});
+    else out.push({view:'', line:'', text:ln});
+  }
+  return out.filter(c=>c.text);
+}
 function driverFor(name){
   if(name==null) return null;
   const n=String(name).trim().toLowerCase(); if(!n) return null;
@@ -8631,6 +8736,11 @@ function cfgFromWorkbook(wb){
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
       else if(sec==='labels'){ if(a) cfg.labels[a.toLowerCase()]=b2; }
       else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
+      else if(sec==='commentary'){
+        // View | Line | Text — and with only two columns, Line | Text
+        if(c) cfg.commentary.push({view:a, line:b2, text:c});
+        else if(b2) cfg.commentary.push({view:'', line:a, text:b2});
+      }
       else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
         if(a&&b2) cfg.metrics.push({name:a, scope:b2}); }
       else if(isCH){
@@ -8710,6 +8820,8 @@ function cfgTemplateCSV(){
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
     ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','',''],
+    ['Commentary','<view - Summary / Financial Summary / Chart / Dashboard / blank = all>',
+      '<line - e.g. Revenue; blank = the whole view>','<the words the business wrote>','',''],
     ['CountryHierarchy','<ID - optional>','<Level 1 - e.g. Global>','<Level 2 region - e.g. Asia>','<Level 3 country = tab name - e.g. Singapore>'],
     ...CFG_DEFAULT.metrics.map(x=>['Metrics',x.name,x.scope,'','']),
     ...['account','product'].flatMap(hk=>CFG_DEFAULT.hierarchies[hk].map(r=>{
@@ -8819,14 +8931,29 @@ function mergeCountryModels(tabs){
 function ingestArrayBuffer(buf, name, fromCache){
   const rep=$('ingestReport');
   {
-    let model=null, sheetName=null, lastErr=null, lastMissing=null;
+    let model=null, sheetName=null, lastErr=null, lastMissing=null, comFile=[];
     try{
       const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
       // non-data tabs (Control, Mapping, notes) never parse; every tab that
       // does parse is a data tab. Two or more parsing tabs = one country per
       // tab, merged into a single model with a Country dimension.
       const parsedTabs=[];
+      // a tab called Commentary carries the words the business has written for
+      // this month — it is read, never parsed as data
       for(const sn of wb.SheetNames){
+        if(!/^commentar(y|ies)$|^comments?$/i.test(String(sn).replace(/[^a-z]/gi,''))) continue;
+        for(const r of XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null})){
+          if(!r||r.every(c=>c==null||c==='')) continue;
+          const cell=i=>String(r[i]==null?'':r[i]).trim();
+          const a2=cell(0), b3=cell(1), c2=cell(2);
+          if(/^view$|^scope$/i.test(a2)) continue;         // a header row
+          if(c2) comFile.push({view:a2, line:b3, text:c2});
+          else if(b3) comFile.push({view:'', line:a2, text:b3});
+          else if(a2) comFile.push({view:'', line:'', text:a2});
+        }
+      }
+      for(const sn of wb.SheetNames){
+        if(/^commentar(y|ies)$|^comments?$/i.test(String(sn).replace(/[^a-z]/gi,''))) continue;
         const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
         const cand=parseSheet(aoa);
         if(!cand.error && cand.rows.length){
@@ -8850,7 +8977,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     model.sheetName=sheetName;
     applyHierarchies(model);
     applyCountryRegions(model);
-    S.model=model; S.fileName=name;
+    S.model=model; S.fileName=name; S.comFile=comFile;
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
     S.showAllKpis=false; S.showParkedTiles=false; S.showParkedSc=false;
     Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
@@ -8859,6 +8986,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     rep.innerHTML=`<span class="ok">✔ ${fromCache?'Restored from cache':'Ingested'} ${esc(name)}</span>
       <table>
       <tr><td>Sheet</td><td>${esc(sheetName)}</td></tr>
+      ${comFile.length? `<tr><td>Commentary</td><td>${comFile.length} written line${comFile.length===1?'':'s'} read from the Commentary tab \u2014 they lead the commentary blocks they name</td></tr>` : ''}
       ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — the top of the left pane is their sum; pick a node in the left pane or top bar</td></tr>`:''}
       ${model.countries&&model.countries.length? `<tr><td>Roll-up</td><td>${model.countries.map(sn=>{
         const res=chResolveTab(sn);
@@ -8887,7 +9015,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 06:11</td></tr>
+      <tr><td>Build</td><td>2026-08-13 07:12</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -8997,6 +9125,31 @@ function init(){
   $('navAssist').addEventListener('click',()=>setView('assist'));
   $('navSim').addEventListener('click',()=>setView('sim'));
   $('btnDrvAdd').addEventListener('click',()=>{ driversDef().push({name:'',text:''}); driversSave(); drawDrivers(); });
+  // commentary pasted in: the same words the pack carries, read rather than written
+  const comNote=()=>{
+    const n=$('comInNote'); if(!n) return;
+    const mine=comInPasted().length, file=((S&&S.comFile)||[]).length, cfgn=((CFG&&CFG.commentary)||[]).length;
+    const bits=[];
+    if(mine) bits.push(`${mine} pasted`);
+    if(file) bits.push(`${file} from the file's Commentary tab`);
+    if(cfgn) bits.push(`${cfgn} from the configuration`);
+    n.textContent=bits.length? '\u2713 '+bits.join(' \u00b7 ')+' \u2014 leading the blocks they name.'
+                             : 'No written commentary yet \u2014 every block reads its own figures.';
+  };
+  $('btnComIn').addEventListener('click',()=>{
+    const box=$('comInBox'); box.hidden=!box.hidden;
+    if(!box.hidden){
+      $('comInTxt').value=comInPasted().map(c=>[c.view||'',c.line||'',c.text].join(' | ')).join('\n');
+      comNote(); $('comInTxt').focus();
+    }
+  });
+  $('btnComApply').addEventListener('click',()=>{
+    comInSetPasted(comInParse($('comInTxt').value));
+    comNote(); if(S.model) render();
+  });
+  $('btnComClear').addEventListener('click',()=>{
+    comInSetPasted([]); $('comInTxt').value=''; comNote(); if(S.model) render();
+  });
 
   const mkCollapse=(rowId,caretId,key,sels)=>{
     const apply=()=>{

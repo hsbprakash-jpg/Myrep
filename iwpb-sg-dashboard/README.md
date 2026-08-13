@@ -466,6 +466,30 @@ left-pane strip and the Filters pane.
   never runs across the note pinned on another. A note also clears the
   **value labels**: covering the number a bar is worth is as bad as covering
   the bar itself, so the placement steps over those too.
+- **Ingesting commentary the business has written** — the page computes
+  figures; it never writes narrative. Where the narrative already exists, it can
+  be read in and the commentary blocks will lead with it, word for word,
+  neither paraphrased nor summarised, with the computed figures following.
+  Three ways in, all reading the same shape:
+  - a **`Commentary` tab in the driller itself** — three columns,
+    `View | Line | Text`. The tab is never parsed as data, and the ingest report
+    says how many written lines it found. One file carries the month's figures
+    and the month's words.
+  - a **`Commentary` section in the configuration** (a sheet in the workbook, or
+    `Commentary` rows in the single-sheet CSV), for wording that holds from
+    month to month.
+  - the **Paste commentary** box under Drivers in the left pane, for words that
+    arrive in an email. One line each: `View | Line | Text`, or `Line: Text`, or
+    a bare sentence.
+
+  `View` aims the line — `Summary`, `Financial Summary` (or whatever the view has
+  been renamed to), `Chart`, `Dashboard`, or blank for all of them. `Line` names
+  the line, product or region it is about, matched loosely against the names on
+  the page, and blank means the view as a whole. Where nothing is written a block
+  reads its own figures exactly as before, so ingesting one line never silences
+  the rest. A written line also leads its own row in the Line commentary column,
+  ahead of the Drivers note. Editing a block and keeping it still works: the
+  written words refresh in place on the next ingest while your own edits stay.
 - **Line commentary, as the pack prints it** — the reporting pack sets a
   short note beside each line, and the Financial Summary now carries the same
   column beneath the grid. A note written by the business leads — from the
