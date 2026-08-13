@@ -919,7 +919,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 06:06</div>
+<div id="buildTag">build 2026-08-13 06:11</div>
 </aside>
 <main>
 
@@ -1316,6 +1316,7 @@ const CFG_DEFAULT={
     cost_patterns:'cost|\\becls?\\b|expected\\s+credit|impair|expense',
     memo_patterns:'',
     chart_note_shape:'bubble',
+    chart_note_head:'N',
     ratio_patterns:'%|\\bbps\\b|\\brote\\b|\\bcer\\b|\\bratio\\b|headcount|\\bfte\\b|\\bcount\\b',
     fsum_memo_label:'Key Metrics',
     balance_sheet_patterns:'deposit|\\bloan|advance|mortgage|\\bcasa\\b|balance|\\basset|liabilit|\\brwa\\b|\\baum\\b|\\bnnm\\b|customer\\s*account',
@@ -4698,6 +4699,13 @@ function annCloudPath(x,y,w,h){
   d+=` A ${b.toFixed(1)} ${ry.toFixed(1)} 0 0 1 ${l.toFixed(1)} ${t.toFixed(1)} Z`;
   return d;
 }
+/* The bar already carries its name under the axis, so the note does not say it
+   again — it would be the same words twice, an inch apart. Set
+   chart_note_head:'Y' where a note is lifted onto a slide on its own and has to
+   say what it is about. */
+function annHeadOn(){
+  return /^(y|yes|true|1)$/i.test(String(cfgS('chart_note_head')||'').trim());
+}
 function annShapeDefault(){
   const v=String(cfgS('chart_note_shape')||'').trim().toLowerCase();
   return ANN_SHAPES.includes(v)? v : 'bubble';
@@ -4843,8 +4851,8 @@ function annDraw(svg, key){
     if(!el) continue;
     let bb; try{ bb=el.getBBox(); }catch(e){ continue; }
     if(!bb||(!bb.width&&!bb.height)) continue;
-    // the mark's own name heads the note, as the pack's callouts do
-    const head=(shape==='plain')? '' : String(cat).toUpperCase();
+    // the mark's own name heads the note only where it has been asked for
+    const head=(shape==='plain'||!annHeadOn())? '' : String(cat).toUpperCase();
     const headW=head? 6.6*Math.min(head.length,34)+4 : 0;
     const pad=shape==='oval'? 32 : shape==='cloud'? 44 : shape==='plain'? 4 : shape==='tag'? 28 : 24;
     // the width the reader dragged the note to, else one that sits around a
@@ -8879,7 +8887,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 06:06</td></tr>
+      <tr><td>Build</td><td>2026-08-13 06:11</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
