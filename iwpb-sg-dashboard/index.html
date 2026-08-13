@@ -622,6 +622,9 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .unitbar .unitnote{font-size:10.5px;color:var(--text-muted);font-style:italic}
 .ctxnote{color:var(--text-muted);font-size:10.5px;margin:6px 0 0;font-style:italic}
 .comallbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.comallbar .calbl{font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:5px}
+.comallbar .calbl select{font:inherit;font-size:11.5px;padding:3px 6px;border:1px solid var(--border-strong);
+  border-radius:4px;background:var(--surface-2);color:var(--text-primary)}
 .comallbar .caon{border-color:var(--hsbc-red);color:var(--hsbc-red);font-weight:700;
   background:color-mix(in srgb, var(--hsbc-red) 8%, var(--surface-1))}
 .cameta{display:flex;flex-wrap:wrap;gap:10px 26px}
@@ -980,7 +983,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 10:46</div>
+<div id="buildTag">build 2026-08-13 10:55</div>
 </aside>
 <main>
 
@@ -1117,14 +1120,15 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <div class="panel" id="comallMeta"></div>
     <div class="panel">
       <div class="comallbar">
-        <h4 style="margin:0;flex:1">Commentary</h4>
+        <h4 style="margin:0">Commentary</h4>
+        <label class="calbl">Basis <select id="caBasis"></select></label>
+        <span style="flex:1"></span>
         <button class="btn-quiet" id="btnCaOrig">Original</button>
         <button class="btn-quiet" id="btnCaCur">Current Commentary</button>
         <button class="linklike" id="btnCaExpand">Expand all</button>
       </div>
       <div id="comallList"></div>
-      <p class="cadisc">The commentary is written from the figures in the file you loaded and the commentary document
-        you gave it. Review it before it goes any further.</p>
+      <p class="cadisc" id="caDisc" hidden></p>
     </div>
   </div>
 
@@ -1401,6 +1405,9 @@ const CFG_DEFAULT={
     chart_note_head:'N',
     chart_note_auto_max:'3',
     commentary_style:'compose',
+    commentary_disclaimer:'The Commentary has been generated from the figures in the file and the commentary '+
+      'document loaded with it. It may be inaccurate and/or incomplete. It is important to independently review '+
+      'and edit the content before further use or distribution.',
     commentary_clause_max:'150',
     ratio_patterns:'%|\\bbps\\b|\\brote\\b|\\bcer\\b|\\bratio\\b|headcount|\\bfte\\b|\\bcount\\b',
     fsum_memo_label:'Key Metrics',
@@ -1420,7 +1427,7 @@ const CFG_DEFAULT={
     calc_forecast_weights:'',
     calc_cmp_priority:'py,fc,tgt',
     calc_variance_period:'auto',
-    variance_periods:'auto,ytd_py,mom,mth_tgt,ytd_tgt,ytd_fc,fy_tgt,fy_py',
+    variance_periods:'auto,qtr_py,ytd_tgt,mth_fc,fy_pfc,fy_py,fy_tgt,ytd_py,mom,mth_tgt,ytd_fc',
     calc_rag_green_at:'0',
     calc_rag_direction:'Y',
     commentary_dim:'',
@@ -1828,7 +1835,19 @@ const VP_DEFS={
   fy_py:{mode:'py', grain:'ytd', line:'py',
     lbl:c=>`FY${c.cyy} vs PY (${c.cy4} forecast vs ${c.py4})`,
     main:c=>`FY${c.cyy} forecast`, base:c=>`FY${c.pyy} actuals`, vs:c=>`vs FY${c.pyy}`,
-    avail:m=>!!m.pyMonths.length||!!(m.fyPriorCols&&m.fyPriorCols.length), pick:v=>[v.fyMain, v.fyBase]}
+    avail:m=>!!m.pyMonths.length||!!(m.fyPriorCols&&m.fyPriorCols.length), pick:v=>[v.fyMain, v.fyBase]},
+  /* the two the pack writes on that the page could not: the quarter against
+     the same quarter last year, and the full-year forecast against the one
+     published before it */
+  qtr_py:{mode:'py', grain:'qtd', line:'py',
+    lbl:c=>`Current QTR vs PY (Q${c.q} ${c.cy4} vs Q${c.q} ${c.py4})`,
+    main:c=>`Q${c.q} ${c.cy4}`, base:c=>`Q${c.q} ${c.py4}`, vs:c=>`vs Q${c.q} ${c.py4}`,
+    avail:m=>!!m.pyMonths.length||!!(m.quarterCols&&m.quarterCols.length),
+    pick:v=>[v.qtd, v.qtdPy]},
+  fy_pfc:{mode:'fc', grain:'ytd', line:'fc',
+    lbl:c=>`FY${c.cyy} vs Prior Forecast (${c.cy4} forecast vs prior forecast)`,
+    main:c=>`FY${c.cyy} forecast`, base:()=>'Prior forecast', vs:()=>'vs prior forecast',
+    avail:m=>!!(m.fyFcCols&&m.fyFcCols.length), pick:v=>[v.outlook, v.fyPrFc]}
 };
 /* label context — every string a definition builds comes from here */
 function vpCtx(m, ytdM){
@@ -1839,7 +1858,7 @@ function vpCtx(m, ytdM){
   let py4b=py4;
   if((!m||!m.pyMonths.length)&&m&&m.fyPriorLabel){ pyy=m.fyPriorLabel; py4b='20'+m.fyPriorLabel; }
   const prevSame=mi>0;
-  return {mon:MON_LBL[mi], cyy, pyy, cy4, py4:py4b,
+  return {mon:MON_LBL[mi], cyy, pyy, cy4, py4:py4b, q:Math.floor(mi/3)+1,
     pmon:prevSame? MON_LBL[mi-1] : MON_LBL[11], pmyy:prevSame? cyy : pyy};
 }
 /* the ids offered, in configured order, filtered to what this file supports */
@@ -2105,6 +2124,25 @@ function kpi(rows, model, ytdM, includeFC){
   // full-year outlook = Jan..Dec month columns only (quarters/YTD columns are never included,
   // so nothing is double counted); FY target strictly from the FY target column
   const outlook = sumCols(rows, model.cyMonths.map(p=>p.col));
+  // The quarter to date, read the way the Financial Summary reads it: from the
+  // file's own quarterly column where there is one, and only otherwise from the
+  // months. On a balance sheet a quarter column carries the closing balance
+  // while three months added carry three times it.
+  const useQC=cfgS('calc_ytd_actuals').toLowerCase()!=='months';
+  const qNo=Math.floor(ytdM/3)+1;
+  const qFindK=(qn,yy)=>{
+    if(yy==null||!model.quarterCols) return null;
+    const hits=model.quarterCols.filter(c=>c.q===qn&&
+      (c.year==null||String(c.year).padStart(2,'0')===String(yy).padStart(2,'0')));
+    return hits.find(c=>!c.fc)||hits[0]||null;
+  };
+  const qcyy=String(model.yearCY).slice(-2);
+  const qpyy=model.pyMonths.length? String(model.yearPY).slice(-2) : (model.fyPriorLabel||null);
+  const qColK=useQC? qFindK(qNo,qcyy) : null, qPyColK=useQC? qFindK(qNo,qpyy) : null;
+  const qMonthsK=model.cyMonths.filter(p=>Math.floor(p.m/3)===qNo-1&&p.m<=ytdM&&(!p.fc||includeFC));
+  const qtd=qColK? sumCols(rows,[qColK.col]) : (qMonthsK.length? sumCols(rows,qMonthsK.map(p=>p.col)) : null);
+  const qtdPy=qPyColK? sumCols(rows,[qPyColK.col])
+    : (model.pyMonths.length? sumCols(rows, model.pyMonths.filter(p=>qMonthsK.some(x=>x.m===p.m)).map(p=>p.col)) : null);
   const target = (model.targetCols&&model.targetCols.length)? sumCols(rows, model.targetCols.map(p=>p.col)) : null;
   const fyPrior = (model.fyPriorCols&&model.fyPriorCols.length)? sumCols(rows, model.fyPriorCols.map(p=>p.col)) : null;
   const fyFcCol = (model.fyFcCols&&model.fyFcCols.length)? sumCols(rows, model.fyFcCols.map(p=>p.col)) : null;
@@ -2172,6 +2210,7 @@ function kpi(rows, model, ytdM, includeFC){
   return {cy, py, varAbs, varPct, cySeries, pySeries, outlook, target, varTgt, varTgtPct, fyPrior,
     fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct, cmpMain, favVarPct,
     ytdTgt, varYT, varYTPct, mth, mthPrev, mthPy, mthTgt, mthFc, fyMain, fyBase,
+    qtd, qtdPy, fyPrFc:fyFcCol,
     vp:vpId, dirFlip:flip, costLike, ytdFcIsCol, cyIsCol};
 }
 /* cost and ECL lines stay actuals-only on landing widgets in target-only files;
@@ -3355,8 +3394,8 @@ function renderHouse(){
       // the per-line reasons are woven into the sentences below; the lead
       // carries what was written about the period as a whole, and anything
       // about a line the statement never named
-      ? (()=>{ const body=houseCommentaryHtml(); return comSumLead()+body; })()
-      : (()=>{ const body=slideCommentaryHtml(); return comSumLead()+body; })());
+      ? (()=>{ const body=houseCommentaryHtml(); return comSumLead()+caSummaryLine()+body; })()
+      : (()=>{ const body=slideCommentaryHtml(); return comSumLead()+caSummaryLine()+body; })());
 }
 
 /* ---- slide-format management commentary -------------------------------
@@ -3515,6 +3554,23 @@ function houseDrvCount(){
 }
 /* one narrative per statement when the Financial Summary defines blocks —
    a P&L result and a balance-sheet line are never spoken of as one figure */
+/* the result across every comparison the file supports, in one sentence — the
+   six sections of All commentaries, summarised */
+function caSummaryLine(){
+  const rows=filteredRows(); if(!rows.length) return '';
+  let tree=[]; try{ tree=fsumTree(rows).filter(r=>!r.band&&r.name); }catch(e){ return ''; }
+  const res=tree.find(r=>(r.lvl||0)===0); if(!res) return '';
+  const bits=[];
+  for(const sec of COMALL_SECS){
+    let q=null; try{ q=caFig(res.rows, sec, res.name); }catch(e){}
+    // a comparison that did not move says nothing worth a clause
+    if(!q||q.va==null||Math.abs(q.va)<0.5) continue;
+    bits.push(`${caAmt(q.f,q.va,false)} ${faWord(q.f.k,q.val)==='higher'?'up':'down'} on ${esc(sec.per)}`);
+  }
+  if(bits.length<2) return '';
+  const last=bits.pop();
+  return `<p><b>${esc(res.name)}</b> is ${bits.join(', ')} and ${last}.</p>`;
+}
 function comSumLead(){
   const bits=[...comWritten('summary', []).map(esc),
     ...comUnsaid('summary', comNamesOf(filteredRows())).map(q=>{
@@ -6279,20 +6335,20 @@ function setView(v){
    balance as a closing, and a year-to-date from the YTD column — and the
    favourable/adverse reading is the one movement convention the rest of the
    page uses. */
-let CA_ORIG=false;
+let CA_ORIG=false, CA_SEC='all';
 const COMALL_SECS=[
   {id:'qtr_py',  lbl:'(Current QTR) Actuals vs PY',           base:'PY',
-    v:f=>f.qtd,   d:f=>f.qVsPY},
+    per:'the quarter vs PY',            v:f=>f.qtd,   d:f=>f.qVsPY},
   {id:'ytd_tgt', lbl:'(Month YTD) Actuals vs Target',         base:'Target',
-    v:f=>f.ytd,   d:f=>f.yVsTgt},
+    per:'YTD vs target',                v:f=>f.ytd,   d:f=>f.yVsTgt},
   {id:'mth_fc',  lbl:'(Month) Actuals vs Forecast',           base:'Forecast',
-    v:f=>f.k.mth, d:f=>f.mVsFc},
+    per:'the month vs forecast',        v:f=>f.k.mth, d:f=>f.mVsFc},
   {id:'fy_pfc',  lbl:'(Month) FY Forecast Vs Prior Forecast', base:'Prior Forecast',
-    v:f=>f.fy,    d:f=>f.fVsPrF},
+    per:'the full year vs prior forecast', v:f=>f.fy, d:f=>f.fVsPrF},
   {id:'fy_py',   lbl:'(Month) FY Forecast Vs Prior Year',     base:'Prior Year',
-    v:f=>f.fy,    d:f=>f.fVsPY},
+    per:'the full year vs PY',          v:f=>f.fy,    d:f=>f.fVsPY},
   {id:'fy_tgt',  lbl:'(Month) FY Forecast Vs Target',         base:'Target',
-    v:f=>f.fy,    d:f=>f.fVsTgt}
+    per:'the full year vs target',      v:f=>f.fy,    d:f=>f.fVsTgt}
 ];
 function caNote(){ const n=cfgS('commentary_note'); return n? ` (${n})` : ''; }
 function caFig(rows, sec, name){
@@ -6316,20 +6372,55 @@ function caVar(q){
   if(q.va==null) return 'n/a';
   return caAmt(q.f, q.va, true, q.pct)+(q.pct==null? '' : ' '+pctAbs(q.pct));
 }
-/* the movers behind a line, in the pack's order: what drove it, then what
-   worked the other way */
-function caDrivers(rows, sec, dimKey, n){
-  const gs=[...groupBy(rows,dimKey).entries()]
-    .map(([name,rs])=>({name:name||'(blank)', q:caFig(rs,sec,name)}))
-    .filter(g=>g.q.va!=null&&Math.abs(g.q.va)>0.0001)
-    .sort((a,b)=>Math.abs(b.q.va)-Math.abs(a.q.va));
-  return gs.slice(0, n||6);
+/* The pack names a mover by what it is and where it is — "Mutual Funds in
+   China", "Structured Products in Singapore" — and by country alone where the
+   line has no product split beneath it: "AMH ($105mF 16%)". So the driver is
+   read from the product hierarchy crossed with the country hierarchy, one
+   level below whatever the line itself already names. */
+function caProdDims(){
+  const m=S.model;
+  return ['prodH5','prodH4','prodH3','prodH2','prodL3','prodL2'].filter(k=>k in m.dimCols);
 }
-function caDriverTxt(rows, sec, dimKey, total, n){
-  const gs=caDrivers(rows, sec, dimKey, n);
+function caCtryDim(){
+  const m=S.model, want=cfgS('commentary_dim');
+  if(want&&want in m.dimCols) return want;
+  return ['country','cgL2','entity','cgL1','funcL2'].find(k=>k in m.dimCols)
+    || Object.keys(FIELD_LABELS).find(k=>k in m.dimCols);
+}
+/* the deepest product level that actually splits this line into more than one
+   thing — anything shallower only repeats the line's own name */
+function caProdDimFor(rows, lineName){
+  const nm=String(lineName||'').trim().toLowerCase();
+  for(const k of caProdDims()){
+    const vals=new Set();
+    for(const r of rows){ const v=r.d[k]; if(v) vals.add(String(v).trim()); }
+    if(vals.size>1) return k;
+    if(vals.size===1&&![...vals][0].toLowerCase().includes(nm)&&nm&&!nm.includes([...vals][0].toLowerCase()))
+      return k;
+  }
+  return null;
+}
+function caDrivers(rows, sec, lineName, n){
+  const ctry=caCtryDim(), prod=caProdDimFor(rows, lineName);
+  const byKey=new Map();
+  for(const r of rows){
+    const c=String(r.d[ctry]==null?'':r.d[ctry]).trim()||'(blank)';
+    const pv=prod? (String(r.d[prod]==null?'':r.d[prod]).trim()||'') : '';
+    // "product in country" where the product says something the line does not
+    const label=pv? `${pv} in ${c}` : c;
+    (byKey.get(label)||byKey.set(label,[]).get(label)).push(r);
+  }
+  return [...byKey.entries()]
+    .map(([name,rs])=>({name, q:caFig(rs,sec,lineName)}))
+    .filter(g=>g.q.va!=null&&Math.abs(g.q.va)>0.0001)
+    .sort((a,b)=>Math.abs(b.q.va)-Math.abs(a.q.va))
+    .slice(0, n||6);
+}
+function caDriverTxt(rows, sec, lineName, total, n){
+  const gs=caDrivers(rows, sec, lineName, (n||5)+3);
   if(!gs.length) return '';
   const sameWay=g=>total==null? true : (total>=0? g.q.va>=0 : g.q.va<0);
-  const on=gs.filter(sameWay).slice(0,4), off=gs.filter(g=>!sameWay(g)).slice(0,3);
+  const on=gs.filter(sameWay).slice(0, n||4), off=gs.filter(g=>!sameWay(g)).slice(0,3);
   const one=g=>`${esc(g.name)} (${caVar(g.q)})`;
   let t='';
   if(on.length) t+=` driven by ${on.map(one).join(', ')}`;
@@ -6339,7 +6430,6 @@ function caDriverTxt(rows, sec, dimKey, total, n){
 function caSectionHtml(sec){
   const m=S.model, rows=filteredRows();
   if(!rows.length) return '';
-  const dimKey=houseDimKey();
   const tree=fsumTree(rows).filter(r=>!r.band&&r.name);
   if(!tree.length) return '';
   const has=(parent,child)=>child!==parent&&child.rows.length&&child.rows.every(x=>parent.rows.includes(x));
@@ -6368,7 +6458,7 @@ function caSectionHtml(sec){
   const lineHtml=(x, depth)=>{
     const kids=kidsOf(x.r).map(qOf).filter(y=>y.q.va!=null);
     const val=caAmt(x.q.f, x.q.val, false), va=caVar(x.q);
-    const drv=kids.length? '' : caDriverTxt(x.r.rows, sec, dimKey, x.q.va, depth? 5 : 6);
+    const drv=kids.length? '' : caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 4 : 5);
     let t=depth
       ? `<li><b>${esc(x.r.name)}</b> ${va}${kids.length? ':' : drv}`
       : `<p style="margin:10px 0 2px"><b>${esc(x.r.name)}</b> of ${val} are ${va}${kids.length? ':' : drv}</p>`;
@@ -6401,8 +6491,17 @@ function renderComAll(){
     <div><span class="cmk">Commentary file</span><span class="cmv">${doc? esc(doc.name) : 'None loaded'}</span></div>
   </div>`;
   host.innerHTML='';
+  // which comparisons this file can make at all
+  const live=COMALL_SECS.filter(sec=>{ try{ return !!caSectionHtml(sec); }catch(e){ return false; } });
+  const bs=$('caBasis');
+  if(bs){
+    if(!live.some(x=>x.id===CA_SEC)) CA_SEC='all';
+    bs.innerHTML=`<option value="all">All ${live.length} comparison${live.length===1?'':'s'}</option>`+
+      live.map(x=>`<option value="${x.id}"${CA_SEC===x.id?' selected':''}>${esc(x.lbl)}</option>`).join('');
+    bs.value=CA_SEC;
+  }
   let n=0;
-  for(const sec of COMALL_SECS){
+  for(const sec of (CA_SEC==='all'? live : live.filter(x=>x.id===CA_SEC))){
     let body='';
     try{ body=caSectionHtml(sec); }catch(e){ body=''; }
     if(!body) continue;
@@ -6417,6 +6516,12 @@ function renderComAll(){
       {ctx:filterNote(true)}, ()=>caSectionHtml(sec));
   }
   if(!n) host.innerHTML='<p class="note">This file carries no comparison the pack writes on \u2014 a target, a forecast or a prior year is needed.</p>';
+  // the disclaimer stands under a commentary, once there is one
+  const dz=$('caDisc');
+  if(dz){
+    dz.hidden=!n;
+    dz.textContent=cfgS('commentary_disclaimer')||CFG_DEFAULT.settings.commentary_disclaimer;
+  }
   $('btnCaOrig').classList.toggle('caon', CA_ORIG);
   $('btnCaCur').classList.toggle('caon', !CA_ORIG);
   $('btnCaExpand').textContent='Expand all';
@@ -9831,7 +9936,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 10:46</td></tr>
+      <tr><td>Build</td><td>2026-08-13 10:55</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -9891,6 +9996,7 @@ function init(){
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navFsum').addEventListener('click',()=>setView('fsum'));
   $('navComall').addEventListener('click',()=>setView('comall'));
+  $('caBasis').addEventListener('change',()=>{ CA_SEC=$('caBasis').value; renderComAll(); });
   $('btnCaOrig').addEventListener('click',()=>{ CA_ORIG=true; renderComAll(); });
   $('btnCaCur').addEventListener('click',()=>{ CA_ORIG=false; renderComAll(); });
   $('btnCaExpand').addEventListener('click',()=>{

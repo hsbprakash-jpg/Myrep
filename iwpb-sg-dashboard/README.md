@@ -484,6 +484,15 @@ left-pane strip and the Filters pane.
   offered — load a file with no target and the target sections are simply
   absent, rather than printed empty.
 
+  **The three hierarchies write it.** The cascade is the **account** hierarchy —
+  PBT, PBT (ex Notables), Total Revenue, then each revenue line — and the movers
+  behind each line are read from the **product** hierarchy crossed with the
+  **country** hierarchy, one level below whatever the line already names:
+  *"MSS $77mA 2.0% driven by Foreign Exchange in Hong Kong ($10mA 2.0%), Rates
+  in Hong Kong ($8mA 2.0%)"*. Where a line has no product split beneath it the
+  mover is named by country alone, as the pack does. Balances follow at the end
+  in billions, then the memo lines.
+
   Each section reads as the pack reads: the result, what moved it and what
   worked the other way — *"PBT (Reported) is $101m down vs Target driven by
   lower PBT (ex Notables) ($102mA 2.0%), offset by lower Notables ($1mF 2.0%)"*
@@ -493,6 +502,18 @@ left-pane strip and the Filters pane.
   comes from the **same figures as the Financial Summary**: a quarter from the
   quarterly column, a year-to-date from the YTD column, never months added
   together. A check ties the two together line for line.
+
+  **The basis filter** at the top of the view narrows to one comparison; the
+  same six are offered in the left pane's **Variance period**, wherever the file
+  supports them — including the two the page could not make before, the quarter
+  against the same quarter last year and the full-year forecast against the one
+  published before it. The quarter is read from the file's own quarterly column
+  where there is one, months only otherwise. The **management commentary** opens
+  with the result across every basis in one sentence: *"PBT (Reported) is $101m
+  down on YTD vs target, $18m down on the month vs forecast and $307m down on
+  the full year vs target."* The standard disclaimer stands under the
+  commentary once there is one to disclaim, and its wording is
+  `commentary_disclaimer`.
 
   **Original** shows the generated text; **Current Commentary** is the same
   text editable and kept, block by block, like every other commentary on the
