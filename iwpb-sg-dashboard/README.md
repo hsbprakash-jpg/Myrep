@@ -391,10 +391,16 @@ left-pane strip and the Filters pane.
   YTD-through month moves it. Configurable via `fsum_title`, `fsum_section_label`,
   `fsum_levels`, `fsum_ow` (the "o/w" prefix on the deepest level) and
   `fsum_total_label`.
-- **Notes pinned on a chart** — double-click any bar, point, slice or
-  bubble and write what it means; the note is drawn on the chart as a
-  callout with a leader line back to the mark it belongs to. Click a note to
-  rewrite it, clear the box to remove it. Each note belongs to that category
+- **Notes pinned on a chart** — double-click any bar, point, slice or bubble
+  and write what it means; the note is drawn on the chart as a callout with a
+  leader line back to the mark it belongs to. **Double-click (or click) a note
+  and it opens with what is already written on it** — a proper box, not a
+  browser prompt: edit it, rewrite it, pick its shape from the same seven
+  glyphs, or press **Remove**. Esc closes without saving, Ctrl+Enter saves.
+  A note read from a loaded commentary file opens the same way, with its own
+  words in the box and a line saying where they came from; edit it and it
+  becomes yours, or Remove it and it stays off that mark rather than returning
+  on the next draw. Each note belongs to that category
   on that chart, so it survives a re-render, a change of chart type and a
   reload — it is kept in the browser beside the tile order and the parked
   tiles. Notes are drawn into the SVG itself, so the PNG capture and the
@@ -422,7 +428,8 @@ left-pane strip and the Filters pane.
   and a hairline in red at 55% opacity running to a small red dot on the mark
   itself. The red is the accent and the anchor rather than the whole outline,
   which used to fight the bars for attention.
-- **Seven shapes for a note** — a **speech bubble** that points at its mark
+- **Seven shapes for a note**, offered both in the note editor and on the
+  palette — a **speech bubble** that points at its mark
   with a swept tail, a **callout** — a square-cut card with a straight spike
   beneath it, a **thought cloud** that trails shrinking puffs toward its
   mark, an **oval**, a **square box**, a **tag** with a pointed notch, and
@@ -444,9 +451,9 @@ left-pane strip and the Filters pane.
   simply redrawn that way — it never asks for the words again. There is no
   dragging on a phone, so **tapping a shape arms it** (it takes the red
   outline) and the next tap on a bar places it; tap it again to put it back.
-  Double-clicking a bar still writes a note in the default shape, clicking a
-  note still edits it, and double-clicking a note still steps it through the
-  shapes.
+  Double-clicking a bar still writes a note, and double-clicking a note opens
+  what is on it. (Double-click used to step a note through the shapes; the
+  shapes now live in the editor and on the palette, where they can be seen.)
 - **Drag the corner to set how wide a note is** — hover a note and a small
   grip appears on its bottom-right corner. Drag it sideways and the note takes
   that width, the text rewraps into it as you drag, and the card grows or

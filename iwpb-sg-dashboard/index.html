@@ -641,6 +641,27 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .annchip.armed{border-color:var(--hsbc-red);color:var(--hsbc-red);
   box-shadow:0 0 0 2px rgba(219,0,17,.18)}
 .annchip.dragging{opacity:.45}
+.annedit-back{position:fixed;inset:0;z-index:120;background:rgba(16,16,16,.34);
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.annedit{width:min(430px,94vw);background:var(--surface-1);border:1px solid var(--border-strong);
+  border-radius:8px;box-shadow:0 12px 34px rgba(16,16,16,.26);padding:14px 16px 12px}
+.annedit .ae-h{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.annedit .ae-cat{flex:1;font-size:12.5px;font-weight:800;letter-spacing:.4px;
+  text-transform:uppercase;color:var(--hsbc-red);user-select:none}
+.annedit .ae-sub,.annedit .ae-hint{user-select:none}
+.annedit .ae-x{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0}
+.annedit .ae-x:hover{color:var(--hsbc-red)}
+.annedit .ae-sub{margin:0 0 8px;font-size:10.5px;color:var(--text-muted);font-style:italic}
+.annedit .ae-t{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;line-height:1.5;
+  padding:8px 10px;border:1px solid var(--border-strong);border-radius:5px;
+  background:var(--surface-2);color:var(--text-primary);resize:vertical}
+.annedit .ae-t:focus{border-color:var(--hsbc-red);box-shadow:0 0 0 2px var(--fold-bg);outline:none}
+.annedit .ae-shapes{display:flex;gap:5px;flex-wrap:wrap;margin:9px 0 2px}
+.annedit .ae-btns{display:flex;align-items:center;gap:7px;margin-top:9px}
+.annedit .ae-btns .ae-sp{flex:1}
+.annedit .ae-save{border-color:var(--hsbc-red);color:var(--hsbc-red);font-weight:700}
+.annedit .ae-del:hover{border-color:var(--hsbc-red);color:var(--hsbc-red)}
+.annedit .ae-hint{margin:8px 0 0;font-size:10px;color:var(--text-muted);font-style:italic}
 .annpal .anncom{font:inherit;font-size:10.5px;padding:3px 8px;border-radius:4px;cursor:pointer;
   border:1px solid var(--border-strong);background:var(--surface-1);color:var(--text-muted)}
 .annpal .anncom:hover{border-color:var(--hsbc-red);color:var(--hsbc-red)}
@@ -954,7 +975,7 @@ Wealth: Insurance new business held up against a soft market."></textarea>
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 07:27</div>
+<div id="buildTag">build 2026-08-13 07:37</div>
 </aside>
 <main>
 
@@ -2840,7 +2861,7 @@ function chartCommentaryHtml(cfg){
     .filter((x2,i2,arr)=>arr.findIndex(y2=>y2.t===x2.t)===i2)
     .sort((a,b)=>Math.abs(v(b.c))-Math.abs(v(a.c))).slice(0,4);
   // what the chart pins onto its own bars is not repeated in the block beneath
-  const onChart=new Set(comPinned(annNotes(aKey), cats.map(c=>c.name)).map(q=>q.t));
+  const onChart=new Set(comPinned(aKey, cats.map(c=>c.name)).map(q=>q.t));
   const wrote=[...comWritten('chart', cats.map(c=>c.name)).filter(t=>!onChart.has(t)).map(esc),
     ...dnotes.map(x2=>`<b>${esc(x2.c.name)}</b> \u2014 ${esc(x2.t)}.`)];
   return (wrote.length? `<span class="drvlead">${wrote.join(' ')}</span> ` : '')+out;
@@ -4770,22 +4791,22 @@ function annAutoMax(){
 }
 /* which marks a chart will pin commentary to — read here and by the chart's own
    commentary block, so the same words are never printed twice on one screen */
-function comPinned(manual, cats){
+function comPinned(key, cats){
   if(!annAutoOn()) return [];
   const max=annAutoMax(); if(!max) return [];
-  const out=[];
+  const manual=annNotes(key), off=annOffSet(key), out=[];
   for(const c of cats){
     if(out.length>=max) break;
-    if(manual&&manual[c]) continue;            // written by hand: leave it alone
+    if(manual[c]||off.has(c)) continue;   // written by hand, or told to stay bare
     const t=comForLine(c)[0];
     if(t) out.push({cat:c, t});
   }
   return out;
 }
-function annMerge(svg, notes){
+function annMerge(svg, key, notes){
   const cats=[...new Set([...svg.querySelectorAll('[data-cat]')]
     .filter(e=>!e.closest('g.annote')).map(e=>e.getAttribute('data-cat')))];
-  const pin=comPinned(notes, cats);
+  const pin=comPinned(key, cats);
   if(!pin.length) return notes;
   const out={...notes};
   // a paragraph is given a wider box than a one-line note, so it reads in four
@@ -4796,10 +4817,12 @@ function annMerge(svg, notes){
 }
 function annNotes(key){
   const raw=annStoreGet()[key]||{}, out={};
-  for(const [c,v] of Object.entries(raw))
+  for(const [c,v] of Object.entries(raw)){
+    if(v&&typeof v==='object'&&v.off) continue;      // this mark is to stay bare
     out[c]= (v&&typeof v==='object')
       ? {t:String(v.t||''), s:v.s||annShapeDefault(), w:+v.w||0}
       : {t:String(v||''), s:annShapeDefault(), w:0};
+  }
   return out;
 }
 function annSet(key, cat, txt, shape){
@@ -4824,6 +4847,20 @@ function annSetW(key, cat, w){
   cur.w=Math.round(Math.max(ANN_WMIN, Math.min(ANN_WMAX, w)));
   annStoreSet(o); return true;
 }
+/* A mark turned off carries no note even where the ingested commentary names
+   it — otherwise removing an ingested note would only make it come back on the
+   next draw. */
+function annOffSet(key){
+  const n=annStoreGet()[key]||{}, out=new Set();
+  for(const [c,v] of Object.entries(n)) if(v&&typeof v==='object'&&v.off) out.add(c);
+  return out;
+}
+function annSetOff(key, cat, off){
+  const o=annStoreGet(); const n=o[key]||{};
+  if(off) n[cat]={off:1}; else delete n[cat];
+  if(Object.keys(n).length) o[key]=n; else delete o[key];
+  annStoreSet(o);
+}
 function annClearW(key, cat){
   const o=annStoreGet(), n=o[key]; if(!n) return false;
   const cur=n[cat]; if(!cur||typeof cur!=='object'||!cur.w) return false;
@@ -4831,14 +4868,12 @@ function annClearW(key, cat){
 }
 /* a shape dropped on a mark: a note already there is simply redrawn that way,
    a bare mark is asked for its words first */
-function annDrop(key, cat, shape){
+function annDrop(key, cat, shape, done){
   if(!ANN_SHAPES.includes(shape)) return false;
   const cur=annNotes(key)[cat];
-  if(cur){ annSet(key, cat, cur.t, shape); return true; }
-  const t=window.prompt(`Note on \u201c${cat}\u201d (${ANN_SHAPE_LBL[shape]||shape})`, '');
-  if(t==null||!String(t).trim()) return false;
-  annSet(key, cat, t, shape);
-  return true;
+  if(cur){ annSet(key, cat, cur.t, shape); if(done) done(true); return true; }
+  annEdit(key, cat, {shape}, done);     // a bare mark asks for its words first
+  return false;
 }
 /* step a note through the shapes — the same note, drawn another way */
 function annCycleShape(key, cat){
@@ -4872,8 +4907,8 @@ function annPaletteHtml(){
     ANN_SHAPES.map(sh=>`<span class="annchip" draggable="true" data-shape="${sh}" role="button" tabindex="0"
       title="${esc(ANN_SHAPE_LBL[sh]||sh)} \u2014 drag it onto a bar, or tap it and then tap a bar"
       aria-label="${esc(ANN_SHAPE_LBL[sh]||sh)}">${annShapeIcon(sh)}</span>`).join('')+
-    sw+`<span class="annpal-hint">drag a shape onto a bar \u00b7 double-click a bar to write a note \u00b7
-       click a note to edit it \u00b7 drag a note's corner to set how wide it is</span></div>`;
+    sw+`<span class="annpal-hint">drag a shape onto a bar \u00b7 double-click a bar or a note to open it \u00b7
+       edit, rewrite or remove it there \u00b7 drag a note's corner to set how wide it is</span></div>`;
 }
 /* the shape currently being dragged — a drag over an SVG cannot read the
    dataTransfer, so the palette says here what is in flight */
@@ -4910,7 +4945,7 @@ function annDraw(svg, key){
   if(svg.dataset.annVb0){ svg.setAttribute('viewBox', svg.dataset.annVb0);
     svg.setAttribute('width', svg.dataset.annW0); svg.setAttribute('height', svg.dataset.annH0);
     if(svg.dataset.annStyle0!=null) svg.setAttribute('style', svg.dataset.annStyle0); }
-  const notes=annMerge(svg, annNotes(key));
+  const notes=annMerge(svg, key, annNotes(key));
   if(!Object.keys(notes).length) return;
   // a chart drawn without a viewBox gets one, so the note can be laid out in
   // the same coordinates the chart was drawn in
@@ -5160,15 +5195,71 @@ function annDraw(svg, key){
   }
   leads.innerHTML=leadHtml;
 }
-function annPrompt(key, cat){
+/* The note, opened. Whatever is already on the mark — written by hand or read
+   from the commentary file — is in the box, so the reader edits or rewrites
+   rather than starting from nothing, and Remove is a button rather than the
+   trick of clearing the field. */
+function annEdit(key, cat, opts, done){
+  if(document.querySelector('.annedit-back')) return;   // one at a time
   const cur=annNotes(key)[cat];
-  // a note drawn from ingested commentary opens with those words, so editing it
-  // is a rewrite rather than a blank box
-  const seed=cur? cur.t : (comForLine(cat)[0]||'');
-  const t=window.prompt(`Note on \u201c${cat}\u201d \u2014 leave empty to remove`, seed);
-  if(t==null) return false;
-  annSet(key, cat, t);
-  return true;
+  const txt0=cur? cur.t : ((opts&&opts.text)||comForLine(cat)[0]||'');
+  const auto=!cur&&!!txt0;                 // came from the commentary, not the reader
+  let shape=(opts&&opts.shape)||(cur&&cur.s)||annShapeDefault();
+  const back=document.createElement('div');
+  back.className='annedit-back';
+  back.innerHTML=`<div class="annedit" role="dialog" aria-modal="true">
+    <div class="ae-h"><span class="ae-cat">${esc(cat)}</span>
+      <button class="ae-x" type="button" title="Close">\u2715</button></div>
+    <p class="ae-sub">${auto? 'Read from the commentary you loaded \u2014 edit it and it becomes yours.'
+      : cur? 'Your note on this mark.' : 'Write what this mark means.'}</p>
+    <textarea class="ae-t" rows="5" spellcheck="false"
+      placeholder="What does this mark mean?">${esc(txt0)}</textarea>
+    <div class="ae-shapes">${ANN_SHAPES.map(sh=>
+      `<button type="button" class="annchip${sh===shape?' armed':''}" data-shape="${sh}"
+         title="${esc(ANN_SHAPE_LBL[sh]||sh)}">${annShapeIcon(sh)}</button>`).join('')}</div>
+    <div class="ae-btns">
+      <button class="btn-quiet ae-save" type="button">Save</button>
+      <button class="btn-quiet ae-del" type="button"${(cur||auto)?'':' hidden'}>Remove</button>
+      <span class="ae-sp"></span>
+      <button class="btn-quiet ae-cancel" type="button">Cancel</button>
+    </div>
+    <p class="ae-hint">Esc closes \u00b7 Ctrl+Enter saves \u00b7 drag a note's corner on the chart to set how wide it is</p>
+  </div>`;
+  document.body.appendChild(back);
+  // the double-click that opened this would otherwise leave its word selected
+  try{ const sel=window.getSelection(); if(sel) sel.removeAllRanges(); }catch(e){}
+  const ta=back.querySelector('.ae-t');
+  const close=changed=>{ back.remove(); document.removeEventListener('keydown', onKey);
+    if(done) done(!!changed); };
+  const save=()=>{
+    const t=ta.value.trim();
+    if(!t){ remove(); return; }
+    annSet(key, cat, t, shape); close(true);
+  };
+  const remove=()=>{
+    // an ingested note is turned off rather than deleted: there is nothing of
+    // the reader's to delete, and it would return on the next draw
+    if(auto&&!cur) annSetOff(key, cat, true); else annSet(key, cat, '');
+    close(true);
+  };
+  back.querySelectorAll('.ae-shapes .annchip').forEach(b=>b.addEventListener('click',()=>{
+    shape=b.dataset.shape;
+    back.querySelectorAll('.ae-shapes .annchip').forEach(o=>o.classList.toggle('armed', o===b));
+  }));
+  back.querySelector('.ae-save').addEventListener('click', save);
+  back.querySelector('.ae-del').addEventListener('click', remove);
+  back.querySelector('.ae-cancel').addEventListener('click',()=>close(false));
+  back.querySelector('.ae-x').addEventListener('click',()=>close(false));
+  // Clicking away closes it — but not the second click of the double-click that
+  // opened it, which lands on this backdrop a moment later.
+  const t0=Date.now();
+  back.addEventListener('mousedown',e=>{ if(e.target===back&&Date.now()-t0>400) close(false); });
+  const onKey=e=>{
+    if(e.key==='Escape'){ e.preventDefault(); close(false); }
+    else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); save(); }
+  };
+  document.addEventListener('keydown', onKey);
+  ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
 }
 /* the generic layer: any chart whose categories are tagged gets notes */
 function annAttach(wrap, cfg, redraw){
@@ -5181,17 +5272,16 @@ function annAttach(wrap, cfg, redraw){
     svg.dataset.annWired='1';
     // double-click anything that carries a category — a bar, a point, a
     // slice, or a note already pinned to it — to write or rewrite its note
+    const again=()=>{ redraw? redraw() : annDraw(svg, key); };
+    // Double-click a mark to write its note, or a note to open what is already
+    // on it — the same box either way, with Save, Remove and Cancel.
     svg.addEventListener('dblclick',e=>{
       const t=e.target.closest('[data-cat]'); if(!t) return;
       e.preventDefault(); e.stopPropagation();
       const cat=t.getAttribute('data-cat');
       // on the grip: size the note to its words again
-      if(e.target.closest('.anngrip')){
-        annClearW(key, cat); redraw? redraw() : annDraw(svg, key); return;
-      }
-      // on a mark: write the note. On a note already there: change its shape.
-      if(t.closest('g.annote')){ annCycleShape(key, cat); redraw? redraw() : annDraw(svg, key); return; }
-      if(annPrompt(key, cat)) redraw? redraw() : annDraw(svg, key);
+      if(e.target.closest('.anngrip')){ annClearW(key, cat); again(); return; }
+      annEdit(key, cat, null, ch=>{ if(ch) again(); });
     });
     // a single click on a note edits it, so a pinned note never needs hunting —
     // unless a shape is armed on the palette, in which case the click places it
@@ -5202,12 +5292,12 @@ function annAttach(wrap, cfg, redraw){
       if(armed&&t){
         e.preventDefault(); e.stopPropagation();
         const sh=armed.dataset.shape; armed.classList.remove('armed');
-        if(annDrop(key, t.getAttribute('data-cat'), sh)) redraw? redraw() : annDraw(svg, key);
+        annDrop(key, t.getAttribute('data-cat'), sh, ch=>{ if(ch) again(); });
         return;
       }
       const g=e.target.closest('g.annote'); if(!g) return;
       e.preventDefault(); e.stopPropagation();
-      if(annPrompt(key, g.getAttribute('data-cat'))) redraw? redraw() : annDraw(svg, key);
+      annEdit(key, g.getAttribute('data-cat'), null, ch=>{ if(ch) again(); });
     });
     // the corner grip: drag it sideways to set how wide the note is. The scale
     // is read once, at the start, so the note rewrapping under the pointer
@@ -5250,7 +5340,7 @@ function annAttach(wrap, cfg, redraw){
       if(!sh) return;
       e.preventDefault(); e.stopPropagation();
       const t=e.target.closest('[data-cat]'); if(!t) return;
-      if(annDrop(key, t.getAttribute('data-cat'), sh)) redraw? redraw() : annDraw(svg, key);
+      annDrop(key, t.getAttribute('data-cat'), sh, ch=>{ if(ch) again(); });
     });
   };
   go();
@@ -9220,7 +9310,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 07:27</td></tr>
+      <tr><td>Build</td><td>2026-08-13 07:37</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
