@@ -978,7 +978,7 @@ Wealth: Insurance new business held up against a soft market."></textarea>
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 07:43</div>
+<div id="buildTag">build 2026-08-13 08:38</div>
 </aside>
 <main>
 
@@ -9439,7 +9439,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 07:43</td></tr>
+      <tr><td>Build</td><td>2026-08-13 08:38</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -9552,9 +9552,11 @@ function init(){
   // commentary pasted in: the same words the pack carries, read rather than written
   function comNote(){
     const n=$('comInNote'); if(!n) return;
-    const mine=comInPasted().length, file=((S&&S.comFile)||[]).length, cfgn=((CFG&&CFG.commentary)||[]).length;
+    const mine=comInPasted(), file=((S&&S.comFile)||[]).length, cfgn=((CFG&&CFG.commentary)||[]).length;
     const bits=[];
-    if(mine) bits.push(`${mine} pasted`);
+    const bySrc=new Map();
+    for(const c of mine){ const k=c.src||'pasted'; bySrc.set(k,(bySrc.get(k)||0)+1); }
+    for(const [k,n] of bySrc) bits.push(k==='pasted'? `${n} pasted` : `${n} from ${k}`);
     if(file) bits.push(`${file} from the file's Commentary tab`);
     if(cfgn) bits.push(`${cfgn} from the configuration`);
     n.textContent=bits.length? '\u2713 '+bits.join(' \u00b7 ')+' \u2014 leading the blocks they name.'
@@ -9582,7 +9584,7 @@ function init(){
     comFileText(f).then(txt=>{
       const {items, report, skipped}=comIngestText(txt, {fromFile:true});
       if(!items.length){ st.innerHTML='<span class="err">No commentary was found in that file.</span>'; comReport([]); return; }
-      comInSetPasted(items);
+      comInSetPasted(items.map(i=>({...i, src:f.name})));
       const named=report.filter(r=>r.line).length;
       st.innerHTML=`<span class="ok">\u2713 ${esc(f.name)} \u2014 ${items.length} written line${items.length===1?'':'s'}, `+
         `${named} pinned to a name${items.length-named? `, ${items.length-named} to the view` : ''}.</span>`+
@@ -9599,7 +9601,9 @@ function init(){
     }
   });
   $('btnComApply').addEventListener('click',()=>{
-    comInSetPasted(comInParse($('comInTxt').value));
+    // edited by hand, whatever they came in as
+    comInSetPasted(comInParse($('comInTxt').value).map(i=>({...i, src:'pasted'})));
+    $('comLoadStatus').textContent='';
     comNote(); if(S.model) render();
   });
   $('btnComClear').addEventListener('click',()=>{
