@@ -961,7 +961,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 09:29</div>
+<div id="buildTag">build 2026-08-13 10:34</div>
 </aside>
 <main>
 
@@ -2300,7 +2300,7 @@ function miniHBar(series){
   pts.forEach((p2,i)=>{
     const y2=2+i*rh, xv=x(p2.val);
     svg+=`<text x="${Lm-4}" y="${y2+9}" text-anchor="end" font-size="8.5" fill="var(--text-muted)">${MON_LBL[p2.m]}</text>`+
-      `<rect x="${Math.min(x0,xv).toFixed(1)}" y="${y2}" width="${Math.max(1,Math.abs(xv-x0)).toFixed(1)}" height="${rh-3}" fill="var(--series-1)"${p2.fc?' opacity="0.45"':''}><title>${MON_LBL[p2.m]}: ${fmtFull(p2.val)}</title></rect>`;
+      `<rect data-cat="${esc(MON_LBL[p2.m])}" x="${Math.min(x0,xv).toFixed(1)}" y="${y2}" width="${Math.max(1,Math.abs(xv-x0)).toFixed(1)}" height="${rh-3}" fill="var(--series-1)"${p2.fc?' opacity="0.5"':''}><title>${MON_LBL[p2.m]}${p2.fc?' (FC)':''}: ${fmtFull(p2.val)}</title></rect>`;
   });
   return `<svg width="${W}" height="${H2}" viewBox="0 0 ${W} ${H2}" role="img" aria-label="Monthly bars">${svg}</svg>`;
 }
@@ -2314,7 +2314,7 @@ function miniCol(series){
   let svg='';
   pts.forEach((p2,i)=>{
     const x2=4+i*((W-8)/pts.length), yv=y(p2.val);
-    svg+=`<rect x="${x2.toFixed(1)}" y="${Math.min(y0,yv).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="var(--series-1)"${p2.fc?' opacity="0.45"':''}><title>${MON_LBL[p2.m]}: ${fmtFull(p2.val)}</title></rect>`+
+    svg+=`<rect data-cat="${esc(MON_LBL[p2.m])}" x="${x2.toFixed(1)}" y="${Math.min(y0,yv).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="var(--series-1)"${p2.fc?' opacity="0.5"':''}><title>${MON_LBL[p2.m]}${p2.fc?' (FC)':''}: ${fmtFull(p2.val)}</title></rect>`+
       `<text x="${(x2+bw/2).toFixed(1)}" y="${H2-2}" text-anchor="middle" font-size="7.5" fill="var(--text-muted)">${MON_LBL[p2.m][0]}</text>`;
   });
   return `<svg width="${W}" height="${H2}" viewBox="0 0 ${W} ${H2}" role="img" aria-label="Monthly columns">${svg}</svg>`;
@@ -2326,7 +2326,7 @@ function miniMonthTable(series){
   return `<div class="scroll-x"><table class="ctable autofit" style="font-size:11px"><thead><tr><th>Month</th><th class="num">Value (${esc(cfgUnit())})</th></tr></thead><tbody>${
     pts.map(p2=>`<tr><td>${MON_LBL[p2.m]}${p2.fc?' (FC)':''}</td><td class="num">${fmtCell(p2.val)}</td></tr>`).join('')}<tr class="tot"><td>Total</td><td class="num">${fmtCell(tot)}</td></tr></tbody></table></div>`;
 }
-function sparkline(series, w, h){
+function sparkline(series, w, h, tag){
   const vals=series.map(p=>p.val).filter(v=>v!=null);
   if(!vals.length) return '';
   const min=Math.min(0,...vals), max=Math.max(0,...vals);
@@ -2343,7 +2343,10 @@ function sparkline(series, w, h){
   const zero = (min<0&&max>0)? `<line x1="0" x2="${w}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--grid)" stroke-width="1"/>` : '';
   const fcDots = series.map((p,i)=> (p.val!=null&&p.fc)?
     `<circle cx="${x(i).toFixed(1)}" cy="${y(p.val).toFixed(1)}" r="3" fill="var(--surface-1)" stroke="var(--series-1)" stroke-width="1.5"/>`:'').join('');
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${zero}<path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${fcDots}</svg>`;
+  const hits = tag? series.map((p,i)=> p.val==null? '' :
+    `<circle data-cat="${esc(MON_LBL[p.m])}" cx="${x(i).toFixed(1)}" cy="${y(p.val).toFixed(1)}" r="5"
+       fill="transparent"><title>${esc(MON_LBL[p.m])}: ${fmtFull(p.val)}</title></circle>`).join('') : '';
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"${tag?'':' aria-hidden="true"'}>${zero}${hits}<path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${fcDots}</svg>`;
 }
 
 function trendChart(el, cySeries, pySeries, yearCY, yearPY, type, annots){
@@ -2368,7 +2371,7 @@ function trendChart(el, cySeries, pySeries, yearCY, yearPY, type, annots){
       const c=cyMap.get(mi), p=pyMap.get(mi);
       if(c&&c.val!=null){
         const y1=y(Math.max(0,c.val)), y2=y(Math.min(0,c.val));
-        svg+=`<rect x="${x0.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw}" height="${Math.max(2,y2-y1).toFixed(1)}" rx="2"
+        svg+=`<rect data-cat="${esc(MON_LBL[mi])}" x="${x0.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw}" height="${Math.max(2,y2-y1).toFixed(1)}" rx="2"
           fill="var(--cat1)"${c.fc?' fill-opacity="0.45" stroke="var(--cat1)" stroke-dasharray="3 2"':''}><title>${MON_LBL[mi]} ${esc(yearCY)}${c.fc?' (FC)':''}: ${fmtFull(c.val)}</title></rect>`;
       }
       if(p&&p.val!=null){
@@ -2391,7 +2394,7 @@ function trendChart(el, cySeries, pySeries, yearCY, yearPY, type, annots){
       svg+=`<text x="${labelW-10}" y="${(cy0+3.5).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--text-primary)">${MON_LBL[mi]}${c&&c.fc?'*':''}</text>`;
       if(c&&c.val!=null){
         const xa=Math.min(x0,xOf(c.val)), wdt=Math.max(2,Math.abs(xOf(c.val)-x0));
-        svg+=`<rect x="${xa.toFixed(1)}" y="${(cy0-11).toFixed(1)}" width="${wdt.toFixed(1)}" height="9" rx="2"
+        svg+=`<rect data-cat="${esc(MON_LBL[mi])}" x="${xa.toFixed(1)}" y="${(cy0-11).toFixed(1)}" width="${wdt.toFixed(1)}" height="9" rx="2"
           fill="var(--cat1)"${c.fc?' fill-opacity="0.45" stroke="var(--cat1)" stroke-dasharray="3 2"':''}><title>${MON_LBL[mi]} ${esc(yearCY)}${c.fc?' (FC)':''}: ${fmtFull(c.val)}</title></rect>`;
         svg+=`<text x="${W-8}" y="${(cy0-2).toFixed(1)}" text-anchor="end" font-size="10.5" font-weight="600" fill="${c.val<0?'var(--status-critical)':'var(--text-primary)'}">${fmt(c.val)}</text>`;
       }
@@ -2427,8 +2430,8 @@ function lineChart(el, cySeries, pySeries, yearCY, yearPY, area, annots){
   }
   for(let m=0;m<12;m++)
     axis+=`<text x="${x(m).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="var(--text-secondary)">${MON_LBL[m]}</text>`;
-  function pathFor(series, dashFC){
-    let sldPath='', pen=false, fcPath='', prev=null, marks='';
+  function pathFor(series, dashFC, tag){
+    let sldPath='', pen=false, fcPath='', prev=null, marks='', hits='';
     for(const p of series){
       if(p.val==null){ pen=false; prev=null; continue; }
       const px=x(p.m).toFixed(1), py=y(p.val).toFixed(1);
@@ -2440,11 +2443,13 @@ function lineChart(el, cySeries, pySeries, yearCY, yearPY, area, annots){
         sldPath += (pen?'L':'M')+px+' '+py+' ';
         pen=true;
       }
+      if(tag) hits+=`<circle data-cat="${esc(MON_LBL[p.m])}" cx="${px}" cy="${py}" r="6" fill="transparent"><title>${
+        esc(MON_LBL[p.m])}: ${fmtFull(p.val)}</title></circle>`;
       prev={x:px,y:py};
     }
-    return {sldPath, fcPath, marks};
+    return {sldPath, fcPath, marks, hits};
   }
-  const cp=pathFor(cySeries,true), pp=pathFor(pySeries,false);
+  const cp=pathFor(cySeries,true,true), pp=pathFor(pySeries,false,false);
   let areaPath='';
   if(area){
     const pts=cySeries.filter(p=>p.val!=null&&!p.fc).map(p=>[x(p.m),y(p.val)]);
@@ -2488,6 +2493,7 @@ function lineChart(el, cySeries, pySeries, yearCY, yearPY, area, annots){
     `<path d="${pp.sldPath}" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`+
     `<path d="${cp.sldPath}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`+
     `<path d="${cp.fcPath}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-dasharray="4 4"/>`+
+    cp.hits+
     cp.marks+direct+
     `<line id="xh" y1="${T}" y2="${H-B}" stroke="var(--border-strong)" stroke-width="1" visibility="hidden"/>`+
     `<rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent"/>`;
@@ -5027,8 +5033,12 @@ function annDraw(svg, key){
     const marks0=[...svg.querySelectorAll('[data-cat]')].filter(e=>!e.closest('g.annote'))
       .map(e=>{ try{ const b=e.getBBox(); return b.width&&b.height? b : null; }catch(err){ return null; } })
       .filter(Boolean);
-    const tall=marks0.filter(b=>b.height>b.width).length;
-    const chartHoriz=marks0.length? tall*2<marks0.length : false;
+    // only a mark with a decided shape says which way the chart runs; a point
+    // on a line is square and says nothing, and a chart of points is written
+    // on from above like a column chart
+    const decided=marks0.filter(b=>b.width>b.height*1.3||b.height>b.width*1.3);
+    const tall=decided.filter(b=>b.height>b.width).length;
+    const chartHoriz=decided.length? tall*2<decided.length : false;
     for(const it of items) it.horiz=chartHoriz;
   }
   // a chart that is not laid out yet (a collapsed panel, a tab not yet shown)
@@ -8970,7 +8980,7 @@ function renderCustom(){
       const hidew=cmpHidden(w.l2);
       const rgw=rag(k.favVarPct,S.thresh);
       const trsw=hidew? [] : tileRows(k,m);
-      const cviz=(w.ctype||'hbar')==='line'? sparkline(k.cySeries,250,42)
+      const cviz=(w.ctype||'hbar')==='line'? sparkline(k.cySeries,250,42,true)
         : (w.ctype||'hbar')==='column'? miniCol(k.cySeries)
         : (w.ctype||'hbar')==='table'? miniMonthTable(k.cySeries)
         : miniHBar(k.cySeries);
@@ -8979,7 +8989,7 @@ function renderCustom(){
           ${hidew?'':ragPill(rgw)}</div>
         ${trsw.length? trsw.map(r=>kpiRowHtml(k,r)).join('')
           : `<div class="krow actonly"><span class="kl">${esc(Lw.main)} actuals</span></div>`}
-        <div style="margin-top:8px">${cviz}</div>`;
+        <div style="margin-top:8px" class="wnotehost">${cviz}</div>`;
     } else if(w.type==='scorecard'){
       body=`<div style="overflow-x:auto">${(w.ctype||'pack')==='table'? scorecardTable(m) : scorecardPack(m)}</div>`;
     } else if(w.type==='traj'){
@@ -8996,6 +9006,21 @@ function renderCustom(){
         `</div><div class="chart-wrap wchart"></div>`;
     }
     div.innerHTML=head+`<div class="wbody">${body}</div>`;
+    // A widget of months is a chart like any other: it gets the note palette
+    // and everything that comes with it. The key is the widget's own subject,
+    // not its drawing, so a note survives switching between line and bars.
+    if(w.type==='card'||w.type==='trend'||w.type==='traj'){
+      const host=div.querySelector('.wnotehost')||div.querySelector('.wchart');
+      if(host){
+        const key='w|'+w.type+'|'+(w.l2||'');
+        // the chart for trend and traj is drawn after this, so wait for it
+        setTimeout(()=>{
+          if(!host.querySelector('svg [data-cat]')) return;
+          if(!host.querySelector('.annpal')) host.insertAdjacentHTML('beforeend', annPaletteHtml());
+          annAttach(host, {annKey:key}, ()=>{ const s2=host.querySelector('svg'); if(s2) annDraw(s2, key); });
+        }, 0);
+      }
+    }
     if(w.type==='scorecard'){
       div.querySelectorAll('.schide').forEach(el=>{
         const go=e=>{ e.stopPropagation(); e.preventDefault();
@@ -9613,7 +9638,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 09:29</td></tr>
+      <tr><td>Build</td><td>2026-08-13 10:34</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
