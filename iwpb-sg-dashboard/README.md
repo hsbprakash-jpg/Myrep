@@ -559,7 +559,7 @@ left-pane strip and the Filters pane.
   same words, and leaving the row out keeps the standard text. The CIB pack
   carries its own wording as a worked example.
 
-  **Original** shows the generated text; **Current Commentary** is the same
+  **Base Commentary** shows the generated text; **Updated Commentary** is the same
   text editable and kept, block by block, like every other commentary on the
   page. **Expand all** opens or closes every section, and the strip above says
   what the commentary was written from — month-end, basis, scope, the driller
