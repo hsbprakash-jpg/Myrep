@@ -58,7 +58,7 @@ SET = [
  # the standard disclaimer under every generated commentary — the wording is
  # the config's to own, and the Word export carries the same words
  ('commentary_disclaimer', 'This CIB Asia & MENAT commentary has been generated from the figures in the '
-                           'file and the commentary document loaded with it. It may be inaccurate and/or '
+                           'file and the written commentary carried with it. It may be inaccurate and/or '
                            'incomplete. Review and edit before further use or distribution.'),
  ('fsum_note_lines',      'MSS;Global Payments Solutions;Global Trade Solutions;'
                           'Credit and Lending;HIF;CMA Net;Other Revenue;'

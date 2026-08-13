@@ -167,13 +167,6 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 #simCmpOut .ctable{width:auto;min-width:min(100%,460px);max-width:100%}
 #simCmpOut .ctable td:first-child,#simCmpOut .ctable th:first-child{min-width:160px;padding-right:26px}
 #simCmpOut .ctable td.num,#simCmpOut .ctable th.num{white-space:nowrap}
-#comMatchReport{margin:4px 18px 0}
-#comMatchReport .cmrow{font-size:10.5px;line-height:1.4;margin:2px 0;color:var(--text-secondary)}
-#comMatchReport .cmln{font-weight:700;color:var(--hsbc-red)}
-#comMatchReport .cmview{font-weight:700;color:var(--text-muted)}
-#comMatchReport .cmhow{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted)}
-#comMatchReport .cmalso{color:var(--text-muted);font-style:italic}
-#comMatchReport .cmvague{display:block;color:#b57a00;font-size:10px;font-style:italic}
 #drvPanel #comInNote{margin:5px 18px 0;color:var(--status-good)}
 #drvPanel .drvhint{grid-column:1 / span 2;font-size:10px;color:var(--status-good);margin-top:1px}
 #drvPanel .drvhint.warn{color:#b57a00}
@@ -980,20 +973,16 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <p class="hint2" data-lbl="drv_hint">Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.</p>
     <div id="drvList"></div>
     <button class="btn-quiet" id="btnDrvAdd" style="margin:6px 18px 0">+ Add driver</button>
-    <button class="btn-quiet" id="btnComLoad" style="margin:6px 18px 0" data-lbl="btn_comload">⤒ Load commentary file</button>
-    <input type="file" id="comFileInput" accept=".docx,.txt,.md,.csv,.xlsx,.xlsm,.xls" hidden>
-    <div class="note" id="comLoadStatus" style="margin:4px 18px 0"></div>
-    <div id="comMatchReport"></div>
-    <div style="margin:2px 18px 0"><button class="linklike" id="btnComClear" hidden>Remove this commentary</button></div>
-    <p class="hint2" data-lbl="comload_hint">Word, text or a workbook of the month's written commentary.
-      It is read against the names in the driller and leads the blocks it names — nothing is reworded.</p>
+    <p class="hint2" data-lbl="comload_hint">Written commentary travels inside the driller — a
+      <b>Commentary</b> tab — or the configuration. Bare paragraphs are read against the names in
+      the driller and lead the blocks they name; nothing is reworded.</p>
     <p class="hint2" id="comInNote"></p>
   </div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 14:01</div>
+<div id="buildTag">build 2026-08-13 14:17</div>
 </aside>
 <main>
 
@@ -1416,8 +1405,8 @@ const CFG_DEFAULT={
     chart_note_head:'N',
     chart_note_auto_max:'3',
     commentary_style:'compose',
-    commentary_disclaimer:'The Commentary has been generated from the figures in the file and the commentary '+
-      'document loaded with it. It may be inaccurate and/or incomplete. It is important to independently review '+
+    commentary_disclaimer:'The Commentary has been generated from the figures in the file and the written '+
+      'commentary carried with it. It may be inaccurate and/or incomplete. It is important to independently review '+
       'and edit the content before further use or distribution.',
     commentary_clause_max:'150',
     ratio_patterns:'%|\\bbps\\b|\\brote\\b|\\bcer\\b|\\bratio\\b|headcount|\\bfte\\b|\\bcount\\b',
@@ -6587,13 +6576,13 @@ function renderComAll(){
   const m=S.model, host=$('comallList'); if(!host) return;
   const P=fsumPlan(m,S.ytdM);
   const mt=$('comallMeta');
-  const doc=(typeof comDoc==='function')? comDoc() : null;
+  const nCom=comInAllUnscoped().length;
   mt.innerHTML=`<div class="cameta">
     <div><span class="cmk">Month-end</span><span class="cmv">${esc(MON_LBL[S.ytdM])} ${esc(m.yearCY)}</span></div>
     <div><span class="cmk">Basis</span><span class="cmv">${esc(cmpLabels(m).period)}</span></div>
     <div><span class="cmk">Scope</span><span class="cmv">${esc(filterNote(true))}</span></div>
     <div><span class="cmk">Source</span><span class="cmv">${esc(S.fileName||'—')}</span></div>
-    <div><span class="cmk">Commentary file</span><span class="cmv">${doc? esc(doc.name) : 'None loaded'}</span></div>
+    <div><span class="cmk">Written commentary</span><span class="cmv">${nCom? nCom+' line'+(nCom===1?'':'s')+' in the file & config' : 'None in the file'}</span></div>
   </div>`;
   host.innerHTML='';
   // which comparisons this file can make at all
@@ -8668,23 +8657,18 @@ function definedDrivers(){
    A written line is aimed with two columns: which view it belongs to (blank =
    all of them) and which line, product or region it is about (blank = the view
    as a whole). */
-/* The commentary document itself is kept, not the answers it was matched to.
-   Every time it is read the names come from whichever driller is loaded now, so
-   next month's file re-matches the words against next month's lines without
-   anyone opening the document again. */
-function comDoc(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_comdoc')||'null'); }catch(e){ return null; } }
-function comDocSet(doc){
-  try{ if(doc) localStorage.setItem('iwpbsg_comdoc', JSON.stringify(doc));
-       else localStorage.removeItem('iwpbsg_comdoc'); }catch(e){}
-  COM_DOC_CACHE=null;
-}
+/* The unstructured paragraphs of the driller's own Commentary tab, matched
+   against the names the driller itself carries. The raw words are kept and the
+   matching is done fresh whenever they are read, so next month's file
+   re-matches next month's paragraphs without anyone tagging a thing. */
 let COM_DOC_CACHE=null, COM_DOC_M=null;
 function comDocRead(){
-  const doc=comDoc(); if(!doc||!doc.text) return {items:[], report:[], skipped:[], name:''};
+  const txt=(S&&S.comFreeText)||'';
+  if(!txt) return {items:[], report:[], skipped:[], name:''};
   const m=S&&S.model;
   if(COM_DOC_CACHE&&COM_DOC_M===m) return COM_DOC_CACHE;
-  const out=comIngestText(doc.text, {fromFile:true});
-  out.name=doc.name||'';
+  const out=comIngestText(txt, {fromFile:true});
+  out.name='the Commentary tab';
   out.items=out.items.map(i=>({...i, src:out.name}));
   COM_DOC_CACHE=out; COM_DOC_M=m;
   return out;
@@ -8965,70 +8949,6 @@ function comUnsaid(view, names){
   return out;
 }
 function comInSig(){ return comInAll().map(c=>[c.view,c.line,c.text].join('~')).join(';'); }
-/* ---- a commentary file, read as it comes -------------------------------
-   Word, plain text, markdown, CSV or a workbook. Nothing about its layout is
-   assumed. Rows that aim themselves ("Chart | HIF | ...", "Wealth: ...") are
-   taken at their word; prose is matched against the names the loaded driller
-   itself carries, so a paragraph about Global Trade Solutions is pinned to
-   Global Trade Solutions without anyone having to tag it. */
-function comFileText(file){
-  return new Promise((res,rej)=>{
-    const nm=String(file.name||'').toLowerCase();
-    const rd=new FileReader();
-    rd.onerror=()=>rej(new Error('the file could not be read'));
-    if(/\.docx$/.test(nm)){
-      rd.onload=e=>docxText(new Uint8Array(e.target.result)).then(res,rej);
-      rd.readAsArrayBuffer(file);
-    } else if(/\.(xlsx|xlsm|xls|xlsb|csv)$/.test(nm)){
-      rd.onload=e=>{ try{
-        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-        const out=[];
-        for(const sn of wb.SheetNames)
-          for(const r of XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null})){
-            if(!r) continue;
-            const cells=r.map(c=>String(c==null?'':c).trim()).filter(Boolean);
-            if(cells.length) out.push(cells.join(' | '));
-          }
-        res(out.join('\n'));
-      }catch(err){ rej(new Error('that workbook could not be opened: '+err.message)); } };
-      rd.readAsArrayBuffer(file);
-    } else {
-      rd.onload=e=>res(String(e.target.result||''));
-      rd.readAsText(file);
-    }
-  });
-}
-/* A .docx is a zip and the words live in word/document.xml. The zip's own
-   directory is read here and that one entry inflated — no library, and the file
-   never leaves the browser. */
-async function docxText(bytes){
-  const dv=new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let eo=-1;
-  for(let i=bytes.length-22; i>=0 && i>bytes.length-66000; i--)
-    if(dv.getUint32(i,true)===0x06054b50){ eo=i; break; }
-  if(eo<0) throw new Error('that is not a Word file');
-  const n=dv.getUint16(eo+10,true); let q=dv.getUint32(eo+16,true);
-  const dec=new TextDecoder();
-  for(let i=0;i<n;i++){
-    if(dv.getUint32(q,true)!==0x02014b50) break;
-    const nl=dv.getUint16(q+28,true), el=dv.getUint16(q+30,true), cl=dv.getUint16(q+32,true);
-    const name=dec.decode(bytes.subarray(q+46,q+46+nl));
-    if(name==='word/document.xml'){
-      const method=dv.getUint16(q+10,true), csize=dv.getUint32(q+20,true);
-      const lho=dv.getUint32(q+42,true);
-      const lnl=dv.getUint16(lho+26,true), lel=dv.getUint16(lho+28,true);
-      const raw=bytes.subarray(lho+30+lnl+lel, lho+30+lnl+lel+csize);
-      if(method===0) return docxXmlToText(dec.decode(raw));
-      if(typeof DecompressionStream==='undefined')
-        throw new Error('this browser cannot open .docx \u2014 save the commentary as .txt and load that');
-      const st=new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      const buf=await new Response(st).arrayBuffer();
-      return docxXmlToText(dec.decode(new Uint8Array(buf)));
-    }
-    q+=46+nl+el+cl;
-  }
-  throw new Error('no document was found inside that Word file');
-}
 function docxXmlToText(xml){
   return String(xml)
     .replace(/<\/w:p>/g,'\n')                 // a paragraph ends a line
@@ -10106,7 +10026,7 @@ function mergeCountryModels(tabs){
 function ingestArrayBuffer(buf, name, fromCache){
   const rep=$('ingestReport');
   {
-    let model=null, sheetName=null, lastErr=null, lastMissing=null, comFile=[];
+    let model=null, sheetName=null, lastErr=null, lastMissing=null, comFile=[], comFree=[];
     try{
       const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
       // non-data tabs (Control, Mapping, notes) never parse; every tab that
@@ -10124,7 +10044,9 @@ function ingestArrayBuffer(buf, name, fromCache){
           if(/^view$|^scope$/i.test(a2)) continue;         // a header row
           if(c2) comFile.push({view:a2, line:b3, text:c2});
           else if(b3) comFile.push({view:'', line:a2, text:b3});
-          else if(a2) comFile.push({view:'', line:'', text:a2});
+          // a bare paragraph is unstructured: it is matched against the
+          // driller's own names when read, not filed as view-wide
+          else if(a2) comFree.push(a2);
         }
       }
       for(const sn of wb.SheetNames){
@@ -10153,6 +10075,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     applyHierarchies(model);
     applyCountryRegions(model);
     S.model=model; S.fileName=name; S.comFile=comFile;
+    S.comFreeText=comFree.join('\n');
     COM_DOC_CACHE=null;      // the commentary is matched again against this file
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
     S.showAllKpis=false; S.showParkedTiles=false; S.showParkedSc=false;
@@ -10191,7 +10114,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 14:01</td></tr>
+      <tr><td>Build</td><td>2026-08-13 14:17</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10323,71 +10246,21 @@ function init(){
   $('navAssist').addEventListener('click',()=>setView('assist'));
   $('navSim').addEventListener('click',()=>setView('sim'));
   $('btnDrvAdd').addEventListener('click',()=>{ driversDef().push({name:'',text:''}); driversSave(); drawDrivers(); });
-  // commentary the business wrote: read from a document, never typed in here
-  function comNote(){
+  // commentary the business wrote: carried in the driller or the config,
+  // never loaded separately
+  function comShow(){
     const n=$('comInNote'); if(!n) return;
     const doc=comDocRead(), file=((S&&S.comFile)||[]).length, cfgn=((CFG&&CFG.commentary)||[]).length;
     const bits=[];
-    if(doc.items.length) bits.push(`${doc.items.length} from ${doc.name||'the commentary file'}`);
-    if(file) bits.push(`${file} from the file's Commentary tab`);
+    if(doc.items.length) bits.push(`${doc.items.length} matched from ${doc.name}`);
+    if(file) bits.push(`${file} addressed in the Commentary tab`);
     if(cfgn) bits.push(`${cfgn} from the configuration`);
     const held=comInAllUnscoped().length-comInAll().length;
     if(held>0) bits.push(`${held} held back by the current filters \u2014 written about lines outside this scope`);
     n.textContent=bits.length? '\u2713 '+bits.join(' \u00b7 ')+' \u2014 leading the blocks they name.'
                              : 'No written commentary yet \u2014 every block reads its own figures.';
-    const cb=$('btnComClear'); if(cb) cb.hidden=!comDoc();
-  }
-  /* the document is re-read against whichever driller is loaded, so the status
-     and the matches shown are always the current ones */
-  function comShow(){
-    const st=$('comLoadStatus'); if(!st) return;
-    const doc=comDoc();
-    if(!doc){ st.textContent=''; comReport([]); comNote(); return; }
-    if(!S.model){ st.innerHTML='<span class="note">'+esc(doc.name||'Commentary')+
-      ' is held \u2014 it will be read against the driller once one is loaded.</span>';
-      comReport([]); comNote(); return; }
-    const {items, report, skipped, name}=comDocRead();
-    const named=report.filter(r=>r.line).length;
-    st.innerHTML= items.length
-      ? `<span class="ok">\u2713 ${esc(name)} \u2014 ${items.length} written line${items.length===1?'':'s'}, `+
-        `${named} pinned to a name${items.length-named? `, ${items.length-named} to the view` : ''}.</span>`+
-        (skipped.length? `<div class="note" style="font-size:10px">Heading skipped: ${esc(skipped[0])}</div>` : '')
-      : '<span class="err">No commentary was found in that file.</span>';
-    comReport(report);
-    comNote();
   }
   window.comShow=comShow;
-  const comReport=rep=>{
-    const host=$('comMatchReport'); if(!host) return;
-    if(!rep||!rep.length){ host.innerHTML=''; return; }
-    const cut=t=>String(t).length>64? String(t).slice(0,63)+'\u2026' : String(t);
-    host.innerHTML=rep.slice(0,8).map(r=>`<p class="cmrow">${
-      r.line? `<span class="cmln">${esc(r.line)}</span>` : `<span class="cmview">every view</span>`
-      }${r.how&&r.line? ` <span class="cmhow">${esc(r.how)}</span>` : ''
-      } \u2190 ${esc(cut(r.text))}${
-        (r.also&&r.also.length)? `<span class="cmalso"> also mentions ${esc(r.also.join(', '))}</span>` : ''
-      }${(r.vague&&r.vague.length)? r.vague.map(v=>
-        `<span class="cmvague">\u201c${esc(v.term)}\u201d could be ${esc(v.options.join(' or '))} \u2014 set an alias</span>`).join('') : ''
-      }</p>`).join('')+
-      (rep.length>8? `<p class="cmrow">\u2026 and ${rep.length-8} more</p>` : '');
-  };
-  $('btnComLoad').addEventListener('click',()=>$('comFileInput').click());
-  $('comFileInput').addEventListener('change',e=>{
-    const f=e.target.files[0]; e.target.value=''; if(!f) return;
-    const st=$('comLoadStatus'); st.textContent='Reading '+f.name+'\u2026';
-    // a commentary loaded before the driller is held rather than refused: it is
-    // read against the names as soon as a driller arrives
-    comFileText(f).then(txt=>{
-      // the document is kept as it was written; the matching is done again
-      // every time it is read, against whatever driller is loaded then
-      comDocSet({name:f.name, text:txt, at:Date.now()});
-      comShow();
-      if(S.model) render();
-    }).catch(err=>{ st.innerHTML='<span class="err">'+esc(err.message||String(err))+'</span>'; });
-  });
-  $('btnComClear').addEventListener('click',()=>{
-    comDocSet(null); comShow(); if(S.model) render();
-  });
   comShow();
 
   const mkCollapse=(rowId,caretId,key,sels)=>{

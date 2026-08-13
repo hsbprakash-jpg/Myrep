@@ -397,7 +397,7 @@ left-pane strip and the Filters pane.
   and it opens with what is already written on it** — a proper box, not a
   browser prompt: edit it, rewrite it, pick its shape from the same seven
   glyphs, or press **Remove**. Esc closes without saving, Ctrl+Enter saves.
-  A note read from a loaded commentary file opens the same way, with its own
+  A note read from the file's written commentary opens the same way, with its own
   words in the box and a line saying where they came from; edit it and it
   becomes yours, or Remove it and it stays off that mark rather than returning
   on the next draw. Each note belongs to that category
@@ -514,7 +514,7 @@ left-pane strip and the Filters pane.
   quarterly column, a year-to-date from the YTD column, never months added
   together. A check ties the two together line for line.
 
-  **The loaded commentary document feeds it**, as it feeds every other block:
+  **The file's written commentary feeds it**, as it feeds every other block:
   a written line rides on its own line's sentence, once per section and at the
   highest line it belongs to; what was written about the period as a whole
   stands under the opening statement, a line each; and a line the statement
@@ -523,7 +523,7 @@ left-pane strip and the Filters pane.
   carries a red rule down its left edge, so the writer's words are visible as
   the writer's.
 
-  **The written words follow the filters.** A commentary document is written
+  **The written words follow the filters.** Commentary is written
   about the whole book — one paragraph about Private Bank names Switzerland and
   Luxembourg, another names India. Filter the page to India and the figures
   recompute; the words move with them. A paragraph that names a value of a
@@ -558,7 +558,7 @@ left-pane strip and the Filters pane.
   text editable and kept, block by block, like every other commentary on the
   page. **Expand all** opens or closes every section, and the strip above says
   what the commentary was written from — month-end, basis, scope, the driller
-  and the commentary document.
+  and how many written lines the file carries.
 
   **⤓ Word** writes the whole view — every basis the file supports, in the order
   the page shows them — to a real .docx, so the six bases leave the screen as a
@@ -575,33 +575,26 @@ left-pane strip and the Filters pane.
   figures; it never writes narrative. Where the narrative already exists, it can
   be read in and the commentary blocks will lead with it, word for word,
   neither paraphrased nor summarised, with the computed figures following.
-  Three ways in, all reading the same shape:
-  - a **`Commentary` tab in the driller itself** — three columns,
-    `View | Line | Text`. The tab is never parsed as data, and the ingest report
-    says how many written lines it found. One file carries the month's figures
-    and the month's words.
-  - a **`Commentary` section in the configuration** (a sheet in the workbook, or
-    `Commentary` rows in the single-sheet CSV), for wording that holds from
+  Two ways in, and nothing is ever loaded separately — the words travel with
+  the files that already move each month:
+  - a **`Commentary` tab in the driller itself**. One file carries the month's
+    figures and the month's words. The tab is never parsed as data. Rows that
+    aim themselves — three columns `View | Line | Text`, or two `Line | Text` —
+    are taken at their word. **Bare paragraphs are unstructured commentary**:
+    each is matched against the names the driller itself carries (see below),
+    so the pack's narrative pastes straight into a column with no tagging of
+    any kind. A paragraph covering several lines is split so each sentence
+    keeps its own; a paragraph naming nothing belongs to the view.
+  - a **`Commentary` section in the configuration** (a sheet in the workbook,
+    or `Commentary` rows in the single-sheet CSV), for wording that holds from
     month to month.
-  - **Load commentary file** — under Drivers in the left pane, taking the
-    commentary exactly as it was written: **.docx**, .txt, .md, .csv or .xlsx.
-    Nothing about its layout is assumed. A Word file is unzipped and read in the
-    browser from its own zip directory — no library, and the file never leaves
-    the machine. Its title line is recognised as a heading and skipped, then each
-    paragraph is matched against the names your driller carries (see below). A
-    paragraph covering several lines is split so each sentence keeps its own; a
-    paragraph naming nothing belongs to the view. Rows that aim themselves — a
-    three-column sheet, or `Wealth: …` — are taken at their word rather than
-    matched. There is nothing to type: load the document and it is read.
 
-  **The document is kept, not the answers.** What is stored is the commentary as
-  written, and the matching is done afresh every time it is read — so loading
-  next month's driller re-reads the same document against next month's names
-  with nobody opening it again, and the pane's report always describes the file
-  that is loaded now. A commentary loaded before any driller is held and read as
-  soon as one arrives. **Remove this commentary** clears it; it does not touch
-  the `Commentary` tab inside a driller or the `Commentary` section in a config,
-  which belong to those files.
+  **The words are kept, not the answers.** The tab's paragraphs are stored as
+  written and matched afresh every time they are read — next month's driller
+  re-matches next month's paragraphs against next month's names with nobody
+  tagging a thing, and the Drivers pane always says how many matched from the
+  Commentary tab, how many were addressed by hand, and how many came from the
+  configuration.
 
   **The page writes the sentence; the document gives the cause.** Quoting a
   paragraph beside the figures says the same thing twice — the paragraph reads
@@ -623,7 +616,7 @@ left-pane strip and the Filters pane.
   prints the paragraph exactly as written, for wording that has been approved
   and must not be trimmed; `commentary_clause_max` sets the length.
 
-  **A commentary file is often itself generated**, and then it carries nothing
+  **Written commentary is often itself generated**, and then it carries nothing
   the page has not already worked out: *"Consumer Liabilities at 314,722 down
   0.9% vs MAY-26 — Deposits $9bnF 3% driven by Retail $5bnF 3% (Australia
   $1,315mF 7%, China $1,071mF 6%)"*. Printing that beside the page's own
@@ -645,12 +638,13 @@ left-pane strip and the Filters pane.
   paragraphs any one block can carry, so a long document never buries the
   page's own commentary.
 
-  A worked example ships in `sample/`: **`IWPB_SG_Jun26_Commentary.docx`** is
-  eight plain paragraphs of IWPB Singapore commentary with no tagging of any
-  kind, and loading it against `IWPB_SG_Driller_sample.xlsx` pins seven of them
-  — NII, Net Fee Income, Deposits, Loans, Cards, Insurance, Trading Income —
-  and sends the opening line about the half to the view.
-  `CIB_Jun26_Commentary.docx` does the same against the CIB pack.
+  A worked example ships in `sample/`: **`IWPB_SG_Driller_sixbasis.xlsx`**
+  carries a `Commentary` tab of eight plain paragraphs with no tagging of any
+  kind, and loading the one file pins seven of them — NII, Net Fee Income,
+  Deposits, Loans, Cards, Insurance, Trading Income — and sends the opening
+  line about the half to the view.
+  `CIB_AME_Jun26_Driller_withCommentary.xlsx` does the same against the CIB
+  pack.
 
   A sentence that names a line only **in passing** stays with the view rather
   than being pinned to it: *"The half closed ahead of plan on revenue, with
@@ -1148,11 +1142,12 @@ cd sample && python3 make_sample.py   # needs openpyxl
 every comparison the pack writes commentary on at once — prior-year months and
 quarters, a June YTD target, July–December forecast months, an FY-26 forecast,
 an FY-25 actual and an FY-26 target — so **All commentaries** offers all six
-bases and the **⤓ Word** download comes out complete. Regenerate with
+bases and the **⤓ Word** download comes out complete. It also carries the
+month's written commentary in its own `Commentary` tab — eight untagged
+paragraphs, matched to their lines on load. Regenerate with
 `python3 make_sample_sixbasis.py`.
-`sample/IWPB_SG_Jun26_SixBasis_Commentary.docx` is what that download produces
-from it, with `IWPB_SG_Jun26_Commentary.docx` loaded as the written commentary
-— a worked example of the six bases as a document.
+`sample/IWPB_SG_Jun26_SixBasis_Commentary.docx` is what the ⤓ Word download
+produces from that one file — a worked example of the six bases as a document.
 
 ### Two worked reporting packs
 
