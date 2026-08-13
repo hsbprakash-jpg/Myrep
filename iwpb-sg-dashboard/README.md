@@ -661,10 +661,10 @@ left-pane strip and the Filters pane.
   preposition in a long sentence does not, and a short sentence such as
   *"Growth in Deposits was strong"* still pins.
 
-  **Where one loaded document ends up.** The same paragraphs reach four places,
+  **Where one written paragraph ends up.** The same paragraphs reach four places,
   each stitched into what that place already says:
 
-  | | What the loaded commentary does there |
+  | | What the written commentary does there |
   |---|---|
   | **Management commentary** (Summary) | each line's reason rides on that line's own sentence, after its figures and its drivers — *"NII - Interest Income ▲$968mF / 30.6% driven by Retail Banking & Wealth Management — NII carried the half. Deposit margin held better than the plan assumed…"* |
   | **Financial Summary** | the same, on each statement block's sentence, and in the **Line commentary** column as *figures; reason* |
