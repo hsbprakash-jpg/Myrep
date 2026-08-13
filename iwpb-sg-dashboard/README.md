@@ -490,8 +490,13 @@ left-pane strip and the Filters pane.
   **country** hierarchy, one level below whatever the line already names:
   *"MSS $77mA 2.0% driven by Foreign Exchange in Hong Kong ($10mA 2.0%), Rates
   in Hong Kong ($8mA 2.0%)"*. Where a line has no product split beneath it the
-  mover is named by country alone, as the pack does. Balances follow at the end
-  in billions, then the memo lines.
+  mover is named by country alone, as the pack does. **An expense line never
+  names a product**: costs are not earned on products — Mortgages did not
+  drive Variable Pay up — so cost lines (the same `cost_patterns` that colours
+  favourability, plus opex, variable pay, staff and litigation) cut their
+  movers by country or function alone, and an expense in a single country
+  names no movers at all rather than "explaining" itself with its own total.
+  Balances follow at the end in billions, then the memo lines.
 
   **It is set like the document it comes from.** The opening statement stands
   alone with a line under it; each line of the statement is its own paragraph

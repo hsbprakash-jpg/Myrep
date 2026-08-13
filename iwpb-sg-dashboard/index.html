@@ -982,7 +982,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 14:26</div>
+<div id="buildTag">build 2026-08-13 14:42</div>
 </aside>
 <main>
 
@@ -3435,6 +3435,12 @@ function slVar(k, bs){
   return `<b${faCls(fav)}>${movUp(k,k.cmpVar,k.cmpVarPct)?'\u25B2':'\u25BC'}${slAmt(k.cmpVar,bs)}${fav?'F':'A'}</b>${p}`;
 }
 function slDrivers(rows, dimKey, n, bs){
+  // a product cut never explains an expense line — fall back to a
+  // non-product dimension, or name no movers at all
+  if(/^prod/.test(dimKey)&&caIsCost(rows,'')){
+    dimKey=['cgL2','country','entity','funcL2'].find(k=>k in S.model.dimCols)||dimKey;
+    if(/^prod/.test(dimKey)) return '';
+  }
   const ds=houseDrivers(rows, dimKey, n);
   return ds.length? ' driven by '+ds.map(d=>`${esc(d.name)} (${slVar(d.k,bs)})`).join(', ') : '';
 }
@@ -3558,7 +3564,10 @@ function drvTrim(items, valOf, total, n, zero){
     if(zero&&zero(g)) return false;
     return total==null||!isFinite(total)||!total? true : v>=Math.abs(total)*drvFloorPct();
   });
-  const pool=big.length? big : items.slice(0,1);
+  // when nothing clears the floor the biggest real mover still gets named —
+  // but never one that rounds to zero, which is no reason at all
+  const pool=big.length? big
+    : items.filter(g=>Math.abs(valOf(g))>0&&!(zero&&zero(g))).slice(0,1);
   const room=(total==null||!isFinite(total))? 0 : Math.abs(total)*drvCoverPct();
   const out=[];
   let run=0;
@@ -6447,7 +6456,20 @@ function caCtryDim(){
 }
 /* the deepest product level that actually splits this line into more than one
    thing — anything shallower only repeats the line's own name */
+/* Costs are not earned on a product. Mortgages did not drive Variable Pay up
+   — people did — and naming products under an expense line reads as nonsense,
+   so an expense's movers are cut by country or function alone. The same
+   cost_patterns setting that colours favourability decides which lines these
+   are, so the two can never disagree. */
+const RE_COST_MORE=/\bopex\b|variable\s+pay|\bstaff\b|litigation/i;
+function caIsCost(rows, lineName){
+  const isC=t=>RE_COST.test(t)||RE_COST_MORE.test(t);
+  if(isC(String(lineName||''))) return true;
+  return !!(rows&&rows.length)&&rows.every(r=>
+    isC((r.d.micaL1||'')+' '+(r.d.micaL2||'')+' '+(r.d.accH1||'')+' '+(r.d.accH2||'')));
+}
 function caProdDimFor(rows, lineName){
+  if(caIsCost(rows, lineName)) return null;
   const nm=String(lineName||'').trim().toLowerCase();
   for(const k of caProdDims()){
     const vals=new Set();
@@ -6465,6 +6487,9 @@ function caDrivers(rows, sec, lineName, n){
   const ctryVals=new Set();
   for(const r of rows){ const v=r.d[ctry]; if(v) ctryVals.add(String(v).trim()); }
   const useCtry=ctryVals.size>1;
+  // an expense in one country would have its one country as its one "mover",
+  // which names nothing the line itself does not
+  if(!prod&&!useCtry) return [];
   const byKey=new Map();
   for(const r of rows){
     const c=String(r.d[ctry]==null?'':r.d[ctry]).trim()||'(blank)';
@@ -10101,7 +10126,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 14:26</td></tr>
+      <tr><td>Build</td><td>2026-08-13 14:42</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
