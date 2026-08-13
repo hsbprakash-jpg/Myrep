@@ -167,6 +167,10 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 #simCmpOut .ctable{width:auto;min-width:min(100%,460px);max-width:100%}
 #simCmpOut .ctable td:first-child,#simCmpOut .ctable th:first-child{min-width:160px;padding-right:26px}
 #simCmpOut .ctable td.num,#simCmpOut .ctable th.num{white-space:nowrap}
+#comMatchReport{margin:4px 18px 0}
+#comMatchReport .cmrow{font-size:10.5px;line-height:1.4;margin:2px 0;color:var(--text-secondary)}
+#comMatchReport .cmln{font-weight:700;color:var(--hsbc-red)}
+#comMatchReport .cmview{font-weight:700;color:var(--text-muted)}
 #comInBox{margin:6px 18px 0 18px}
 #comInBox textarea{width:100%;box-sizing:border-box;font:inherit;font-size:11.5px;line-height:1.45;
   padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
@@ -637,6 +641,11 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .annchip.armed{border-color:var(--hsbc-red);color:var(--hsbc-red);
   box-shadow:0 0 0 2px rgba(219,0,17,.18)}
 .annchip.dragging{opacity:.45}
+.annpal .anncom{font:inherit;font-size:10.5px;padding:3px 8px;border-radius:4px;cursor:pointer;
+  border:1px solid var(--border-strong);background:var(--surface-1);color:var(--text-muted)}
+.annpal .anncom:hover{border-color:var(--hsbc-red);color:var(--hsbc-red)}
+.annpal .anncom.on{border-color:var(--hsbc-red);color:var(--hsbc-red);
+  background:color-mix(in srgb, var(--hsbc-red) 8%, var(--surface-1));font-weight:700}
 svg .anndrop{stroke:var(--hsbc-red);stroke-width:2;stroke-dasharray:3 2}
 svg g.annote text{pointer-events:none}
 svg g.anngrip{cursor:ew-resize;pointer-events:auto;transition:opacity .1s}
@@ -921,6 +930,10 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <p class="hint2" data-lbl="drv_hint">Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.</p>
     <div id="drvList"></div>
     <button class="btn-quiet" id="btnDrvAdd" style="margin:6px 18px 0">+ Add driver</button>
+    <button class="btn-quiet" id="btnComLoad" style="margin:6px 18px 0" data-lbl="btn_comload">⤒ Load commentary file</button>
+    <input type="file" id="comFileInput" accept=".docx,.txt,.md,.csv,.xlsx,.xlsm,.xls" hidden>
+    <div class="note" id="comLoadStatus" style="margin:4px 18px 0"></div>
+    <div id="comMatchReport"></div>
     <button class="btn-quiet" id="btnComIn" style="margin:6px 18px 0" data-lbl="btn_comin">✐ Paste commentary</button>
     <div id="comInBox" hidden>
       <p class="hint2" data-lbl="comin_hint">One written line per row. <b>View | Line | Text</b> aims it —
@@ -941,7 +954,7 @@ Wealth: Insurance new business held up against a soft market."></textarea>
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 07:12</div>
+<div id="buildTag">build 2026-08-13 07:27</div>
 </aside>
 <main>
 
@@ -1339,6 +1352,7 @@ const CFG_DEFAULT={
     memo_patterns:'',
     chart_note_shape:'bubble',
     chart_note_head:'N',
+    chart_note_auto_max:'3',
     ratio_patterns:'%|\\bbps\\b|\\brote\\b|\\bcer\\b|\\bratio\\b|headcount|\\bfte\\b|\\bcount\\b',
     fsum_memo_label:'Key Metrics',
     balance_sheet_patterns:'deposit|\\bloan|advance|mortgage|\\bcasa\\b|balance|\\basset|liabilit|\\brwa\\b|\\baum\\b|\\bnnm\\b|customer\\s*account',
@@ -2757,6 +2771,7 @@ function widgetCommentText(w){
   return d.textContent.trim();
 }
 function chartCommentaryHtml(cfg){
+  const aKey=annKey(cfg);           // before cfgEff: the key the chart itself uses
   cfg=cfgEff(cfg);
   const {cats, segNames, paired, cmpName}=chartData(cfg);
   if(!cats.length) return '';
@@ -2824,7 +2839,9 @@ function chartCommentaryHtml(cfg){
   const dnotes=cats.map(c=>({c, t:driverFor(c.name)})).filter(x2=>x2.t)
     .filter((x2,i2,arr)=>arr.findIndex(y2=>y2.t===x2.t)===i2)
     .sort((a,b)=>Math.abs(v(b.c))-Math.abs(v(a.c))).slice(0,4);
-  const wrote=[...comWritten('chart', cats.map(c=>c.name)).map(esc),
+  // what the chart pins onto its own bars is not repeated in the block beneath
+  const onChart=new Set(comPinned(annNotes(aKey), cats.map(c=>c.name)).map(q=>q.t));
+  const wrote=[...comWritten('chart', cats.map(c=>c.name)).filter(t=>!onChart.has(t)).map(esc),
     ...dnotes.map(x2=>`<b>${esc(x2.c.name)}</b> \u2014 ${esc(x2.t)}.`)];
   return (wrote.length? `<span class="drvlead">${wrote.join(' ')}</span> ` : '')+out;
 }
@@ -4737,6 +4754,46 @@ function annShapeDefault(){
 }
 /* a note is {t:text, s:shape}; a plain string is an older note and reads as
    the default shape */
+/* Ingested commentary shows on the marks it names, so a written line reaches
+   the chart as well as the commentary block. It is capped — a chart papered
+   with notes says less than a chart with three — and it can be switched off
+   from the palette. A note pinned by hand always wins. */
+function annAutoOn(){
+  const v=localStorage.getItem('iwpbsg_comnotes');
+  if(v!=null) return v==='1';
+  return comInAll().some(c=>String(c.line==null?'':c.line).trim());
+}
+function annAutoSet(on){ try{ localStorage.setItem('iwpbsg_comnotes', on?'1':'0'); }catch(e){} }
+function annAutoMax(){
+  const v=parseInt(cfgS('chart_note_auto_max'),10);
+  return isFinite(v)&&v>=0? v : 3;
+}
+/* which marks a chart will pin commentary to — read here and by the chart's own
+   commentary block, so the same words are never printed twice on one screen */
+function comPinned(manual, cats){
+  if(!annAutoOn()) return [];
+  const max=annAutoMax(); if(!max) return [];
+  const out=[];
+  for(const c of cats){
+    if(out.length>=max) break;
+    if(manual&&manual[c]) continue;            // written by hand: leave it alone
+    const t=comForLine(c)[0];
+    if(t) out.push({cat:c, t});
+  }
+  return out;
+}
+function annMerge(svg, notes){
+  const cats=[...new Set([...svg.querySelectorAll('[data-cat]')]
+    .filter(e=>!e.closest('g.annote')).map(e=>e.getAttribute('data-cat')))];
+  const pin=comPinned(notes, cats);
+  if(!pin.length) return notes;
+  const out={...notes};
+  // a paragraph is given a wider box than a one-line note, so it reads in four
+  // lines rather than eight
+  for(const q of pin)
+    out[q.cat]={t:q.t, s:annShapeDefault(), w:(q.t.length>110? 250 : 0), auto:true};
+  return out;
+}
 function annNotes(key){
   const raw=annStoreGet()[key]||{}, out={};
   for(const [c,v] of Object.entries(raw))
@@ -4808,11 +4865,14 @@ function annShapeIcon(sh){
     stroke-width="1.3" stroke-linejoin="round" aria-hidden="true">${ANN_ICONS[sh]||ANN_ICONS.box}</svg>`;
 }
 function annPaletteHtml(){
+  const any=comInAll().some(c=>String(c.line==null?'':c.line).trim());
+  const sw=any? `<button type="button" class="anncom${annAutoOn()?' on':''}" id="" data-com="1"
+      title="Show the ingested commentary on the marks it names">\u2632 Commentary</button>` : '';
   return `<div class="annpal"><span class="annpal-lbl">Note shapes</span>`+
     ANN_SHAPES.map(sh=>`<span class="annchip" draggable="true" data-shape="${sh}" role="button" tabindex="0"
       title="${esc(ANN_SHAPE_LBL[sh]||sh)} \u2014 drag it onto a bar, or tap it and then tap a bar"
       aria-label="${esc(ANN_SHAPE_LBL[sh]||sh)}">${annShapeIcon(sh)}</span>`).join('')+
-    `<span class="annpal-hint">drag a shape onto a bar \u00b7 double-click a bar to write a note \u00b7
+    sw+`<span class="annpal-hint">drag a shape onto a bar \u00b7 double-click a bar to write a note \u00b7
        click a note to edit it \u00b7 drag a note's corner to set how wide it is</span></div>`;
 }
 /* the shape currently being dragged — a drag over an SVG cannot read the
@@ -4850,7 +4910,8 @@ function annDraw(svg, key){
   if(svg.dataset.annVb0){ svg.setAttribute('viewBox', svg.dataset.annVb0);
     svg.setAttribute('width', svg.dataset.annW0); svg.setAttribute('height', svg.dataset.annH0);
     if(svg.dataset.annStyle0!=null) svg.setAttribute('style', svg.dataset.annStyle0); }
-  const notes=annNotes(key); if(!Object.keys(notes).length) return;
+  const notes=annMerge(svg, annNotes(key));
+  if(!Object.keys(notes).length) return;
   // a chart drawn without a viewBox gets one, so the note can be laid out in
   // the same coordinates the chart was drawn in
   let vb0=(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number);
@@ -5100,8 +5161,11 @@ function annDraw(svg, key){
   leads.innerHTML=leadHtml;
 }
 function annPrompt(key, cat){
-  const cur=annNotes(key)[cat]||'';
-  const t=window.prompt(`Note on \u201c${cat}\u201d — leave empty to remove`, cur);
+  const cur=annNotes(key)[cat];
+  // a note drawn from ingested commentary opens with those words, so editing it
+  // is a rewrite rather than a blank box
+  const seed=cur? cur.t : (comForLine(cat)[0]||'');
+  const t=window.prompt(`Note on \u201c${cat}\u201d \u2014 leave empty to remove`, seed);
   if(t==null) return false;
   annSet(key, cat, t);
   return true;
@@ -5214,6 +5278,8 @@ function annAttach(wrap, cfg, redraw){
       ch.addEventListener('click', arm);
       ch.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') arm(e); });
     });
+    const cbtn=pal.querySelector('.anncom');
+    if(cbtn) cbtn.addEventListener('click',()=>{ annAutoSet(!annAutoOn()); if(S.model) render(); });
   }
 }
 function buildChartEl(cfg){
@@ -8084,7 +8150,146 @@ function comLead(view, names){
   const t=comWritten(view, names);
   return t.length? `<span class="drvlead">${t.map(x=>esc(x)).join(' ')}</span> ` : '';
 }
+/* commentary written about a named line — the only kind a chart mark can
+   carry. A line written for a whole view belongs in the block, not on a bar. */
+function comForLine(name){
+  return comInAll().filter(c=>String(c.line==null?'':c.line).trim()
+    &&comViewOK(c.view,'chart')&&comMatchLine(c.line,[name]))
+    .map(c=>String(c.text).trim());
+}
 function comInSig(){ return comInAll().map(c=>[c.view,c.line,c.text].join('~')).join(';'); }
+/* ---- a commentary file, read as it comes -------------------------------
+   Word, plain text, markdown, CSV or a workbook. Nothing about its layout is
+   assumed. Rows that aim themselves ("Chart | HIF | ...", "Wealth: ...") are
+   taken at their word; prose is matched against the names the loaded driller
+   itself carries, so a paragraph about Global Trade Solutions is pinned to
+   Global Trade Solutions without anyone having to tag it. */
+function comFileText(file){
+  return new Promise((res,rej)=>{
+    const nm=String(file.name||'').toLowerCase();
+    const rd=new FileReader();
+    rd.onerror=()=>rej(new Error('the file could not be read'));
+    if(/\.docx$/.test(nm)){
+      rd.onload=e=>docxText(new Uint8Array(e.target.result)).then(res,rej);
+      rd.readAsArrayBuffer(file);
+    } else if(/\.(xlsx|xlsm|xls|xlsb|csv)$/.test(nm)){
+      rd.onload=e=>{ try{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        const out=[];
+        for(const sn of wb.SheetNames)
+          for(const r of XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null})){
+            if(!r) continue;
+            const cells=r.map(c=>String(c==null?'':c).trim()).filter(Boolean);
+            if(cells.length) out.push(cells.join(' | '));
+          }
+        res(out.join('\n'));
+      }catch(err){ rej(new Error('that workbook could not be opened: '+err.message)); } };
+      rd.readAsArrayBuffer(file);
+    } else {
+      rd.onload=e=>res(String(e.target.result||''));
+      rd.readAsText(file);
+    }
+  });
+}
+/* A .docx is a zip and the words live in word/document.xml. The zip's own
+   directory is read here and that one entry inflated — no library, and the file
+   never leaves the browser. */
+async function docxText(bytes){
+  const dv=new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eo=-1;
+  for(let i=bytes.length-22; i>=0 && i>bytes.length-66000; i--)
+    if(dv.getUint32(i,true)===0x06054b50){ eo=i; break; }
+  if(eo<0) throw new Error('that is not a Word file');
+  const n=dv.getUint16(eo+10,true); let q=dv.getUint32(eo+16,true);
+  const dec=new TextDecoder();
+  for(let i=0;i<n;i++){
+    if(dv.getUint32(q,true)!==0x02014b50) break;
+    const nl=dv.getUint16(q+28,true), el=dv.getUint16(q+30,true), cl=dv.getUint16(q+32,true);
+    const name=dec.decode(bytes.subarray(q+46,q+46+nl));
+    if(name==='word/document.xml'){
+      const method=dv.getUint16(q+10,true), csize=dv.getUint32(q+20,true);
+      const lho=dv.getUint32(q+42,true);
+      const lnl=dv.getUint16(lho+26,true), lel=dv.getUint16(lho+28,true);
+      const raw=bytes.subarray(lho+30+lnl+lel, lho+30+lnl+lel+csize);
+      if(method===0) return docxXmlToText(dec.decode(raw));
+      if(typeof DecompressionStream==='undefined')
+        throw new Error('this browser cannot open .docx \u2014 save the commentary as .txt and load that');
+      const st=new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      const buf=await new Response(st).arrayBuffer();
+      return docxXmlToText(dec.decode(new Uint8Array(buf)));
+    }
+    q+=46+nl+el+cl;
+  }
+  throw new Error('no document was found inside that Word file');
+}
+function docxXmlToText(xml){
+  return String(xml)
+    .replace(/<\/w:p>/g,'\n')                 // a paragraph ends a line
+    .replace(/<w:br\s*\/?>/g,'\n')
+    .replace(/<w:tab\s*\/?>/g,' ')
+    .replace(/<[^>]*>/g,'')
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"')
+    .replace(/&#39;|&apos;/g,"'").replace(/&amp;/g,'&')
+    .split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean).join('\n');
+}
+/* every name the loaded file actually carries, longest first so the most
+   specific one wins — "Global Trade Solutions" before "Global" */
+let COM_VOCAB=null, COM_VOCAB_M=null;
+function comVocab(){
+  const m=S.model; if(!m) return [];
+  if(COM_VOCAB&&COM_VOCAB_M===m) return COM_VOCAB;
+  const seen=new Map();
+  const add=v=>{ const t=String(v==null?'':v).trim();
+    if(t.length<3||t.length>60) return;
+    const k=t.toLowerCase(); if(!seen.has(k)) seen.set(k,t); };
+  for(const r of m.rows){ const d=r.d||{}; for(const k in d) add(d[k]); }
+  try{ for(const x of (CFG.metrics||[])) add(x.name); }catch(e){}
+  COM_VOCAB=[...seen.values()].sort((a,b)=>b.length-a.length); COM_VOCAB_M=m;
+  return COM_VOCAB;
+}
+function comNorm(t){ return ' '+String(t).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()+' '; }
+function comMatchName(txt, vocab){
+  const low=comNorm(txt);
+  for(const nm of (vocab||comVocab())){
+    const n=comNorm(nm);
+    if(n.length>4&&low.includes(n)) return nm;
+  }
+  return '';
+}
+/* read the words, then work out what each one is about */
+function comIngestText(txt, opts){
+  const lines=String(txt==null?'':txt).split(/\r?\n/);
+  const skipped=[];
+  // A document's title is not commentary. The first line of a loaded file, if
+  // it does not end like a sentence, is a heading — otherwise "CIB Asia &
+  // MENAT — June 2026 commentary" pins itself to MENAT.
+  if(opts&&opts.fromFile&&lines.filter(l=>l.trim()).length>1){
+    let i=0; while(i<lines.length&&!lines[i].trim()) i++;
+    const first=(lines[i]||'').trim();
+    if(first&&!/[.!?;:]$/.test(first)&&first.split(/\s+/).length<=12&&first.indexOf('|')<0){
+      skipped.push(first); lines[i]='';
+    }
+  }
+  const vocab=comVocab(), items=[], report=[];
+  for(const it of comInParse(lines.join('\n'))){
+    if(it.line){ items.push(it); report.push({line:it.line, text:it.text, how:'named'}); continue; }
+    const whole=comMatchName(it.text, vocab);
+    if(whole){ items.push({...it, line:whole}); report.push({line:whole, text:it.text, how:'matched'}); continue; }
+    // a paragraph covering several lines is split so each keeps its own sentence
+    const sents=String(it.text).split(/(?<=[.;:])\s+(?=[A-Z(\u201c"])/).map(x=>x.trim()).filter(Boolean);
+    const left=[];
+    let any=false;
+    if(sents.length>1) for(const sn of sents){
+      const nm=comMatchName(sn, vocab);
+      if(nm){ items.push({view:it.view, line:nm, text:sn}); report.push({line:nm, text:sn, how:'matched'}); any=true; }
+      else left.push(sn);
+    }
+    const rest=any? left.join(' ') : it.text;
+    if(rest.trim()){ items.push({view:it.view, line:'', text:rest.trim()});
+      report.push({line:'', text:rest.trim(), how:'view'}); }
+  }
+  return {items, report, skipped};
+}
 /* free text pasted in: "View | Line | Text", "Line: Text", or a bare sentence */
 function comInParse(txt){
   const out=[];
@@ -9015,7 +9220,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 07:12</td></tr>
+      <tr><td>Build</td><td>2026-08-13 07:27</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -9126,7 +9331,7 @@ function init(){
   $('navSim').addEventListener('click',()=>setView('sim'));
   $('btnDrvAdd').addEventListener('click',()=>{ driversDef().push({name:'',text:''}); driversSave(); drawDrivers(); });
   // commentary pasted in: the same words the pack carries, read rather than written
-  const comNote=()=>{
+  function comNote(){
     const n=$('comInNote'); if(!n) return;
     const mine=comInPasted().length, file=((S&&S.comFile)||[]).length, cfgn=((CFG&&CFG.commentary)||[]).length;
     const bits=[];
@@ -9135,7 +9340,33 @@ function init(){
     if(cfgn) bits.push(`${cfgn} from the configuration`);
     n.textContent=bits.length? '\u2713 '+bits.join(' \u00b7 ')+' \u2014 leading the blocks they name.'
                              : 'No written commentary yet \u2014 every block reads its own figures.';
+  }
+  const comReport=rep=>{
+    const host=$('comMatchReport'); if(!host) return;
+    if(!rep||!rep.length){ host.innerHTML=''; return; }
+    const cut=t=>String(t).length>64? String(t).slice(0,63)+'\u2026' : String(t);
+    host.innerHTML=rep.slice(0,8).map(r=>`<p class="cmrow">${
+      r.line? `<span class="cmln">${esc(r.line)}</span>` : `<span class="cmview">every view</span>`
+      } \u2190 ${esc(cut(r.text))}</p>`).join('')+
+      (rep.length>8? `<p class="cmrow">\u2026 and ${rep.length-8} more</p>` : '');
   };
+  $('btnComLoad').addEventListener('click',()=>$('comFileInput').click());
+  $('comFileInput').addEventListener('change',e=>{
+    const f=e.target.files[0]; e.target.value=''; if(!f) return;
+    const st=$('comLoadStatus'); st.textContent='Reading '+f.name+'\u2026';
+    if(!S.model){ st.innerHTML='<span class="err">Load the driller first \u2014 the commentary is matched against the names in it.</span>'; return; }
+    comFileText(f).then(txt=>{
+      const {items, report, skipped}=comIngestText(txt, {fromFile:true});
+      if(!items.length){ st.innerHTML='<span class="err">No commentary was found in that file.</span>'; comReport([]); return; }
+      comInSetPasted(items);
+      const named=report.filter(r=>r.line).length;
+      st.innerHTML=`<span class="ok">\u2713 ${esc(f.name)} \u2014 ${items.length} written line${items.length===1?'':'s'}, `+
+        `${named} pinned to a name${items.length-named? `, ${items.length-named} to the view` : ''}.</span>`+
+        (skipped.length? `<div class="note" style="font-size:10px">Heading skipped: ${esc(skipped[0])}</div>` : '');
+      comReport(report);
+      comNote(); render();
+    }).catch(err=>{ st.innerHTML='<span class="err">'+esc(err.message||String(err))+'</span>'; });
+  });
   $('btnComIn').addEventListener('click',()=>{
     const box=$('comInBox'); box.hidden=!box.hidden;
     if(!box.hidden){
@@ -9148,7 +9379,9 @@ function init(){
     comNote(); if(S.model) render();
   });
   $('btnComClear').addEventListener('click',()=>{
-    comInSetPasted([]); $('comInTxt').value=''; comNote(); if(S.model) render();
+    comInSetPasted([]); $('comInTxt').value='';
+    $('comLoadStatus').textContent=''; comReport([]);
+    comNote(); if(S.model) render();
   });
 
   const mkCollapse=(rowId,caretId,key,sels)=>{
