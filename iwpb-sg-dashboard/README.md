@@ -540,6 +540,18 @@ left-pane strip and the Filters pane.
   page. **Expand all** opens or closes every section, and the strip above says
   what the commentary was written from — month-end, basis, scope, the driller
   and the commentary document.
+
+  **⤓ Word** writes the whole view — every basis the file supports, in the order
+  the page shows them — to a real .docx, so the six bases leave the screen as a
+  document rather than a screenshot. Each basis becomes a heading, the month
+  and filters the commentary was written under stand under the title, the
+  statement's lines keep their nesting as real Word bullets — a solid bullet at
+  the first level, a hollow one at the second — and every F/A figure keeps its
+  colour, green for favourable and red for adverse. The standard disclaimer
+  closes the document once, in the same pink it carries on the page, under a
+  rule. A collapsed section still exports: what is written is what is on the
+  page, edits included, whether or not it happens to be open. As with every
+  other export, the file is assembled in the browser and nothing leaves it.
 - **Ingesting commentary the business has written** — the page computes
   figures; it never writes narrative. Where the narrative already exists, it can
   be read in and the commentary blocks will lead with it, word for word,

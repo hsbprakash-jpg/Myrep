@@ -993,7 +993,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 11:57</div>
+<div id="buildTag">build 2026-08-13 12:05</div>
 </aside>
 <main>
 
@@ -1133,6 +1133,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <h4 style="margin:0">Commentary</h4>
         <label class="calbl">Basis <select id="caBasis"></select></label>
         <span style="flex:1"></span>
+        <button class="btn-quiet" id="btnCaWord">\u2913 Word</button>
         <button class="btn-quiet" id="btnCaOrig">Original</button>
         <button class="btn-quiet" id="btnCaCur">Current Commentary</button>
         <button class="linklike" id="btnCaExpand">Expand all</button>
@@ -3832,6 +3833,16 @@ function docBlocks(el){
   };
   const push=(style,node)=>{ const acc=[]; runsOf(node,{},acc);
     if(acc.some(r=>r.t.trim())) out.push({style, runs:acc}); };
+  // a line beneath a line keeps its own indent in the document: the nested
+  // list is taken out of its parent's words and walked at the next level
+  const walkList=(ul, depth)=>{
+    for(const li of ul.children){
+      const kids=[...li.children].filter(c=>/^(ul|ol)$/i.test(c.tagName));
+      for(const k of kids) k.remove();
+      push('LI'+Math.min(depth,3), li);
+      for(const k of kids){ li.appendChild(k); walkList(k, depth+1); }
+    }
+  };
   // inline content that is not wrapped in a block stays one paragraph, so a
   // commentary written as a single sentence does not become one line per word
   const BLOCK=/^(p|div|ul|ol|h[1-6]|table|blockquote)$/;
@@ -3851,7 +3862,7 @@ function docBlocks(el){
     const tag=(n.nodeType===1)? n.tagName.toLowerCase() : '';
     if(n.nodeType===1&&BLOCK.test(tag)){
       flushInline();
-      if(tag==='ul'||tag==='ol'){ for(const li of n.children) push('LI', li); }
+      if(tag==='ul'||tag==='ol') walkList(n, 1);
       else push('P', n);
     } else if(n.nodeType===3||n.nodeType===1){ inline.push(n); }
   }
@@ -3865,13 +3876,15 @@ function docxRunXml(r){
   return `<w:r><w:rPr>${props}</w:rPr><w:t xml:space="preserve">${xmlEsc(r.t)}</w:t></w:r>`;
 }
 function docxParaXml(b){
-  const ind=b.style==='LI'? '<w:ind w:left="454" w:hanging="227"/>' : '';
-  const num=b.style==='LI'? '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>' : '';
+  const lvl=/^LI(\d)?$/.test(b.style)? Math.max(1, parseInt(b.style.slice(2)||'1',10)) : 0;
+  const ind=lvl? `<w:ind w:left="${454+(lvl-1)*340}" w:hanging="227"/>` : '';
+  const num=lvl? `<w:numPr><w:ilvl w:val="${lvl-1}"/><w:numId w:val="1"/></w:numPr>` : '';
   const sz=b.style==='H1'? '<w:spacing w:before="0" w:after="160"/>' : '<w:spacing w:before="0" w:after="120"/>';
   return `<w:p><w:pPr>${num}${ind}${sz}</w:pPr>${b.runs.map(docxRunXml).join('')}</w:p>`;
 }
-function buildDocx(title, sections){
-  // sections: [{heading, note, blocks}]
+function buildDocx(title, sections, foot){
+  // sections: [{heading, note, blocks}]; foot is the standard disclaimer, which
+  // stands under the commentary in the document exactly as it does on the page
   const body=[];
   body.push(`<w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="DB0011"/>`+
     `<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI"/><w:sz w:val="28"/></w:rPr>`+
@@ -3885,6 +3898,10 @@ function buildDocx(title, sections){
       `<w:t xml:space="preserve">${xmlEsc(sec.note)}</w:t></w:r></w:p>`);
     for(const b of sec.blocks) body.push(docxParaXml(b));
   }
+  if(foot) body.push(`<w:p><w:pPr><w:spacing w:before="240" w:after="0"/><w:pBdr>`+
+    `<w:top w:val="single" w:sz="6" w:space="6" w:color="F4D7DA"/></w:pBdr></w:pPr>`+
+    `<w:r><w:rPr><w:i/><w:color w:val="A8000B"/><w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI"/><w:sz w:val="17"/></w:rPr>`+
+    `<w:t xml:space="preserve">${xmlEsc(foot)}</w:t></w:r></w:p>`);
   const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body.join('')}
 <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr>
@@ -3893,7 +3910,11 @@ function buildDocx(title, sections){
 <w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
 <w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/>
 <w:lvlText w:val="&#8226;"/><w:lvlJc w:val="left"/>
-<w:pPr><w:ind w:left="454" w:hanging="227"/></w:pPr></w:lvl></w:abstractNum>
+<w:pPr><w:ind w:left="454" w:hanging="227"/></w:pPr></w:lvl>
+<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="&#9702;"/><w:lvlJc w:val="left"/>
+<w:pPr><w:ind w:left="794" w:hanging="227"/></w:pPr></w:lvl>
+<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="&#8211;"/><w:lvlJc w:val="left"/>
+<w:pPr><w:ind w:left="1134" w:hanging="227"/></w:pPr></w:lvl></w:abstractNum>
 <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num></w:numbering>`;
   const files=[
     {name:'[Content_Types].xml', data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -3924,7 +3945,7 @@ function dlBytes(name, bytes, mime){
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0);
 }
 /* the commentary as it stands on the page, edits included */
-function comDocx(hostIds, title){
+function comDocx(hostIds, title, foot){
   const secs=[];
   for(const h of hostIds){
     const host=$(h.id); if(!host) continue;
@@ -3933,7 +3954,7 @@ function comDocx(hostIds, title){
     if(blocks.length) secs.push({heading:h.heading, note:h.note, blocks});
   }
   if(!secs.length){ alert('No commentary on this page yet.'); return; }
-  const bytes=buildDocx(title, secs);
+  const bytes=buildDocx(title, secs, foot);
   dlBytes(`${brandSlug()}_commentary_${new Date().toISOString().slice(0,10)}.docx`, bytes,
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
 }
@@ -6550,7 +6571,8 @@ function renderComAll(){
     n++;
     const d=document.createElement('details');
     d.className='casec';
-    d.innerHTML=`<summary>${esc(sec.lbl)}${esc(caNote())}</summary><div class="cabody"></div>`;
+    d.innerHTML=`<summary>${esc(sec.lbl)}${esc(caNote())}</summary>
+      <div class="cabody" id="caBody_${sec.id}" data-heading="${esc(sec.lbl+caNote())}"></div>`;
     host.appendChild(d);
     const slot=d.querySelector('.cabody');
     if(CA_ORIG) slot.innerHTML=`<div class="aicom"><div class="aicom-t">${body}</div></div>`;
@@ -9980,7 +10002,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 11:57</td></tr>
+      <tr><td>Build</td><td>2026-08-13 12:05</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10041,6 +10063,16 @@ function init(){
   $('navFsum').addEventListener('click',()=>setView('fsum'));
   $('navComall').addEventListener('click',()=>setView('comall'));
   $('caBasis').addEventListener('change',()=>{ CA_SEC=$('caBasis').value; renderComAll(); });
+  // the commentary as it stands, into a document — every section shown, in order
+  $('btnCaWord').addEventListener('click',()=>{
+    const hosts=[...document.querySelectorAll('#comallList .cabody')]
+      .map(el=>({id:el.id, heading:el.dataset.heading||'', note:''}));
+    if(!hosts.length){ alert('No commentary on this page yet.'); return; }
+    hosts[0].note=filterNote(true);
+    const dz=$('caDisc');
+    comDocx(hosts, `${cfgS('app_title')} \u2014 commentary, ${MON_LBL[S.ytdM]} ${S.model.yearCY}`,
+      (dz&&!dz.hidden)? dz.textContent : '');
+  });
   $('btnCaOrig').addEventListener('click',()=>{ CA_ORIG=true; renderComAll(); });
   $('btnCaCur').addEventListener('click',()=>{ CA_ORIG=false; renderComAll(); });
   $('btnCaExpand').addEventListener('click',()=>{
