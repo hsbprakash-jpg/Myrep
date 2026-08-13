@@ -514,6 +514,15 @@ left-pane strip and the Filters pane.
   quarterly column, a year-to-date from the YTD column, never months added
   together. A check ties the two together line for line.
 
+  **The loaded commentary document feeds it**, as it feeds every other block:
+  a written line rides on its own line's sentence, once per section and at the
+  highest line it belongs to; what was written about the period as a whole
+  stands under the opening statement, a line each; and a line the statement
+  never names — a paragraph about Loans where the cascade is a P&L — closes the
+  section rather than being dropped. Everything that came from the document
+  carries a red rule down its left edge, so the writer's words are visible as
+  the writer's.
+
   **The basis filter** at the top of the view narrows to one comparison; the
   same six are offered in the left pane's **Variance period**, wherever the file
   supports them — including the two the page could not make before, the quarter

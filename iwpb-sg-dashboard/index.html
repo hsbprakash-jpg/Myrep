@@ -598,6 +598,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 /* the opening statement stands on its own, with a line under it */
 .aicom-t p.ca-head{margin:0 0 12px;padding-bottom:9px;border-bottom:1px solid var(--border-strong)}
 .aicom-t p.ca-sub{margin:0 0 8px}
+.aicom-t p.ca-said{margin:0 0 10px;padding-left:9px;border-left:2px solid var(--hsbc-red)}
 .aicom-t:focus{background:var(--surface-1);border-radius:4px}
 .aicom-note{color:var(--text-muted);font-size:10.5px}
 .lvbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:6px 10px;
@@ -992,7 +993,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 11:45</div>
+<div id="buildTag">build 2026-08-13 11:57</div>
 </aside>
 <main>
 
@@ -6414,12 +6415,17 @@ function caProdDimFor(rows, lineName){
 }
 function caDrivers(rows, sec, lineName, n){
   const ctry=caCtryDim(), prod=caProdDimFor(rows, lineName);
+  // "in Hong Kong" earns its place only where the country varies; on a file
+  // that is all one country it would ride on every driver saying nothing
+  const ctryVals=new Set();
+  for(const r of rows){ const v=r.d[ctry]; if(v) ctryVals.add(String(v).trim()); }
+  const useCtry=ctryVals.size>1;
   const byKey=new Map();
   for(const r of rows){
     const c=String(r.d[ctry]==null?'':r.d[ctry]).trim()||'(blank)';
     const pv=prod? (String(r.d[prod]==null?'':r.d[prod]).trim()||'') : '';
     // "product in country" where the product says something the line does not
-    const label=pv? `${pv} in ${c}` : c;
+    const label=(pv&&useCtry)? `${pv} in ${c}` : (pv||c);
     (byKey.get(label)||byKey.set(label,[]).get(label)).push(r);
   }
   return [...byKey.entries()]
@@ -6460,11 +6466,17 @@ function caSectionHtml(sec){
   const sameWay=x=>resQ.va>=0? x.q.va>=0 : x.q.va<0;
   const on=parts.filter(sameWay).slice(0,3), off=parts.filter(x=>!sameWay(x)).slice(0,3);
   const one=x=>`${faWord(x.q.f.k, x.q.val)} ${esc(x.r.name)} (${caVar(x.q)})`;
+  // the loaded commentary rides on the same sentences here as everywhere else:
+  // once per section, on the highest line it belongs to
+  comSaidReset();
   let h=`<p class="ca-head"><b>${esc(res.name)}</b> is ${caAmt(resQ.f, resQ.va, false)} ${
     faWord(resQ.f.k, resQ.val)==='higher'? 'up' : 'down'} vs ${esc(sec.base)}`;
   if(on.length) h+=` driven by ${on.map(one).join(' and ')}`;
   if(off.length) h+=`${on.length?', ':' '}offset by ${off.map(one).join(' and ')}`;
-  h+='</p>';
+  h+=comTail(res.name,'comall')+'</p>';
+  // what the business wrote about the period as a whole stands under it
+  // a line each, as the document has them
+  for(const w of comWritten('comall', [])) h+=`<p class="ca-said">${esc(w)}</p>`;
   // a line, then the lines beneath it, then the countries or segments behind
   // whichever of those is the last one printed
   const lineHtml=(x, depth)=>{
@@ -6479,7 +6491,9 @@ function caSectionHtml(sec){
       ? ' of which '+kids.slice(0,3).map(k2=>
           `<b>${esc(String(k2.r.name).replace(/^o\/w\s+/i,''))}</b> ${caVar(k2.q)}`).join(', ')
       : '';
-    const tail=listed? ':' : (inlined||caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 4 : 5));
+    const said=comTail(x.r.name,'comall');
+    const tail=(listed? '' : (inlined||caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 4 : 5)))
+      +said+(listed? ':' : '');
     let t=depth
       ? `<li><b>${esc(x.r.name)}</b> ${va}${tail}`
       : `<p class="ca-sub"><b>${esc(x.r.name)}</b> of ${val} are ${va}${tail}</p>`;
@@ -6494,6 +6508,15 @@ function caSectionHtml(sec){
     const x=qOf(t);
     if(x.q.va==null) continue;
     h+=lineHtml(x, 0);
+  }
+  // every line the document names, not only the ones this statement prints:
+  // a paragraph about Loans belongs in the commentary even where the P&L
+  // cascade never names Loans
+  const written=[...new Set(comInAll().map(c=>String(c.line||'').trim()).filter(Boolean))];
+  const left=comUnsaid('comall', [...tree.map(r=>r.name), ...written]);
+  for(const q of left){
+    const d=comDigest(q.text, q.name);
+    h+=`<p class="ca-said"><b>${esc(q.name)}</b> \u2014 ${esc(d)}${/[\u2026.!?]$/.test(d)?'':'.'}</p>`;
   }
   return h;
 }
@@ -8612,7 +8635,9 @@ const COM_VIEWS={
   fsum:['fsum','financialsummary','businessperformance','statement','pack'],
   chart:['chart','charts','graph','graphs','builder'],
   dashboard:['dashboard','widget','widgets','custom','dynamic','mydashboard'],
-  line:['line','lines','linecommentary','note','notes']
+  line:['line','lines','linecommentary','note','notes'],
+  comall:['comall','commentary','commentaries','allcommentaries','summary','fsum',
+    'financialsummary','businessperformance','statement','pack']
 };
 function comViewOK(cv, view){
   const c=String(cv==null?'':cv).toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -9955,7 +9980,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 11:45</td></tr>
+      <tr><td>Build</td><td>2026-08-13 11:57</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
