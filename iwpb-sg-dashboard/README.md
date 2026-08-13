@@ -505,6 +505,26 @@ left-pane strip and the Filters pane.
   the `Commentary` tab inside a driller or the `Commentary` section in a config,
   which belong to those files.
 
+  **The page writes the sentence; the document gives the cause.** Quoting a
+  paragraph beside the figures says the same thing twice — the paragraph reads
+  "Global Trade Solutions came in light", the line beneath reads 754 and 15
+  behind target. So the page composes: it puts its own figures first and takes
+  only the telling clause from the document.
+
+  > **Global Trade Solutions** at **754**, ▼2.0% vs YTD forecast — Drawdowns
+  > slipped into July, which is timing rather than demand.
+
+  Nothing is reworded. Every word kept is the writer's own, in the writer's
+  order — what the composer does is **choose**. It drops a sentence that only
+  restates the line's name ("Global Trade Solutions came in light."), drops the
+  name where the figures already carry it ("Credit and Lending was steady…"
+  becomes "…— was steady…"), and stops at a clause boundary rather than running
+  a paragraph across a chart, never leaving the clause hanging on a conjunction.
+  The same clause captions the note on the bar, cut shorter still, with the
+  whole paragraph one click away on the note itself. `commentary_style:'verbatim'`
+  prints the paragraph exactly as written, for wording that has been approved
+  and must not be trimmed; `commentary_clause_max` sets the length.
+
   **To correct a match** there are three ways, and none of them is retyping the
   commentary: set an `Aliases` row in the configuration (permanent, and it wins
   over everything), click the note on the chart and edit it there (it becomes

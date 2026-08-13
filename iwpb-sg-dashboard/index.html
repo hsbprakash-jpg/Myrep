@@ -961,7 +961,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 08:46</div>
+<div id="buildTag">build 2026-08-13 09:00</div>
 </aside>
 <main>
 
@@ -1360,6 +1360,8 @@ const CFG_DEFAULT={
     chart_note_shape:'bubble',
     chart_note_head:'N',
     chart_note_auto_max:'3',
+    commentary_style:'compose',
+    commentary_clause_max:'150',
     ratio_patterns:'%|\\bbps\\b|\\brote\\b|\\bcer\\b|\\bratio\\b|headcount|\\bfte\\b|\\bcount\\b',
     fsum_memo_label:'Key Metrics',
     balance_sheet_patterns:'deposit|\\bloan|advance|mortgage|\\bcasa\\b|balance|\\basset|liabilit|\\brwa\\b|\\baum\\b|\\bnnm\\b|customer\\s*account',
@@ -2688,12 +2690,21 @@ function aiComment(host, sig, a, b){
   const locked=!!(st[base]&&st[base].t!=null);
   const saved= locked? st[base].t : (st[sig]&&st[sig].t);
   let text; try{ text=saved!=null? saved : gen(); }catch(e){ text=''; }
-  // a retained text that still carries the generated driver opening keeps it in
-  // step with the Drivers section; text the user has fully rewritten is left alone
-  const LEAD_RE=/<span class="drvlead">[\s\S]*?<\/span>\s*/;
-  if(locked&&text&&LEAD_RE.test(text)){
-    let fresh=''; try{ const g2=String(gen()); const m2=g2.match(LEAD_RE); fresh=m2? m2[0]:''; }catch(e){}
-    text=fresh+String(text).replace(LEAD_RE,'');
+  // A retained text that still carries the generated opening keeps it in step
+  // with the Drivers section and the ingested commentary; text the reader has
+  // fully rewritten is left alone. The swap is done on parsed nodes, not on the
+  // string: the opening now carries movement markup of its own, and a regex for
+  // the closing tag stopped at the first nested span and tore the block in half.
+  if(locked&&text){
+    const cur=document.createElement('div'); cur.innerHTML=String(text);
+    const curLead=cur.querySelector('.drvlead');
+    if(curLead){
+      let fresh=null;
+      try{ const g2=document.createElement('div'); g2.innerHTML=String(gen());
+           fresh=g2.querySelector('.drvlead'); }catch(e){}
+      if(fresh) curLead.replaceWith(fresh); else curLead.remove();
+      text=cur.innerHTML;
+    }
   }
   if(!text){ host.innerHTML=''; return; }
   const prev=st['prev:'+base];
@@ -2849,7 +2860,25 @@ function chartCommentaryHtml(cfg){
     .sort((a,b)=>Math.abs(v(b.c))-Math.abs(v(a.c))).slice(0,4);
   // what the chart pins onto its own bars is not repeated in the block beneath
   const onChart=new Set(comPinned(aKey, cats.map(c=>c.name)).map(q=>q.t));
-  const wrote=[...comWritten('chart', cats.map(c=>c.name)).filter(t=>!onChart.has(t)).map(esc),
+  // a written line is joined to its own figures rather than printed beside them
+  const said=new Set();
+  const composed=[];
+  for(const c of cats){
+    for(const t of comForLine(c.name)){
+      if(onChart.has(t)||said.has(t)) continue;
+      said.add(t);
+      const d=comDigest(t, c.name);
+      if(comStyle()==='verbatim'){ composed.push(esc(t)); continue; }
+      let fig=`<b>${esc(c.name)}</b> at <b>${fmt(v(c))}</b>`;
+      try{
+        const kk=c.rows&&c.rows.length? kpi(c.rows, S.model, S.ytdM, S.includeFC) : null;
+        if(kk&&kk.cmpVarPct!=null) fig+=`, ${movPct(kk, kk.cmpVarPct)} ${esc(cmpLabels(S.model).vs)}`;
+      }catch(e){}
+      composed.push(`${fig} \u2014 ${esc(d)}${/[\u2026.!?]$/.test(d)?'':'.'}`);
+    }
+  }
+  const wrote=[...composed,
+    ...comWritten('chart', cats.map(c=>c.name)).filter(t=>!onChart.has(t)&&!said.has(t)).map(esc),
     ...dnotes.map(x2=>`<b>${esc(x2.c.name)}</b> \u2014 ${esc(x2.t)}.`)];
   return (wrote.length? `<span class="drvlead">${wrote.join(' ')}</span> ` : '')+out;
 }
@@ -4798,8 +4827,13 @@ function annMerge(svg, key, notes){
   const out={...notes};
   // a paragraph is given a wider box than a one-line note, so it reads in four
   // lines rather than eight
-  for(const q of pin)
-    out[q.cat]={t:q.t, s:annShapeDefault(), w:(q.t.length>110? 250 : 0), auto:true};
+  for(const q of pin){
+    // a bar has less room than a block: the clause is cut shorter, and the
+    // whole paragraph stays one click away on the note itself
+    const d=comDigest(q.t, q.cat, 110);
+    const t=d? (/[\u2026.!?]$/.test(d)? d : d+'.') : q.t;
+    out[q.cat]={t, full:q.t, s:annShapeDefault(), w:(t.length>110? 250 : 0), auto:true};
+  }
   return out;
 }
 function annNotes(key){
@@ -4969,7 +5003,7 @@ function annDraw(svg, key){
       Math.max(112, Math.max(6.35*Math.max(...annWrap(txt,30).map(l=>l.length)), headW)+pad));
     const w=note.w? Math.min(Math.max(note.w, ANN_WMIN), Math.max(ANN_WMIN+40, vw)) : auto;
     const lines=annWrap(txt, (w-pad)/6.35);
-    items.push({cat, txt, shape, bb, lines, head, w, el, wSet:!!note.w,
+    items.push({cat, txt, shape, bb, lines, head, w, el, wSet:!!note.w, full:note.full||txt,
       h:lines.length*14+(head? 17 : 0)+(shape==='oval'? 22 : shape==='cloud'? 30 : shape==='plain'? 6 : 16),
       horiz:bb.width>bb.height*1.6});   // a horizontal bar is written to its right
   }
@@ -5173,7 +5207,7 @@ function annDraw(svg, key){
     g.innerHTML=shadow+body+accent+tail+head+
       it.lines.map((l,i)=>`<text x="${tx.toFixed(1)}" y="${(ty0+i*14).toFixed(1)}" font-size="11"
          fill="var(--text-primary)"${sh==='plain'? ' font-weight="700"':''}>${esc(l)}</text>`).join('')+grip+
-      `<title>${esc(it.cat)}: ${esc(it.txt)} \u2014 ${esc(ANN_SHAPE_LBL[sh]||sh)}${
+      `<title>${esc(it.cat)}: ${esc(it.full||it.txt)} \u2014 ${esc(ANN_SHAPE_LBL[sh]||sh)}${
          it.wSet? ', '+Math.round(it.w)+'px wide' : ''}. Click to edit, drag the corner to resize it, drag
          another shape onto it to change it, double-click to step through the shapes, clear the box to
          remove</title>`;
@@ -6831,7 +6865,7 @@ function renderFsumLv(){
    invented. */
 function fsumNoteLines(rows){
   const named=cfgNameList('fsum_note_lines');
-  const hasWritten=n=>!!(comWritten('line',[n])[0]||driverFor(n));
+  const hasWritten=n=>!!(comForLine(n,'line')[0]||driverFor(n));
   const tree=fsumTree(rows).filter(r=>!r.band&&r.name);
   if(named.length){
     const by=new Map(tree.map(r=>[String(r.name).trim().toLowerCase(), r]));
@@ -6846,8 +6880,8 @@ function fsumNoteLines(rows){
 function fsumNoteText(name, rs, m, P){
   // what the business wrote about this line, else the driver note, else the
   // line reads its own figures
-  const own=comWritten('line', [name])[0]||driverFor(name);
-  if(own) return {html:esc(own), own:true};
+  const own=comForLine(name,'line')[0]||driverFor(name);
+  if(own&&comStyle()==='verbatim') return {html:esc(own), own:true};
   const f=fsumFigs(rs, m, P, S.ytdM, name), k=f.k;
   const nf=v=>f.ratio? fsumRatioTxt(v) : f.bsFmt? fmtBS(v)+bsUnit() : fmtFull(Math.round(v==null?0:v));
   // the line's own unit and the page's movement convention, so the note and
@@ -6861,6 +6895,9 @@ function fsumNoteText(name, rs, m, P){
   if(f.yVsPY!=null)  bits.push(`${va(f.yVsPY,f.yVsPYP)} vs prior year`);
   let h=`${esc(P.ytdLbl)} <b>${nf(f.ytd)}</b>${bits.length? ' \u2014 '+bits.join(', ') : ''}`;
   if(f.mVsFc!=null) h+=`; ${esc(MON_LBL[S.ytdM])} ${va(f.mVsFc,null)} vs forecast`;
+  // the figures the page computed, then the reason the business gave for them
+  if(own){ const d=comDigest(own, name);
+    if(d) return {html:h+'; '+esc(d)+(/[\u2026.!?]$/.test(d)?'':'.'), own:true}; }
   return {html:h+'.', own:false};
 }
 function renderFsumNotes(rows, m, P){
@@ -6868,7 +6905,7 @@ function renderFsumNotes(rows, m, P){
   const mode=String(cfgS('fsum_notes')||'auto').trim().toLowerCase();
   if(mode==='n'){ host.hidden=true; host.innerHTML=''; return; }
   const lines=fsumNoteLines(rows);
-  const anyOwn=lines.some(l=>comWritten('line',[l.name])[0]||driverFor(l.name));
+  const anyOwn=lines.some(l=>comForLine(l.name,'line')[0]||driverFor(l.name));
   if(!lines.length||(mode!=='y'&&!anyOwn&&!cfgNameList('fsum_note_lines').length)){
     host.hidden=true; host.innerHTML=''; return;
   }
@@ -6880,8 +6917,8 @@ function renderFsumNotes(rows, m, P){
   }).join('');
   host.innerHTML=`<h4>Line commentary</h4>
     <p class="subtitle">${esc(P.ytdLbl)} \u00b7 ${scopeTrail()? 'Global Business '+esc(scopeTrail())+' \u00b7 ' : ''}${
-      anyOwn? 'your notes lead; a line without one reads its own figures'
-            : 'each line reads its own figures \u2014 add a note in Drivers to replace it'}</p>
+      anyOwn? 'each line reads its own figures, then the reason the commentary gave for them'
+            : 'each line reads its own figures \u2014 load a commentary file to add the reasons'}</p>
     <div class="lnotes">${items}</div>`;
 }
 /* the lines a page-level block is about, so a note written for one of them is
@@ -8247,11 +8284,71 @@ function comLead(view, names){
   const t=comWritten(view, names);
   return t.length? `<span class="drvlead">${t.map(x=>esc(x)).join(' ')}</span> ` : '';
 }
+/* ---- composing, rather than quoting ------------------------------------
+   The page has the figures and the document has the reason. Left alone, the
+   two are printed one after the other and the same facts are read twice: the
+   paragraph says "Global Trade Solutions came in light", the sentence beneath
+   says it is 754 and 15 behind target.
+
+   So the page writes the sentence and takes only the telling clause from the
+   document. Nothing is reworded — every word kept is the writer's own, in the
+   writer's order. What this does is choose: it drops a sentence that only
+   restates the line's name, drops the name where the figures already carry it,
+   and stops at a clause boundary rather than running the whole paragraph into
+   a chart. The full text is always a click away on the note, and
+   commentary_style:'verbatim' prints the paragraph exactly as before. */
+function comStyle(){
+  return String(cfgS('commentary_style')||'compose').trim().toLowerCase()==='verbatim'
+    ? 'verbatim' : 'compose';
+}
+function comClauseMax(){ const v=parseInt(cfgS('commentary_clause_max'),10);
+  return isFinite(v)&&v>40? v : 150; }
+function comDigest(txt, line, cap){
+  const full=String(txt==null?'':txt).trim();
+  if(!full||comStyle()==='verbatim') return full;
+  const strip=x=>{
+    let t=String(x).replace(/^[\s—\u2013-]+/,'');
+    if(line){
+      const n=String(line).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      t=t.replace(new RegExp('^'+n+'\\b[\\s,:;—\u2013-]*','i'),'');
+    }
+    // an opener that carries nothing: the clause reads the same without it
+    return t.replace(/^(?:and|but|so|also|overall|meanwhile|in addition|that said)\s+/i,'').trim();
+  };
+  const sents=full.split(/(?<=[.;])\s+/).map(x=>x.trim()).filter(Boolean);
+  const words=x=>strip(x).split(/\s+/).filter(Boolean).length;
+  // a sentence that only names the line and calls it light or strong says
+  // nothing the variance beside it does not
+  const useful=sents.filter(x=>words(x)>=4);
+  const pool=useful.length? useful : sents;
+  let out=strip(pool[0]);
+  if(out.length<60&&pool[1]) out+=' '+strip(pool[1]);
+  out=out.replace(/\s+/g,' ').trim();
+  const CAP=cap||comClauseMax();
+  if(out.length>CAP){
+    const cut=out.slice(0,CAP);
+    // a strong boundary first; a bare comma or a word boundary only as a fallback
+    const strong=Math.max(cut.lastIndexOf(', and '), cut.lastIndexOf(', but '),
+      cut.lastIndexOf(', which '), cut.lastIndexOf('; '));
+    // a clause joined without a comma still reads as a clause
+    const soft=Math.max(cut.lastIndexOf(' and '), cut.lastIndexOf(' but '),
+      cut.lastIndexOf(' while '), cut.lastIndexOf(' which '));
+    let t=strong>40? cut.slice(0,strong)
+      : soft>40? cut.slice(0,soft)
+      : cut.slice(0, Math.max(cut.lastIndexOf(', '), cut.lastIndexOf(' ')));
+    t=t.replace(/[\s,;:]+$/,'');
+    // never stop on a word that leaves the clause in mid-air
+    const HANG=/\b(?:and|but|or|that|which|is|are|was|were|to|of|the|a|an|in|on|for|with|than|before|after|as|by|from|at|its|it)$/i;
+    while(t.length>40&&HANG.test(t)) t=t.replace(/\s+\S+$/,'').replace(/[\s,;:]+$/,'');
+    out=t+(t.length<out.length-2? '\u2026' : '');
+  }
+  return out.replace(/[\s,;:]+$/,'').replace(/\.$/,'');
+}
 /* commentary written about a named line — the only kind a chart mark can
    carry. A line written for a whole view belongs in the block, not on a bar. */
-function comForLine(name){
+function comForLine(name, view){
   return comInAll().filter(c=>String(c.line==null?'':c.line).trim()
-    &&comViewOK(c.view,'chart')&&comMatchLine(c.line,[name]))
+    &&comViewOK(c.view, view||'chart')&&comMatchLine(c.line,[name]))
     .map(c=>String(c.text).trim());
 }
 function comInSig(){ return comInAll().map(c=>[c.view,c.line,c.text].join('~')).join(';'); }
@@ -9443,7 +9540,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 08:46</td></tr>
+      <tr><td>Build</td><td>2026-08-13 09:00</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
