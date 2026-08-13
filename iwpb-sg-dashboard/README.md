@@ -1093,6 +1093,13 @@ real data. Regenerate with:
 cd sample && python3 make_sample.py   # needs openpyxl
 ```
 
+`sample/IWPB_SG_Driller_sixbasis.xlsx` is the same IWPB structure carrying
+every comparison the pack writes commentary on at once — prior-year months and
+quarters, a June YTD target, July–December forecast months, an FY-26 forecast,
+an FY-25 actual and an FY-26 target — so **All commentaries** offers all six
+bases and the **⤓ Word** download comes out complete. Regenerate with
+`python3 make_sample_sixbasis.py`.
+
 ### Two worked reporting packs
 
 Two config workbooks in the repo root carry a real pack's structure end to

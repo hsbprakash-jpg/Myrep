@@ -993,7 +993,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 12:05</div>
+<div id="buildTag">build 2026-08-13 12:21</div>
 </aside>
 <main>
 
@@ -1133,7 +1133,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <h4 style="margin:0">Commentary</h4>
         <label class="calbl">Basis <select id="caBasis"></select></label>
         <span style="flex:1"></span>
-        <button class="btn-quiet" id="btnCaWord">\u2913 Word</button>
+        <button class="btn-quiet" id="btnCaWord">⤓ Word</button>
         <button class="btn-quiet" id="btnCaOrig">Original</button>
         <button class="btn-quiet" id="btnCaCur">Current Commentary</button>
         <button class="linklike" id="btnCaExpand">Expand all</button>
@@ -10002,7 +10002,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 12:05</td></tr>
+      <tr><td>Build</td><td>2026-08-13 12:21</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
