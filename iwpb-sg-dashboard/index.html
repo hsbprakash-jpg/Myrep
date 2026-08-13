@@ -632,6 +632,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .annchip.dragging{opacity:.45}
 svg .anndrop{stroke:var(--hsbc-red);stroke-width:2;stroke-dasharray:3 2}
 svg g.annote text{pointer-events:none}
+svg g.anngrip{cursor:ew-resize;pointer-events:auto;transition:opacity .1s}
+svg g.annote:hover .anngrip{opacity:1}
 svg g.annote-plain text{pointer-events:auto;paint-order:stroke}
 svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 #fsumNotes{margin-top:14px;border-top:2px solid var(--text-primary);padding-top:10px}
@@ -917,7 +919,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-12 19:24</div>
+<div id="buildTag">build 2026-08-13 06:06</div>
 </aside>
 <main>
 
@@ -3744,6 +3746,7 @@ function svgToPngData(svgEl, scale){
       }
       for(let i=0;i<src.children.length;i++) walk(src.children[i],dst.children[i]);
     })(svgEl,clone);
+    clone.querySelectorAll('.anngrip').forEach(e=>e.remove());   // an on-screen handle, not part of the note
     const vb=svgEl.viewBox&&svgEl.viewBox.baseVal;
     const w=(vb&&vb.width)||svgEl.clientWidth||600, h=(vb&&vb.height)||svgEl.clientHeight||300;
     clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
@@ -4704,17 +4707,37 @@ function annShapeDefault(){
 function annNotes(key){
   const raw=annStoreGet()[key]||{}, out={};
   for(const [c,v] of Object.entries(raw))
-    out[c]= (v&&typeof v==='object')? {t:String(v.t||''), s:v.s||annShapeDefault()}
-                                    : {t:String(v||''), s:annShapeDefault()};
+    out[c]= (v&&typeof v==='object')
+      ? {t:String(v.t||''), s:v.s||annShapeDefault(), w:+v.w||0}
+      : {t:String(v||''), s:annShapeDefault(), w:0};
   return out;
 }
 function annSet(key, cat, txt, shape){
   const o=annStoreGet(); const n=o[key]||{};
-  const cur=n[cat];
-  const keep=shape||((cur&&typeof cur==='object'&&cur.s)||annShapeDefault());
-  if(txt&&String(txt).trim()) n[cat]={t:String(txt).trim(), s:keep}; else delete n[cat];
+  const cur=(n[cat]&&typeof n[cat]==='object')? n[cat] : null;
+  const keep=shape||(cur&&cur.s)||annShapeDefault();
+  // the width the note was dragged to is the reader's decision, not the text's:
+  // it survives a rewrite and a change of shape
+  if(txt&&String(txt).trim()){
+    n[cat]={t:String(txt).trim(), s:keep};
+    if(cur&&+cur.w) n[cat].w=+cur.w;
+  } else delete n[cat];
   if(Object.keys(n).length) o[key]=n; else delete o[key];
   annStoreSet(o);
+}
+/* how wide the reader dragged this note. Clearing it hands the width back to
+   the layout, which sizes the note around its words. */
+const ANN_WMIN=96, ANN_WMAX=900;
+function annSetW(key, cat, w){
+  const o=annStoreGet(), n=o[key]; if(!n) return false;
+  const cur=n[cat]; if(!cur||typeof cur!=='object') return false;
+  cur.w=Math.round(Math.max(ANN_WMIN, Math.min(ANN_WMAX, w)));
+  annStoreSet(o); return true;
+}
+function annClearW(key, cat){
+  const o=annStoreGet(), n=o[key]; if(!n) return false;
+  const cur=n[cat]; if(!cur||typeof cur!=='object'||!cur.w) return false;
+  delete cur.w; annStoreSet(o); return true;
 }
 /* a shape dropped on a mark: a note already there is simply redrawn that way,
    a bare mark is asked for its words first */
@@ -4757,7 +4780,7 @@ function annPaletteHtml(){
       title="${esc(ANN_SHAPE_LBL[sh]||sh)} \u2014 drag it onto a bar, or tap it and then tap a bar"
       aria-label="${esc(ANN_SHAPE_LBL[sh]||sh)}">${annShapeIcon(sh)}</span>`).join('')+
     `<span class="annpal-hint">drag a shape onto a bar \u00b7 double-click a bar to write a note \u00b7
-       click a note to edit it</span></div>`;
+       click a note to edit it \u00b7 drag a note's corner to set how wide it is</span></div>`;
 }
 /* the shape currently being dragged — a drag over an SVG cannot read the
    dataTransfer, so the palette says here what is in flight */
@@ -4766,16 +4789,26 @@ function annHover(svg, el){
   svg.querySelectorAll('.anndrop').forEach(e=>e.classList.remove('anndrop'));
   if(el&&!el.closest('g.annote')) el.classList.add('anndrop');
 }
-/* wrap the note to a readable width, at most four lines */
+/* Wrap the note to the width it is drawn at. Every word is kept — a note that
+   loses its tail is worse than a note that runs to another line — and the card
+   grows downward to hold them, up to a sane ceiling. */
+const ANN_MAXLINES=14;
 function annWrap(txt, per){
-  const words=String(txt).split(/\s+/), out=[]; let line='';
-  for(const w of words){
-    if((line+' '+w).trim().length>per){ out.push(line.trim()); line=w; if(out.length===3) break; }
-    else line=(line+' '+w).trim();
+  const cap=Math.max(6, Math.floor(per||30));
+  const out=[]; let line='';
+  for(let w of String(txt).split(/\s+/).filter(Boolean)){
+    // a single word longer than the line is broken rather than left to overflow
+    while(w.length>cap){
+      if(line){ out.push(line); line=''; }
+      if(out.length>=ANN_MAXLINES) return out;
+      out.push(w.slice(0,cap-1)+'\u2010'); w=w.slice(cap-1);
+    }
+    if(line&&(line+' '+w).length>cap){ out.push(line); line=w; }
+    else line=line? line+' '+w : w;
+    if(out.length>=ANN_MAXLINES) return out;
   }
-  if(line&&out.length<4) out.push(line.trim());
-  if(out.length===4&&words.join(' ').length>out.join(' ').length) out[3]=out[3].slice(0,per-1)+'\u2026';
-  return out.filter(Boolean);
+  if(line&&out.length<ANN_MAXLINES) out.push(line);
+  return out;
 }
 function annDraw(svg, key){
   svg.querySelectorAll('g.annote, g.annleads').forEach(g=>g.remove());
@@ -4810,14 +4843,17 @@ function annDraw(svg, key){
     if(!el) continue;
     let bb; try{ bb=el.getBBox(); }catch(e){ continue; }
     if(!bb||(!bb.width&&!bb.height)) continue;
-    const lines=annWrap(txt, 30);
     // the mark's own name heads the note, as the pack's callouts do
     const head=(shape==='plain')? '' : String(cat).toUpperCase();
     const headW=head? 6.6*Math.min(head.length,34)+4 : 0;
     const pad=shape==='oval'? 32 : shape==='cloud'? 44 : shape==='plain'? 4 : shape==='tag'? 28 : 24;
-    const w=Math.min(Math.max(vw*0.9,140),
-      Math.max(112, Math.max(6.35*Math.max(...lines.map(l=>l.length)), headW)+pad));
-    items.push({cat, txt, shape, bb, lines, head, w, el,
+    // the width the reader dragged the note to, else one that sits around a
+    // thirty-character line — and the words are wrapped into whichever it is
+    const auto=Math.min(Math.max(vw*0.9,140),
+      Math.max(112, Math.max(6.35*Math.max(...annWrap(txt,30).map(l=>l.length)), headW)+pad));
+    const w=note.w? Math.min(Math.max(note.w, ANN_WMIN), Math.max(ANN_WMIN+40, vw)) : auto;
+    const lines=annWrap(txt, (w-pad)/6.35);
+    items.push({cat, txt, shape, bb, lines, head, w, el, wSet:!!note.w,
       h:lines.length*14+(head? 17 : 0)+(shape==='oval'? 22 : shape==='cloud'? 30 : shape==='plain'? 6 : 16),
       horiz:bb.width>bb.height*1.6});   // a horizontal bar is written to its right
   }
@@ -5004,12 +5040,27 @@ function annDraw(svg, key){
     const ty0=ty+(it.head? 17 : 0);
     const g=document.createElementNS(NS,'g');
     g.setAttribute('class','annote annote-'+sh); g.setAttribute('data-cat',it.cat);
+    // what the grip needs to know to resize this note without measuring again
+    g.dataset.annx=it.x.toFixed(1); g.dataset.annw=it.w.toFixed(1);
+    g.dataset.annhoriz=it.horiz? '1' : '0';
+    // the corner grip: drag it to set how wide the note is, double-click it to
+    // hand the width back to the layout. It is invisible until the note is
+    // under the pointer, and never travels into a PNG or a slide.
+    const grip=`<g class="anngrip" opacity="0"
+        transform="translate(${(it.x+it.w).toFixed(1)},${(it.y+it.h).toFixed(1)})">
+        <rect x="-13" y="-13" width="15" height="15" rx="3" fill="var(--surface-1)"
+          stroke="var(--border-strong)" stroke-width="1"/>
+        <path d="M -10 -2 L -2 -10 M -6 -2 L -2 -6" stroke="var(--hsbc-red)"
+          stroke-width="1.4" stroke-linecap="round" fill="none"/>
+        <title>Drag to set how wide this note is \u2014 double-click to size it to its words</title></g>`;
     leadHtml+=leader+dot+puffs;
     g.innerHTML=shadow+body+accent+tail+head+
       it.lines.map((l,i)=>`<text x="${tx.toFixed(1)}" y="${(ty0+i*14).toFixed(1)}" font-size="11"
-         fill="var(--text-primary)"${sh==='plain'? ' font-weight="700"':''}>${esc(l)}</text>`).join('')+
-      `<title>${esc(it.cat)}: ${esc(it.txt)} \u2014 ${esc(ANN_SHAPE_LBL[sh]||sh)}. Click to edit, drag another
-         shape onto it to change it, double-click to step through the shapes, clear the box to remove</title>`;
+         fill="var(--text-primary)"${sh==='plain'? ' font-weight="700"':''}>${esc(l)}</text>`).join('')+grip+
+      `<title>${esc(it.cat)}: ${esc(it.txt)} \u2014 ${esc(ANN_SHAPE_LBL[sh]||sh)}${
+         it.wSet? ', '+Math.round(it.w)+'px wide' : ''}. Click to edit, drag the corner to resize it, drag
+         another shape onto it to change it, double-click to step through the shapes, clear the box to
+         remove</title>`;
     g.style.cursor='pointer';
     svg.appendChild(g);
   }
@@ -5037,6 +5088,10 @@ function annAttach(wrap, cfg, redraw){
       const t=e.target.closest('[data-cat]'); if(!t) return;
       e.preventDefault(); e.stopPropagation();
       const cat=t.getAttribute('data-cat');
+      // on the grip: size the note to its words again
+      if(e.target.closest('.anngrip')){
+        annClearW(key, cat); redraw? redraw() : annDraw(svg, key); return;
+      }
       // on a mark: write the note. On a note already there: change its shape.
       if(t.closest('g.annote')){ annCycleShape(key, cat); redraw? redraw() : annDraw(svg, key); return; }
       if(annPrompt(key, cat)) redraw? redraw() : annDraw(svg, key);
@@ -5044,6 +5099,7 @@ function annAttach(wrap, cfg, redraw){
     // a single click on a note edits it, so a pinned note never needs hunting —
     // unless a shape is armed on the palette, in which case the click places it
     svg.addEventListener('click',e=>{
+      if(e.target.closest('.anngrip')||svg.dataset.annSizing) return;
       const t=e.target.closest('[data-cat]');
       const armed=wrap.querySelector('.annchip.armed');
       if(armed&&t){
@@ -5055,6 +5111,31 @@ function annAttach(wrap, cfg, redraw){
       const g=e.target.closest('g.annote'); if(!g) return;
       e.preventDefault(); e.stopPropagation();
       if(annPrompt(key, g.getAttribute('data-cat'))) redraw? redraw() : annDraw(svg, key);
+    });
+    // the corner grip: drag it sideways to set how wide the note is. The scale
+    // is read once, at the start, so the note rewrapping under the pointer
+    // cannot move the ground the drag is measured against.
+    svg.addEventListener('pointerdown',e=>{
+      const gp=e.target.closest? e.target.closest('.anngrip') : null; if(!gp) return;
+      const g=gp.closest('g.annote'); if(!g) return;
+      e.preventDefault(); e.stopPropagation();
+      const cat=g.getAttribute('data-cat');
+      const w0=parseFloat(g.dataset.annw)||140, horiz=g.dataset.annhoriz==='1';
+      const m=svg.getScreenCTM(); const sc=(m&&m.a)? m.a : 1;
+      const x0=e.clientX;
+      // a centred note grows from both sides at once, so the corner keeps up
+      // with the pointer; a note in the side column grows to the right only
+      const grow=horiz? 1 : 2;
+      svg.dataset.annSizing='1';
+      const move=ev=>{
+        annSetW(key, cat, w0+((ev.clientX-x0)/sc)*grow);
+        redraw? redraw() : annDraw(svg, key);
+      };
+      const up=()=>{
+        window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',up);
+        setTimeout(()=>{ delete svg.dataset.annSizing; }, 0);
+      };
+      window.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
     });
     // a shape dragged off the palette and dropped on a bar, a point or a slice
     svg.addEventListener('dragover',e=>{
@@ -8798,7 +8879,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-12 19:24</td></tr>
+      <tr><td>Build</td><td>2026-08-13 06:06</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

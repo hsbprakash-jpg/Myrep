@@ -444,6 +444,20 @@ left-pane strip and the Filters pane.
   Double-clicking a bar still writes a note in the default shape, clicking a
   note still edits it, and double-clicking a note still steps it through the
   shapes.
+- **Drag the corner to set how wide a note is** — hover a note and a small
+  grip appears on its bottom-right corner. Drag it sideways and the note takes
+  that width, the text rewraps into it as you drag, and the card grows or
+  shrinks downward to hold the lines. **Double-click the grip** to hand the
+  width back to the layout, which sizes the note around its words again. The
+  width is stored with the note, so it survives a rewrite, a change of shape, a
+  re-render and a reload — and it travels into the PNG and the slide. The grip
+  itself is a screen handle only: it never appears in an export.
+- **Every word is kept** — a note used to stop at four lines and finish with an
+  ellipsis. It now wraps the whole comment however narrow the box, up to
+  fourteen lines, and a single word too long for the line is broken rather than
+  left to run out of the box. Between that and the corner grip, a long comment
+  is managed by making the box the shape you want rather than by losing its
+  tail.
 - **Leaders run beneath the cards** — every hairline, anchor dot and cloud
   puff is drawn in one layer under all the note cards, so a line to one bar
   never runs across the note pinned on another. A note also clears the
