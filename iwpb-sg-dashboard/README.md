@@ -493,6 +493,17 @@ left-pane strip and the Filters pane.
   mover is named by country alone, as the pack does. Balances follow at the end
   in billions, then the memo lines.
 
+  **It is set like the document it comes from.** The opening statement stands
+  alone with a line under it; each line of the statement is its own paragraph
+  with air around it; the lines beneath are indented and bulleted, and the level
+  below that indented again with a lighter bullet. Past that the pack does not
+  indent again and neither does this — it names them inline, *"Credit and
+  Lending $13mA 2.0% of which Portfolio Management $0mF 2.0%, Corporate Lending
+  $13mA 2.0%"*. A line either opens into its own lines or says what drove it,
+  never a colon with nothing after it. The same typography applies to the
+  management commentary and the Financial Summary block, which are set the same
+  way.
+
   Each section reads as the pack reads: the result, what moved it and what
   worked the other way — *"PBT (Reported) is $101m down vs Target driven by
   lower PBT (ex Notables) ($102mA 2.0%), offset by lower Notables ($1mF 2.0%)"*

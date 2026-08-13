@@ -589,6 +589,15 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .aicom-t{font-size:12.5px;line-height:1.55;color:var(--text-secondary);outline:none;min-height:18px;
   overflow-wrap:anywhere;word-break:normal;white-space:normal}
 .aicom-t b{color:var(--text-primary);font-variant-numeric:tabular-nums}
+.aicom-t p{margin:0 0 9px}
+.aicom-t p:last-child{margin-bottom:0}
+.aicom-t ul,.aicom-t .houselist{margin:5px 0 11px 22px;padding:0;list-style:disc outside}
+.aicom-t ul ul,.aicom-t .houselist .houselist{margin:4px 0 7px 20px;list-style:circle outside}
+.aicom-t li{margin:4px 0;line-height:1.55;padding-left:3px}
+.aicom-t li>b:first-child{color:var(--text-primary)}
+/* the opening statement stands on its own, with a line under it */
+.aicom-t p.ca-head{margin:0 0 12px;padding-bottom:9px;border-bottom:1px solid var(--border-strong)}
+.aicom-t p.ca-sub{margin:0 0 8px}
 .aicom-t:focus{background:var(--surface-1);border-radius:4px}
 .aicom-note{color:var(--text-muted);font-size:10.5px}
 .lvbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:6px 10px;
@@ -983,7 +992,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 10:55</div>
+<div id="buildTag">build 2026-08-13 11:45</div>
 </aside>
 <main>
 
@@ -3475,8 +3484,11 @@ function slideCommentaryHtml(){
   for(const g of parts){
     const kids=LV[2]? slGroups(g.rs, LV[2]) : [];
     if(kids.length>1){
+      // the colon introduces the lines beneath; where the commentary's own
+      // clause has just been given, it ends the sentence instead
+      const tl=comTail(g.name);
       h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${slVal(g.k.cmpMain)}</b> `+
-        `is ${slVar(g.k)}${nt}${comTail(g.name)}:</p><ul class="houselist">`;
+        `is ${slVar(g.k)}${nt}${tl||':'}</p><ul class="houselist">`;
       for(const c of kids) h+=`<li><b>${esc(c.name)}</b> ${slVar(c.k)}${slDrivers(c.rs,dimKey,N)}${comTail(c.name)}</li>`;
       h+='</ul>';
     } else {
@@ -6448,7 +6460,7 @@ function caSectionHtml(sec){
   const sameWay=x=>resQ.va>=0? x.q.va>=0 : x.q.va<0;
   const on=parts.filter(sameWay).slice(0,3), off=parts.filter(x=>!sameWay(x)).slice(0,3);
   const one=x=>`${faWord(x.q.f.k, x.q.val)} ${esc(x.r.name)} (${caVar(x.q)})`;
-  let h=`<p><b>${esc(res.name)}</b> is ${caAmt(resQ.f, resQ.va, false)} ${
+  let h=`<p class="ca-head"><b>${esc(res.name)}</b> is ${caAmt(resQ.f, resQ.va, false)} ${
     faWord(resQ.f.k, resQ.val)==='higher'? 'up' : 'down'} vs ${esc(sec.base)}`;
   if(on.length) h+=` driven by ${on.map(one).join(' and ')}`;
   if(off.length) h+=`${on.length?', ':' '}offset by ${off.map(one).join(' and ')}`;
@@ -6458,13 +6470,20 @@ function caSectionHtml(sec){
   const lineHtml=(x, depth)=>{
     const kids=kidsOf(x.r).map(qOf).filter(y=>y.q.va!=null);
     const val=caAmt(x.q.f, x.q.val, false), va=caVar(x.q);
-    const drv=kids.length? '' : caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 4 : 5);
+    // A line either opens into its own lines or says what drove it — never a
+    // colon with nothing after it. Past the second level the pack does not
+    // indent again: it names them inline, "of which X, Y".
+    const listed=kids.length&&depth<2;
+    const inlined=kids.length&&!listed
+      // "of which o/w Corporate Lending" says it twice: the prefix goes
+      ? ' of which '+kids.slice(0,3).map(k2=>
+          `<b>${esc(String(k2.r.name).replace(/^o\/w\s+/i,''))}</b> ${caVar(k2.q)}`).join(', ')
+      : '';
+    const tail=listed? ':' : (inlined||caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 4 : 5));
     let t=depth
-      ? `<li><b>${esc(x.r.name)}</b> ${va}${kids.length? ':' : drv}`
-      : `<p style="margin:10px 0 2px"><b>${esc(x.r.name)}</b> of ${val} are ${va}${kids.length? ':' : drv}</p>`;
-    if(kids.length&&depth<2){
-      t+='<ul class="houselist">'+kids.map(k2=>lineHtml(k2, depth+1)).join('')+'</ul>';
-    }
+      ? `<li><b>${esc(x.r.name)}</b> ${va}${tail}`
+      : `<p class="ca-sub"><b>${esc(x.r.name)}</b> of ${val} are ${va}${tail}</p>`;
+    if(listed) t+='<ul class="houselist">'+kids.map(k2=>lineHtml(k2, depth+1)).join('')+'</ul>';
     if(depth) t+='</li>';
     return t;
   };
@@ -9936,7 +9955,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 10:55</td></tr>
+      <tr><td>Build</td><td>2026-08-13 11:45</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
