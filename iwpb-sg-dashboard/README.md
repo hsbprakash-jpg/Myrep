@@ -488,6 +488,15 @@ left-pane strip and the Filters pane.
   - the **Paste commentary** box under Drivers in the left pane, for words that
     arrive in an email. One line each: `View | Line | Text`, or `Line: Text`, or
     a bare sentence.
+  - **Load commentary file** — a separate upload beside it, taking the commentary
+    exactly as it was written: **.docx**, .txt, .md, .csv or .xlsx. Nothing about
+    its layout is assumed. A Word file is unzipped and read in the browser from
+    its own zip directory — no library, and the file never leaves the machine.
+    Its title line is recognised as a heading and skipped, then each paragraph is
+    matched against the names your driller carries (see below). A paragraph
+    covering several lines is split so each sentence keeps its own; a paragraph
+    naming nothing belongs to the view. Rows that aim themselves — a three-column
+    sheet, or `Wealth: …` — are taken at their word rather than matched.
 
   `View` aims the line — `Summary`, `Financial Summary` (or whatever the view has
   been renamed to), `Chart`, `Dashboard`, or blank for all of them. `Line` names
@@ -497,6 +506,36 @@ left-pane strip and the Filters pane.
   the rest. A written line also leads its own row in the Line commentary column,
   ahead of the Drivers note. Editing a block and keeping it still works: the
   written words refresh in place on the next ingest while your own edits stay.
+
+  **How it decides which line a comment is about.** This is text matching
+  against the names in your own file. It reads names; it does not understand
+  banking. Four things can resolve a sentence, and the left pane says which one
+  fired for each line so the answer can be checked:
+
+  | | Example |
+  |---|---|
+  | **Alias** set in the configuration | `NII` → `NII - Interest Income` |
+  | **The name**, written out | "Banking NII held up" → `Banking NII` |
+  | **The acronym** of the name | `GTS` → `Global Trade Solutions` |
+  | **A short form or a telling word** that can only mean one line | `NII` → the NII line, where every other NII line sits beneath it; `deposits` → `Customers and Banks Deposits (PE)`, the only line carrying the word |
+
+  Common banking terms read the same either way round, so `Net interest income`
+  finds a line called `NII` and `expected credit losses` finds `ECLs` — NII,
+  ECL, RWA, PBT, VP, AUM, RoTE, CER, NNIA.
+
+  Where a sentence names two lines the **earlier one wins**, because a sentence
+  is about its subject: *"NII was the main driver of the revenue beat"* is about
+  NII, not Revenue. The other name is reported beside the row rather than
+  silently dropped.
+
+  Where a term could mean more than one line **nothing is pinned** — a wrong
+  line is worse than no line — and the pane says why: *"'deposits' could be
+  Customer Deposits (PE) or Customers and Banks Deposits (PE) — set an alias"*.
+  An **`Aliases`** section in the configuration (`Alias | Line`) settles it for
+  good and wins over everything else. Acronyms are derived only from names of
+  three or more real words, so a two-letter initialism cannot collide with an
+  English word: `Opex Notables` gave `ON`, and every sentence containing "on"
+  matched it.
 - **Commentary pinned onto the charts** — a written line aimed at a name shows
   as a note on the mark it names, on every chart where that name is a category:
   the words reach the graph, not only the block. It is capped at three notes a
