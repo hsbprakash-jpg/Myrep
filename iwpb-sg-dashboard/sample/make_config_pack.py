@@ -19,6 +19,7 @@ HEADERS = {
     'Labels':           ['Key', 'Text'],
     'Drivers':          ['Key', 'Driver note'],
     'Metrics':          ['Key', 'Scope'],
+    'Commentary':       ['View', 'Line', 'Text'],
     'ProductHierarchy': ['ID', 'Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Match'],
 }
 
@@ -78,6 +79,28 @@ sections['Metrics'] = [
     ['Deposits',                  'accH2=Deposits'],
     ['Loans and Advances',        'accH2=Loans and Advances'],
 ]
+
+# the month's written commentary: bare paragraphs, matched against the
+# driller's own names when read — the driller itself carries figures only
+sections['Commentary'] = [[t] for t in [
+    "NII carried the half. Deposit margin held better than the plan assumed as "
+    "the pass-through on time deposits was slower than expected.",
+    "Net Fee Income was the softer line. Investment activity thinned after the "
+    "March rally and brokerage volumes have not come back, though the recurring "
+    "wealth fee base is unchanged.",
+    "Deposits ended the half broadly flat. The migration from current accounts "
+    "into time deposits continued at much the same pace as the first quarter.",
+    "Loans grew on mortgage completions that had been sitting in the pipeline "
+    "since February.",
+    "Cards spend was seasonally strong in June but the balance build is behind "
+    "where the plan had it.",
+    "Insurance new business held up against a soft market, helped by the "
+    "bancassurance push in the second quarter.",
+    "Trading Income was flat and is not expected to move materially in the "
+    "second half.",
+    "The half closed ahead of plan on revenue, with costs the watch item into "
+    "the second half.",
+]]
 
 for sec, hdr in HEADERS.items():
     sheet(sec, hdr, sections.get(sec, []), [26, 52, 30, 30, 30, 30, 40])

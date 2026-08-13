@@ -80,6 +80,20 @@ sheet('Labels', ['Key','Text'],
       [['nav_summary','KPI summary'], ['nav_fsum','Financial Summary'],
        ['sect_kpis','KPIs · CIB lines']], [22, 30])
 sheet('Drivers', ['Key','Driver note'], [], [26, 60])
+# the month's written commentary — addressed rows and bare paragraphs alike
+# live here, in the pack, not in the driller
+sheet('Commentary', ['View','Line','Text'], [
+ ['Financial Summary','Revenue',
+  'Rates and FX carried the half; deposit margin narrowed broadly as planned.'],
+ ['Chart','Markets and Securities Services',
+  'Rates and FX led the half while Custody stayed soft.'],
+ ['Chart','Global Trade Solutions',
+  'Drawdowns slipped into July - timing, not demand. The pipeline is intact.'],
+ ['Summary','',
+  'June closes the half ahead of plan on revenue and behind on costs.'],
+ ['','Global Payments Solutions',
+  'Payments volumes held up well; liquidity margin thinner as rates came off.'],
+], [20, 34, 70])
 
 # ---------------- Metrics: the KPI tiles ----------------
 MET = [

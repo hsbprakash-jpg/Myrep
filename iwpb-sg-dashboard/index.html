@@ -973,16 +973,16 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <p class="hint2" data-lbl="drv_hint">Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.</p>
     <div id="drvList"></div>
     <button class="btn-quiet" id="btnDrvAdd" style="margin:6px 18px 0">+ Add driver</button>
-    <p class="hint2" data-lbl="comload_hint">Written commentary travels inside the driller — a
-      <b>Commentary</b> tab — or the configuration. Bare paragraphs are read against the names in
-      the driller and lead the blocks they name; nothing is reworded.</p>
+    <p class="hint2" data-lbl="comload_hint">Written commentary lives in the configuration —
+      <b>Commentary</b> rows, addressed or bare paragraphs. Bare paragraphs are read against the
+      names in the driller and lead the blocks they name; nothing is reworded.</p>
     <p class="hint2" id="comInNote"></p>
   </div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 14:17</div>
+<div id="buildTag">build 2026-08-13 14:26</div>
 </aside>
 <main>
 
@@ -1572,6 +1572,7 @@ const CFG_DEFAULT={
   ]},
   drivers:{},
   commentary:[],
+  comFree:[],
   aliases:[],
   views:{summary:'Y',fsum:'Y',comall:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
   labels:{
@@ -6582,7 +6583,7 @@ function renderComAll(){
     <div><span class="cmk">Basis</span><span class="cmv">${esc(cmpLabels(m).period)}</span></div>
     <div><span class="cmk">Scope</span><span class="cmv">${esc(filterNote(true))}</span></div>
     <div><span class="cmk">Source</span><span class="cmv">${esc(S.fileName||'—')}</span></div>
-    <div><span class="cmk">Written commentary</span><span class="cmv">${nCom? nCom+' line'+(nCom===1?'':'s')+' in the file & config' : 'None in the file'}</span></div>
+    <div><span class="cmk">Written commentary</span><span class="cmv">${nCom? nCom+' line'+(nCom===1?'':'s')+' in the configuration' : 'None configured'}</span></div>
   </div>`;
   host.innerHTML='';
   // which comparisons this file can make at all
@@ -8657,20 +8658,20 @@ function definedDrivers(){
    A written line is aimed with two columns: which view it belongs to (blank =
    all of them) and which line, product or region it is about (blank = the view
    as a whole). */
-/* The unstructured paragraphs of the driller's own Commentary tab, matched
-   against the names the driller itself carries. The raw words are kept and the
-   matching is done fresh whenever they are read, so next month's file
-   re-matches next month's paragraphs without anyone tagging a thing. */
-let COM_DOC_CACHE=null, COM_DOC_M=null;
+/* The configuration's unstructured paragraphs, matched against the names the
+   driller itself carries. The raw words are kept and the matching is done
+   fresh whenever they are read, so next month's driller re-matches the same
+   paragraphs against next month's names without anyone tagging a thing. */
+let COM_DOC_CACHE=null, COM_DOC_M=null, COM_DOC_T=null;
 function comDocRead(){
-  const txt=(S&&S.comFreeText)||'';
+  const txt=((CFG&&CFG.comFree)||[]).join('\n');
   if(!txt) return {items:[], report:[], skipped:[], name:''};
   const m=S&&S.model;
-  if(COM_DOC_CACHE&&COM_DOC_M===m) return COM_DOC_CACHE;
+  if(COM_DOC_CACHE&&COM_DOC_M===m&&COM_DOC_T===txt) return COM_DOC_CACHE;
   const out=comIngestText(txt, {fromFile:true});
-  out.name='the Commentary tab';
+  out.name='the configuration';
   out.items=out.items.map(i=>({...i, src:out.name}));
-  COM_DOC_CACHE=out; COM_DOC_M=m;
+  COM_DOC_CACHE=out; COM_DOC_M=m; COM_DOC_T=txt;
   return out;
 }
 function comInLoaded(){ return comDocRead().items; }
@@ -8711,14 +8712,14 @@ function comScopeOK(txt){
   return true;
 }
 function comInAll(){
-  return [...((CFG&&CFG.commentary)||[]), ...((S&&S.comFile)||[]), ...comInLoaded()]
+  return [...((CFG&&CFG.commentary)||[]), ...comInLoaded()]
     .filter(c=>c&&String(c.text==null?'':c.text).trim())
     .filter(c=>comScopeOK(c.text));
 }
 /* the same list before the filters have their say — for the pane, so it can
    tell the reader what is being held back and why */
 function comInAllUnscoped(){
-  return [...((CFG&&CFG.commentary)||[]), ...((S&&S.comFile)||[]), ...comInLoaded()]
+  return [...((CFG&&CFG.commentary)||[]), ...comInLoaded()]
     .filter(c=>c&&String(c.text==null?'':c.text).trim());
 }
 const COM_VIEWS={
@@ -9831,9 +9832,11 @@ function cfgFromWorkbook(wb){
         if(a&&b2) cfg.aliases.push({alias:a, line:b2});
       }
       else if(sec==='commentary'){
-        // View | Line | Text — and with only two columns, Line | Text
+        // View | Line | Text — with two columns, Line | Text; a bare paragraph
+        // is unstructured commentary, matched against the driller's own names
         if(c) cfg.commentary.push({view:a, line:b2, text:c});
         else if(b2) cfg.commentary.push({view:'', line:a, text:b2});
+        else if(a) cfg.comFree.push(a);
       }
       else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
         if(a&&b2) cfg.metrics.push({name:a, scope:b2}); }
@@ -10026,30 +10029,16 @@ function mergeCountryModels(tabs){
 function ingestArrayBuffer(buf, name, fromCache){
   const rep=$('ingestReport');
   {
-    let model=null, sheetName=null, lastErr=null, lastMissing=null, comFile=[], comFree=[];
+    let model=null, sheetName=null, lastErr=null, lastMissing=null;
     try{
       const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
       // non-data tabs (Control, Mapping, notes) never parse; every tab that
       // does parse is a data tab. Two or more parsing tabs = one country per
       // tab, merged into a single model with a Country dimension.
       const parsedTabs=[];
-      // a tab called Commentary carries the words the business has written for
-      // this month — it is read, never parsed as data
       for(const sn of wb.SheetNames){
-        if(!/^commentar(y|ies)$|^comments?$/i.test(String(sn).replace(/[^a-z]/gi,''))) continue;
-        for(const r of XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null})){
-          if(!r||r.every(c=>c==null||c==='')) continue;
-          const cell=i=>String(r[i]==null?'':r[i]).trim();
-          const a2=cell(0), b3=cell(1), c2=cell(2);
-          if(/^view$|^scope$/i.test(a2)) continue;         // a header row
-          if(c2) comFile.push({view:a2, line:b3, text:c2});
-          else if(b3) comFile.push({view:'', line:a2, text:b3});
-          // a bare paragraph is unstructured: it is matched against the
-          // driller's own names when read, not filed as view-wide
-          else if(a2) comFree.push(a2);
-        }
-      }
-      for(const sn of wb.SheetNames){
+        // a tab named Commentary is prose, never data \u2014 the words themselves
+        // belong in the configuration, not the driller
         if(/^commentar(y|ies)$|^comments?$/i.test(String(sn).replace(/[^a-z]/gi,''))) continue;
         const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
         const cand=parseSheet(aoa);
@@ -10074,8 +10063,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     model.sheetName=sheetName;
     applyHierarchies(model);
     applyCountryRegions(model);
-    S.model=model; S.fileName=name; S.comFile=comFile;
-    S.comFreeText=comFree.join('\n');
+    S.model=model; S.fileName=name;
     COM_DOC_CACHE=null;      // the commentary is matched again against this file
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
     S.showAllKpis=false; S.showParkedTiles=false; S.showParkedSc=false;
@@ -10085,7 +10073,6 @@ function ingestArrayBuffer(buf, name, fromCache){
     rep.innerHTML=`<span class="ok">✔ ${fromCache?'Restored from cache':'Ingested'} ${esc(name)}</span>
       <table>
       <tr><td>Sheet</td><td>${esc(sheetName)}</td></tr>
-      ${comFile.length? `<tr><td>Commentary</td><td>${comFile.length} written line${comFile.length===1?'':'s'} read from the Commentary tab \u2014 they lead the commentary blocks they name</td></tr>` : ''}
       ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — the top of the left pane is their sum; pick a node in the left pane or top bar</td></tr>`:''}
       ${model.countries&&model.countries.length? `<tr><td>Roll-up</td><td>${model.countries.map(sn=>{
         const res=chResolveTab(sn);
@@ -10114,7 +10101,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 14:17</td></tr>
+      <tr><td>Build</td><td>2026-08-13 14:26</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10246,15 +10233,14 @@ function init(){
   $('navAssist').addEventListener('click',()=>setView('assist'));
   $('navSim').addEventListener('click',()=>setView('sim'));
   $('btnDrvAdd').addEventListener('click',()=>{ driversDef().push({name:'',text:''}); driversSave(); drawDrivers(); });
-  // commentary the business wrote: carried in the driller or the config,
-  // never loaded separately
+  // commentary the business wrote: carried in the configuration, nothing
+  // loaded separately and nothing hidden in the driller
   function comShow(){
     const n=$('comInNote'); if(!n) return;
-    const doc=comDocRead(), file=((S&&S.comFile)||[]).length, cfgn=((CFG&&CFG.commentary)||[]).length;
+    const doc=comDocRead(), cfgn=((CFG&&CFG.commentary)||[]).length;
     const bits=[];
     if(doc.items.length) bits.push(`${doc.items.length} matched from ${doc.name}`);
-    if(file) bits.push(`${file} addressed in the Commentary tab`);
-    if(cfgn) bits.push(`${cfgn} from the configuration`);
+    if(cfgn) bits.push(`${cfgn} addressed in the configuration`);
     const held=comInAllUnscoped().length-comInAll().length;
     if(held>0) bits.push(`${held} held back by the current filters \u2014 written about lines outside this scope`);
     n.textContent=bits.length? '\u2713 '+bits.join(' \u00b7 ')+' \u2014 leading the blocks they name.'

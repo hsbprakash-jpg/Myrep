@@ -575,26 +575,24 @@ left-pane strip and the Filters pane.
   figures; it never writes narrative. Where the narrative already exists, it can
   be read in and the commentary blocks will lead with it, word for word,
   neither paraphrased nor summarised, with the computed figures following.
-  Two ways in, and nothing is ever loaded separately — the words travel with
-  the files that already move each month:
-  - a **`Commentary` tab in the driller itself**. One file carries the month's
-    figures and the month's words. The tab is never parsed as data. Rows that
-    aim themselves — three columns `View | Line | Text`, or two `Line | Text` —
-    are taken at their word. **Bare paragraphs are unstructured commentary**:
-    each is matched against the names the driller itself carries (see below),
-    so the pack's narrative pastes straight into a column with no tagging of
-    any kind. A paragraph covering several lines is split so each sentence
-    keeps its own; a paragraph naming nothing belongs to the view.
-  - a **`Commentary` section in the configuration** (a sheet in the workbook,
-    or `Commentary` rows in the single-sheet CSV), for wording that holds from
-    month to month.
+  One way in: the **`Commentary` section of the configuration** — a sheet in
+  the config workbook, or `Commentary` rows in the single-sheet CSV. The
+  driller stays figures only; nothing is loaded separately; the words live in
+  the pack the business already owns. (A tab named `Commentary` inside a
+  driller is still never parsed as data — it is simply ignored.)
 
-  **The words are kept, not the answers.** The tab's paragraphs are stored as
+  Rows that aim themselves — three columns `View | Line | Text`, or two
+  `Line | Text` — are taken at their word. **Bare paragraphs are unstructured
+  commentary**: each is matched against the names the driller itself carries
+  (see below), so the pack's narrative pastes straight into a column with no
+  tagging of any kind. A paragraph covering several lines is split so each
+  sentence keeps its own; a paragraph naming nothing belongs to the view.
+
+  **The words are kept, not the answers.** The paragraphs are stored as
   written and matched afresh every time they are read — next month's driller
-  re-matches next month's paragraphs against next month's names with nobody
-  tagging a thing, and the Drivers pane always says how many matched from the
-  Commentary tab, how many were addressed by hand, and how many came from the
-  configuration.
+  re-matches the same paragraphs against next month's names with nobody
+  tagging a thing, and the Drivers pane always says how many matched, how many
+  were addressed by hand, and what the filters are holding back.
 
   **The page writes the sentence; the document gives the cause.** Quoting a
   paragraph beside the figures says the same thing twice — the paragraph reads
@@ -638,13 +636,13 @@ left-pane strip and the Filters pane.
   paragraphs any one block can carry, so a long document never buries the
   page's own commentary.
 
-  A worked example ships in `sample/`: **`IWPB_SG_Driller_sixbasis.xlsx`**
-  carries a `Commentary` tab of eight plain paragraphs with no tagging of any
-  kind, and loading the one file pins seven of them — NII, Net Fee Income,
-  Deposits, Loans, Cards, Insurance, Trading Income — and sends the opening
-  line about the half to the view.
-  `CIB_AME_Jun26_Driller_withCommentary.xlsx` does the same against the CIB
-  pack.
+  A worked example ships with the packs: **`IWPB_dashboard_config_pack.xlsx`**
+  carries a `Commentary` sheet of eight plain paragraphs with no tagging of
+  any kind, and loading it with `sample/IWPB_SG_Driller_sixbasis.xlsx` pins
+  seven of them — NII, Net Fee Income, Deposits, Loans, Cards, Insurance,
+  Trading Income — and sends the opening line about the half to the view.
+  `CIB_dashboard_config_pack.xlsx` carries five addressed rows against the
+  CIB names.
 
   A sentence that names a line only **in passing** stays with the view rather
   than being pinned to it: *"The half closed ahead of plan on revenue, with
@@ -1142,12 +1140,13 @@ cd sample && python3 make_sample.py   # needs openpyxl
 every comparison the pack writes commentary on at once — prior-year months and
 quarters, a June YTD target, July–December forecast months, an FY-26 forecast,
 an FY-25 actual and an FY-26 target — so **All commentaries** offers all six
-bases and the **⤓ Word** download comes out complete. It also carries the
-month's written commentary in its own `Commentary` tab — eight untagged
-paragraphs, matched to their lines on load. Regenerate with
-`python3 make_sample_sixbasis.py`.
+bases and the **⤓ Word** download comes out complete. Regenerate with
+`python3 make_sample_sixbasis.py`. The month's written commentary rides in
+the IWPB config pack's `Commentary` sheet — eight untagged paragraphs,
+matched to their lines when read.
 `sample/IWPB_SG_Jun26_SixBasis_Commentary.docx` is what the ⤓ Word download
-produces from that one file — a worked example of the six bases as a document.
+produces from that driller and pack together — a worked example of the six
+bases as a document.
 
 ### Two worked reporting packs
 

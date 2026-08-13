@@ -110,31 +110,6 @@ for mica, l3, l2, l1, sign in MICA_ROWS:
             ws.append(dims + py + pyq + cy + fc + cyq +
                       [ytd_py, ytd_cy, ytd_tgt, fy25, fy26fc, fy26tgt])
 
-# the month's written commentary travels inside the driller: a Commentary tab
-# of bare paragraphs, matched against the driller's own names when read
-COMMENTARY = [
-    "NII carried the half. Deposit margin held better than the plan assumed as "
-    "the pass-through on time deposits was slower than expected.",
-    "Net Fee Income was the softer line. Investment activity thinned after the "
-    "March rally and brokerage volumes have not come back, though the recurring "
-    "wealth fee base is unchanged.",
-    "Deposits ended the half broadly flat. The migration from current accounts "
-    "into time deposits continued at much the same pace as the first quarter.",
-    "Loans grew on mortgage completions that had been sitting in the pipeline "
-    "since February.",
-    "Cards spend was seasonally strong in June but the balance build is behind "
-    "where the plan had it.",
-    "Insurance new business held up against a soft market, helped by the "
-    "bancassurance push in the second quarter.",
-    "Trading Income was flat and is not expected to move materially in the "
-    "second half.",
-    "The half closed ahead of plan on revenue, with costs the watch item into "
-    "the second half.",
-]
-wc = wb.create_sheet("Commentary")
-for t in COMMENTARY:
-    wc.append([t])
-
 out = "IWPB_SG_Driller_sixbasis.xlsx"
 wb.save(out)
 print(f"wrote {out}: {ws.max_row-2} rows x {ws.max_column} cols "
