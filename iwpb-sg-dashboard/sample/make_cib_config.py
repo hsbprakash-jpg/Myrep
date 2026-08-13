@@ -55,6 +55,11 @@ SET = [
  # Write the business narrative into the Drivers sheet (or the Drivers pane)
  # against the same names and it replaces the figures the line reads out.
  ('fsum_notes',           'Y'),
+ # the standard disclaimer under every generated commentary — the wording is
+ # the config's to own, and the Word export carries the same words
+ ('commentary_disclaimer', 'This CIB Asia & MENAT commentary has been generated from the figures in the '
+                           'file and the commentary document loaded with it. It may be inaccurate and/or '
+                           'incomplete. Review and edit before further use or distribution.'),
  ('fsum_note_lines',      'MSS;Global Payments Solutions;Global Trade Solutions;'
                           'Credit and Lending;HIF;CMA Net;Other Revenue;'
                           'ECLs (ex Notables);Direct Costs (ex VP);Variable Pay (VP);'

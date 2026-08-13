@@ -532,8 +532,11 @@ left-pane strip and the Filters pane.
   with the result across every basis in one sentence: *"PBT (Reported) is $101m
   down on YTD vs target, $18m down on the month vs forecast and $307m down on
   the full year vs target."* The standard disclaimer stands under the
-  commentary once there is one to disclaim, and its wording is
-  `commentary_disclaimer`.
+  commentary once there is one to disclaim. Its wording is the config file's
+  to own — a `commentary_disclaimer` row on the **Settings** sheet — so each
+  business ships its approved words in its pack, the Word export carries the
+  same words, and leaving the row out keeps the standard text. The CIB pack
+  carries its own wording as a worked example.
 
   **Original** shows the generated text; **Current Commentary** is the same
   text editable and kept, block by block, like every other commentary on the
