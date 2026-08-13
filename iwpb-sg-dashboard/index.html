@@ -993,7 +993,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 13:19</div>
+<div id="buildTag">build 2026-08-13 14:01</div>
 </aside>
 <main>
 
@@ -8690,7 +8690,50 @@ function comDocRead(){
   return out;
 }
 function comInLoaded(){ return comDocRead().items; }
+/* ---- the written words follow the filters -------------------------------
+   A commentary document is written about the whole book: one paragraph about
+   Private Bank names Switzerland and Luxembourg, another names India. Filter
+   the page to India and the figures recompute — the words must move with
+   them. A paragraph that names a value of a filtered dimension which is NOT
+   in the current selection is about somewhere else: woven into the India view
+   it reads as noise, so it is held back until the filters reach it again.
+
+   Only filtered dimensions are judged — with no country filter set, a
+   paragraph naming Luxembourg is group commentary and belongs. A paragraph
+   that names a selected value stays even if it also names others ("India led
+   while Luxembourg lagged" belongs in the India view). A paragraph naming no
+   value of the dimension at all is neutral and always belongs. */
+function comScopeOK(txt){
+  const m=S&&S.model; if(!m) return true;
+  const active=Object.entries(S.filters||{}).filter(([,set])=>set&&set.size);
+  if(!active.length) return true;
+  const low=comNorm(txt);
+  const mentions=v=>{
+    const nv=comNorm(v).trim();
+    return nv.length>=3&&low.indexOf(' '+nv+' ')>=0;
+  };
+  for(const [dim,sel] of active){
+    // every value this dimension takes anywhere in the file
+    const all=new Set();
+    for(const r of m.rows){ const v=r.d[dim]; if(v) all.add(String(v).trim()); }
+    if(all.size<2) continue;                    // one value: nothing to confuse
+    let inSel=false, outSel=false;
+    for(const v of all){
+      if(!mentions(v)) continue;
+      if(sel.has(v)) inSel=true; else outSel=true;
+    }
+    if(outSel&&!inSel) return false;            // about somewhere else entirely
+  }
+  return true;
+}
 function comInAll(){
+  return [...((CFG&&CFG.commentary)||[]), ...((S&&S.comFile)||[]), ...comInLoaded()]
+    .filter(c=>c&&String(c.text==null?'':c.text).trim())
+    .filter(c=>comScopeOK(c.text));
+}
+/* the same list before the filters have their say — for the pane, so it can
+   tell the reader what is being held back and why */
+function comInAllUnscoped(){
   return [...((CFG&&CFG.commentary)||[]), ...((S&&S.comFile)||[]), ...comInLoaded()]
     .filter(c=>c&&String(c.text==null?'':c.text).trim());
 }
@@ -10148,7 +10191,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 13:19</td></tr>
+      <tr><td>Build</td><td>2026-08-13 14:01</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10288,6 +10331,8 @@ function init(){
     if(doc.items.length) bits.push(`${doc.items.length} from ${doc.name||'the commentary file'}`);
     if(file) bits.push(`${file} from the file's Commentary tab`);
     if(cfgn) bits.push(`${cfgn} from the configuration`);
+    const held=comInAllUnscoped().length-comInAll().length;
+    if(held>0) bits.push(`${held} held back by the current filters \u2014 written about lines outside this scope`);
     n.textContent=bits.length? '\u2713 '+bits.join(' \u00b7 ')+' \u2014 leading the blocks they name.'
                              : 'No written commentary yet \u2014 every block reads its own figures.';
     const cb=$('btnComClear'); if(cb) cb.hidden=!comDoc();

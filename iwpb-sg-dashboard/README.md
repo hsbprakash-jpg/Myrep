@@ -523,6 +523,22 @@ left-pane strip and the Filters pane.
   carries a red rule down its left edge, so the writer's words are visible as
   the writer's.
 
+  **The written words follow the filters.** A commentary document is written
+  about the whole book — one paragraph about Private Bank names Switzerland and
+  Luxembourg, another names India. Filter the page to India and the figures
+  recompute; the words move with them. A paragraph that names a value of a
+  filtered dimension which is **not** in the current selection is about
+  somewhere else, and is held back until the filters reach it again — a
+  Luxembourg paragraph never rides into the India view. Three things keep this
+  honest: only *filtered* dimensions are judged, so with no country filter set
+  a Luxembourg paragraph is group commentary and belongs; a paragraph naming a
+  *selected* value stays even when it names others too ("India led while
+  Luxembourg lagged" belongs in the India view); and a paragraph naming no
+  value of the dimension at all is neutral and always belongs. The Drivers
+  pane counts what is being held back, so nothing disappears silently. This
+  governs every view the document feeds — the six bases, the management
+  commentary, the Financial Summary, the charts.
+
   **The basis filter** at the top of the view narrows to one comparison; the
   same six are offered in the left pane's **Variance period**, wherever the file
   supports them — including the two the page could not make before, the quarter
