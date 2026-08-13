@@ -961,7 +961,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 09:00</div>
+<div id="buildTag">build 2026-08-13 09:07</div>
 </aside>
 <main>
 
@@ -5005,7 +5005,18 @@ function annDraw(svg, key){
     const lines=annWrap(txt, (w-pad)/6.35);
     items.push({cat, txt, shape, bb, lines, head, w, el, wSet:!!note.w, full:note.full||txt,
       h:lines.length*14+(head? 17 : 0)+(shape==='oval'? 22 : shape==='cloud'? 30 : shape==='plain'? 6 : 16),
-      horiz:bb.width>bb.height*1.6});   // a horizontal bar is written to its right
+      horiz:false});   // set below, from the shape of the chart rather than the bar
+  }
+  // Which way the chart runs is a property of the chart, not of one mark: a
+  // small bar on a column chart is wider than it is tall, and judging it on its
+  // own sent its note off to the side column while its neighbours sat on top.
+  {
+    const marks0=[...svg.querySelectorAll('[data-cat]')].filter(e=>!e.closest('g.annote'))
+      .map(e=>{ try{ const b=e.getBBox(); return b.width&&b.height? b : null; }catch(err){ return null; } })
+      .filter(Boolean);
+    const tall=marks0.filter(b=>b.height>b.width).length;
+    const chartHoriz=marks0.length? tall*2<marks0.length : false;
+    for(const it of items) it.horiz=chartHoriz;
   }
   // a chart that is not laid out yet (a collapsed panel, a tab not yet shown)
   // measures as nothing — wait for it to appear rather than pinning notes at
@@ -8545,6 +8556,15 @@ function comMatchList(txt){
   for(const [w,name] of ix.word){ const i=at(w); if(i>=0) hits.push({name, at:i, how:'word', len:w.length}); }
   const rank={alias:0, name:1, acronym:2, 'short form':3, word:4};
   hits.sort((a,b)=> a.at-b.at || rank[a.how]-rank[b.how] || b.len-a.len);
+  // A sentence is about its subject. A name that turns up late and behind a
+  // preposition is being mentioned, not discussed: "the half closed ahead of
+  // plan on revenue" is about the half, not about the Revenue line.
+  const PREP=/\b(?:on|in|for|from|of|with|against|versus|vs|across|than|about|into|by|through)\s+$/i;
+  const head=low.split(' ').slice(0,4).join(' ').length;
+  for(const h of hits){
+    h.subject=h.at<=head;
+    h.passing=!h.subject&&PREP.test(low.slice(0, h.at+1));
+  }
   const out=[], seenN=new Set();
   for(const h of hits){ if(seenN.has(h.name)) continue; seenN.add(h.name); out.push(h); }
   return out;
@@ -8575,7 +8595,15 @@ function comIngestText(txt, opts){
   }
   const items=[], report=[];
   const take=(view, txt)=>{
-    const hits=comMatchList(txt);
+    let hits=comMatchList(txt);
+    // where every name is only mentioned in passing, and the sentence is long
+    // enough to be making a wider point, it belongs to the view
+    const nWords=String(txt).split(/\s+/).filter(Boolean).length;
+    if(hits.length&&nWords>=10&&hits.every(h=>h.passing)){
+      report.push({line:'', text:txt, how:'view', also:hits.slice(0,2).map(h=>h.name+' (in passing)'), vague:[]});
+      items.push({view, line:'', text:txt});
+      return true;
+    }
     const best=hits[0];
     items.push({view, line:best? best.name : '', text:txt});
     report.push({line:best? best.name : '', text:txt, how:best? best.how : 'view',
@@ -9540,7 +9568,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 09:00</td></tr>
+      <tr><td>Build</td><td>2026-08-13 09:07</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

@@ -525,6 +525,21 @@ left-pane strip and the Filters pane.
   prints the paragraph exactly as written, for wording that has been approved
   and must not be trimmed; `commentary_clause_max` sets the length.
 
+  A worked example ships in `sample/`: **`IWPB_SG_Jun26_Commentary.docx`** is
+  eight plain paragraphs of IWPB Singapore commentary with no tagging of any
+  kind, and loading it against `IWPB_SG_Driller_sample.xlsx` pins seven of them
+  — NII, Net Fee Income, Deposits, Loans, Cards, Insurance, Trading Income —
+  and sends the opening line about the half to the view.
+  `CIB_Jun26_Commentary.docx` does the same against the CIB pack.
+
+  A sentence that names a line only **in passing** stays with the view rather
+  than being pinned to it: *"The half closed ahead of plan on revenue, with
+  costs the watch item"* is about the half, not about the Revenue line, and the
+  pane reports it as mentioning Revenue in passing. The test is whether the name
+  is the sentence's subject — a name at the front counts, a name behind a
+  preposition in a long sentence does not, and a short sentence such as
+  *"Growth in Deposits was strong"* still pins.
+
   **To correct a match** there are three ways, and none of them is retyping the
   commentary: set an `Aliases` row in the configuration (permanent, and it wins
   over everything), click the note on the chart and edit it there (it becomes
