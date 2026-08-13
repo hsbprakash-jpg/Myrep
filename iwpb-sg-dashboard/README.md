@@ -323,7 +323,11 @@ left-pane strip and the Filters pane.
   file's unit — the table splits into a `P&L (US$m)` and a
   `Balance Sheet (US$bn)` band automatically, and the commentary, Excel,
   PPT and Word exports follow (`bs_unit` names the balance unit, blank
-  switches it off; `fsum_bs_label` names the band). A **Full Year band** closes the table — the live FY
+  switches it off; `fsum_bs_label` names the band). Every figure in a
+  balance-sheet block is written in that unit, the movers named at the end of
+  its sentence included — *"led by Total RWAs (4.7A US$bn)"*, never the raw
+  4,660 — and a ratio line's movers keep the ratio's own decimals rather than
+  rounding to a whole number. A **Full Year band** closes the table — the live FY
   forecast (Jan–Dec actuals + forecast months) with variance in currency
   and percent vs the prior forecast column, the FY target and prior-year
   actuals — so once the selected month crosses the last actual and the

@@ -982,7 +982,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 15:23</div>
+<div id="buildTag">build 2026-08-13 16:01</div>
 </aside>
 <main>
 
@@ -7235,10 +7235,14 @@ function renderFsum(){
    negatives, so a positive variance is favourable on every line; a file that
    stores cost magnitudes as positives sets dirFlip and reverses it. */
 function faOK(k, v){ return (k&&k.dirFlip)? v<=0 : v>=0; }
-/* a variance is written with its direction: 18F, (346)A */
-function faAmt(k, v, bs){
+/* A variance is written with its direction — 18F, (346)A — and always in the
+   unit its own line is read in: a balance in billions, a ratio to its own
+   decimals, everything else in the file's amount unit. `f` is the line's own
+   figures (a bare true still means "a balance", as it used to). */
+function faAmt(k, v, f){
   if(v==null) return '–';
-  const t=bs? fmtBS(Math.abs(v)) : fmtFull(Math.abs(Math.round(v)));
+  const bs=(f===true)||!!(f&&f.bsFmt), ratio=!!(f&&f.ratio);
+  const t=ratio? fsumRatioTxt(Math.abs(v)) : bs? fmtBS(Math.abs(v)) : fmtFull(Math.abs(Math.round(v)));
   return `<b${faCls(faOK(k,v))}>${t}${faOK(k,v)?'F':'A'}</b>`;
 }
 function faPctTxt(k, v){
@@ -7251,23 +7255,24 @@ function fsumBlockText(name, rows, m, P, sub){
   const un=f.bsFmt&&bsUnit()? ` ${bsUnitLabel()}` : '';
   const mon=MON_LBL[S.ytdM]+"'"+P.yy;
   let h=`<b>${esc(name)}</b> for <b>${mon}</b> is <b>${nf(f.k.mth)}${un}</b>`;
-  if(f.mVsFc!=null) h+=`, ${faAmt(k,f.mVsFc,f.bsFmt)} vs forecast`;
-  if(f.mVsTgt!=null) h+=` and ${faAmt(k,f.mVsTgt,f.bsFmt)} vs target`;
+  if(f.mVsFc!=null) h+=`, ${faAmt(k,f.mVsFc,f)} vs forecast`;
+  if(f.mVsTgt!=null) h+=` and ${faAmt(k,f.mVsTgt,f)} vs target`;
   h+=`. ${esc(P.qLbl)} stands at <b>${nf(f.qtd)}</b>`;
-  if(f.qVsPQ!=null) h+=` (${faAmt(k,f.qVsPQ,f.bsFmt)} vs prior quarter)`;
+  if(f.qVsPQ!=null) h+=` (${faAmt(k,f.qVsPQ,f)} vs prior quarter)`;
   h+=`; ${esc(P.ytdLbl)} at <b>${nf(f.ytd)}</b>`;
   if(f.yVsTgtP!=null) h+=` — ${faPctTxt(k,f.yVsTgtP)} vs target`;
   if(f.yVsPYP!=null) h+=` and ${faPctTxt(k,f.yVsPYP)} vs prior year`;
   h+='.';
   if(f.fy!=null){
     const bits=[];
-    if(f.fVsPrF!=null) bits.push(`${faAmt(k,f.fVsPrF,f.bsFmt)} / ${faPctTxt(k,f.fVsPrFP)} vs prior forecast`);
-    if(f.fVsTgt!=null) bits.push(`${faAmt(k,f.fVsTgt,f.bsFmt)} / ${faPctTxt(k,f.fVsTgtP)} vs target`);
-    if(f.fVsPY!=null) bits.push(`${faAmt(k,f.fVsPY,f.bsFmt)} / ${faPctTxt(k,f.fVsPYP)} vs PY`);
+    if(f.fVsPrF!=null) bits.push(`${faAmt(k,f.fVsPrF,f)} / ${faPctTxt(k,f.fVsPrFP)} vs prior forecast`);
+    if(f.fVsTgt!=null) bits.push(`${faAmt(k,f.fVsTgt,f)} / ${faPctTxt(k,f.fVsTgtP)} vs target`);
+    if(f.fVsPY!=null) bits.push(`${faAmt(k,f.fVsPY,f)} / ${faPctTxt(k,f.fVsPYP)} vs PY`);
     h+=` FY'${esc(P.yy)} forecast at <b>${nf(f.fy)}${un}</b>${bits.length? ' — '+bits.join(', '):''}.`;
   }
   if(sub&&sub.length) h+=` Movement against forecast is led by `+
-    sub.map(x=>`<b>${esc(x.name)}</b> (${faAmt(x.f.k,x.f.mVsFc)})`).join(', ')+'.';
+    sub.map(x=>`<b>${esc(x.name)}</b> (${faAmt(x.f.k,x.f.mVsFc,x.f)}${
+      x.f.bsFmt&&bsUnit()? ' '+bsUnitLabel() : ''})`).join(', ')+'.';
   const tail=comTail(name,'fsum');
   if(tail) h+=tail+'.';
   return h;
@@ -10150,7 +10155,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 15:23</td></tr>
+      <tr><td>Build</td><td>2026-08-13 16:01</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
