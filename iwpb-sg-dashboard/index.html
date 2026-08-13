@@ -993,7 +993,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 12:21</div>
+<div id="buildTag">build 2026-08-13 13:19</div>
 </aside>
 <main>
 
@@ -1448,6 +1448,9 @@ const CFG_DEFAULT={
     commentary_headline:'FY Forecast',
     commentary_fa_colours:'Y',
     commentary_drivers:'5',
+    commentary_driver_floor:'3',
+    commentary_driver_cover:'80',
+    commentary_max_notes:'2',
     fsum_title:'Singapore: Financial Summary',
     fsum_section_label:'P&L',
     fsum_section_dim:'',
@@ -3547,13 +3550,44 @@ function faWord(k, mainVal){
   const up= base>=0? k.cmpVar>=0 : k.cmpVar<=0;
   return up? 'higher' : 'lower';
 }
+/* how small a mover has to be before naming it is noise, and how much of the
+   movement has to be accounted for before the rest can go unnamed */
+function drvFloorPct(){ const v=parseFloat(cfgS('commentary_driver_floor'));
+  return isFinite(v)&&v>=0? v/100 : 0.03; }
+function drvCoverPct(){ const v=parseFloat(cfgS('commentary_driver_cover'));
+  return isFinite(v)&&v>0? Math.min(v,100)/100 : 0.8; }
+/* A reader can hold three or four movers in their head; past that the sentence
+   is a list, and a list of everything explains nothing. So movers are named
+   biggest first until between them they account for the movement, and the ones
+   too small to have caused it are left out — a mover that rounds to zero in
+   the unit it prints in is never named, because "$0mF 0%" is not a reason. */
+function drvTrim(items, valOf, total, n, zero){
+  const big=items.filter(g=>{
+    const v=Math.abs(valOf(g));
+    if(!(v>0)) return false;
+    if(zero&&zero(g)) return false;
+    return total==null||!isFinite(total)||!total? true : v>=Math.abs(total)*drvFloorPct();
+  });
+  const pool=big.length? big : items.slice(0,1);
+  const room=(total==null||!isFinite(total))? 0 : Math.abs(total)*drvCoverPct();
+  const out=[];
+  let run=0;
+  for(const g of pool){
+    out.push(g); run+=Math.abs(valOf(g));
+    if(out.length>=(n||3)) break;
+    if(room&&run>=room) break;
+  }
+  return out;
+}
 function houseDrivers(rows, dimKey, n){
   const m=S.model;
-  return [...groupBy(rows,dimKey).entries()]
+  const gs=[...groupBy(rows,dimKey).entries()]
     .map(([name,rs])=>({name:name||'(blank)', k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .filter(g=>g.k.cmpVar!=null&&Math.abs(g.k.cmpVar)>0)
-    .sort((a,b)=>Math.abs(b.k.cmpVar)-Math.abs(a.k.cmpVar))
-    .slice(0,n||5);
+    .sort((a,b)=>Math.abs(b.k.cmpVar)-Math.abs(a.k.cmpVar));
+  const tot=gs.reduce((x,g)=>x+g.k.cmpVar,0);
+  return drvTrim(gs, g=>g.k.cmpVar, tot, n||4,
+    g=>/^\(?0(?:\.0+)?\)?$/.test(String(fmt(g.k.cmpVar)).replace(/[,\s]/g,'')));
 }
 function houseLevels(){
   const m=S.model;
@@ -6455,11 +6489,18 @@ function caDrivers(rows, sec, lineName, n){
     .sort((a,b)=>Math.abs(b.q.va)-Math.abs(a.q.va))
     .slice(0, n||6);
 }
+/* how small a mover has to be before naming it is noise, and how much of the
+   movement has to be accounted for before the rest can go unnamed */
+function caPick(gs, total, n){
+  return drvTrim(gs, g=>g.q.va, total, n,
+    g=>/^\$?0(?:\.0+)?(?:m|bn)?$/i.test(String(caAmt(g.q.f, g.q.va, false)).replace(/[,\s]/g,'')));
+}
 function caDriverTxt(rows, sec, lineName, total, n){
   const gs=caDrivers(rows, sec, lineName, (n||5)+3);
   if(!gs.length) return '';
   const sameWay=g=>total==null? true : (total>=0? g.q.va>=0 : g.q.va<0);
-  const on=gs.filter(sameWay).slice(0, n||4), off=gs.filter(g=>!sameWay(g)).slice(0,3);
+  const on=caPick(gs.filter(sameWay), total, n||3),
+        off=caPick(gs.filter(g=>!sameWay(g)), total, 2);
   const one=g=>`${esc(g.name)} (${caVar(g.q)})`;
   let t='';
   if(on.length) t+=` driven by ${on.map(one).join(', ')}`;
@@ -6485,7 +6526,8 @@ function caSectionHtml(sec){
   const parts=kidsOf(res).map(qOf).filter(x=>x.q.va!=null&&Math.abs(x.q.va)>0.0001&&flow(x))
     .sort((a,b)=>Math.abs(b.q.va)-Math.abs(a.q.va));
   const sameWay=x=>resQ.va>=0? x.q.va>=0 : x.q.va<0;
-  const on=parts.filter(sameWay).slice(0,3), off=parts.filter(x=>!sameWay(x)).slice(0,3);
+  const on=drvTrim(parts.filter(sameWay), x=>x.q.va, resQ.va, 3),
+        off=drvTrim(parts.filter(x=>!sameWay(x)), x=>x.q.va, resQ.va, 2);
   const one=x=>`${faWord(x.q.f.k, x.q.val)} ${esc(x.r.name)} (${caVar(x.q)})`;
   // the loaded commentary rides on the same sentences here as everywhere else:
   // once per section, on the highest line it belongs to
@@ -6513,7 +6555,7 @@ function caSectionHtml(sec){
           `<b>${esc(String(k2.r.name).replace(/^o\/w\s+/i,''))}</b> ${caVar(k2.q)}`).join(', ')
       : '';
     const said=comTail(x.r.name,'comall');
-    const tail=(listed? '' : (inlined||caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 4 : 5)))
+    const tail=(listed? '' : (inlined||caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 3 : 4)))
       +said+(listed? ':' : '');
     let t=depth
       ? `<li><b>${esc(x.r.name)}</b> ${va}${tail}`
@@ -8707,6 +8749,74 @@ function comStyle(){
 }
 function comClauseMax(){ const v=parseInt(cfgS('commentary_clause_max'),10);
   return isFinite(v)&&v>40? v : 150; }
+function comMaxNotes(){ const v=parseInt(cfgS('commentary_max_notes'),10);
+  return isFinite(v)&&v>=0? v : 2; }
+/* ---- a reason, not a second copy of the figures -------------------------
+   Commentary documents are often themselves generated: "Consumer Liabilities
+   at 314,722 down 0.9% vs MAY-26 — Deposits $9bnF 3% driven by Retail $5bnF 3%
+   (Australia $1,315mF 7%, China $1,071mF 6%)". Every number in that sentence
+   the page has already computed and is about to print beside it. Printing the
+   sentence as well says everything twice and reads as a dump.
+
+   So a sentence is measured before it is used: the figures are set aside and
+   what is left is weighed. A clause that still says something — "the migration
+   from current accounts into time deposits continued" — is kept, because the
+   page could never have written it. A clause that was only ever numbers is
+   dropped, and the page's own sentence stands alone. */
+function comDeFig(x){
+  return String(x==null?'':x)
+    .replace(/\([^()]*\d[^()]*\)/g,' ')          // "(Australia $1,315mF 7%)"
+    .replace(/[\u25b2\u25bc]/g,' ')
+    .replace(/[$\u00a3\u20ac]?\s?\d[\d,]*(?:\.\d+)?\s?(?:m|bn|k|%|mF|mA|bnF|bnA)?\b/gi,' ')
+    .replace(/\b(?:F|A)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+/* the words a sentence is left with once its figures are taken away, and how
+   much of it they are */
+const COM_FILLER=new Set(['at','vs','versus','up','down','driven','offset','which','and','or','the',
+  'a','an','in','on','to','of','by','for','is','are','was','were','from','with','higher','lower',
+  'ytd','qtd','fy','py','mtd','actuals','actual','forecast','target','prior','year','month','quarter',
+  'jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec','total','vs.','than','were']);
+function comProse(x){
+  const ix=(typeof comIndex==='function')? comIndex() : null;
+  const names=(ix&&ix.nameWords)||new Set();
+  const bare=comDeFig(x)
+    .replace(/[\u00b7\u2014\u2013,;:.\-\/()]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+  // what is left once the figures, the filler and the file's own names are
+  // taken out: the writer's own contribution, and the only part worth printing
+  const words=(bare? bare.split(' ') : [])
+    .filter(w=>/^[a-z][a-z'\-]{2,}$/.test(w)&&!COM_FILLER.has(w)&&!names.has(w));
+  const all=String(x||'').split(/\s+/).filter(Boolean).length||1;
+  return {words, n:words.length, share:words.length/all};
+}
+/* a sentence that is only a restatement of figures the page already has */
+/* the shape a reporting tool writes in, whatever the names in it: a line, a
+   figure, a movement and a period — "Consumer Liabilities at 314,722 down 0.9%
+   vs MAY-26". The page writes that sentence itself, from the file. */
+const COM_GEN=[
+  /\bat\s+[\d,]+(?:\.\d+)?\s+(?:up|down)\s+[\d.]+%\s+vs\b/i,
+  /\bis\s+\$?[\d,]+(?:\.\d+)?[mbk]?n?\s+(?:up|down)\s+vs\b/i,
+  /\b(?:of|at)\s+\$[\d,]+(?:\.\d+)?[mb]n?\s+are\s+\$/i
+];
+function comIsDump(x){
+  const t=String(x==null?'':x);
+  // a heading, not a sentence: title case, no full stop, nothing said —
+  // "(Month YTD) Actuals Vs Target (ex Notables)" is a section label that a
+  // reporting tool printed, and it belongs to no line
+  const ws=t.replace(/[()]/g,' ').split(/\s+/).filter(Boolean);
+  if(ws.length&&ws.length<=12&&!/[.!?\u2026]\s*$/.test(t)
+     &&ws.filter(w=>/^[A-Z]/.test(w)).length/ws.length>=0.55) return true;
+  // a sentence with no figures in it was written by a person: the page could
+  // not have produced it, so it is never a restatement of the page's own work
+  if(!/\d/.test(t)) return false;
+  if(COM_GEN.some(re=>re.test(t))&&!/\b(?:because|as|after|reflect|reflecting|driven by the|expected|timing|pipeline|demand|margin|volume)\b/i.test(t))
+    return true;
+  const pr=comProse(x);
+  // three words of the writer's own is the least a clause can carry and still
+  // be worth a reader's time
+  if(pr.n<3) return true;
+  return pr.share<0.12;
+}
 function comDigest(txt, line, cap){
   const full=String(txt==null?'':txt).trim();
   if(!full||comStyle()==='verbatim') return full;
@@ -8717,14 +8827,29 @@ function comDigest(txt, line, cap){
       t=t.replace(new RegExp('^'+n+'\\b[\\s,:;—\u2013-]*','i'),'');
     }
     // an opener that carries nothing: the clause reads the same without it
-    return t.replace(/^(?:and|but|so|also|overall|meanwhile|in addition|that said)\s+/i,'').trim();
+    return t.replace(/^(?:and|but|so|also|overall|meanwhile|in addition|that said)\s+/i,'')
+      .replace(/^[\s\u00b7\u2014\u2013,;:.\-]+/,'').trim();
   };
-  const sents=full.split(/(?<=[.;])\s+/).map(x=>x.trim()).filter(Boolean);
+  const sents=full.split(/(?<=[.;])\s+/).map(x=>x.trim()).filter(Boolean)
+    // a figure list tacked onto the end of a sentence is the page's job, not
+    // the writer's: "— Deposits $9bnF 3% driven by Retail $5bnF 3%" goes
+    .map(x=>{
+      const cut=x.split(/\s+—\s+|\s+\u2013\s+/);
+      if(cut.length>1&&!comIsDump(cut[0])&&comIsDump(cut.slice(1).join(' '))) return cut[0].trim();
+      const dv=x.search(/\b(?:driven by|offset by|of which)\b/i);
+      if(dv>0&&comIsDump(x.slice(dv))&&!comIsDump(x.slice(0,dv))) return x.slice(0,dv).trim();
+      return x;
+    })
+    .filter(x=>!comIsDump(x));
+  // nothing left that the page has not already said
+  if(!sents.length) return '';
   const words=x=>strip(x).split(/\s+/).filter(Boolean).length;
   // a sentence that only names the line and calls it light or strong says
   // nothing the variance beside it does not
   const useful=sents.filter(x=>words(x)>=4);
   const pool=useful.length? useful : sents;
+  // the writer's own order is kept: what is dropped is dropped, what is left
+  // leads as it led in the document
   let out=strip(pool[0]);
   if(out.length<60&&pool[1]) out+=' '+strip(pool[1]);
   out=out.replace(/\s+/g,' ').trim();
@@ -8763,20 +8888,36 @@ function comForLine(name, view){
 let COM_SAID=null;
 function comSaidReset(){ COM_SAID=new Set(); }
 function comTail(name, view){
-  const t=comForLine(name, view||'summary')[0];
-  if(!t) return '';
-  if(COM_SAID){ if(COM_SAID.has(t)) return ''; COM_SAID.add(t); }
-  const d=comDigest(t, name);
-  return d? ` \u2014 ${esc(d)}` : '';
+  // the paragraphs written about this line, best first — a line often has
+  // several and only one of them belongs on the end of a sentence
+  for(const t of comForLine(name, view||'summary')){
+    if(COM_SAID&&COM_SAID.has(t)) continue;
+    const d=comDigest(t, name);
+    if(COM_SAID) COM_SAID.add(t);
+    if(d) return ` \u2014 ${esc(d)}`;
+  }
+  return '';
 }
 /* Anything written for a line that no sentence in this block could carry — a
    line the statement does not print by that name — still belongs in the block,
    at the top. Nothing the business wrote is dropped for want of a home. */
+/* Anything written for a line the block never named. One per line — a writer
+   who returned to Deposits four times is making one point about Deposits, and
+   four paragraphs under one heading read as a dump — and only so many per
+   block, so a long document never buries the page's own commentary. */
 function comUnsaid(view, names){
-  const out=[];
-  for(const n of (names||[])) for(const t of comForLine(n, view)){
-    if(COM_SAID){ if(COM_SAID.has(t)) continue; COM_SAID.add(t); }
-    out.push({name:n, text:t});
+  const out=[], seen=new Set(), cap=comMaxNotes();
+  for(const n of (names||[])){
+    const k=String(n).trim().toLowerCase();
+    if(seen.has(k)) continue;
+    for(const t of comForLine(n, view)){
+      if(COM_SAID){ if(COM_SAID.has(t)) continue; COM_SAID.add(t); }
+      const d=comDigest(t, n);
+      if(!d) continue;                       // a dump: the figures said it already
+      seen.add(k); out.push({name:n, text:t, digest:d});
+      break;
+    }
+    if(out.length>=cap) break;
   }
   return out;
 }
@@ -8957,7 +9098,12 @@ function comIndex(){
       ||names.find(n=>n.toLowerCase().indexOf(to.toLowerCase())>=0);
     if(hit) aliases.set(comNorm(a.alias).trim(), hit);
   }
-  COM_IDX={names, norm, acro, head, word, vague, aliases}; COM_IDX_M=m; COM_IDX_A=aliasSig;
+  // every word the file's own names are made of. A sentence built only from
+  // these — "Consumer Liabilities at 314,722 down 0.9% vs MAY-26" — tells the
+  // reader nothing the page has not already worked out for itself.
+  const nameWords=new Set();
+  for(const n of names) for(const w of comWords(n)) if(w.length>2) nameWords.add(w);
+  COM_IDX={names, norm, acro, head, word, vague, aliases, nameWords}; COM_IDX_M=m; COM_IDX_A=aliasSig;
   return COM_IDX;
 }
 function comVocab(){ const ix=comIndex(); return ix? ix.names : []; }
@@ -10002,7 +10148,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 12:21</td></tr>
+      <tr><td>Build</td><td>2026-08-13 13:19</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

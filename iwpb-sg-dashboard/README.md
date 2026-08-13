@@ -604,6 +604,28 @@ left-pane strip and the Filters pane.
   prints the paragraph exactly as written, for wording that has been approved
   and must not be trimmed; `commentary_clause_max` sets the length.
 
+  **A commentary file is often itself generated**, and then it carries nothing
+  the page has not already worked out: *"Consumer Liabilities at 314,722 down
+  0.9% vs MAY-26 — Deposits $9bnF 3% driven by Retail $5bnF 3% (Australia
+  $1,315mF 7%, China $1,071mF 6%)"*. Printing that beside the page's own
+  sentence says every number twice and reads as a dump. So each sentence is
+  weighed before it is used: the figures are set aside, the file's own names
+  and the reporting words around them are taken out, and what remains is the
+  writer's own contribution. *"the migration from current accounts into time
+  deposits continued"* survives — the page could never have written it. A
+  sentence left with nothing is dropped, and the page's own figures stand
+  alone. Section labels a tool printed (*"(Month YTD) Actuals Vs Target (ex
+  Notables)"* — title case, no full stop, nothing said) go the same way, and a
+  sentence carrying no figures at all is never treated as a restatement,
+  because no tool wrote it.
+
+  **One reason per line, a couple per block.** A writer who returned to
+  Deposits four times is making one point about Deposits; four paragraphs under
+  one heading read as a dump. The block takes the first that survives the
+  weighing, and `commentary_max_notes` (default 2) caps how many loose
+  paragraphs any one block can carry, so a long document never buries the
+  page's own commentary.
+
   A worked example ships in `sample/`: **`IWPB_SG_Jun26_Commentary.docx`** is
   eight plain paragraphs of IWPB Singapore commentary with no tagging of any
   kind, and loading it against `IWPB_SG_Driller_sample.xlsx` pins seven of them
@@ -753,7 +775,17 @@ left-pane strip and the Filters pane.
   cascading style), `commentary_levels` sets the cascade,
   `commentary_dim` the dimension the "driven by" clauses cut by,
   `commentary_drivers` how many are named, and `commentary_headline` /
-  `commentary_note` the wording of the heading. Every F/A figure is
+  `commentary_note` the wording of the heading.
+
+  **A sentence names the movers, not every mover.** A reader can hold three or
+  four in their head; past that the sentence is a list, and a list of
+  everything explains nothing. So movers are named biggest first until between
+  them they account for the movement — `commentary_driver_cover`, 80% by
+  default — and anything below `commentary_driver_floor` (3% of the line's own
+  variance) is left out. A mover that rounds to zero in the unit it prints in
+  is never named at all: *"$0mF 0%"* is not a reason. The same rule governs the
+  management commentary, the Financial Summary blocks, the chart blocks and the
+  six bases, so no view can drift into a data dump on its own. Every F/A figure is
   coloured by favourability — F green, A red — in the page and in the Word
   export alike (`commentary_fa_colours` switches it off). **⤓ Word** writes the
   commentary as it stands on the page — your edits included — to a real
