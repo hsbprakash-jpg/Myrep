@@ -476,6 +476,29 @@ left-pane strip and the Filters pane.
   never runs across the note pinned on another. A note also clears the
   **value labels**: covering the number a bar is worth is as bad as covering
   the bar itself, so the placement steps over those too.
+- **All commentaries** — a view that writes the same narrative once per
+  comparison, the way the reporting tool does: one collapsible section for each
+  of **(Current QTR) Actuals vs PY**, **(Month YTD) Actuals vs Target**,
+  **(Month) Actuals vs Forecast**, **(Month) FY Forecast vs Prior Forecast**,
+  **vs Prior Year** and **vs Target**. A comparison the file cannot make is not
+  offered — load a file with no target and the target sections are simply
+  absent, rather than printed empty.
+
+  Each section reads as the pack reads: the result, what moved it and what
+  worked the other way — *"PBT (Reported) is $101m down vs Target driven by
+  lower PBT (ex Notables) ($102mA 2.0%), offset by lower Notables ($1mF 2.0%)"*
+  — then each line of the statement with its own lines beneath it, and the
+  countries or segments behind whichever is the last one printed. Amounts carry
+  the **F/A** suffix, balances print in billions as closings, and every figure
+  comes from the **same figures as the Financial Summary**: a quarter from the
+  quarterly column, a year-to-date from the YTD column, never months added
+  together. A check ties the two together line for line.
+
+  **Original** shows the generated text; **Current Commentary** is the same
+  text editable and kept, block by block, like every other commentary on the
+  page. **Expand all** opens or closes every section, and the strip above says
+  what the commentary was written from — month-end, basis, scope, the driller
+  and the commentary document.
 - **Ingesting commentary the business has written** — the page computes
   figures; it never writes narrative. Where the narrative already exists, it can
   be read in and the commentary blocks will lead with it, word for word,

@@ -621,6 +621,22 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .unitbar .scopeSep{width:1px;align-self:stretch;background:var(--border-strong);margin:0 4px}
 .unitbar .unitnote{font-size:10.5px;color:var(--text-muted);font-style:italic}
 .ctxnote{color:var(--text-muted);font-size:10.5px;margin:6px 0 0;font-style:italic}
+.comallbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.comallbar .caon{border-color:var(--hsbc-red);color:var(--hsbc-red);font-weight:700;
+  background:color-mix(in srgb, var(--hsbc-red) 8%, var(--surface-1))}
+.cameta{display:flex;flex-wrap:wrap;gap:10px 26px}
+.cameta .cmk{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--text-muted);font-weight:700}
+.cameta .cmv{display:block;font-size:12.5px;color:var(--text-primary)}
+details.casec{border:1px solid var(--border-strong);border-radius:6px;margin:8px 0;background:var(--surface-1)}
+details.casec>summary{cursor:pointer;padding:10px 14px;font-weight:700;font-size:13px;list-style:none}
+details.casec>summary::-webkit-details-marker{display:none}
+details.casec>summary::before{content:'\203A\00a0';display:inline-block;transition:transform .12s;margin-right:6px}
+details.casec[open]>summary::before{transform:rotate(90deg)}
+details.casec>summary:hover{color:var(--hsbc-red)}
+.cabody{padding:2px 14px 12px}
+.cadisc{margin:14px 0 0;padding:10px 14px;border-radius:6px;font-size:11.5px;text-align:center;
+  color:var(--hsbc-red);background:color-mix(in srgb, var(--hsbc-red) 6%, var(--surface-1))}
 .annhint{opacity:0;transition:opacity .12s}
 .chart-wrap:hover .annhint,div:hover>.annhint{opacity:1}
 .annpal{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:6px 0 0;
@@ -884,6 +900,9 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <button id="navFsum">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="3.2" rx="1" fill="currentColor"/><rect x="1" y="6" width="6" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="8.6" y="6" width="6.4" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="1" y="10" width="6" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="8.6" y="10" width="6.4" height="2.4" rx="1" fill="currentColor" opacity=".55"/></svg>
       <span data-lbl="nav_fsum">Financial Summary</span></button>
+    <button id="navComall">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1.5" width="14" height="2.4" rx="1" fill="currentColor"/><rect x="1" y="6" width="10" height="2.4" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="10.5" width="12" height="2.4" rx="1" fill="currentColor" opacity=".35"/></svg>
+      <span data-lbl="nav_comall">All commentaries</span></button>
     <button id="navCustom">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="9" height="6" rx="1.2" fill="currentColor"/><rect x="12" y="1" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="6" y="9" width="9" height="6" rx="1.2" fill="currentColor"/></svg>
       <span data-lbl="nav_custom">My dashboard</span></button>
@@ -961,7 +980,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 10:34</div>
+<div id="buildTag">build 2026-08-13 10:46</div>
 </aside>
 <main>
 
@@ -1086,6 +1105,27 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     </div>
     <div class="pagetabs" id="dashPages"></div>
     <div class="dashgrid" id="dashGrid"></div>
+  </div>
+
+  <div id="comallView" hidden>
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2 data-lbl="comall_title">All Commentaries <span class="unitsfx" data-unitsfx></span></h2>
+      <p class="lede2" data-lbl="comall_lede">Every comparison the file supports, written the way the pack writes it —
+        one section each, from the same figures as the Financial Summary.</p>
+    </div></div>
+    <div class="panel" id="comallMeta"></div>
+    <div class="panel">
+      <div class="comallbar">
+        <h4 style="margin:0;flex:1">Commentary</h4>
+        <button class="btn-quiet" id="btnCaOrig">Original</button>
+        <button class="btn-quiet" id="btnCaCur">Current Commentary</button>
+        <button class="linklike" id="btnCaExpand">Expand all</button>
+      </div>
+      <div id="comallList"></div>
+      <p class="cadisc">The commentary is written from the figures in the file you loaded and the commentary document
+        you gave it. Review it before it goes any further.</p>
+    </div>
   </div>
 
   <div id="builderView" hidden>
@@ -1523,11 +1563,12 @@ const CFG_DEFAULT={
   drivers:{},
   commentary:[],
   aliases:[],
-  views:{summary:'Y',fsum:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
+  views:{summary:'Y',fsum:'Y',comall:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
   labels:{
     nav_summary:'KPI summary', nav_custom:'My dashboard', nav_builder:'Drag & drop charts',
     nav_query:'Query builder', nav_table:'Data drill down', nav_assist:'MI Assistant',
     nav_sim:'Simulation Assistant', nav_fsum:'Financial Summary',
+    nav_comall:'All commentaries',
     sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
     sect_config:'Configuration', sect_period:'Period & RAG',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
@@ -6213,6 +6254,7 @@ function setView(v){
   S.view=v;
   $('summaryView').hidden = v!=='summary';
   $('fsumView').hidden    = v!=='fsum';
+  $('comallView').hidden  = v!=='comall';
   $('customView').hidden  = v!=='custom';
   $('builderView').hidden = v!=='builder';
   $('queryView').hidden   = v!=='query';
@@ -6221,6 +6263,7 @@ function setView(v){
   $('simView').hidden     = v!=='sim';
   $('navSummary').classList.toggle('active',v==='summary');
   $('navFsum').classList.toggle('active',v==='fsum');
+  $('navComall').classList.toggle('active',v==='comall');
   $('navCustom').classList.toggle('active',v==='custom');
   $('navBuilder').classList.toggle('active',v==='builder');
   $('navQuery').classList.toggle('active',v==='query');
@@ -6228,6 +6271,155 @@ function setView(v){
   $('navAssist').classList.toggle('active',v==='assist');
   $('navSim').classList.toggle('active',v==='sim');
   render();
+}
+/* ================= All commentaries =================
+   The pack writes the same narrative six times, once per comparison, each in
+   its own collapsible section. Every figure here comes from the Financial
+   Summary's own figures — so a quarter is read from the quarterly column, a
+   balance as a closing, and a year-to-date from the YTD column — and the
+   favourable/adverse reading is the one movement convention the rest of the
+   page uses. */
+let CA_ORIG=false;
+const COMALL_SECS=[
+  {id:'qtr_py',  lbl:'(Current QTR) Actuals vs PY',           base:'PY',
+    v:f=>f.qtd,   d:f=>f.qVsPY},
+  {id:'ytd_tgt', lbl:'(Month YTD) Actuals vs Target',         base:'Target',
+    v:f=>f.ytd,   d:f=>f.yVsTgt},
+  {id:'mth_fc',  lbl:'(Month) Actuals vs Forecast',           base:'Forecast',
+    v:f=>f.k.mth, d:f=>f.mVsFc},
+  {id:'fy_pfc',  lbl:'(Month) FY Forecast Vs Prior Forecast', base:'Prior Forecast',
+    v:f=>f.fy,    d:f=>f.fVsPrF},
+  {id:'fy_py',   lbl:'(Month) FY Forecast Vs Prior Year',     base:'Prior Year',
+    v:f=>f.fy,    d:f=>f.fVsPY},
+  {id:'fy_tgt',  lbl:'(Month) FY Forecast Vs Target',         base:'Target',
+    v:f=>f.fy,    d:f=>f.fVsTgt}
+];
+function caNote(){ const n=cfgS('commentary_note'); return n? ` (${n})` : ''; }
+function caFig(rows, sec, name){
+  const m=S.model, P=fsumPlan(m,S.ytdM);
+  const f=fsumFigs(rows,m,P,S.ytdM,name);
+  const val=sec.v(f), va=sec.d(f);
+  const base=(val!=null&&va!=null)? val-va : null;
+  const pct=(va!=null&&base)? va/Math.abs(base) : null;
+  return {f, val, va, pct};
+}
+/* an amount in the pack's own notation: $184mA, $9bnF, 20.9 */
+function caAmt(f, v, withFA, pct){
+  if(v==null) return 'n/a';
+  const a=Math.abs(v);
+  const txt=f.ratio? fsumRatioTxt(a) : f.bsFmt? '$'+fmtBS(a)+(bsUnit()||'bn') : '$'+fmtFull(Math.round(a))+'m';
+  if(!withFA) return txt;
+  const fav=movFav(f.k, v, pct==null? undefined : pct);
+  return `<b${faCls(fav)}>${txt}${fav?'F':'A'}</b>`;
+}
+function caVar(q){
+  if(q.va==null) return 'n/a';
+  return caAmt(q.f, q.va, true, q.pct)+(q.pct==null? '' : ' '+pctAbs(q.pct));
+}
+/* the movers behind a line, in the pack's order: what drove it, then what
+   worked the other way */
+function caDrivers(rows, sec, dimKey, n){
+  const gs=[...groupBy(rows,dimKey).entries()]
+    .map(([name,rs])=>({name:name||'(blank)', q:caFig(rs,sec,name)}))
+    .filter(g=>g.q.va!=null&&Math.abs(g.q.va)>0.0001)
+    .sort((a,b)=>Math.abs(b.q.va)-Math.abs(a.q.va));
+  return gs.slice(0, n||6);
+}
+function caDriverTxt(rows, sec, dimKey, total, n){
+  const gs=caDrivers(rows, sec, dimKey, n);
+  if(!gs.length) return '';
+  const sameWay=g=>total==null? true : (total>=0? g.q.va>=0 : g.q.va<0);
+  const on=gs.filter(sameWay).slice(0,4), off=gs.filter(g=>!sameWay(g)).slice(0,3);
+  const one=g=>`${esc(g.name)} (${caVar(g.q)})`;
+  let t='';
+  if(on.length) t+=` driven by ${on.map(one).join(', ')}`;
+  if(off.length) t+=`${on.length?', ':' '}offset by ${off.map(one).join(', ')}`;
+  return t;
+}
+function caSectionHtml(sec){
+  const m=S.model, rows=filteredRows();
+  if(!rows.length) return '';
+  const dimKey=houseDimKey();
+  const tree=fsumTree(rows).filter(r=>!r.band&&r.name);
+  if(!tree.length) return '';
+  const has=(parent,child)=>child!==parent&&child.rows.length&&child.rows.every(x=>parent.rows.includes(x));
+  const kidsOf=parent=>tree.filter(r=>(r.lvl||0)===(parent.lvl||0)+1&&has(parent,r));
+  const tops=tree.filter(r=>(r.lvl||0)===0);
+  if(!tops.length) return '';
+  const res=tops[0];
+  const resQ=caFig(res.rows, sec, res.name);
+  if(resQ.va==null) return '';
+  const flow=x=>!x.q.f.bsFmt&&!x.q.f.ratio;
+  const qOf=r=>({r, q:caFig(r.rows, sec, r.name)});
+  // The result is explained by its own components — Revenue, ECLs, costs sit
+  // beneath PBT in the hierarchy, not beside it.
+  const parts=kidsOf(res).map(qOf).filter(x=>x.q.va!=null&&Math.abs(x.q.va)>0.0001&&flow(x))
+    .sort((a,b)=>Math.abs(b.q.va)-Math.abs(a.q.va));
+  const sameWay=x=>resQ.va>=0? x.q.va>=0 : x.q.va<0;
+  const on=parts.filter(sameWay).slice(0,3), off=parts.filter(x=>!sameWay(x)).slice(0,3);
+  const one=x=>`${faWord(x.q.f.k, x.q.val)} ${esc(x.r.name)} (${caVar(x.q)})`;
+  let h=`<p><b>${esc(res.name)}</b> is ${caAmt(resQ.f, resQ.va, false)} ${
+    faWord(resQ.f.k, resQ.val)==='higher'? 'up' : 'down'} vs ${esc(sec.base)}`;
+  if(on.length) h+=` driven by ${on.map(one).join(' and ')}`;
+  if(off.length) h+=`${on.length?', ':' '}offset by ${off.map(one).join(' and ')}`;
+  h+='</p>';
+  // a line, then the lines beneath it, then the countries or segments behind
+  // whichever of those is the last one printed
+  const lineHtml=(x, depth)=>{
+    const kids=kidsOf(x.r).map(qOf).filter(y=>y.q.va!=null);
+    const val=caAmt(x.q.f, x.q.val, false), va=caVar(x.q);
+    const drv=kids.length? '' : caDriverTxt(x.r.rows, sec, dimKey, x.q.va, depth? 5 : 6);
+    let t=depth
+      ? `<li><b>${esc(x.r.name)}</b> ${va}${kids.length? ':' : drv}`
+      : `<p style="margin:10px 0 2px"><b>${esc(x.r.name)}</b> of ${val} are ${va}${kids.length? ':' : drv}</p>`;
+    if(kids.length&&depth<2){
+      t+='<ul class="houselist">'+kids.map(k2=>lineHtml(k2, depth+1)).join('')+'</ul>';
+    }
+    if(depth) t+='</li>';
+    return t;
+  };
+  // the result's own components first, in the file's order, then anything the
+  // statement keeps to itself — the balances the pack prints at the end
+  for(const x of kidsOf(res).map(qOf).filter(y=>y.q.va!=null)) h+=lineHtml(x, 0);
+  for(const t of tops.slice(1)){
+    const x=qOf(t);
+    if(x.q.va==null) continue;
+    h+=lineHtml(x, 0);
+  }
+  return h;
+}
+function renderComAll(){
+  const m=S.model, host=$('comallList'); if(!host) return;
+  const P=fsumPlan(m,S.ytdM);
+  const mt=$('comallMeta');
+  const doc=(typeof comDoc==='function')? comDoc() : null;
+  mt.innerHTML=`<div class="cameta">
+    <div><span class="cmk">Month-end</span><span class="cmv">${esc(MON_LBL[S.ytdM])} ${esc(m.yearCY)}</span></div>
+    <div><span class="cmk">Basis</span><span class="cmv">${esc(cmpLabels(m).period)}</span></div>
+    <div><span class="cmk">Scope</span><span class="cmv">${esc(filterNote(true))}</span></div>
+    <div><span class="cmk">Source</span><span class="cmv">${esc(S.fileName||'—')}</span></div>
+    <div><span class="cmk">Commentary file</span><span class="cmv">${doc? esc(doc.name) : 'None loaded'}</span></div>
+  </div>`;
+  host.innerHTML='';
+  let n=0;
+  for(const sec of COMALL_SECS){
+    let body='';
+    try{ body=caSectionHtml(sec); }catch(e){ body=''; }
+    if(!body) continue;
+    n++;
+    const d=document.createElement('details');
+    d.className='casec';
+    d.innerHTML=`<summary>${esc(sec.lbl)}${esc(caNote())}</summary><div class="cabody"></div>`;
+    host.appendChild(d);
+    const slot=d.querySelector('.cabody');
+    if(CA_ORIG) slot.innerHTML=`<div class="aicom"><div class="aicom-t">${body}</div></div>`;
+    else aiComment(slot, 'ca|'+sec.id+'|'+filterNote(true)+'|'+S.ytdM+'|'+comInSig()+'|'+drvSig(),
+      {ctx:filterNote(true)}, ()=>caSectionHtml(sec));
+  }
+  if(!n) host.innerHTML='<p class="note">This file carries no comparison the pack writes on \u2014 a target, a forecast or a prior year is needed.</p>';
+  $('btnCaOrig').classList.toggle('caon', CA_ORIG);
+  $('btnCaCur').classList.toggle('caon', !CA_ORIG);
+  $('btnCaExpand').textContent='Expand all';
 }
 /* ================= Financial Summary =================
    The management-reporting layout: three column bands (Month, QTD, YTD) with
@@ -8796,6 +8988,7 @@ function render(){
   if(!S.model) return;
   if(S.view==='summary') renderSummary();
   else if(S.view==='fsum') renderFsum();
+  else if(S.view==='comall') renderComAll();
   else if(S.view==='custom') renderCustom();
   else if(S.view==='builder') renderBuilder();
   else if(S.view==='query') renderQuery();
@@ -9638,7 +9831,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 10:34</td></tr>
+      <tr><td>Build</td><td>2026-08-13 10:46</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -9697,6 +9890,15 @@ function init(){
   $('fThresh').addEventListener('change',e=>{ S.thresh=+e.target.value; render(); renderKpiNav(); });
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navFsum').addEventListener('click',()=>setView('fsum'));
+  $('navComall').addEventListener('click',()=>setView('comall'));
+  $('btnCaOrig').addEventListener('click',()=>{ CA_ORIG=true; renderComAll(); });
+  $('btnCaCur').addEventListener('click',()=>{ CA_ORIG=false; renderComAll(); });
+  $('btnCaExpand').addEventListener('click',()=>{
+    const all=[...document.querySelectorAll('#comallList details')];
+    const open=all.every(d=>d.open);
+    all.forEach(d=>d.open=!open);
+    $('btnCaExpand').textContent=open? 'Expand all' : 'Collapse all';
+  });
   $('navCustom').addEventListener('click',()=>setView('custom'));
   $('fsumDepthSel').addEventListener('change',e=>{ S.fsumDepth=+e.target.value; renderFsum(); });
   $('btnFsumXlsx').addEventListener('click',()=>exportWB([{name:fsumSheetName(),aoa:fsumAOA()}],fsumFileName()));
