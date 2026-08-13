@@ -490,6 +490,16 @@ left-pane strip and the Filters pane.
   the rest. A written line also leads its own row in the Line commentary column,
   ahead of the Drivers note. Editing a block and keeping it still works: the
   written words refresh in place on the next ingest while your own edits stay.
+- **Commentary pinned onto the charts** — a written line aimed at a name shows
+  as a note on the mark it names, on every chart where that name is a category:
+  the words reach the graph, not only the block. It is capped at three notes a
+  chart (`chart_note_auto_max`), because a chart papered with notes says less
+  than a chart with three, and the **Commentary** switch in the note palette
+  turns the layer off and on. A note pinned by hand always wins over an ingested
+  one. What the chart is showing is **not repeated in the block beneath it** —
+  switch the layer off and those words go back into the block. Clicking an
+  ingested note opens it for editing with its own words already in the box, and
+  once edited it becomes your own note, kept like any other.
 - **Line commentary, as the pack prints it** — the reporting pack sets a
   short note beside each line, and the Financial Summary now carries the same
   column beneath the grid. A note written by the business leads — from the
