@@ -970,7 +970,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 08:05</div>
+<div id="buildTag">build 2026-08-14 08:16</div>
 </aside>
 <main>
 
@@ -10022,13 +10022,17 @@ function applyCountryRegions(m){
   const list=CFG.countrymap||[];
   if(!list.filter(e2=>e2.country).length) return;
   let anyB=false;
+  const unmapped=new Set();
   for(const r of m.rows){
     const c=String(r.d.country||''), b3=String(r.d.business||'');
     const cand=list.filter(e2=>e2.country&&String(e2.country).trim()===c);
     const e2=cand.find(x=>String(x.l0||'').trim()===b3)||cand[0];
     r.d.region=(e2&&e2.region)||'Unmapped';
+    if(!e2) unmapped.add((b3? b3+' ' : '')+c);
     if(b3) anyB=true;
   }
+  // the reader should never have to guess why a tab landed in Unmapped
+  if(unmapped.size) m.unmappedTabs=[...unmapped].sort();
   m.dimCols.region=-1;
   if(anyB&&!('business' in m.dimCols)) m.dimCols.business=-1;
 }
@@ -10157,6 +10161,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>Sheet</td><td>${esc(sheetName)}</td></tr>
       ${model.groupTab? `<tr><td>Group</td><td>read from the <b>${esc(model.groupTab)}</b> tab \u2014 the consolidated figures speak for the Group, and the tab is never added to the countries</td></tr>` : ''}
       ${model.groupSkipped&&model.groupSkipped.length? `<tr><td>Group</td><td>tab ${esc(model.groupSkipped.join(', '))} set aside (group_consolidation: rollup) \u2014 the Group is the roll-up of the country tabs</td></tr>` : ''}
+      ${model.unmappedTabs&&model.unmappedTabs.length? `<tr><td>Unmapped</td><td>${model.unmappedTabs.length} tab name${model.unmappedTabs.length===1?'':'s'} not found in the CountryHierarchy \u2014 grouped as Unmapped: <b>${esc(model.unmappedTabs.slice(0,6).join(', '))}${model.unmappedTabs.length>6?' \u2026':''}</b>. Add a row per name to the configuration's CountryHierarchy sheet to place them.</td></tr>` : ''}
       ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — the top of the left pane is their sum; pick a node in the left pane or top bar</td></tr>`:''}
       ${model.countries&&model.countries.length? `<tr><td>Roll-up</td><td>${model.countries.map(sn=>{
         const res=chResolveTab(sn);
@@ -10185,7 +10190,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 08:05</td></tr>
+      <tr><td>Build</td><td>2026-08-14 08:16</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
