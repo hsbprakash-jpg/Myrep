@@ -93,6 +93,10 @@ scopes to CIB's Singapore, not to every Singapore. And wherever the file
 carries a Group consolidation, the top of the tree and the dropdowns'
 everything-option are named **Group** — choosing it reads the consolidation,
 so it says so, rather than whatever the CountryHierarchy calls its Level 1.
+The hierarchy never leaks the other way: an entry with no tab in the loaded
+file — a country or a whole region the CountryHierarchy knows but this
+month's driller does not carry — is not offered in any dropdown, strip row
+or picker. The hierarchy places what is loaded; it never invents entries.
 
 A **Countries strip** appears in the left pane: the Group/Region row —
 the consolidation where the file carries one, else the sum of every country —
