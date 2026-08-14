@@ -970,7 +970,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 06:58</div>
+<div id="buildTag">build 2026-08-14 08:01</div>
 </aside>
 <main>
 
@@ -7752,13 +7752,31 @@ function fillScopeBar(ctx){
       regs.map(R=>`<option value="${esc(R)}"${R===regSel?' selected':''}>${esc(R)}</option>`).join('');
   }
   const pool=hasReg&&regSel? bPool.filter(r=>String(r.d.region||'')===regSel) : bPool;
-  const cs2=[...new Set(pool.map(r=>String(r.d.country||'')).filter(Boolean))].sort();
+  // the countries keep their place in the hierarchy: grouped under their
+  // region (and business, where several are in play), never a flat list
+  const byG=new Map();
+  for(const r of pool){
+    const c=String(r.d.country||''); if(!c) continue;
+    const gb=hasBiz&&!bizSel? String(r.d.business||'') : '';
+    const g2=[gb, hasReg? String(r.d.region||'') : ''].filter(Boolean).join(' \u00b7 ');
+    if(!byG.has(g2)) byG.set(g2,{b:gb, cs:new Set()});
+    byG.get(g2).cs.add(c);
+  }
+  // the option remembers the business its group belongs to, so Singapore under
+  // CIB \u00b7 Asia scopes to CIB's Singapore, not every Singapore
+  const opt=(c,gb)=>`<option value="${esc(c)}" data-b="${esc(gb||'')}"${c===curC?' selected':''}>${esc(c)}</option>`;
+  const groups=[...byG.keys()].sort();
   selC.innerHTML=`<option value="">${esc(hasReg&&regSel? 'All \u00b7 '+regSel : cfgL('scope_all_countries')||'All countries')}</option>`+
-    cs2.map(c=>`<option value="${esc(c)}"${c===curC?' selected':''}>${esc(c)}</option>`).join('');
+    (groups.length>1||groups[0]
+      ? groups.map(g2=>`<optgroup label="${esc(g2||'\u2014')}">${[...byG.get(g2).cs].sort().map(c=>opt(c,byG.get(g2).b)).join('')}</optgroup>`).join('')
+      : [...((byG.get('')||{cs:new Set()}).cs)].sort().map(c=>opt(c,'')).join(''));
   const bizNow=()=>selB&&!selB.hidden? selB.value : '';
   if(selB) selB.onchange=()=>scopeSet(selB.value,'','');
   selR.onchange=()=>scopeSet(bizNow(), selR.value,'');
-  selC.onchange=()=>scopeSet(bizNow(), selC.value? (selR.hidden?'':selR.value):'', selC.value);
+  selC.onchange=()=>{
+    const o=selC.selectedOptions[0];
+    scopeSet((o&&o.dataset.b)||bizNow(), selC.value? (selR.hidden?'':selR.value):'', selC.value);
+  };
 }
 function renderKpiNav(){
   const m=S.model; if(!m) return;
@@ -10164,7 +10182,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 06:58</td></tr>
+      <tr><td>Build</td><td>2026-08-14 08:01</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
