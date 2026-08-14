@@ -970,7 +970,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 08:24</div>
+<div id="buildTag">build 2026-08-14 08:26</div>
 </aside>
 <main>
 
@@ -7595,13 +7595,12 @@ function renderCountryNav(){
   const oneBiz=(!bizTier&&bizzes.length===1)? bizzes[0] : '';
   const topName=bizTier? cfgS('group_label')
     : m.groupTab? 'Group'
-    : oneBiz? (cfgS('global_business_prefix').trim()? cfgS('global_business_prefix').trim()+' '+oneBiz : oneBiz)
+    : oneBiz? bizName(oneBiz)
     : l1Name;
   /* the tiers read as the organisation reads them: countries make a region,
      regions make the global business (Global IWPB), global businesses make
      the Group — and each row says which tier it is */
-  const gPfx=cfgS('global_business_prefix').trim();
-  const bizLbl=B=>gPfx? gPfx+' '+B : B;
+  const bizLbl=bizName;
   // a tag only where the name does not already say it: the top row is named
   // Group and the business rows are named Global X, so they carry none —
   // except the consolidation, which the reader should never have to guess
@@ -7679,7 +7678,7 @@ function renderCpick(entries, curC, curB, bizTier, hasReg){
   const btn=$('cpickBtn');
   const cur=curC? entries.find(e2=>e2.c===curC&&(!curB||e2.b===curB))||entries.find(e2=>e2.c===curC) : null;
   btn.innerHTML= cur
-    ? `<span class="dot ${cur.rg.cls}"></span><span class="lbl">${esc(cur.c)}${cur.b?` \u00b7 ${esc(cur.b)}`:''}</span>
+    ? `<span class="dot ${cur.rg.cls}"></span><span class="lbl">${esc(cur.c)}${cur.b?` \u00b7 ${esc(bizName(cur.b))}`:''}</span>
        <span class="cnt">${cur.k.cy==null?'':fmtK(cur.k,cur.k.cy)}</span><span class="arr">\u25be</span>`
     : `<span class="lbl">Select a country\u2026</span><span class="cnt">${new Set(entries.map(e2=>e2.c)).size}</span><span class="arr">\u25be</span>`;
   $('cpickPanel').hidden=!S.cpickOpen;
@@ -7693,10 +7692,10 @@ function cpickRenderList(){
   const q=String(S.cpickQ||'').toLowerCase();
   const es=CPICK.entries.filter(e2=>!q||e2.c.toLowerCase().includes(q)||String(e2.r).toLowerCase().includes(q));
   let html='';
-  if(CPICK.curC) html+=`<button data-clear="1"><span class="dot n"></span><span class="nm">\u2715 Clear country \u2014 back to ${esc(CPICK.curB||'all')}</span></button>`;
+  if(CPICK.curC) html+=`<button data-clear="1"><span class="dot n"></span><span class="nm">\u2715 Clear country \u2014 back to ${esc(CPICK.curB? bizName(CPICK.curB) : 'all')}</span></button>`;
   let g='';
   for(const e2 of es){
-    const gl=[e2.b, e2.r].filter(Boolean).join(' \u00b7 ');
+    const gl=[bizName(e2.b), e2.r].filter(Boolean).join(' \u00b7 ');
     if(gl!==g){ g=gl; if(gl) html+=`<div class="grp">${esc(gl)}</div>`; }
     const cur=e2.c===CPICK.curC&&(!CPICK.curB||e2.b===CPICK.curB);
     html+=`<button data-c="${esc(e2.c)}" data-b="${esc(e2.b)}" class="${cur?'cur':''}">
@@ -7742,14 +7741,13 @@ function fillScopeBar(ctx){
     const one=show&&!ctx.hasBiz&&ctx.m&&('business' in ctx.m.dimCols)?
       [...new Set(ctx.m.rows.map(r=>String(r.d.business||'')).filter(Boolean))] : [];
     bn.hidden=one.length!==1;
-    if(one.length===1) bn.textContent=one[0];
+    if(one.length===1) bn.textContent=bizName(one[0]);
   }
   if(!show) return;
   const {hasReg, hasBiz, bizzes, curB, curC, curR, topName, l1Name, m}=ctx;
-  const gPfx2=cfgS('global_business_prefix').trim();
   if(hasBiz&&selB)
     selB.innerHTML=`<option value="">${esc(topName)}</option>`+
-      bizzes.map(B=>`<option value="${esc(B)}"${B===curB?' selected':''}>${esc(gPfx2? gPfx2+' '+B : B)}</option>`).join('');
+      bizzes.map(B=>`<option value="${esc(B)}"${B===curB?' selected':''}>${esc(bizName(B))}</option>`).join('');
   const bizSel=hasBiz? curB : '';
   const bPool=bizSel? m.rows.filter(r=>String(r.d.business||'')===bizSel) : m.rows;
   const regOfC=curC&&hasReg? String(((bPool.find(r=>String(r.d.country||'')===curC)||{d:{}}).d.region)||'') : '';
@@ -7761,10 +7759,9 @@ function fillScopeBar(ctx){
     // the hierarchy's own name otherwise
     const oneB=(!hasBiz&&m&&('business' in m.dimCols))?
       (bs=>bs.length===1? bs[0] : '')([...new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean))]) : '';
-    const gp=cfgS('global_business_prefix').trim();
-    const allLbl=bizSel? 'All \u00b7 '+bizSel
+    const allLbl=bizSel? 'All \u00b7 '+bizName(bizSel)
       : (m.groupTab||hasBiz)? 'Group'   // several businesses summed ARE the Group
-      : oneB? (gp? gp+' '+oneB : oneB)
+      : oneB? bizName(oneB)
       : l1Name;
     selR.innerHTML=`<option value="">${esc(allLbl)}</option>`+
       regs.map(R=>`<option value="${esc(R)}"${R===regSel?' selected':''}>${esc(R)}</option>`).join('');
@@ -7776,7 +7773,7 @@ function fillScopeBar(ctx){
   for(const r of pool){
     const c=String(r.d.country||''); if(!c) continue;
     const gb=hasBiz&&!bizSel? String(r.d.business||'') : '';
-    const g2=[gb, hasReg? String(r.d.region||'') : ''].filter(Boolean).join(' \u00b7 ');
+    const g2=[bizName(gb), hasReg? String(r.d.region||'') : ''].filter(Boolean).join(' \u00b7 ');
     if(!byG.has(g2)) byG.set(g2,{b:gb, cs:new Set()});
     byG.get(g2).cs.add(c);
   }
@@ -10009,6 +10006,13 @@ function handleFile(file){
    canonical one and every other tab's values are matched onto it by column
    label (kind-aware and duplicate-tolerant), so tabs may lay their columns
    out in any order. Rows are tagged with the tab name as their Country. */
+/* a business is always written out as Global IWPB / Global CIB, in every
+   dropdown, group heading and chip that names one */
+function bizName(B){
+  B=String(B==null?'':B).trim(); if(!B) return '';
+  const gp=cfgS('global_business_prefix').trim();
+  return gp? gp+' '+B : B;
+}
 function cfgCountryMap(){
   const list=CFG.countrymap||[];
   const map=new Map(); let l1='';
@@ -10205,7 +10209,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 08:24</td></tr>
+      <tr><td>Build</td><td>2026-08-14 08:26</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
