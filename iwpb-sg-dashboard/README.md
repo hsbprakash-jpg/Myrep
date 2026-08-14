@@ -86,7 +86,10 @@ global businesses otherwise), then **Global IWPB** and **Global CIB** — the
 business rows carry the `global_business_prefix` (`Global` by default, blank
 switches it off, and the scope-bar dropdown reads the same) — each opening
 into its regions (tagged `REGION`, each the sum of its countries), with the
-countries in the picker beneath.
+countries in the picker beneath. The scope bar's **country dropdown keeps
+the same association**: countries are grouped under their `Business · Region`
+headings rather than listed flat, and picking Singapore under `CIB · Asia`
+scopes to CIB's Singapore, not to every Singapore.
 
 A **Countries strip** appears in the left pane: the Group/Region row —
 the consolidation where the file carries one, else the sum of every country —
