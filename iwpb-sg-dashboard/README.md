@@ -77,8 +77,19 @@ counts. What happens instead is `group_consolidation`'s choice:
   Group tab — the consolidated figures speak for the Group, and the tab is
   never added to the countries"* — so the source is never a guess.
 
-A **Countries strip** appears in the left pane: a Region row — the
-consolidation where the file carries one, else the sum of every country —
+**The tiers read as the organisation reads them.** Countries make a region,
+regions make the global business, global businesses make the Group: tabs
+named `IWPB Singapore` and `CIB Singapore` resolve through the
+CountryHierarchy's Level 0, the strip shows **Group** on top (the
+consolidation where the file carries one, tagged `CONSOL`; the sum of the
+global businesses otherwise), then **Global IWPB** and **Global CIB** — the
+business rows carry the `global_business_prefix` (`Global` by default, blank
+switches it off, and the scope-bar dropdown reads the same) — each opening
+into its regions (tagged `REGION`, each the sum of its countries), with the
+countries in the picker beneath.
+
+A **Countries strip** appears in the left pane: the Group/Region row —
+the consolidation where the file carries one, else the sum of every country —
 then one row per country with its P&L YTD and RAG; click
 a row to scope every page, chart, export and simulation to that country
 (the Country filter group mirrors the choice). The strip stays quiet:
