@@ -256,3 +256,5 @@ ProductHierarchy,B44,IWPB,Others,Other,,,
 ProductHierarchy,B45,IWPB,Others,Other,Non Wealth Insurance Distribution,,
 ProductHierarchy,B46,IWPB,Others,Other,Other Products,,
 ProductHierarchy,B47,IWPB,Others,Wealth Lending,,,
+CommentaryTemplates,Exec brief,,"{line} {var} {vs}, led by {drivers}."
+CommentaryTemplates,FP&A detail,,{line}: {main} against {base} — {varamt} ({varpct}) {vs}. Key movers: {drivers}.

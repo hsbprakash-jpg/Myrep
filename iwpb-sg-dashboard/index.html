@@ -970,7 +970,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 19:19</div>
+<div id="buildTag">build 2026-08-14 19:30</div>
 </aside>
 <main>
 
@@ -1040,6 +1040,8 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
           Management commentary <span class="unitsfx" data-unitsfx></span></h4>
         <p class="subtitle" id="houseSub"></p></div>
         <div style="display:flex;gap:8px;align-items:center" id="houseCtl">
+          <label style="font-size:12px;color:var(--text-muted)">Style
+            <select id="houseStyle" title="How the narrative is worded — the pack format, the house cascade, or a template from the config" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)"></select></label>
           <label style="font-size:12px;color:var(--text-muted)">Driven by
             <select id="houseDim" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)"></select></label>
           <button class="btn-quiet" id="btnHouseCopy">⧉ Copy</button>
@@ -1564,6 +1566,15 @@ const CFG_DEFAULT={
   drivers:{},
   commentary:[],
   comFree:[],
+  /* named commentary templates the reader can choose from \u2014 token patterns
+     the writer fills from the driller's own figures under the selected
+     variance period. Tokens: {line} {main} {base} {var} {varamt} {varpct} {vs}
+     {basename} {period} {drivers} {month} {quarter} {fy} {ytd}. Uploaded
+     CommentaryTemplates rows replace these examples wholesale. */
+  comtpl:[
+    {style:'Exec brief', view:'', pattern:'{line} {var} {vs}, led by {drivers}.'},
+    {style:'FP&A detail', view:'', pattern:'{line}: {main} against {base} \u2014 {varamt} ({varpct}) {vs}. Key movers: {drivers}.'},
+  ],
   aliases:[],
   views:{summary:'Y',fsum:'Y',comall:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
   labels:{
@@ -2605,6 +2616,7 @@ const S = {
   filters:{},                 // dimKey -> Set of selected values (absent = all)
   outDims:new Set(), outPeriods:new Set(['pyMonths','cyMonths','quarters','ytd']),
   ytdM:0, includeFC:false, varPeriod:'', units:'', trajLine:'', fsumDepth:0,
+  comStyle:(()=>{ try{ return localStorage.getItem('iwpbsg_comstyle')||''; }catch(e){ return ''; } })(),
   view:'summary', widgets:[],
 };
 const ALL_DIM_LABELS={country:'Country', region:'Region', business:'Business line', mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
@@ -3381,14 +3393,22 @@ function renderHouse(){
   const cur=houseDimKey();
   $('houseDim').innerHTML=dims.map(k=>`<option value="${k}"${cur===k?' selected':''}>${esc(FIELD_LABELS[k])}</option>`).join('');
   $('houseSub').textContent=`${scopeTrail()? 'Global Business '+scopeTrail()+' · ':''}${L.period} — reporting-pack narrative, cascading to ${FIELD_LABELS[cur]||cur} · ${cfgUnit()}`;
+  const st=comStyleSel();
+  const sSel=$('houseStyle');
+  if(sSel){
+    sSel.innerHTML=[['pack','Pack narrative'],['house','House cascade'],
+      ...comTplStyles().map(x=>[x,x])]
+      .map(([v,l])=>`<option value="${esc(v)}"${st===v?' selected':''}>${esc(l)}</option>`).join('');
+  }
   aiComment($('houseCom'), 'house|'+filterNote()+'|'+S.ytdM+'|'+cur+'|'+L.vp+'|'+L.mode+'|'+
-    cfgS('commentary_format')+'|'+drvSig(),
-    ()=>cfgS('commentary_format').trim().toLowerCase()==='house'
-      // the per-line reasons are woven into the sentences below; the lead
-      // carries what was written about the period as a whole, and anything
-      // about a line the statement never named
-      ? (()=>{ const body=houseCommentaryHtml(); return comSumLead()+caSummaryLine()+body; })()
-      : (()=>{ const body=slideCommentaryHtml(); return comSumLead()+caSummaryLine()+body; })());
+    st+'|'+drvSig(),
+    // the per-line reasons are woven into the sentences below; the lead
+    // carries what was written about the period as a whole, and anything
+    // about a line the statement never named
+    ()=>{ const body= st==='house'? houseCommentaryHtml()
+                    : st!=='pack'? tplCommentaryHtml(st)
+                    : slideCommentaryHtml();
+          return comSumLead()+caSummaryLine()+body; });
 }
 
 /* ---- slide-format management commentary -------------------------------
@@ -3618,6 +3638,73 @@ function comSumLead(){
       return `<b>${esc(q.name)}</b> \u2014 ${esc(d)}${/[\u2026.!?]$/.test(d)?'':'.'}`;
     })];
   return bits.length? `<span class="drvlead">${bits.join(' ')}</span> ` : '';
+}
+/* ---- template-styled management commentary ----------------------------
+   The reader chooses how the stitched narrative is worded. A style is a
+   token pattern from the CommentaryTemplates tab (or a built-in example);
+   the writer walks the same statement cascade as the pack narrative and
+   fills the pattern per line from the page's own figures \u2014 a template
+   governs word order and tone, never arithmetic. The written commentary
+   still leads each line through the same stitching the other writers use. */
+function comTplList(){ return (CFG&&CFG.comtpl)||[]; }
+function comTplStyles(){ return [...new Set(comTplList().map(t=>String(t.style||'').trim()).filter(Boolean))]; }
+function comTplPat(style, view){
+  const want=String(style||'').trim().toLowerCase();
+  const ts=comTplList().filter(t=>String(t.style||'').trim().toLowerCase()===want);
+  const v=String(view||'').toLowerCase();
+  const hit=ts.find(t=>String(t.view||'').trim().toLowerCase()===v)
+    || ts.find(t=>!String(t.view||'').trim());
+  return hit? String(hit.pattern||'') : '';
+}
+function comStyleSel(){
+  const st=(S.comStyle!=null&&S.comStyle!=='')? S.comStyle : cfgS('commentary_format').trim();
+  if(!st) return 'pack';
+  if(st.toLowerCase()==='house') return 'house';
+  if(st.toLowerCase()==='slide'||st.toLowerCase()==='pack') return 'pack';
+  return comTplStyles().find(x=>x.toLowerCase()===st.toLowerCase())||'pack';
+}
+function comTplFill(pat, ctx){
+  return esc(pat).replace(/\{(\w+)\}/g,(mm,tok)=>{
+    const v=ctx[String(tok).toLowerCase()];
+    return v!=null? v : mm;
+  });
+}
+function tplCommentaryHtml(style){
+  comSaidReset();
+  const m=S.model, L=cmpLabels(m), rows=filteredRows();
+  if(!rows.length) return '';
+  const pat=comTplPat(style,'summary');
+  if(!pat) return slideCommentaryHtml();
+  const dimKey=houseDimKey(), N=houseDrvCount();
+  const LV=houseLevels(); if(!LV.length) return '';
+  const atF=fileOrder(m);
+  const groups=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
+    .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0)||atF(a.rs)-atF(b.rs));
+  if(!groups.length) return '';
+  const c=vpCtx(m,S.ytdM);
+  let h=`<p><u>(${esc(MON_LBL[S.ytdM])}) ${esc(L.main)} Vs ${esc(L.base)}${cfgS('commentary_note')?` (${esc(cfgS('commentary_note'))})`:''}:</u></p>`;
+  h+='<ul class="actlist">'+groups.map(g=>{
+    const bs=isBSLine(g.name);
+    // an expense line names no products as movers \u2014 the same rule as
+    // everywhere else; the cut falls back the way the slide writer's does
+    let dk=dimKey;
+    if(/^prod/.test(dk)&&caIsCost(g.rs,g.name))
+      dk=['cgL2','country','entity','funcL2'].find(k2=>k2 in m.dimCols)||'';
+    const dr=dk? houseDrivers(g.rs,dk,N) : [];
+    const drTxt=dr.length? dr.map(x=>`${esc(x.name)} (${faTxt(x.k)})`).join(', ') : 'no single mover';
+    const k=g.k;
+    const ctx={
+      line:`<b>${esc(g.name)}</b>`,
+      main:slVal(k.cmpMain,bs), base:slVal(k.cmpBase,bs),
+      'var':slVar(k,bs), varamt:slVar(k,bs).replace(/ \/ [^<]*$/,''), varpct:pctAbs(k.cmpVarPct),
+      vs:esc(L.vs), basename:esc(L.base), period:esc(L.period),
+      drivers:drTxt, month:esc(MON_LBL[S.ytdM]), quarter:'Q'+c.q,
+      fy:esc(String(m.yearCY||'')), ytd:esc(MON_LBL[S.ytdM]+' YTD'),
+    };
+    return `<li>${comTplFill(pat,ctx)}${comTail(g.name)}</li>`;
+  }).join('')+'</ul>';
+  return h;
 }
 function houseCommentaryHtml(){
   comSaidReset();
@@ -9930,7 +10017,7 @@ function applyCfgDom(){
 function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
   const low=x=>deMoji(String(x==null?'':x).trim()).trim();
-  const tp=[], hb={}; let mz=false, cz=false, chCols=null;
+  const tp=[], hb={}; let mz=false, cz=false, tz=false, chCols=null;
   const handle=(section,rows)=>{
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
     for(const r of rows){
@@ -9955,6 +10042,14 @@ function cfgFromWorkbook(wb){
         if(c) cfg.commentary.push({view:a, line:b2, text:c});
         else if(b2) cfg.commentary.push({view:'', line:a, text:b2});
         else if(a) cfg.comFree.push(a);
+      }
+      else if(sec==='commentarytemplates'||sec==='commentarystyles'){
+        // Style | View | Pattern — with two columns, Style | Pattern; the
+        // first uploaded row replaces the built-in examples wholesale
+        if(String(a).toLowerCase()==='style') continue;
+        if(tz!==true){ cfg.comtpl=[]; tz=true; }
+        if(a&&c) cfg.comtpl.push({style:a, view:b2, pattern:c});
+        else if(a&&b2) cfg.comtpl.push({style:a, view:'', pattern:b2});
       }
       else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
         if(a&&b2) cfg.metrics.push({name:a, scope:b2}); }
@@ -10038,6 +10133,9 @@ function cfgTemplateCSV(){
     ['Commentary','<view - Summary / Financial Summary / Chart / Dashboard / blank = all>',
       '<line - e.g. Revenue; blank = the whole view>','<the words the business wrote>','',''],
     ['Aliases','<what the commentary calls it - e.g. NII>','<the line in the driller - e.g. NII - Interest Income>','','',''],
+    ...CFG_DEFAULT.comtpl.map(t=>['CommentaryTemplates',t.style,t.view,t.pattern,'']),
+    ['CommentaryTemplates','<style name the reader picks>','<view - blank = all>',
+      '<pattern - e.g. {line} {var} {vs}, led by {drivers}.>',''],
     ['CountryHierarchy','<ID - optional>','<Level 1 - e.g. Global>','<Level 2 region - e.g. Asia>','<Level 3 country = tab name - e.g. Singapore>'],
     ...CFG_DEFAULT.metrics.map(x=>['Metrics',x.name,x.scope,'','']),
     ...['account','product'].flatMap(hk=>CFG_DEFAULT.hierarchies[hk].map(r=>{
@@ -10277,7 +10375,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 19:19</td></tr>
+      <tr><td>Build</td><td>2026-08-14 19:30</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10487,6 +10585,8 @@ function init(){
   $('btnAiAsk').addEventListener('click',()=>{ aiAsk($('aiInput').value); $('aiInput').value=''; });
   $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ aiAsk($('aiInput').value); $('aiInput').value=''; } });
   $('houseDim').addEventListener('change',e=>{ HOUSE_DIM=e.target.value; renderHouse(); });
+  $('houseStyle').addEventListener('change',e=>{ S.comStyle=e.target.value;
+    try{ localStorage.setItem('iwpbsg_comstyle',S.comStyle); }catch(err){} renderHouse(); });
   const hf=$('houseFoldHead');
   const hToggle=()=>{ try{ localStorage.setItem('iwpbsg_house_fold', houseCollapsed()?'0':'1'); }catch(e){}
     applyHouseFold(); };

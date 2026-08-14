@@ -736,6 +736,29 @@ left-pane strip and the Filters pane.
   ahead of the Drivers note. Editing a block and keeping it still works: the
   written words refresh in place on the next ingest while your own edits stay.
 
+  **Commentary templates — choosing how the narrative is worded.** The
+  Management Commentary panel carries a **Style** selector: the pack
+  narrative, the house cascade, or any named template from the
+  configuration's `CommentaryTemplates` tab (`Style | View | Pattern`).
+  A pattern is a sentence with tokens the page fills per statement line
+  from the driller's own figures under the selected variance period —
+
+  ```
+  Exec brief   | {line} {var} {vs}, led by {drivers}.
+  FP&A detail  | {line}: {main} against {base} — {varamt} ({varpct}) {vs}. Key movers: {drivers}.
+  ```
+
+  Tokens: `{line}` `{main}` `{base}` `{var}` (movement with %), `{varamt}`
+  (movement alone), `{varpct}`, `{vs}`, `{basename}`, `{period}`,
+  `{drivers}`, `{month}`, `{quarter}`, `{fy}`, `{ytd}`. A template governs
+  word order and tone, never arithmetic: every figure is computed exactly
+  as the pack style computes it, expense lines still name no products as
+  movers, and the written commentary still leads each line. Uploaded rows
+  replace the built-in examples wholesale; `View` scopes a pattern
+  (blank = everywhere); `commentary_format` in Settings names the default
+  style, and the reader's own pick on the panel is remembered. The Word
+  and PPT exports carry whichever style is on the page.
+
   **How it decides which line a comment is about.** This is text matching
   against the names in your own file. It reads names; it does not understand
   banking. Four things can resolve a sentence, and the left pane says which one
