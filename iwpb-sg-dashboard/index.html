@@ -970,7 +970,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 08:26</div>
+<div id="buildTag">build 2026-08-14 08:29</div>
 </aside>
 <main>
 
@@ -10134,6 +10134,13 @@ function ingestArrayBuffer(buf, name, fromCache){
       }
       if(parsedTabs.length===1){ model=parsedTabs[0].m; sheetName=parsedTabs[0].sn; }
       else if(parsedTabs.length>1){ model=mergeCountryModels(parsedTabs); sheetName=parsedTabs.map(t=>t.sn).join(' + '); }
+      /* A Global business is always summed from its own tabs — there is no
+         such thing as a "Global IWPB" tab, and one slipping in would merge as
+         a country and silently double that business. Say so, loudly. */
+      if(model&&parsedTabs.length>1){
+        const glb=parsedTabs.filter(t=>/^global\b/i.test(String(t.sn).trim())).map(t=>t.sn);
+        if(glb.length) model.globalTabWarn=glb;
+      }
       if(model&&groupTabs.length){
         const gmode=String(cfgS('group_consolidation')||'auto').trim().toLowerCase();
         if(gmode==='rollup'){ model.groupSkipped=groupTabs.map(t=>t.sn); }
@@ -10181,6 +10188,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       ${model.groupTab? `<tr><td>Group</td><td>read from the <b>${esc(model.groupTab)}</b> tab \u2014 the consolidated figures speak for the Group, and the tab is never added to the countries</td></tr>` : ''}
       ${model.groupSkipped&&model.groupSkipped.length? `<tr><td>Group</td><td>tab ${esc(model.groupSkipped.join(', '))} set aside (group_consolidation: rollup) \u2014 the Group is the roll-up of the country tabs</td></tr>` : ''}
       ${model.unmappedTabs&&model.unmappedTabs.length? `<tr><td>Unmapped</td><td>${model.unmappedTabs.length} tab name${model.unmappedTabs.length===1?'':'s'} not found in the CountryHierarchy \u2014 grouped as Unmapped: <b>${esc(model.unmappedTabs.slice(0,6).join(', '))}${model.unmappedTabs.length>6?' \u2026':''}</b>. Add a row per name to the configuration's CountryHierarchy sheet to place them.</td></tr>` : ''}
+      ${model.globalTabWarn&&model.globalTabWarn.length? `<tr><td>\u26a0 Global tab</td><td>tab ${esc(model.globalTabWarn.join(', '))} looks like a business consolidation, and it was merged as a <b>country</b> \u2014 a Global business is always summed from its own tabs, so this will double-count. Remove the tab, or name it Group / add it to group_tab_patterns if it is the Group consolidation.</td></tr>` : ''}
       ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — the top of the left pane is their sum; pick a node in the left pane or top bar</td></tr>`:''}
       ${model.countries&&model.countries.length? `<tr><td>Roll-up</td><td>${model.countries.map(sn=>{
         const res=chResolveTab(sn);
@@ -10209,7 +10217,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 08:26</td></tr>
+      <tr><td>Build</td><td>2026-08-14 08:29</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
