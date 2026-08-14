@@ -1024,9 +1024,14 @@ What each section governs:
   recognise Forecast and Target columns, the cost/ECL direction patterns,
   the hidden-comparison patterns for target-only files, the My
   dashboard page size, and `variance_periods` — the ordered list of
-  comparison bases offered in the left pane (any of `auto`, `ytd_py`,
-  `ytd_fc`, `ytd_tgt`, `mom`, `mth_py`, `mth_tgt`, `mth_fc`, `fy_tgt`,
-  `fy_py`; entries a file cannot serve are hidden automatically).
+  comparison bases offered in the left pane. By default this is exactly
+  the six comparisons the All Commentaries pack writes, in the pack's
+  order — `qtr_py`, `ytd_tgt`, `mth_fc`, `fy_pfc`, `fy_py`, `fy_tgt` —
+  so the selector and the pack read one basis list; the page lands on
+  the first of them the file can serve. A config can still narrow or
+  extend the list (`auto`, `ytd_py`, `ytd_fc`, `mom`, `mth_py`,
+  `mth_tgt` remain understood); entries a file cannot serve are hidden
+  automatically.
 - **Hierarchy check** — the ingest report states whether the cascade adds
   up: it names any row that matched no line (they group under Unmapped)
   and any line that keeps rows of its own while also having children, so

@@ -970,7 +970,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 09:01</div>
+<div id="buildTag">build 2026-08-14 18:40</div>
 </aside>
 <main>
 
@@ -1416,7 +1416,9 @@ const CFG_DEFAULT={
     calc_forecast_weights:'',
     calc_cmp_priority:'py,fc,tgt',
     calc_variance_period:'auto',
-    variance_periods:'auto,qtr_py,ytd_tgt,mth_fc,fy_pfc,fy_py,fy_tgt,ytd_py,mom,mth_tgt,ytd_fc',
+    /* the same six comparisons the All Commentaries pack writes, in the same
+       order (COMALL_SECS) \u2014 the selector and the pack read one basis list */
+    variance_periods:'qtr_py,ytd_tgt,mth_fc,fy_pfc,fy_py,fy_tgt',
     calc_rag_green_at:'0',
     calc_rag_direction:'Y',
     commentary_dim:'',
@@ -1820,7 +1822,9 @@ const VP_DEFS={
   mth_fc:{mode:'fc', grain:'month', line:'fc',
     lbl:c=>`Month vs Forecast (${c.mon}-${c.cyy} vs ${c.mon}-${c.cyy} forecast)`,
     main:c=>`${c.mon}-${c.cyy}`, base:c=>`${c.mon}-${c.cyy} forecast`, vs:c=>`vs ${c.mon}-${c.cyy} forecast`,
-    avail:m=>fcBasis(m), pick:v=>[v.mth, v.mthFc]},
+    /* offered wherever the pack can write its month-vs-forecast section: a
+       forecast basis, or an FY forecast column even alongside prior year */
+    avail:m=>fcBasis(m)||!!(m.fyFcCols&&m.fyFcCols.length), pick:v=>[v.mth, v.mthFc]},
   fy_tgt:{mode:'tgt', grain:'ytd', line:'tgt',
     lbl:c=>`FY${c.cyy} vs Target (${c.cy4} forecast vs ${c.cy4} target)`,
     main:c=>`FY${c.cyy} forecast`, base:c=>`FY${c.cyy} target`, vs:c=>`vs FY${c.cyy} target`,
@@ -1870,12 +1874,13 @@ function vpSel(m, ytdM){
   const mm=m||S.model;
   if(!mm) return 'auto';
   const yy=(ytdM==null? (typeof S!=='undefined'? S.ytdM : 0) : ytdM);
-  const ok=new Set(vpOptions(mm,yy).map(o=>o.id));
+  const opts=vpOptions(mm,yy);
+  const ok=new Set(opts.map(o=>o.id));
   const want=(typeof S!=='undefined'&&S.varPeriod)? S.varPeriod : cfgS('calc_variance_period').trim();
   if(ok.has(want)) return want;
   const dflt=cfgS('calc_variance_period').trim();
   if(ok.has(dflt)) return dflt;
-  return 'auto';
+  return opts.length? opts[0].id : 'auto';
 }
 
 
@@ -2180,7 +2185,7 @@ function kpi(rows, model, ytdM, includeFC){
   const vpId=vpSel(model, ytdM), vpDef=VP_DEFS[vpId];
   if(vpDef&&vpDef.pick){
     const [mn,bs]=vpDef.pick({cy,py,ytdFc,ytdTgt,target,outlook,fyFc,fyPrior,
-      mth,mthPrev,mthPy,mthTgt,mthFc,pyFull,fyMain,fyBase});
+      mth,mthPrev,mthPy,mthTgt,mthFc,pyFull,fyMain,fyBase,qtd,qtdPy,fyPrFc:fyFcCol});
     cmpMode=vpDef.mode; cmpMain=mn; cmpBase=bs;
     cmpVar=(mn!=null&&bs!=null)? mn-bs : null;
     cmpVarPct=(cmpVar!=null&&bs!==0&&bs!=null)? cmpVar/Math.abs(bs) : null;
@@ -3442,7 +3447,11 @@ function slideCommentaryHtml(){
   const LV=houseLevels(); if(!LV.length) return '';
   const dimKey=houseDimKey(), N=houseDrvCount();
   const mon=MON_LBL[S.ytdM], note=cfgS('commentary_note');
-  const head=cfgS('commentary_headline')||L.main;
+  /* the heading names the selected comparison's own figure. A configured
+     headline ("FY Forecast") stands in only where that figure IS the full-year
+     forecast — glued onto a quarter or month basis it would misname the pair */
+  const headCfg=cfgS('commentary_headline');
+  const head=(headCfg&&/^fy/i.test(String(L.main||'')))? headCfg : (L.main||headCfg);
   const nt=note? ` (${esc(note)})` : '';
   let h=`<p><u>(${esc(mon)}) ${esc(head)} Vs ${esc(L.base)}${nt}:</u></p>`;
 
@@ -10241,7 +10250,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 09:01</td></tr>
+      <tr><td>Build</td><td>2026-08-14 18:40</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
