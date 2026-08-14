@@ -970,7 +970,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 18:40</div>
+<div id="buildTag">build 2026-08-14 19:15</div>
 </aside>
 <main>
 
@@ -10250,7 +10250,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 18:40</td></tr>
+      <tr><td>Build</td><td>2026-08-14 19:15</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10506,34 +10506,52 @@ function init(){
       exportPPT([{title:chartTitle(B), el:$('bPreview'), aoa:chartAOA({...B}), note:comText('bCom')}],brandSlug()+'_chart');
   });
   async function exportDashPPT(widgets, fname){
-    // render chart/trend widgets offscreen and convert to images; every widget
-    // is fault-isolated so one bad chart cannot sink the rest of the deck
+    /* The deck shows what the page shows. A widget that is on the current
+       page is captured from the page itself \u2014 the reader's dropped notes,
+       the ingested-commentary marks and the variance annotation ride along,
+       because they are already drawn on that svg. Only a widget on another
+       page (the all-pages export) is rebuilt offscreen \u2014 and the rebuild
+       waits a tick, because the notes are drawn one tick after a chart is
+       built, and then draws the widget-key notes the page would carry. Every
+       widget is fault-isolated so one bad chart cannot sink the deck. */
     const items=[], hosts=[];
     for(const w of widgets){
       try{
         let png=null;
         const wIsBreakChart=(w.type==='l3'||w.type==='products')&&wGraphOf(w)!=='table';
         if(w.type==='chart'||w.type==='trend'||w.type==='traj'||wIsBreakChart){
-          const host=document.createElement('div');
-          host.style.cssText='position:absolute;left:-10000px;top:0;width:820px';
-          document.body.appendChild(host); hosts.push(host);
-          if(w.type==='chart') host.appendChild(buildChartEl(w.cfg));
-          else if(wIsBreakChart){
-            const bcfg={groupBy:[wDim(w)], splitBy:null, measure:'cy', type:wGraphOf(w), l2:w.l2||''};
-            ensureType(bcfg); host.appendChild(buildChartEl(bcfg));
+          const idx=S.widgets.indexOf(w);
+          const onPage=document.querySelector('#dashGrid .widget[data-idx="'+idx+'"]');
+          let svg=onPage? onPage.querySelector('.wchartbody svg, .wchart svg, .wbody svg') : null;
+          if(!svg){
+            const host=document.createElement('div');
+            host.style.cssText='position:absolute;left:-10000px;top:0;width:820px';
+            document.body.appendChild(host); hosts.push(host);
+            if(w.type==='chart') host.appendChild(buildChartEl(w.cfg));
+            else if(wIsBreakChart){
+              const bcfg={groupBy:[wDim(w)], splitBy:null, measure:'cy', type:wGraphOf(w), l2:w.l2||''};
+              ensureType(bcfg); host.appendChild(buildChartEl(bcfg));
+            }
+            else if(w.type==='traj'){
+              const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC), tj=trajSeries(k,m);
+              const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
+              const Lw=cmpLabels(m), annW=[];
+              const lastA=tj.act.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM).pop();
+              if(lastA&&k.cmpVar!=null)
+                annW.push({m:lastA.m, val:lastA.val, color:(k.favVarPct==null?0:k.favVarPct)>=0?'#0b7a0b':'#c21a1a',
+                  text:`${movTxt(k,k.cmpVar,k.cmpVarPct)}\n${Lw.vs}`});
+              trendChart(div, tj.act, tj.cmp, m.yearCY, tj.name, wGraphOf(w), annW);
+            }
+            else if((w.ttype||'line')!=='table'){
+              const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
+              const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
+              const ctp=cmpTrend(k,m);
+              trendChart(div, k.cySeries, ctp.series, m.yearCY, ctp.name, w.ttype||'line');
+            }
+            await new Promise(r2=>setTimeout(r2,0));   // let the deferred note pass draw
+            svg=host.querySelector('svg');
+            if(svg&&(w.type==='trend'||w.type==='traj')) annDraw(svg, 'w|'+w.type+'|'+(w.l2||''));
           }
-          else if(w.type==='traj'){
-            const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC), tj=trajSeries(k,m);
-            const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
-            trendChart(div, tj.act, tj.cmp, m.yearCY, tj.name, wGraphOf(w));
-          }
-          else if((w.ttype||'line')!=='table'){
-            const m=S.model, rows=widgetRows(w.l2), k=kpi(rows,m,S.ytdM,S.includeFC);
-            const div=document.createElement('div'); div.className='chart-wrap'; host.appendChild(div);
-            const ctp=cmpTrend(k,m);
-            trendChart(div, k.cySeries, ctp.series, m.yearCY, ctp.name, w.ttype||'line');
-          }
-          const svg=host.querySelector('svg');
           if(svg) png=await svgToPngData(svg);
         }
         items.push({title:widgetTitle(w), png, aoa:widgetAOA(w), note:widgetCommentText(w),
