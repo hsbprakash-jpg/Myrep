@@ -970,7 +970,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 08:01</div>
+<div id="buildTag">build 2026-08-14 08:05</div>
 </aside>
 <main>
 
@@ -7588,7 +7588,7 @@ function renderCountryNav(){
     return {k, rg:rag(k.favVarPct)};
   };
   const l1Name=(hasReg&&cfgCountryMap().l1)||cfgS('region_label');
-  const topName=bizTier? cfgS('group_label') : l1Name;
+  const topName=bizTier? cfgS('group_label') : (m.groupTab? 'Group' : l1Name);
   /* the tiers read as the organisation reads them: countries make a region,
      regions make the global business (Global IWPB), global businesses make
      the Group — and each row says which tier it is */
@@ -7748,7 +7748,10 @@ function fillScopeBar(ctx){
   const regSel=curR||regOfC;
   if(hasReg){
     const regs=[...new Set(bPool.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
-    selR.innerHTML=`<option value="">${esc(hasBiz? (bizSel? 'All \u00b7 '+bizSel : l1Name) : l1Name)}</option>`+
+    // the everything-option is the Group where the file carries one: choosing
+    // it reads the consolidation, so it should say so rather than "Global"
+    const allLbl=bizSel? 'All \u00b7 '+bizSel : (m.groupTab? 'Group' : l1Name);
+    selR.innerHTML=`<option value="">${esc(allLbl)}</option>`+
       regs.map(R=>`<option value="${esc(R)}"${R===regSel?' selected':''}>${esc(R)}</option>`).join('');
   }
   const pool=hasReg&&regSel? bPool.filter(r=>String(r.d.region||'')===regSel) : bPool;
@@ -10182,7 +10185,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 08:01</td></tr>
+      <tr><td>Build</td><td>2026-08-14 08:05</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

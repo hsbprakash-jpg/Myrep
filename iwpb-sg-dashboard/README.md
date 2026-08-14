@@ -89,7 +89,10 @@ into its regions (tagged `REGION`, each the sum of its countries), with the
 countries in the picker beneath. The scope bar's **country dropdown keeps
 the same association**: countries are grouped under their `Business · Region`
 headings rather than listed flat, and picking Singapore under `CIB · Asia`
-scopes to CIB's Singapore, not to every Singapore.
+scopes to CIB's Singapore, not to every Singapore. And wherever the file
+carries a Group consolidation, the top of the tree and the dropdowns'
+everything-option are named **Group** — choosing it reads the consolidation,
+so it says so, rather than whatever the CountryHierarchy calls its Level 1.
 
 A **Countries strip** appears in the left pane: the Group/Region row —
 the consolidation where the file carries one, else the sum of every country —
