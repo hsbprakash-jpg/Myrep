@@ -130,9 +130,7 @@ left-pane strip and the Filters pane.
   are written as magnitudes (`▲15.6%`), never as a signed number that flips
   meaning between a file storing costs as negatives and one storing them as
   positives, so the text and the legend can never disagree with each other or
-  with the tile they sit beside. The momentum of the last three months is a
-  reading rather than a movement, so it says **above** or **below** the
-  current pace in words and carries no favourability colour. The management commentary keeps the pack's F/A
+  with the tile they sit beside. The management commentary keeps the pack's F/A
   wording with the triangle joining the letter — `▲346A` / `▼18F`.
   **The Financial Summary is the one view without arrows**: it replicates the
   reporting pack, where fifteen variance columns sit on every line and a

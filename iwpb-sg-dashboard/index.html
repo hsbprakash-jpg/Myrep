@@ -968,7 +968,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 03:57</div>
+<div id="buildTag">build 2026-08-14 04:14</div>
 </aside>
 <main>
 
@@ -2845,11 +2845,6 @@ function widgetCommentaryHtml(w){
   if(pts.length>1){
     const hi=pts.reduce((a,b)=>b.val>a.val?b:a), lo2=pts.reduce((a,b)=>b.val<a.val?b:a);
     out+=` Strongest month <b>${MON_LBL[hi.m]}</b> (${fmt(hi.val)}); softest <b>${MON_LBL[lo2.m]}</b> (${fmt(lo2.val)}).`;
-    if(pts.length>3){
-      const l3=pts.slice(-3), e3=pts.slice(0,-3);
-      const a3=l3.reduce((s2,p2)=>s2+p2.val,0)/l3.length, e0=e3.reduce((s2,p2)=>s2+p2.val,0)/e3.length;
-      out+=` The last three months average <b>${fmt(a3)}</b> against <b>${fmt(e0)}</b> before — momentum ${a3>=e0?'building':'softening'}.`;
-    }
   }
   if(k.outlook!=null&&L.mode!=='py') out+=` Full-year outlook <b>${fmt(k.outlook)}</b>${k.target!=null?` vs target ${fmt(k.target)} (${fmt(k.varTgt)})`:''}.`;
   const dt=driverFor(nm);
@@ -3313,18 +3308,13 @@ function renderSummary(){
   aiComment($('trajCom'), 'traj|'+filterNote()+'|'+S.ytdM+'|'+L.vp+'|'+L.mode+'|'+(subj?subj.key:''), ()=>{
     const act=kJ.cySeries.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
     const best=act.length? act.reduce((a,b)=>b.val>a.val?b:a) : null;
-    const avg=arr=>arr.reduce((s2,p2)=>s2+p2.val,0)/arr.length;
     const items=[];
     let pos=`<b>${esc(jName)}</b> — ${esc(L.main)} of <b>${fmt(kJ.cmpMain)}</b> runs ${movPct(kJ,kJ.cmpVarPct)} ${esc(L.vs)}`;
     if(kJ.cmpBase!=null) pos+=` (baseline <b>${fmt(kJ.cmpBase)}</b>)`;
     items.push(pos+'.');
-    if(act.length>=4){
-      const l3=avg(act.slice(-3)), e3=avg(act.slice(0,act.length-3));
-      if(e3!==0){
-        const mom=(l3-e3)/Math.abs(e3);
-        items.push(`Momentum is ${mom>=0.02?'building':mom<=-0.02?'fading':'flat'}: the last three actual months average <b>${fmt(l3)}</b> against <b>${fmt(e3)}</b> before (<b>${pctAbs(mom)} ${mom>=0?'higher':'lower'}</b>).`);
-      }
-    } else if(best) items.push(`The strongest actual month is <b>${MON_LBL[best.m]}</b> at <b>${fmt(best.val)}</b>.`);
+    // months are read, never averaged: an average across months is a run-rate
+    // by another name, and no plan is delivered evenly
+    if(best) items.push(`The strongest actual month is <b>${MON_LBL[best.m]}</b> at <b>${fmt(best.val)}</b>.`);
     if(kJ.outlook!=null&&kJ.target!=null)
       items.push(`The full-year outlook of <b>${fmt(kJ.outlook)}</b> lands ${movPct(kJ,kJ.varTgtPct)} vs the FY target of <b>${fmt(kJ.target)}</b>.`);
     return `<ul class="actlist">${items.map(t2=>`<li>${t2}</li>`).join('')}</ul>`;
@@ -8287,10 +8277,10 @@ function aEcl(){
   if(!er.length) return 'No ECL lines under the current filters.'+gnote();
   const k=aKpi(er), rg=rag(k.favVarPct);
   const act=k.cySeries.filter(p=>!p.fc&&p.m<=S.ytdM&&p.val!=null);
-  const last=act[act.length-1], avg=act.length?act.reduce((s,p)=>s+p.val,0)/act.length:null;
+  const last=act[act.length-1];
   let h=`ECL stands at <b>${fmt(k.cy)}</b> YTD`;
   h+= k.cmpVarPct!=null? `, ${movPct(k,k.cmpVarPct)} ${esc(L.vs)} — rated <b>${rg.label}</b> (a rising charge rates unfavourable).`:'.';
-  if(last&&avg!=null) h+=` The latest actual month (${MON_LBL[last.m]}) came in at <b>${fmt(last.val)}</b> against a monthly average of <b>${fmt(avg)}</b>.`;
+  if(last) h+=` The latest actual month (${MON_LBL[last.m]}) came in at <b>${fmt(last.val)}</b>.`;
   return h+gnote();
 }
 function aVsPrior(){
@@ -8499,7 +8489,7 @@ function aTrend(){
   const first=act[0], last=act[act.length-1];
   const dir=(last&&first&&last.val!==first.val)? (Math.abs(last.val)>Math.abs(first.val)?'building':'easing') : 'flat';
   let h=`Across ${act.length} actual month${act.length>1?'s':''} the run is <b>${dir}</b> — ${MON_LBL[first.m]} <b>${fmt(first.val)}</b> to ${MON_LBL[last.m]} <b>${fmt(last.val)}</b>, peaking in ${MON_LBL[hi.m]} at <b>${fmt(hi.val)}</b> and lightest in ${MON_LBL[lo.m]} at <b>${fmt(lo.val)}</b>.`;
-  if(fcs.length) h+=` The remaining ${fcs.length} forecast month${fcs.length>1?'s':''} average <b>${fmt(fcs.reduce((s2,p)=>s2+p.val,0)/fcs.length)}</b>.`;
+  if(fcs.length) h+=` ${fcs.length} forecast month${fcs.length>1?'s':''} follow, ${MON_LBL[fcs[0].m]} at <b>${fmt(fcs[0].val)}</b> to ${MON_LBL[fcs[fcs.length-1].m]} at <b>${fmt(fcs[fcs.length-1].val)}</b>.`;
   h+=aTable(['Month','Value','Basis'], ser.map(p=>[MON_LBL[p.m],fmtCell(p.val),(p.fc||p.m>S.ytdM)?'Forecast':'Actual']));
   return h+gnote();
 }
@@ -10102,7 +10092,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 03:57</td></tr>
+      <tr><td>Build</td><td>2026-08-14 04:14</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
