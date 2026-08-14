@@ -1,3 +1,4 @@
+// Needs the `docx` package: npm i docx, then `node make_readme_docx.js`
 const fs = require('fs');
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
