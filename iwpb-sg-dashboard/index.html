@@ -970,7 +970,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 08:16</div>
+<div id="buildTag">build 2026-08-14 08:24</div>
 </aside>
 <main>
 
@@ -7588,7 +7588,15 @@ function renderCountryNav(){
     return {k, rg:rag(k.favVarPct)};
   };
   const l1Name=(hasReg&&cfgCountryMap().l1)||cfgS('region_label');
-  const topName=bizTier? cfgS('group_label') : (m.groupTab? 'Group' : l1Name);
+  /* Group and Global are different words for different things: the Group is
+     every business together (summed, or the Group tab), a Global business is
+     one business consolidated across its regions. So a single-business file
+     with no Group tab is headed Global IWPB, not Group. */
+  const oneBiz=(!bizTier&&bizzes.length===1)? bizzes[0] : '';
+  const topName=bizTier? cfgS('group_label')
+    : m.groupTab? 'Group'
+    : oneBiz? (cfgS('global_business_prefix').trim()? cfgS('global_business_prefix').trim()+' '+oneBiz : oneBiz)
+    : l1Name;
   /* the tiers read as the organisation reads them: countries make a region,
      regions make the global business (Global IWPB), global businesses make
      the Group — and each row says which tier it is */
@@ -7748,9 +7756,16 @@ function fillScopeBar(ctx){
   const regSel=curR||regOfC;
   if(hasReg){
     const regs=[...new Set(bPool.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
-    // the everything-option is the Group where the file carries one: choosing
-    // it reads the consolidation, so it should say so rather than "Global"
-    const allLbl=bizSel? 'All \u00b7 '+bizSel : (m.groupTab? 'Group' : l1Name);
+    // the everything-option names what choosing it means: the Group where the
+    // file carries one, the Global business where the file is one business,
+    // the hierarchy's own name otherwise
+    const oneB=(!hasBiz&&m&&('business' in m.dimCols))?
+      (bs=>bs.length===1? bs[0] : '')([...new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean))]) : '';
+    const gp=cfgS('global_business_prefix').trim();
+    const allLbl=bizSel? 'All \u00b7 '+bizSel
+      : (m.groupTab||hasBiz)? 'Group'   // several businesses summed ARE the Group
+      : oneB? (gp? gp+' '+oneB : oneB)
+      : l1Name;
     selR.innerHTML=`<option value="">${esc(allLbl)}</option>`+
       regs.map(R=>`<option value="${esc(R)}"${R===regSel?' selected':''}>${esc(R)}</option>`).join('');
   }
@@ -10190,7 +10205,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 08:16</td></tr>
+      <tr><td>Build</td><td>2026-08-14 08:24</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

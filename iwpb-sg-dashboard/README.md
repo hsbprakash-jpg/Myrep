@@ -98,6 +98,13 @@ file — a country or a whole region the CountryHierarchy knows but this
 month's driller does not carry — is not offered in any dropdown, strip row
 or picker. The hierarchy places what is loaded; it never invents entries.
 
+**Group and Global are different words for different things.** The **Group**
+is every business together — summed, or read from the Group tab — so the top
+of a multi-business file, and of any file carrying a Group tab, is named
+Group. A **Global business** is one business consolidated across its
+regions, so a single-business file with no Group tab is headed
+**Global IWPB**, never Group.
+
 A **Countries strip** appears in the left pane: the Group/Region row —
 the consolidation where the file carries one, else the sum of every country —
 then one row per country with its P&L YTD and RAG; click
