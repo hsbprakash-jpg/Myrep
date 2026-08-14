@@ -219,8 +219,9 @@ left-pane strip and the Filters pane.
 - **Summary layout** — the tiles sit in equal-height cards; below them the
   performance trajectory takes the left column and an **Executive
   decisions** panel the right, the two stretched to the same height. The
-  panel is computed, never narrated: the unfavourable lines rank
-  worst-first as decision cards, each with a severity flag, the variance
+  panel is computed, never narrated: **a decision is asked for where a line
+  is unfavourable**, so those lines rank worst-first as decision cards, each
+  with the variance
   as its headline impact figure (233A / +11.5%), and the inferences the
   data supports — position vs the basis, the full-year gap to target, and
   the run-rate the remaining months must average — plus a *Review

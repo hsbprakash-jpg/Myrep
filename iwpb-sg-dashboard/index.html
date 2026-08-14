@@ -968,7 +968,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 03:39</div>
+<div id="buildTag">build 2026-08-14 03:42</div>
 </aside>
 <main>
 
@@ -1026,7 +1026,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
           <div class="eyebrow" style="margin-bottom:2px" data-lbl="dec_eyebrow">Decisions required</div>
           <h4 style="text-transform:none;letter-spacing:normal;font-size:14.5px" data-lbl="dec_title">Executive decisions</h4>
           <p class="subtitle" id="actSub"></p></div>
-          <span class="decbadge" id="decCount" title="Lines outside tolerance"></span></div>
+          <span class="decbadge" id="decCount" title="Unfavourable lines"></span></div>
         <div id="decList"></div>
         <div id="trajCom" style="display:none"></div>
       </div>
@@ -4629,12 +4629,15 @@ function scopeName(sc){
 function renderDecisions(cards, L){
   const host=$('decList'); if(!host) return;
   const maxN=Math.max(1, parseInt(cfgS('decisions_max'),10)||3);
-  const sevRank={r:0,a:1,g:2,n:3};
+  // unfavourable first and worst-first within that, then the favourable ones —
+  // a decision is asked for where a line is unfavourable, and where none is the
+  // panel says so rather than inventing one
+  const sevRank={r:0, g:1, n:2};
   const pool=cards.filter(c=>!cmpHidden(c.l2)&&c.k.favVarPct!=null)
     .map(c=>({...c, rg:rag(c.k.favVarPct)}))
     .sort((a,b)=>(sevRank[a.rg.cls]-sevRank[b.rg.cls])
       ||Math.abs(b.k.favVarPct??0)-Math.abs(a.k.favVarPct??0));
-  const act=pool.filter(c=>c.rg.cls!=='g');
+  const act=pool.filter(c=>c.rg.cls==='r');
   const show=(act.length? act : pool).slice(0,maxN);
   const cnt=$('decCount'); if(cnt) cnt.textContent=act.length? String(act.length) : '';
   const sub=$('actSub'); if(sub) sub.textContent=`${scopeTrail()? 'Global Business '+scopeTrail()+' · ':''}Inferences from the data · rated on ${L.period}`;
@@ -4662,8 +4665,9 @@ function renderDecisions(cards, L){
         <button class="btn-quiet decgo" data-name="${esc(c.l2)}">Review trajectory \u2192</button></div>
     </div>`;
   }).join('')
-  +(act.length>show.length? `<p class="note">+${act.length-show.length} more lines outside tolerance \u2014 see the left rail.</p>`
-    : (!act.length? `<p class="note">All lines within tolerance on ${esc(L.period)} \u2014 no decisions required.</p>` : ''));
+  +(act.length>show.length? `<p class="note">+${act.length-show.length} more unfavourable line${
+      act.length-show.length===1?'':'s'} \u2014 see the left rail.</p>`
+    : (!act.length? `<p class="note">Every line is favourable on ${esc(L.period)} \u2014 no decisions required.</p>` : ''));
   host.querySelectorAll('.decgo').forEach(b=>b.addEventListener('click',()=>{
     const lo=summaryLineOptions(filteredRows()).find(o=>o.name===b.dataset.name);
     if(lo){ S.trajLine=lo.key; render();
@@ -10125,7 +10129,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 03:39</td></tr>
+      <tr><td>Build</td><td>2026-08-14 03:42</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
