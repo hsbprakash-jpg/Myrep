@@ -219,15 +219,15 @@ left-pane strip and the Filters pane.
 - **Summary layout** — the tiles sit in equal-height cards; below them the
   performance trajectory takes the left column and an **Executive
   decisions** panel the right, the two stretched to the same height. The
-  panel is computed, never narrated: the lines outside tolerance rank
+  panel is computed, never narrated: the lines outside the watch band rank
   worst-first as decision cards, each with a severity flag, the variance
   as its headline impact figure (233A / +11.5%), and the inferences the
   data supports — position vs the basis, the full-year gap to target, and
   the run-rate the remaining months must average — plus a *Review
   trajectory* action that points the chart at that line. A count badge
-  carries the number of lines outside tolerance, cards cap at
+  carries the number of lines outside the watch band, cards cap at
   `decisions_max` (default 3) with the overflow noted, and a file with
-  everything inside tolerance says so instead. The
+  everything inside it says so instead. The
   Management commentary sits full-width beneath the pair. Clicking a tile
   (or a KPI in the left rail) points the trajectory and its actions at
   that line. The mix-analysis panel no longer shows on this page, though
@@ -929,7 +929,7 @@ prior-year series. The left pane hosts the dashboards navigation and a KPI
 shortcut list (each MICA Level 2 line with its RAG dot and YTD value — click
 to analyse it in Mix analysis, drag onto My dashboard to add it).
 Below the KPI list, the left pane holds the controls: period settings
-(YTD-through month, include-forecast, RAG tolerance), then a checkbox
+(YTD-through month, variance period, include-forecast), then a checkbox
 filter for EVERY dimension column in the file — each column expands to its distinct values
 with All/None shortcuts and a search box for long lists, and any
 combination applies to every view, chart and export. Below that, an
@@ -941,8 +941,13 @@ which the AI commentary weaves into its narrative wherever that line
 surfaces as a mover (Mix analysis, chart builder, pinned dashboard
 charts). Drivers can be typed in the pane or shipped in the config file's
 `Drivers` section (Key = line or value, Value = driver note). RAG compares YTD actuals with the same
-prior-year months: green at or above prior year, amber within the selected
-tolerance below, red beyond it. Ratings are direction-aware — an increase
+prior-year months: green at or above prior year, amber within the
+**watch band** below it, red beyond. How a line is rated is the pack's
+policy rather than something a reader tunes on the way past, so the
+thresholds live in the configuration alone — `calc_rag_green_at` sets where
+favourable starts and `calc_rag_watch_at` how far below it the amber band
+runs (0.05 by default; set it to `0` for green and red with no Watch band).
+There is no tolerance control in the left pane. Ratings are direction-aware — an increase
 in revenue rates Favourable while an increase in costs or ECL rates
 Unfavourable, whichever sign convention the file stores costs in (signed
 negatives or positive magnitudes).
@@ -970,7 +975,8 @@ What each section governs:
   it derives from the title; `fsum_title` still overrides the Financial
   Summary heading explicitly), landing page title, total
   tile label, tile grouping level (`auto`/`level1`/`level2`), collapse of
-  non-priority tiles, default RAG tolerance, the regex patterns that
+  non-priority tiles, the RAG thresholds (`calc_rag_green_at`,
+  `calc_rag_watch_at`), the regex patterns that
   recognise Forecast and Target columns, the cost/ECL direction patterns,
   the hidden-comparison patterns for target-only files, the My
   dashboard page size, and `variance_periods` — the ordered list of

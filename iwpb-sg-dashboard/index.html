@@ -954,12 +954,6 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <label><span data-lbl="lbl_ytd">YTD through</span> <select id="fMonth"></select></label>
     <label><span data-lbl="lbl_varper">Variance period</span> <select id="fVarPer"></select></label>
     <label class="chk"><input type="checkbox" id="fFC"> <span data-lbl="lbl_fc">Include forecast month</span></label>
-    <label><span data-lbl="lbl_tol">RAG tolerance</span> <select id="fThresh">
-      <option value="0">0% tolerance (no Watch band)</option>
-      <option value="0.03">±3% tolerance</option>
-      <option value="0.05" selected>±5% tolerance</option>
-      <option value="0.10">±10% tolerance</option>
-    </select></label>
   </div>
   <div class="sect sect-row sect-fold" id="sectFiltersRow" title="Collapse / expand the filters" style="cursor:pointer">
     <span data-lbl="sect_filters">Filters — all columns</span>
@@ -982,7 +976,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-13 16:01</div>
+<div id="buildTag">build 2026-08-14 03:19</div>
 </aside>
 <main>
 
@@ -1395,8 +1389,6 @@ const CFG_DEFAULT={
     tile_expand_result:'Y',
     tile_level:'auto',
     collapse_rest:'Y',
-    rag_tolerance:'0.05',
-    rag_tolerance_options:'0,0.03,0.05,0.10',
     fc_label_pattern:'forecast|fcst|\\bfc\\b',
     target_label_pattern:'\\btarget\\b|\\btgt\\b|target|tgt',
     cost_patterns:'cost|\\becls?\\b|expected\\s+credit|impair|expense',
@@ -1429,6 +1421,7 @@ const CFG_DEFAULT={
     calc_variance_period:'auto',
     variance_periods:'auto,qtr_py,ytd_tgt,mth_fc,fy_pfc,fy_py,fy_tgt,ytd_py,mom,mth_tgt,ytd_fc',
     calc_rag_green_at:'0',
+    calc_rag_watch_at:'0.05',
     calc_rag_direction:'Y',
     commentary_dim:'',
     commentary_levels:'micaL1,micaL2,micaL3',
@@ -1586,7 +1579,7 @@ const CFG_DEFAULT={
     btn_newfile:'Load new Driller', sect_drivers:'Drivers · AI commentary',
     btn_regen:'Regenerate', btn_retrieve:'Retrieve',
     drv_hint:'Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.',
-    lbl_ytd:'YTD through', lbl_fc:'Include forecast month', lbl_tol:'RAG tolerance',
+    lbl_ytd:'YTD through', lbl_fc:'Include forecast month',
     lbl_varper:'Variance period', lbl_units:'Units',
     kpi_hint:'Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card',
     dec_eyebrow:'Decisions required', dec_title:'Executive decisions'
@@ -2346,11 +2339,19 @@ function cmpLabels(m){
   }
   return {mode:'none', main:`YTD ${m.yearCY}`, base:'Prior year', vs:'vs prior year', mainKey:'cmpMain', vp:'auto', period:'No baseline', grain:'ytd', line:'none'};
 }
-function rag(varPct, thresh){
+/* How a line is rated is the pack's policy, not something a reader tunes on
+   the way past: favourable at or above calc_rag_green_at, Watch within
+   calc_rag_watch_at of it, unfavourable below. Setting the watch band to 0
+   leaves the two states and no amber. */
+function ragWatchBand(){
+  const v=parseFloat(cfgS('calc_rag_watch_at'));
+  return isFinite(v)&&v>=0? v : 0.05;
+}
+function rag(varPct){
   if(varPct==null) return {cls:'n', ic:'○', label:'No baseline'};
   const g=parseFloat(cfgS('calc_rag_green_at')), gAt=isFinite(g)? g : 0;
-  if(varPct>=gAt)        return {cls:'g', ic:'▲', label:'Favourable'};
-  if(varPct>=gAt-thresh) return {cls:'a', ic:'●', label:'Watch'};
+  if(varPct>=gAt)                     return {cls:'g', ic:'▲', label:'Favourable'};
+  if(varPct>=gAt-ragWatchBand())      return {cls:'a', ic:'●', label:'Watch'};
   return {cls:'r', ic:'▼', label:'Unfavourable'};
 }
 
@@ -2607,7 +2608,7 @@ const S = {
   model:null, fileName:'',
   filters:{},                 // dimKey -> Set of selected values (absent = all)
   outDims:new Set(), outPeriods:new Set(['pyMonths','cyMonths','quarters','ytd']),
-  ytdM:0, includeFC:false, thresh:0.05, varPeriod:'', units:'', trajLine:'', fsumDepth:0,
+  ytdM:0, includeFC:false, varPeriod:'', units:'', trajLine:'', fsumDepth:0,
   view:'summary', widgets:[],
 };
 const ALL_DIM_LABELS={country:'Country', region:'Region', business:'Business line', mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
@@ -3023,7 +3024,7 @@ function renderSummary(){
   const m=S.model;
   const L=cmpLabels(m);
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
-  const rgT=rag(kT.favVarPct,S.thresh);
+  const rgT=rag(kT.favVarPct);
 
   // greeting + context
   const hasFC=m.cyMonths.some(p=>p.fc);
@@ -3257,7 +3258,7 @@ function renderSummary(){
 
   // slim status chips
   const counts={g:0,a:0,r:0,n:0};
-  cards.forEach(c=>{ if(!cmpHidden(c.l2)) counts[rag(c.k.favVarPct,S.thresh).cls]++; });
+  cards.forEach(c=>{ if(!cmpHidden(c.l2)) counts[rag(c.k.favVarPct).cls]++; });
   $('chipRow').innerHTML=
     `<span class="chip"><span class="cdot" style="background:var(--status-good)"></span>Favourable <b>${counts.g}</b></span>`+
     `<span class="chip"><span class="cdot" style="background:var(--status-warning)"></span>Watch <b>${counts.a}</b></span>`+
@@ -3268,7 +3269,7 @@ function renderSummary(){
   const traj=$('trajPanel');
   const kJ=subj? kH : kT;
   const jName=subj? subj.name : totName;
-  const rgJ=rag(kJ.favVarPct,S.thresh);
+  const rgJ=rag(kJ.favVarPct);
   const lineSel=lineOpts.length? `<select id="trajLine" aria-label="Line" style="max-width:230px">${
     [...new Set(tileDims())].map(dk=>{
       const grp=FIELD_LABELS[dk]||ALL_DIM_LABELS[dk]||dk;
@@ -3357,10 +3358,10 @@ function renderSummary(){
 
   renderDecisions(cards, L);
   // attention required — anything not green
-  const attn=cards.filter(c=>!cmpHidden(c.l2)&&['a','r'].includes(rag(c.k.favVarPct,S.thresh).cls))
+  const attn=cards.filter(c=>!cmpHidden(c.l2)&&['a','r'].includes(rag(c.k.favVarPct).cls))
     .sort((a,b)=>(a.k.favVarPct??0)-(b.k.favVarPct??0)).slice(0,4);
   const aChip=c=>{
-    const rg=rag(c.k.favVarPct,S.thresh);
+    const rg=rag(c.k.favVarPct);
     const cls=rg.cls==='r'?'attn-r':'attn-a';
     return `<button class="chip attnchip ${cls}" data-l2="${scPfx}${esc(c.l2)}" title="Review this line below">
       ${rg.cls==='r'?'⚠':'●'} <b>${esc(c.l2)}</b> ${movTxt(c.k,null,c.k.cmpVarPct)} ${esc(L.vs)} →</button>`;
@@ -4237,7 +4238,7 @@ function kpiSummaryAOA(){
   const row=(name,l1,k)=>{
     const hide=cmpHidden(name);
     return [name,l1,k.cmpMain,hide?null:k.cmpBase,hide?null:k.cmpVar,
-      hide?null:pct(k.cmpVarPct),hide?'actuals only':rag(k.favVarPct,S.thresh).label];
+      hide?null:pct(k.cmpVarPct),hide?'actuals only':rag(k.favVarPct).label];
   };
   for(const c of byL2) aoa.push(row(c.l2,c.l1,c.k));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
@@ -4268,11 +4269,11 @@ function breakdownAOA(rows, key, label){
   const mainOf=k=>k.cmpMain;
   const aoa=[[label],[filterNote()],[],
     ['Line',L.main,L.base,'Variance','Variance %','RAG']];
-  for(const g of gs) aoa.push([g.name,mainOf(g.k),g.k.cmpBase,g.k.cmpVar,pct(g.k.cmpVarPct),rag(g.k.favVarPct,S.thresh).label]);
+  for(const g of gs) aoa.push([g.name,mainOf(g.k),g.k.cmpBase,g.k.cmpVar,pct(g.k.cmpVarPct),rag(g.k.favVarPct).label]);
   if(mixedScope(rows)) aoa.push(['No total \u2014 P&L and balance-sheet lines are never added together']);
   else{
     const kT=kpi(rows,m,S.ytdM,S.includeFC);
-    aoa.push(['Total',mainOf(kT),kT.cmpBase,kT.cmpVar,pct(kT.cmpVarPct),rag(kT.favVarPct,S.thresh).label]);
+    aoa.push(['Total',mainOf(kT),kT.cmpBase,kT.cmpVar,pct(kT.cmpVarPct),rag(kT.favVarPct).label]);
   }
   return aoa;
 }
@@ -4398,7 +4399,7 @@ function scorecardTable(m){
       sc.cols.map(c=>`<th colspan="2">${esc(c)}</th>`).join('')}</tr></thead><tbody>${
     [...sc.items.map(it=>[it,false]), ...(S.showParkedSc? sc.parked.map(it=>[it,true]) : [])]
       .map(([it,parked])=>{
-      const rg=cmpHidden(it.name)? {cls:'n'} : rag(it.k.favVarPct,S.thresh);
+      const rg=cmpHidden(it.name)? {cls:'n'} : rag(it.k.favVarPct);
       return `<tr class="${parked?'parked':''}" data-sc="${esc(it.scope)}" title="Open ${esc(it.name)} on the KPI summary">`+
         `<td class="nm"><span class="dot ${rg.cls}"></span>${esc(it.name)}${scHideCtl(it.name, parked)}</td>`+
         `<td class="val${(it.k.cmpMain||0)<0?' negnum':''}">${(it.k.isBS&&bsUnit())? fmtBS(it.k.cmpMain) : fmt(it.k.cmpMain)}</td>`+
@@ -4446,7 +4447,7 @@ function widgetAOA(w){
   if(k.cy!=null&&L.main!==`${MON_LBL[S.ytdM]} YTD`) rowsOut.push([`${MON_LBL[S.ytdM]} YTD actuals`,k.cy]);
   if(k.outlook!=null) rowsOut.push(['FY Outlook',k.outlook]);
   if(k.target!=null) rowsOut.push(['FY Target',k.target]);
-  rowsOut.push(['Variance',k.cmpVar],['Variance %',pct(k.cmpVarPct)],['RAG',rag(k.favVarPct,S.thresh).label]);
+  rowsOut.push(['Variance',k.cmpVar],['Variance %',pct(k.cmpVarPct)],['RAG',rag(k.favVarPct).label]);
   return rowsOut;
 }
 
@@ -4459,7 +4460,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
   const mainOf=k=>k.cmpMain;
   const maxAbs=Math.max(1,...groups.map(g=>Math.abs(mainOf(g.k)||0)));
   const rowHtml=(g,cls,attr)=>{
-    const rg=rag(g.k.favVarPct,S.thresh);
+    const rg=rag(g.k.favVarPct);
     const w=Math.round(Math.abs(mainOf(g.k)||0)/maxAbs*140);
     const bar=`<span class="mbar${(mainOf(g.k)||0)<0?' neg':''}" style="width:${w}px" aria-hidden="true"></span>`;
     return `<tr class="${cls}" ${attr||''}>
@@ -4648,7 +4649,7 @@ function renderDecisions(cards, L){
   const maxN=Math.max(1, parseInt(cfgS('decisions_max'),10)||3);
   const sevRank={r:0,a:1,g:2,n:3};
   const pool=cards.filter(c=>!cmpHidden(c.l2)&&c.k.favVarPct!=null)
-    .map(c=>({...c, rg:rag(c.k.favVarPct,S.thresh)}))
+    .map(c=>({...c, rg:rag(c.k.favVarPct)}))
     .sort((a,b)=>(sevRank[a.rg.cls]-sevRank[b.rg.cls])
       ||Math.abs(b.k.favVarPct??0)-Math.abs(a.k.favVarPct??0));
   const act=pool.filter(c=>c.rg.cls!=='g');
@@ -7604,7 +7605,7 @@ function renderCountryNav(){
   if(saveB) S.filters.business=saveB;
   const mk=rs=>{
     const k=kpi(rs.filter(r=>!isBSLine(String(r.d.micaL1||''))),m,S.ytdM,S.includeFC);
-    return {k, rg:rag(k.favVarPct,S.thresh)};
+    return {k, rg:rag(k.favVarPct)};
   };
   const l1Name=(hasReg&&cfgCountryMap().l1)||cfgS('region_label');
   const topName=bizTier? cfgS('group_label') : l1Name;
@@ -7787,7 +7788,7 @@ function renderKpiNav(){
   }
   function isBSLine2(x){ return x.k.isBS?1:0; }
   $('kpiNav').innerHTML=items.map(it=>{
-    const rg=cmpHidden(it.l2)?{cls:'n',label:'actuals only'}:rag(it.k.favVarPct,S.thresh);
+    const rg=cmpHidden(it.l2)?{cls:'n',label:'actuals only'}:rag(it.k.favVarPct);
     const act=S.view==='summary'&&(MX.l2===it.sc||MX.l2===it.l2);
     return `<button class="${act?'active':''}" data-l2="${esc(it.sc)}" data-name="${esc(it.l2)}" draggable="true"
       title="${esc(it.l2)} — ${rg.label}" aria-label="${esc(it.l2)}, ${rg.label}">
@@ -8249,11 +8250,11 @@ function aPerf(){
   const hdName=mixed? (plNames.length===1? plNames[0] : totalLabel(plNames))+' — ' : '';
   const g=[...groupBy(rows,'micaL1').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
     .sort((a,b)=>(a.k.isBS?1:0)-(b.k.isBS?1:0)||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
-  const rg=rag(kT.favVarPct,S.thresh);
+  const rg=rag(kT.favVarPct);
   let h=`${esc(hdName)}${esc(L.main)} stands at <b>${fmt(kT.cmpMain)}</b>`;
   h+= kT.cmpVarPct!=null? `, ${movPct(kT,kT.cmpVarPct)} ${esc(L.vs)} — rated <b>${rg.label}</b>.` : ' with no comparison baseline in this file.';
   if(g.length>1) h+=aTable(['Line',L.main,L.base,'Var %','Rating'],
-    g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),movPct(x.k,x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
+    g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),movPct(x.k,x.k.cmpVarPct),rag(x.k.favVarPct).label]));
   return h+gnote();
 }
 function aBehind(){
@@ -8301,20 +8302,20 @@ function aCosts(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
   const cr=rows.filter(r=>/cost/i.test(r.d.micaL1||''));
   if(!cr.length) return 'No cost lines under the current filters.'+gnote();
-  const kC=aKpi(cr), rg=rag(kC.favVarPct,S.thresh);
+  const kC=aKpi(cr), rg=rag(kC.favVarPct);
   const g=[...groupBy(cr,'micaL2').entries()].map(([n,rs])=>({n,k:aKpi(rs)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   let h=`Total costs run at <b>${fmt(kC.cy)}</b> YTD`;
   h+= kC.cmpVarPct!=null? `, ${movPct(kC,kC.cmpVarPct)} ${esc(L.vs)} — rated <b>${rg.label}</b> (cost increases rate unfavourable).`:'.';
   if(g.length>1) h+=aTable(['Cost line',L.main,L.base,'Var %','Rating'],
-    g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct,S.thresh).label]));
+    g.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),fmtPct(x.k.cmpVarPct),rag(x.k.favVarPct).label]));
   return h+gnote();
 }
 function aEcl(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
   const er=rows.filter(r=>/\becl\b|expected\s+credit/i.test((r.d.micaL1||'')+' '+(r.d.micaL2||'')));
   if(!er.length) return 'No ECL lines under the current filters.'+gnote();
-  const k=aKpi(er), rg=rag(k.favVarPct,S.thresh);
+  const k=aKpi(er), rg=rag(k.favVarPct);
   const act=k.cySeries.filter(p=>!p.fc&&p.m<=S.ytdM&&p.val!=null);
   const last=act[act.length-1], avg=act.length?act.reduce((s,p)=>s+p.val,0)/act.length:null;
   let h=`ECL stands at <b>${fmt(k.cy)}</b> YTD`;
@@ -8376,7 +8377,7 @@ function aGeo(dim,label){
   h+='.';
   return h+aTable([label,L.main,L.base,'Var %','Share','Rating'],
     byVar.map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),movPct(x.k,x.k.cmpVarPct),
-      (100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct,S.thresh).label]))+gnote();
+      (100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct).label]))+gnote();
 };}
 /* ================= comprehension =================
    free text in, an intent plus the entities it mentions out. Nothing is
@@ -8504,7 +8505,7 @@ function aBreak(byKey, mode){
   return `By <b>${esc(label)}</b>${plRows.length&&plRows.length!==rows.length?' (P&L lines)':''}, ${order}:`+
     aTable([label,L.main,L.base,'Var %','Share','Rating'],
       g.slice(0,12).map(x=>[esc(x.n),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase),
-        movPct(x.k,x.k.cmpVarPct),(100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct,S.thresh).label]))+gnote();
+        movPct(x.k,x.k.cmpVarPct),(100*(x.k.cy||0)/tot).toFixed(1)+'%',rag(x.k.favVarPct).label]))+gnote();
 }
 function aWhy(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
@@ -9480,7 +9481,7 @@ function renderCustom(){
     let k=kpi(rows,m,S.ytdM,S.includeFC);
     if(rows.length&&isBSLine(rows[0].d.micaL1||'')) k=bsRecast(k);
     const wu=w.type==='scorecard'? (bsUnit()? cfgUnit()+' / '+bsUnitLabel() : cfgUnit()) : (k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
-    const rg=rag(k.favVarPct,S.thresh);
+    const rg=rag(k.favVarPct);
     const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
       Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
         `<option value="${k}"${gArr(w.cfg.groupBy)[0]===k?' selected':''}>by ${esc(FIELD_LABELS[k])}</option>`).join('')
@@ -9506,7 +9507,7 @@ function renderCustom(){
     } else if(w.type==='card'){
       const Lw=cmpLabels(m);
       const hidew=cmpHidden(w.l2);
-      const rgw=rag(k.favVarPct,S.thresh);
+      const rgw=rag(k.favVarPct);
       const trsw=hidew? [] : tileRows(k,m);
       const cviz=(w.ctype||'hbar')==='line'? sparkline(k.cySeries,250,42,true)
         : (w.ctype||'hbar')==='column'? miniCol(k.cySeries)
@@ -9845,19 +9846,6 @@ function applyCfgDom(){
   const NAVV={summary:'navSummary',fsum:'navFsum',custom:'navCustom',builder:'navBuilder',query:'navQuery',
     table:'navTable',assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
-  const sel=$('fThresh');
-  if(sel){
-    let opts=cfgS('rag_tolerance_options').split(/[,;]/).map(x=>parseFloat(x))
-      .filter(x=>isFinite(x)&&x>=0);
-    if(!opts.length) opts=[0,0.03,0.05,0.10];
-    let th=parseFloat(cfgS('rag_tolerance'));
-    if(!isFinite(th)||th<0) th=opts.includes(0.05)?0.05:opts[0];
-    if(!opts.includes(th)) opts.push(th);
-    opts=[...new Set(opts)].sort((a,b)=>a-b);
-    sel.innerHTML=opts.map(v=>`<option value="${v}"${v===th?' selected':''}>${
-      v===0?'0% tolerance (no Watch band)':'±'+(+(v*100).toFixed(2))+'% tolerance'}</option>`).join('');
-    S.thresh=th;
-  }
   if(!cfgViewOn(S.view)) S.view='summary';
   if(S.model){ S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
     S.units=cfgS('display_units').trim().toLowerCase()||'as'; fillUnits(); fillVarPeriod(); }
@@ -10155,7 +10143,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-13 16:01</td></tr>
+      <tr><td>Build</td><td>2026-08-14 03:19</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10211,7 +10199,6 @@ function init(){
     fillVarPeriod();
     render();
   });
-  $('fThresh').addEventListener('change',e=>{ S.thresh=+e.target.value; render(); renderKpiNav(); });
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navFsum').addEventListener('click',()=>setView('fsum'));
   $('navComall').addEventListener('click',()=>setView('comall'));
