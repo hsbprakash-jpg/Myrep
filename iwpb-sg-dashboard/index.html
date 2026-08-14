@@ -968,7 +968,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 03:42</div>
+<div id="buildTag">build 2026-08-14 03:57</div>
 </aside>
 <main>
 
@@ -1258,7 +1258,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
         <input id="aiInput" type="text" placeholder="Ask in your own words — e.g. why is Singapore behind forecast?" aria-label="Ask the MI assistant">
         <button id="btnAiAsk">Ask</button>
       </div>
-      <p class="note">Governed scope: questions are read in plain language and answered from the approved set of analyses (performance, movements and drivers, breakdowns, costs, ECL, targets, run-rate, comparisons) — anything outside it is asked back, never guessed. Always on the variance period selected in the left pane, with figures taken as-is from the driller columns and the left-pane filters applied.</p>
+      <p class="note">Governed scope: questions are read in plain language and answered from the approved set of analyses (performance, movements and drivers, breakdowns, costs, ECL, targets, comparisons) — anything outside it is asked back, never guessed. Always on the variance period selected in the left pane, with figures taken as-is from the driller columns and the left-pane filters applied.</p>
     </div>
   </div>
 
@@ -3327,14 +3327,6 @@ function renderSummary(){
     } else if(best) items.push(`The strongest actual month is <b>${MON_LBL[best.m]}</b> at <b>${fmt(best.val)}</b>.`);
     if(kJ.outlook!=null&&kJ.target!=null)
       items.push(`The full-year outlook of <b>${fmt(kJ.outlook)}</b> lands ${movPct(kJ,kJ.varTgtPct)} vs the FY target of <b>${fmt(kJ.target)}</b>.`);
-    const rem=12-(S.ytdM+1);
-    if(kJ.target!=null&&rem>0&&act.length){
-      const req=(kJ.target-kJ.cy)/rem, cur=kJ.cy/act.length;
-      if(cur!==0){
-        const gap=(req-cur)/Math.abs(cur);
-        items.push(`Hitting target needs the remaining <b>${rem}</b> months to average <b>${fmt(req)}</b> — <b>${pctAbs(gap)} ${movUp(kJ,req-cur)?'above':'below'}</b> the current run-rate of <b>${fmt(cur)}</b>/month.`);
-      }
-    }
     return `<ul class="actlist">${items.map(t2=>`<li>${t2}</li>`).join('')}</ul>`;
   });
 
@@ -4624,8 +4616,8 @@ function scopeName(sc){
    that mixes statements has no meaningful grand total, so the trajectory and
    the landing narrative are about a chosen line rather than the sum of all. */
 /* the executive-decisions panel: inferences computed from the figures —
-   position vs the basis, the full-year gap, the run-rate the remaining
-   months must average — never narrative commentary */
+   position vs the basis and the full-year gap — never narrative
+   commentary */
 function renderDecisions(cards, L){
   const host=$('decList'); if(!host) return;
   const maxN=Math.max(1, parseInt(cfgS('decisions_max'),10)||3);
@@ -4641,7 +4633,6 @@ function renderDecisions(cards, L){
   const show=(act.length? act : pool).slice(0,maxN);
   const cnt=$('decCount'); if(cnt) cnt.textContent=act.length? String(act.length) : '';
   const sub=$('actSub'); if(sub) sub.textContent=`${scopeTrail()? 'Global Business '+scopeTrail()+' · ':''}Inferences from the data · rated on ${L.period}`;
-  const rem=12-(S.ytdM+1);
   host.innerHTML=show.map(c=>{
     const k=c.k, fav=(k.favVarPct??0)>=0, sfx=fav?'F':'A';
     const inf=[];
@@ -4649,13 +4640,6 @@ function renderDecisions(cards, L){
       inf.push(`${esc(L.main)} <b>${fmtK(k,k.cmpMain)}</b> vs ${esc(k.isBS? bsBaseLbl(L.mode) : L.base)} <b>${fmtK(k,k.cmpBase)}</b> — ${movVal(k,k.cmpVar,k.cmpVarPct)} / ${movPct(k,k.cmpVarPct)}.`);
     if(k.outlook!=null&&k.target!=null)
       inf.push(`${k.isBS?'Dec closing (fcst)':'FY outlook'} <b>${fmtK(k,k.outlook)}</b> vs target <b>${fmtK(k,k.target)}</b> — ${movPct(k,k.varTgtPct)}.`);
-    if(!k.isBS&&k.target!=null&&rem>0&&k.cy!=null){
-      const act3=(k.cySeries||[]).filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
-      if(act3.length){
-        const req=(k.target-k.cy)/rem, cur=k.cy/act3.length;
-        if(cur!==0) inf.push(`Needs <b>${fmt(req)}</b>/month over the remaining <b>${rem}</b> months — <b>${pctAbs((req-cur)/Math.abs(cur))} ${movUp(k,req-cur)?'above':'below'}</b> the current run-rate of <b>${fmt(cur)}</b>.`);
-      }
-    }
     return `<div class="deccard sev-${c.rg.cls}">
       <div class="dechead"><span class="decicon" aria-hidden="true">${c.rg.cls==='r'?'\u26a0':'\u25cf'}</span>
         <b>${esc(c.l2)}</b>
@@ -8309,16 +8293,6 @@ function aEcl(){
   if(last&&avg!=null) h+=` The latest actual month (${MON_LBL[last.m]}) came in at <b>${fmt(last.val)}</b> against a monthly average of <b>${fmt(avg)}</b>.`;
   return h+gnote();
 }
-function aRunRate(){
-  const m=S.model, rows=filteredRows(), kT=aKpi(rows);
-  const elapsed=S.ytdM+1, rem=12-elapsed;
-  if(kT.target==null) return 'This file carries no FY target column, so there is no run-rate to solve for.'+gnote();
-  if(rem<=0) return 'The year is complete — no months remain.'+gnote();
-  const req=(kT.target-kT.cy)/rem, avg=kT.cy/elapsed;
-  let h=`To land on the FY target of <b>${fmt(kT.target)}</b>, the remaining <b>${rem}</b> months need to average <b>${fmt(req)}</b> per month. The YTD actual run-rate is <b>${fmt(avg)}</b> per month`;
-  if(kT.fyFc!=null) h+=`, and the forecast implies <b>${fmt((kT.fyFc-kT.cy)/rem)}</b> per month for the rest of the year`;
-  return h+'.'+gnote();
-}
 function aVsPrior(){
   const m=S.model, rows=filteredRows(), kT=aKpi(rows);
   if(kT.fyPrior==null) return 'This file carries no prior-year FY actuals column.'+gnote();
@@ -8455,7 +8429,7 @@ function aUnderstand(text){
   // intent
   const has=(...ws)=>ws.some(w=>aWordHit(low,w));
   if(has('why','driver','drivers','reason','because','explain','what is driving','driving')) u.intent='why';
-  else if(has('trend','trajectory','over time','month by month','monthly','shape','run rate','run-rate','pace')) u.intent=has('run rate','run-rate','pace')?'run':'trend';
+  else if(has('trend','trajectory','over time','month by month','monthly','shape')) u.intent='trend';
   else if(has('top','best','largest','biggest','strongest','leading')) u.intent='top';
   else if(has('worst','bottom','dragging','drag','weakest','behind','lagging','laggard','off track','missing','underperform')) u.intent='behind';
   else if(u.by) u.intent='break';
@@ -8537,7 +8511,6 @@ const AQ=[
   {id:'drag',   q:'Which products are dragging performance?',      kw:['drag','bottom','weak product','underperform'], run:aDragProducts},
   {id:'costs',  q:'How are costs tracking?',                       kw:['cost','spend','expense','opex'], run:aCosts},
   {id:'ecl',    q:'What is ECL doing?',                            kw:['ecl','credit loss','impair','provision'], run:aEcl},
-  {id:'run',    q:'What run-rate is needed for the rest of the year?', kw:['run rate','run-rate','pace','monthly','remaining','need per month'], run:aRunRate},
   {id:'prior',  q:'How does this year compare to last year?',      kw:['prior','last year','previous year','fy-25','2025','year on year','yoy'], run:aVsPrior},
   {id:'mix',    q:'Who contributes most to the result?',           kw:['contribut','function','segment','mix','who','largest'], run:aFuncMix},
   {id:'geoC',   q:'How do the countries compare?',                  kw:['countr','market','which country','by country'], run:aGeo('country','Country')},
@@ -8614,7 +8587,7 @@ function assistAnswer(text){
                 {label:'How are costs tracking?',q:'How are costs tracking?'}];
     if('country' in m.dimCols) opts.push({label:'Compare countries', q:'How do the countries compare?'});
     if('business' in m.dimCols) opts.push({label:'Compare business lines', q:'How do the business lines compare?'});
-    return aAskBack(`I did not catch what you are after. I read the driller directly \u2014 ask in your own words about performance, movements and drivers, costs, ECL, targets, run-rate, products, or any business line, region or country. For example:`, opts);
+    return aAskBack(`I did not catch what you are after. I read the driller directly \u2014 ask in your own words about performance, movements and drivers, costs, ECL, targets, products, or any business line, region or country. For example:`, opts);
   }
   // a basis the file cannot serve: say so and offer what it can
   if(!exact&&u.basis){
@@ -8628,7 +8601,7 @@ function assistAnswer(text){
   // route the intent, scoping temporarily to whatever the question named
   const RUN={
     perf:aPerf, behind:aBehind, top:aTopProducts, fytgt:aFyTgt, costs:aCosts,
-    ecl:aEcl, run:aRunRate, prior:aVsPrior, why:aWhy, trend:aTrend,
+    ecl:aEcl, prior:aVsPrior, why:aWhy, trend:aTrend,
     break:()=>aBreak(u.by||'micaL2'),
     behindBy:()=>aBreak(u.by,'worst'), topBy:()=>aBreak(u.by,'best'),
   };
@@ -10129,7 +10102,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 03:42</td></tr>
+      <tr><td>Build</td><td>2026-08-14 03:57</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

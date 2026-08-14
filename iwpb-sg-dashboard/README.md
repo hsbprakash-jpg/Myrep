@@ -130,11 +130,9 @@ left-pane strip and the Filters pane.
   are written as magnitudes (`▲15.6%`), never as a signed number that flips
   meaning between a file storing costs as negatives and one storing them as
   positives, so the text and the legend can never disagree with each other or
-  with the tile they sit beside. Two figures that are demands rather than
-  movements — the monthly run-rate a target needs, and the momentum of the
-  last three months — say **above** or **below** the current pace in words
-  and carry no favourability colour, because a bigger requirement is not a
-  better or a worse result. The management commentary keeps the pack's F/A
+  with the tile they sit beside. The momentum of the last three months is a
+  reading rather than a movement, so it says **above** or **below** the
+  current pace in words and carries no favourability colour. The management commentary keeps the pack's F/A
   wording with the triangle joining the letter — `▲346A` / `▼18F`.
   **The Financial Summary is the one view without arrows**: it replicates the
   reporting pack, where fifteen variance columns sit on every line and a
@@ -223,9 +221,8 @@ left-pane strip and the Filters pane.
   is unfavourable**, so those lines rank worst-first as decision cards, each
   with the variance
   as its headline impact figure (233A / +11.5%), and the inferences the
-  data supports — position vs the basis, the full-year gap to target, and
-  the run-rate the remaining months must average — plus a *Review
-  trajectory* action that points the chart at that line. A count badge
+  data supports — position vs the basis and the full-year gap to target —
+  plus a *Review trajectory* action that points the chart at that line. A count badge
   carries the number of unfavourable lines, cards cap at
   `decisions_max` (default 3) with the overflow noted, and a file with
   nothing unfavourable says so instead. The
@@ -834,7 +831,7 @@ left-pane strip and the Filters pane.
 - **MI Assistant** — a governed Q&A page (left-pane entry) driven by
   **plain language**: type the question in your own words and a
   comprehension layer works out the intent (how are we doing, why did it
-  move, what is behind, break it down by X, monthly trend, run-rate,
+  move, what is behind, break it down by X, monthly trend,
   costs, ECL, target) together with anything the question names — a line,
   product, business line, region or country. Names are matched against the
   values actually in the loaded file, longest first, with the Global
@@ -850,7 +847,7 @@ left-pane strip and the Filters pane.
   this file can answer — each as one-click options. A short follow-up
   ("and Malaysia?") inherits the previous question. Behind it sit the
   approved analyses (performance, lines behind forecast, FY target,
-  top/dragging products, costs, ECL, required run-rate, prior year,
+  top/dragging products, costs, ECL, prior year,
   contribution mix, movement drivers, dimension breakdowns, monthly
   trend, geography comparisons)
   answered deterministically in the browser from the filtered data on the
