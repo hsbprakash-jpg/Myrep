@@ -55,8 +55,31 @@ after its tab), while Control/Mapping/notes tabs are skipped as before.
 The countries merge into one model with a `Country` dimension, aligned by
 column label so tabs may lay their columns out in any order; any tab
 missing columns of the first data tab is reported in the ingest summary.
-A **Countries strip** appears in the left pane: a Region row — the sum of
-every country — then one row per country with its P&L YTD and RAG; click
+
+**The consolidated Group.** A regional workbook often carries the Group on
+its own tab, and the Group is *not* the sum of the countries — eliminations
+and central items live only in the consolidation. A tab whose name matches
+`group_tab_patterns` (`Group`, `Consol…`, `Group Total` by default) is
+therefore **never merged as one more country**, so nothing ever double
+counts. What happens instead is `group_consolidation`'s choice:
+
+  - **`auto`** (default) — if the tab is present its figures speak for the
+    Group: the unscoped page (tiles, Financial Summary, commentary,
+    exports) and the strip's top row read the consolidation, while scoping
+    to any country, region or business — or cutting a chart by geography —
+    reads the country tabs, because the consolidation has no geography
+    inside it. If no such tab exists, the Group is the roll-up of the
+    country tabs, exactly as before.
+  - **`rollup`** — the tab is set aside and the Group is always the
+    roll-up, for workbooks whose Group tab is stale or unwanted.
+
+  The ingest report says which way the Group was made — *"read from the
+  Group tab — the consolidated figures speak for the Group, and the tab is
+  never added to the countries"* — so the source is never a guess.
+
+A **Countries strip** appears in the left pane: a Region row — the
+consolidation where the file carries one, else the sum of every country —
+then one row per country with its P&L YTD and RAG; click
 a row to scope every page, chart, export and simulation to that country
 (the Country filter group mirrors the choice). The strip stays quiet:
 the whole section folds from its header like the other left-pane

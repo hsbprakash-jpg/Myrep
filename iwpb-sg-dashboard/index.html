@@ -968,7 +968,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 04:14</div>
+<div id="buildTag">build 2026-08-14 04:41</div>
 </aside>
 <main>
 
@@ -1368,6 +1368,8 @@ const CFG_DEFAULT={
     country_tabs:'auto',
     region_label:'Region \u2014 all countries',
     group_label:'Group \u2014 all business lines',
+    group_consolidation:'auto',
+    group_tab_patterns:'^group$|^consol|^group total$|^total group$',
     landing_title:'Financial Performance',
     total_label:'Total P&L',
     total_all_label:'Total (all lines)',
@@ -2605,11 +2607,25 @@ const ALL_DIM_LABELS={country:'Country', region:'Region', business:'Business lin
   funcCode:'Function code', funcL2:'Function (L2)', funcL1:'Function Level 1', entity:'Entity'};
 const $=id=>document.getElementById(id);
 
-function filteredRows(){
+const GEO_DIMS=new Set(['country','region','business']);
+/* The consolidated Group speaks for the whole page: where the file carried a
+   Group tab and nothing geographic is selected, the rows are the tab's own.
+   Scope to a country, a region or a business \u2014 or ask for a geographic
+   split (opts.geo) \u2014 and the country rows answer, because the
+   consolidation has no geography inside it. */
+function filteredRows(opts){
   const active=Object.entries(S.filters).filter(([,set])=>set&&set.size);
-  if(!active.length) return S.model.rows;
-  return S.model.rows.filter(r=>{
-    for(const [k,set] of active) if(!set.has(r.d[k]||'(blank)')) return false;
+  const m=S.model;
+  const useGroup=m&&m.groupRows&&m.groupRows.length
+    &&!(opts&&opts.geo)
+    &&!active.some(([k])=>GEO_DIMS.has(k));
+  const rows=useGroup? m.groupRows : m.rows;
+  if(!active.length) return rows;
+  return rows.filter(r=>{
+    for(const [k,set] of active){
+      if(useGroup&&!(k in r.d)) continue;   // a dimension the consolidation does not carry
+      if(!set.has(r.d[k]||'(blank)')) return false;
+    }
     return true;
   });
 }
@@ -4770,7 +4786,8 @@ function cfgEff(cfg){ return {...cfg, measure:effMeasure(cfg)}; }
 function chartData(cfg){
   cfg=cfgEff(cfg);
   const m=S.model;
-  let rows=filteredRows();
+  const wantsGeo=[...gArr(cfg.groupBy), ...gArr(cfg.splitBy)].some(k=>GEO_DIMS.has(k));
+  let rows=filteredRows(wantsGeo? {geo:true} : undefined);
   rows=scopeFilter(rows,cfg.l2);
   const bsU=bsScope(rows), bsDv=bsU? bsUnitDiv() : 1;
   const mfn=rs=>(pickMeasure(kpi(rs,m,S.ytdM,S.includeFC), cfg.measure)||0)/bsDv;
@@ -7560,7 +7577,7 @@ function renderCountryNav(){
   // judge every row of the strip inside the current slice of the OTHER filters
   const saveC=S.filters.country, saveR=S.filters.region, saveB=S.filters.business;
   delete S.filters.country; delete S.filters.region; delete S.filters.business;
-  const base=filteredRows();
+  const base=filteredRows({geo:true});
   if(saveC) S.filters.country=saveC; if(saveR) S.filters.region=saveR;
   if(saveB) S.filters.business=saveB;
   const mk=rs=>{
@@ -7575,7 +7592,10 @@ function renderCountryNav(){
   const openBizOf=cnd=>{ const rr=m.rows.find(cnd); if(rr&&rr.d.business) effOpen.add('b:'+String(rr.d.business)); };
   if(curR&&bizTier&&!curB) for(const B of bizzes) effOpen.add('b:'+B);
   if(curC&&bizTier) openBizOf(r=>String(r.d.country||'')===curC&&(!curB||String(r.d.business||'')===curB));
-  const items=[{name:topName, dim:'', b:'', val:'', cls:'', ...mk(base)}];
+  const topRows=(m.groupRows&&m.groupRows.length&&!(S.filters.country&&S.filters.country.size)
+    &&!(S.filters.region&&S.filters.region.size)&&!(S.filters.business&&S.filters.business.size))
+    ? filteredRows() : base;
+  const items=[{name:topName, dim:'', b:'', val:'', cls:'', ...mk(topRows)}];
   const addRegions=(rows2, B, nested)=>{
     const regs=[...new Set(rows2.map(r=>String(r.d.region||'')).filter(Boolean))].sort();
     for(const R of regs){
@@ -8308,7 +8328,7 @@ function aFuncMix(){
 function aGeo(dim,label){
   const plural=label==='Country'? 'countries' : label.toLowerCase()+'s';
   return function(){
-  const m=S.model, rows=filteredRows(), L=cmpLabels(m);
+  const m=S.model, rows=filteredRows({geo:true}), L=cmpLabels(m);
   if(!(dim in m.dimCols)) return `This file carries no ${esc(label.toLowerCase())} breakdown.`+gnote();
   const plRows=rows.filter(r=>!isBSLine(String(r.d.micaL1||'')));
   const g=[...groupBy(plRows.length?plRows:rows,dim).entries()].filter(([n])=>n)
@@ -10038,8 +10058,44 @@ function ingestArrayBuffer(buf, name, fromCache){
           if(cfgS('country_tabs').trim().toLowerCase()==='first') break;
         } else { lastErr=cand.error||lastErr; lastMissing=cand.missing||lastMissing; }
       }
+      /* A regional workbook often carries the consolidated Group on its own
+         tab, and the Group is not the sum of the countries — eliminations and
+         central items live only in the consolidation. Such a tab must never be
+         merged as one more country, or every unscoped total doubles. It is set
+         aside: with group_consolidation 'auto' (or 'tab') its figures speak
+         for the Group wherever the page is unscoped, with 'rollup' it is
+         ignored and the Group stays the roll-up of the country tabs. */
+      let groupTabs=[];
+      if(parsedTabs.length>1){
+        let gre; try{ gre=new RegExp(cfgS('group_tab_patterns')||CFG_DEFAULT.settings.group_tab_patterns,'i'); }
+        catch(e){ gre=/^group$/i; }
+        groupTabs=parsedTabs.filter(t=>gre.test(String(t.sn).trim()));
+        if(groupTabs.length&&parsedTabs.length-groupTabs.length>=2)
+          for(const g of groupTabs) parsedTabs.splice(parsedTabs.indexOf(g),1);
+        else groupTabs=[];
+      }
       if(parsedTabs.length===1){ model=parsedTabs[0].m; sheetName=parsedTabs[0].sn; }
       else if(parsedTabs.length>1){ model=mergeCountryModels(parsedTabs); sheetName=parsedTabs.map(t=>t.sn).join(' + '); }
+      if(model&&groupTabs.length){
+        const gmode=String(cfgS('group_consolidation')||'auto').trim().toLowerCase();
+        if(gmode==='rollup'){ model.groupSkipped=groupTabs.map(t=>t.sn); }
+        else {
+          // the tab's columns are matched onto the merged grid by label, the
+          // same way each country tab's were
+          const canon=tabPeriodKeys({...model, rows:[]});
+          const g=groupTabs[0];
+          const keys=tabPeriodKeys(g.m);
+          const byKey={}; for(const x of keys) byKey[x.key]=x.col;
+          const map=canon.map(cn=>({to:cn.col, from:byKey[cn.key]}));
+          model.groupRows=g.m.rows.map(r=>{
+            const v=[];
+            for(const mp of map) if(mp.from!=null&&r.v[mp.from]!=null) v[mp.to]=r.v[mp.from];
+            const d={...r.d}; delete d.country; delete d.region; delete d.business;
+            return {d, v};
+          });
+          model.groupTab=g.sn;
+        }
+      }
     }catch(err){
       rep.innerHTML=`<span class="err">Could not read file: ${esc(err.message)}</span>`;
       if(fromCache) cacheClear();
@@ -10064,6 +10120,8 @@ function ingestArrayBuffer(buf, name, fromCache){
     rep.innerHTML=`<span class="ok">✔ ${fromCache?'Restored from cache':'Ingested'} ${esc(name)}</span>
       <table>
       <tr><td>Sheet</td><td>${esc(sheetName)}</td></tr>
+      ${model.groupTab? `<tr><td>Group</td><td>read from the <b>${esc(model.groupTab)}</b> tab \u2014 the consolidated figures speak for the Group, and the tab is never added to the countries</td></tr>` : ''}
+      ${model.groupSkipped&&model.groupSkipped.length? `<tr><td>Group</td><td>tab ${esc(model.groupSkipped.join(', '))} set aside (group_consolidation: rollup) \u2014 the Group is the roll-up of the country tabs</td></tr>` : ''}
       ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — the top of the left pane is their sum; pick a node in the left pane or top bar</td></tr>`:''}
       ${model.countries&&model.countries.length? `<tr><td>Roll-up</td><td>${model.countries.map(sn=>{
         const res=chResolveTab(sn);
@@ -10092,7 +10150,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 04:14</td></tr>
+      <tr><td>Build</td><td>2026-08-14 04:41</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
