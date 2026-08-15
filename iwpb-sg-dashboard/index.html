@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 15:15)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 15:24)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 15:15)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 15:24)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -975,7 +975,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 15:15</div>
+<div id="buildTag">build 2026-08-15 15:24</div>
 </aside>
 <main>
 
@@ -3106,9 +3106,11 @@ function tileDedupe(cards){
       if(!(c.l1&&c.l1!==c.l2&&String(c.l1)!==String(prev.l1||''))) continue;
       c.l2=c.l2+' \u00b7 '+c.l1;
     }
-    // the same rows under another name are the same tile
+    // the same rows under another name are the same tile \u2014 unless the
+    // name is a calculation someone defined by hand: that tile stays, even
+    // when its rows currently coincide with another line's
     const grp=byLen.get(rs.length)||[];
-    if(rs.length&&grp.some(p=>{ const st=new Set(p.rows); return rs.every(r=>st.has(r)); })) continue;
+    if(rs.length&&!c.added&&grp.some(p=>{ const st=new Set(p.rows); return rs.every(r=>st.has(r)); })) continue;
     grp.push(c); byLen.set(rs.length,grp);
     seen.set(String(c.l2).trim().toLowerCase(),c);
     out.push(c);
@@ -4642,7 +4644,7 @@ async function exportSummaryPPT(){
     }
   }
   if(!named.length) for(const f of tileAddCards(rows, ordered.map(c=>c.l2)))
-    ordered.push({l2:f.name, rows:f.rows, k:kOf(f.rows)});
+    ordered.push({l2:f.name, rows:f.rows, added:true, k:kOf(f.rows)});
   ordered=tileNetApply(tileDedupe(ordered).filter(c=>!tileHidden(c.l2)), rows, m);
   const tiles=((S._sumTiles&&S._sumTiles.length)? S._sumTiles : [
     ...(!summaryNoTotal(named)
@@ -5212,7 +5214,8 @@ function cfgMetricList(){
     const k=String(cd.calc).trim().toLowerCase(); if(!k) continue;
     if(!by.has(k)) by.set(k,{name:String(cd.calc).trim(), scope:'', defs:[]});
     const e=by.get(k);
-    const ap=String(cd.biz||'').trim().toLowerCase();
+    let ap=String(cd.biz||'').trim().toLowerCase();
+    if(ap==='group'||ap==='all'||ap==='*') ap='';   // group-wide = the fallback
     let d=e.defs.find(x=>x.applies===ap&&x.comps);
     if(!d){
       e.defs=e.defs.filter(x=>x.applies!==ap||x.comps);
@@ -8603,7 +8606,7 @@ function renderKpiNav(){
     for(const f of tileAddCards(rowsAll, items.map(x=>x.l2))){
       let k=kpi(f.rows,m,S.ytdM,S.includeFC);
       if(isBSRow(f.rows[0])) k=bsRecast(k);
-      items.push({l2:f.name, sc:f.scope||f.name, rows:f.rows, l1:f.rows[0].d[tileDims()[0]], k});
+      items.push({l2:f.name, sc:f.scope||f.name, rows:f.rows, added:true, l1:f.rows[0].d[tileDims()[0]], k});
     }
     items=tileDedupe(items).sort((a,b)=>(isBSLine2(a)-isBSLine2(b))||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   }
@@ -10968,7 +10971,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 15:15</td></tr>
+      <tr><td>Build</td><td>2026-08-15 15:24</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
