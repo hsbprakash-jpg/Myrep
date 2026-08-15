@@ -996,7 +996,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 08:22</div>
+<div id="buildTag">build 2026-08-15 08:33</div>
 </aside>
 <main>
 
@@ -1407,6 +1407,7 @@ const CFG_DEFAULT={
     total_tile:'auto',
     tile_lines:'',
     tile_hidden:'',
+    tile_visible:'',
     scorecard_hidden:'',
     tile_metrics:'auto',
     tile_dims:'',
@@ -3049,15 +3050,41 @@ function tileHideGet(){
   return cfgNameList('tile_hidden');
 }
 function tileHideSet(a){ try{ localStorage.setItem('iwpbsg_tilehide',JSON.stringify(a)); }catch(e){} }
+/* an entry hides (or shows) a tile by its exact name, or as a pattern
+   matched against the whole name — "cost.*" parks every cost line, "Costs"
+   parks only Costs */
+function tileNameMatch(entry, n){
+  const e=String(entry==null?'':entry).trim(); if(!e) return false;
+  if(e.toLowerCase()===n) return true;
+  try{ return new RegExp('^(?:'+e+')$','i').test(n); }catch(err){ return false; }
+}
+/* the reader's own restores: a tile the configuration hides that this reader
+   asked to see anyway */
+function tileShowExGet(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_tileshow')||'[]')||[]; }catch(e){ return []; } }
+function tileShowExSet(a){ try{ localStorage.setItem('iwpbsg_tileshow',JSON.stringify(a)); }catch(e){} }
+/* A tile is hidden when the hide-list names it, or when a tile_visible
+   show-list exists and does not \u2014 with the reader's own restore
+   overriding either, so the configuration decides the default and the
+   reader keeps the last word on their own screen. */
 function tileHidden(name){
   const n=String(name).trim().toLowerCase();
-  return tileHideGet().some(x=>String(x).trim().toLowerCase()===n);
+  if(tileShowExGet().some(x=>String(x).trim().toLowerCase()===n)) return false;
+  if(tileHideGet().some(x=>tileNameMatch(x,n))) return true;
+  const vis=cfgNameList('tile_visible');
+  if(vis.length) return !vis.some(x=>tileNameMatch(x,n));
+  return false;
 }
 function tileHideToggle(name){
   const n=String(name).trim().toLowerCase();
-  const cur=tileHideGet().filter(x=>String(x).trim().toLowerCase()!==n);
-  if(!tileHidden(name)) cur.push(String(name));
-  tileHideSet(cur);
+  if(tileHidden(name)){
+    // bring it back: off the hide-list, and where a pattern or the show-list
+    // still hides it, keep the reader's restore
+    tileHideSet(tileHideGet().filter(x=>String(x).trim().toLowerCase()!==n));
+    if(tileHidden(name)) tileShowExSet([...tileShowExGet().filter(x=>String(x).trim().toLowerCase()!==n), String(name)]);
+  } else {
+    tileShowExSet(tileShowExGet().filter(x=>String(x).trim().toLowerCase()!==n));
+    if(!tileHidden(name)) tileHideSet([...tileHideGet(), String(name)]);
+  }
 }
 function applyTileOrder(list){
   const ord=tileOrderGet(); if(!ord.length) return list;
@@ -3280,7 +3307,7 @@ function renderSummary(){
   $('cardGrid').querySelectorAll('.thide').forEach(el=>{
     const go=e=>{ e.stopPropagation(); e.preventDefault();
       tileHideToggle(el.dataset.hide);
-      if(!tileHideGet().length) S.showParkedTiles=false;
+      if(!tileHideGet().length&&!cfgNameList('tile_visible').length) S.showParkedTiles=false;
       renderSummary(); };
     el.addEventListener('click',go);
     el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') go(e); });
@@ -10446,6 +10473,10 @@ function handleCfgFile(file){
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
       CFG=cfgFromWorkbook(wb);
       localStorage.setItem('iwpbsg_cfg',JSON.stringify(CFG));
+      // a new configuration speaks for the tiles again: the reader's old
+      // show/hide toggles belonged to the previous policy
+      localStorage.removeItem('iwpbsg_tilehide');
+      localStorage.removeItem('iwpbsg_tileshow');
       applyCfgDom();
       cacheGet().then(rec=>{ if(rec&&S.model) ingestArrayBuffer(rec.buf, rec.name, true); else if(S.model) render(); });
       $('cfgStatus').textContent='✓ Config "'+file.name+'" applied.';
@@ -10709,7 +10740,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 08:22</td></tr>
+      <tr><td>Build</td><td>2026-08-15 08:33</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
