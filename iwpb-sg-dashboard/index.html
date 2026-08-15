@@ -917,9 +917,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 21:44)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 21:49)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 21:44)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 21:49)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -985,7 +985,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 21:44</div>
+<div id="buildTag">build 2026-08-15 21:49</div>
 </aside>
 <main>
 
@@ -3376,6 +3376,9 @@ function bizPerfData(){
     return rows;
   });
   const ym2=tileYtdM();
+  // the tile pipeline runs once per row at that row's scope \u2014 a cell is
+  // the headline the KPI summary would print there, by the same code
+  const cardsAt=defRows.map(rows=>rows&&rows.length? tileBuildCards(rows).cards : null);
   const castCol=col=>{
     const d=(col.bs&&bsUnit())? 1 : unitDec();
     const sc=Math.pow(10,d);
@@ -3383,17 +3386,28 @@ function bizPerfData(){
       if(rd.elim) return null;
       const rows=defRows[i2];
       if(!rows||!rows.length) return null;
-      // the result column is the slice's whole P&L, not a named line
-      let rs;
-      if(col.res) rs=rows.filter(r=>!isBSRow(r));
-      else{
-        const f=tileFindLine(rows,col.name);
-        rs=f? f.rows : [];
-        for(const n of (col.nets||[])){ const f2=tileFindLine(rows,n); if(f2) rs=rs.concat(f2.rows); }
+      let v=null;
+      if(col.res){
+        // the result tile: the slice's whole set through the same kpi
+        const k=kpi(rows,m,S.ytdM,false);
+        v=tileHeadVal(k, rows, m);
+      } else {
+        const cards=cardsAt[i2];
+        let c=cards&&cards.find(x=>x.l2===col.name);
+        if(!c&&cards) c=cards.find(x=>String(x.l2).split(' \u00b7 ')[0]===col.name);
+        if(c) v=tileHeadVal(c.k, c.rows, m);
+        else {
+          // the slice's grid folded or dropped this line \u2014 read it the
+          // way a tile would if it stood alone
+          const f=tileFindLine(rows,col.name);
+          if(!f) return null;
+          let rs=f.rows;
+          for(const n of (col.nets||[])){ const f2=tileFindLine(rows,n); if(f2) rs=rs.concat(f2.rows); }
+          let k=kpi(rs,m,S.ytdM,false);
+          if(rs.length&&isBSRow(rs[0])) k=bsRecast(k);
+          v=tileHeadVal(k, rs, m);
+        }
       }
-      if(!rs.length) return null;
-      const k=kpi(rs,m,ym2,false);
-      const v=col.bs? bsRecast(k).cmpMain : k.cy;
       if(v==null) return null;
       return ((col.bs&&bsUnit())? v/bsUnitDiv() : uval(v))*sc;
     });
@@ -3494,23 +3508,11 @@ function bizPerfAoa(){
       return x==null? '' : x/cv.sc; })]);
   return [[`Business performance \u2014 ${MON_LBL[D.ym]} YTD through the last actual month`],[],head,...body];
 }
-function renderSummary(){
-  const rows=filteredRows();
-  $('rowCount').textContent=`${rows.length.toLocaleString()} rows in scope`;
+/* The one card pipeline. The KPI summary builds its tiles here, and the
+   Business performance page reads every cell through the same call at the
+   cell's own scope \u2014 there is no second implementation to disagree. */
+function tileBuildCards(rows){
   const m=S.model;
-  const L=cmpLabels(m);
-  const kT=kpi(rows,m,S.ytdM,S.includeFC);
-  const rgT=rag(kT.favVarPct);
-
-  // greeting + context
-  const hasFC=m.cyMonths.some(p=>p.fc);
-  if(cfgYes('show_greeting')){
-    const hh=new Date().getHours();
-    const greet=hh<12?'Good morning':hh<18?'Good afternoon':'Good evening';
-    $('greetLine').innerHTML=`${greet} — here's your <b>${esc(brandName())}</b> snapshot · data through <b>${MON_LBL[S.ytdM]} ${esc(m.yearCY)}</b>${hasFC?', later months forecast':''}.`;
-    $('greetLine').style.display='';
-  } else $('greetLine').style.display='none';
-
   // KPI tiles per MICA Level 1 (most material first); a degenerate file with
   // a single Level 1 value keeps the Level 2 tiles
   const TD=tileDims();
@@ -3567,6 +3569,34 @@ function renderSummary(){
       scope:f.scope||(f.key?'d:'+f.key+':'+f.name:undefined), k});
   }
   cards=tileNetApply(tileDedupe(cards), rows, m);
+  return {cards, missingLines, named, tileL1, byL1g, TD, scPfx, fixedOrder};
+}
+/* the headline exactly as the tile prints it: closing for a balance,
+   otherwise the year to date through the last actual month */
+function tileHeadVal(k, rows, m){
+  if(k.isBS) return k.cmpMain;
+  const kY=rows&&rows.length? tileYtdK(k, rows, m) : k;
+  return kY.cy!=null? kY.cy : k.cmpMain;
+}
+function renderSummary(){
+  const rows=filteredRows();
+  $('rowCount').textContent=`${rows.length.toLocaleString()} rows in scope`;
+  const m=S.model;
+  const L=cmpLabels(m);
+  const kT=kpi(rows,m,S.ytdM,S.includeFC);
+  const rgT=rag(kT.favVarPct);
+
+  // greeting + context
+  const hasFC=m.cyMonths.some(p=>p.fc);
+  if(cfgYes('show_greeting')){
+    const hh=new Date().getHours();
+    const greet=hh<12?'Good morning':hh<18?'Good afternoon':'Good evening';
+    $('greetLine').innerHTML=`${greet} — here's your <b>${esc(brandName())}</b> snapshot · data through <b>${MON_LBL[S.ytdM]} ${esc(m.yearCY)}</b>${hasFC?', later months forecast':''}.`;
+    $('greetLine').style.display='';
+  } else $('greetLine').style.display='none';
+
+  // KPI tiles \u2014 built by the one shared pipeline (tileBuildCards)
+  const {cards, missingLines, named, tileL1, byL1g, TD, scPfx, fixedOrder}=tileBuildCards(rows);
   const l1name=[...byL1g.keys()][0]||'Revenue';
   const tileNames=cards.map(c=>c.l2);
   const totName=tileL1? totalLabel(tileNames) : `Total ${l1name}`;
@@ -11287,7 +11317,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 21:44</td></tr>
+      <tr><td>Build</td><td>2026-08-15 21:49</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
