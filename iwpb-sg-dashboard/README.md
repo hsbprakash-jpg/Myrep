@@ -803,6 +803,28 @@ left-pane strip and the Filters pane.
   `CommentaryTemplates` tab instead — they arrive with the config and
   the browser remembers them across sessions.
 
+  **A write-up instead of a pattern.** Nobody has to think in tokens: a
+  written commentary — *"Revenue of $4,193m was up $102m (2.5%) vs Q2
+  2025, led by Mutual Funds and Deposits."* — is read and turned into
+  its pattern automatically, a token placed where each figure sits and
+  every other word kept exactly as written. A write-up is accepted
+  three ways: a template upload whose **tabs are write-ups**, one tab
+  per scope named for it (`IWPB Global`, `CIB Regional`, `Group`,
+  `Singapore` — `sample/My_Commentary_Writeups.xlsx` shows the shape);
+  a **`Template <scope>` tab in the config workbook** (e.g. `Template
+  IWPB Global`), which travels with the config and overrides the
+  CommentaryTemplates sheet's row for the same scope; or **prose typed
+  straight into the pane's pattern box**, where the preview shows the
+  derived pattern before anything is saved. The recognition covers the
+  movement clause (up/down amounts, F/A notation), the vs-phrase, an
+  against/from base, percentages, mover lists after "led by", "driven
+  by", "on the back of" or "reflecting", the subject line matched
+  against the file's own line names, and place or business names, which
+  become the scope. Once derived it is an ordinary scoped template —
+  adopted by Auto, previewed, exported and overridden like any other —
+  and as always the tokens fill from the page's computed figures, so
+  the example's own numbers never survive into the output.
+
   **How it decides which line a comment is about.** This is text matching
   against the names in your own file. It reads names; it does not understand
   banking. Four things can resolve a sentence, and the left pane says which one

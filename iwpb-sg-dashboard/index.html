@@ -996,7 +996,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 08:05</div>
+<div id="buildTag">build 2026-08-15 08:16</div>
 </aside>
 <main>
 
@@ -3805,6 +3805,66 @@ function comTplLineHtml(pat, g, m, L, dimKey, N, c){
   };
   return comTplFill(pat,ctx);
 }
+/* ---- a write-up becomes a template -----------------------------------
+   The business does not think in tokens; it writes "Revenue of $4,193m was
+   up $102m (2.5%) vs Q2 2025, led by Mutual Funds and Deposits." The rules
+   below read such a write-up and put a token where each figure sits \u2014
+   the variance clause, the vs-phrase, the mover list, the amounts, the
+   subject line and any place names \u2014 keeping every other word exactly
+   as written. What comes back is an ordinary pattern, so everything the
+   scoped templates already do applies to it unchanged. */
+function comTplNamePool(){
+  const names=new Set(); const m=S&&S.model;
+  if(m) for(const k of ['micaL1','micaL2','micaL3']) if(k in (m.dimCols||{}))
+    for(const r of m.rows){ const v=r.d[k]; if(v) names.add(String(v).trim()); }
+  return [...names].filter(n=>n.length>=3).sort((a,b)=>b.length-a.length);
+}
+function comTplPlacePool(){
+  const out=new Set(); const m=S&&S.model;
+  if(m) for(const r of m.rows) for(const k of ['country','region','business'])
+    { const v=r.d[k]; if(v) out.add(String(v).trim()); }
+  for(const e of (CFG&&CFG.countrymap)||[]) for(const k of ['country','region','l1','l0'])
+    if(e&&e[k]) out.add(String(e[k]).trim());
+  return [...out].filter(n=>n.length>=3&&!/^global$/i.test(n)).sort((a,b)=>b.length-a.length);
+}
+function comTplFromExample(txt){
+  let t=String(txt==null?'':txt).replace(/\s+/g,' ').trim();
+  if(!t) return '';
+  const rescape=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const AMT='\\$\\s?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:bn|m)\\b';
+  // the movers clause keeps its own introducer
+  t=t.replace(/\b(led by|driven by|on the back of|reflecting)\b\s+[^.;]+/gi,'$1 {drivers}');
+  // a movement already in the pack's own notation
+  t=t.replace(new RegExp('[\u25b2\u25bc]\\s?'+AMT+'[FA]?(?:\\s*/\\s*[\\d.]+%)?','g'),'{var}');
+  t=t.replace(new RegExp(AMT+'[FA](?:\\s*/\\s*[\\d.]+%)?','g'),'{var}');
+  // "up $102m (2.5%)" and its siblings
+  t=t.replace(new RegExp('\\b(?:up|down|higher|lower)(?:\\s+by)?\\s+'+AMT+'(?:\\s?\\(\\s?[\\d.]+%\\s?\\))?','gi'),'{var}');
+  // an amount it is measured against
+  t=t.replace(new RegExp('\\b(against|from)\\s+'+AMT,'gi'),'$1 {base}');
+  // the comparison phrase
+  t=t.replace(/\bvs\.?\s+[\w&'\u2019\- ]+?(?=\s*[,.;:)]|$)/gi,'{vs}');
+  // percentages left standing
+  t=t.replace(/\(\s?[\d.]+%\s?\)/g,'({varpct})');
+  t=t.replace(/\b[\d.]+%/g,'{varpct}');
+  // remaining amounts: the first is the figure itself, a later one its base
+  let first=true;
+  t=t.replace(new RegExp(AMT,'g'),()=>{ const tok=first?'{main}':'{base}'; first=false; return tok; });
+  // the subject line \u2014 a name the file itself carries, else the phrase
+  // in front of the verb
+  for(const n of comTplNamePool()){
+    const re=new RegExp('(^|[^\\w{])'+rescape(n)+'(?=[^\\w}]|$)');
+    if(re.test(t)){ t=t.replace(re,'$1{line}'); break; }
+  }
+  if(!/\{line\}/.test(t))
+    t=t.replace(/^([A-Z][\w&'\u2019\- ]{2,40}?)(?=\s+(?:is|was|were|came|grew|fell|rose|delivered|of|at|closed)\b)/,'{line}');
+  // place and business names speak as the scope
+  for(const n of comTplPlacePool()){
+    const re=new RegExp('(^|[^\\w{])'+rescape(n)+'(?=[^\\w}]|$)','g');
+    t=t.replace(re,'$1{scope}');
+  }
+  t=t.replace(/\s{2,}/g,' ').trim();
+  return /\{\w+\}/.test(t)? t : '';
+}
 /* A file of templates, onboarded in one go: a workbook is read from its
    CommentaryTemplates tab (or its first sheet), a CSV as rows \u2014 either
    Style | Scope | Pattern, or the four-column config form with
@@ -3831,8 +3891,24 @@ async function tplUploadFile(file){
   try{
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array'});
-    const rows=comTplRowsFromWb(wb);
-    if(!rows.length){ if(note) note.textContent='No Style | Scope | Pattern rows found in '+file.name+'.'; return; }
+    let rows=comTplRowsFromWb(wb);
+    let derived=0;
+    if(rows.length){
+      // a Pattern cell may itself be a write-up \u2014 derive it in place
+      rows=rows.map(t=>{ if(/\{\w+\}/.test(t.pattern)) return t;
+        const d=comTplFromExample(t.pattern); if(d) derived++;
+        return d? {...t, pattern:d} : t; });
+    } else {
+      // no pattern rows at all: each tab is a written example, named for the
+      // scope it speaks for \u2014 IWPB Global, CIB Regional, Group, Singapore
+      for(const sn of wb.SheetNames){
+        const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+        const txt=aoa.flat().map(x=>String(x==null?'':x).trim()).filter(Boolean).join(' ');
+        const d=comTplFromExample(txt);
+        if(d){ rows.push({style:String(sn).trim(), view:String(sn).trim(), pattern:d}); derived++; }
+      }
+    }
+    if(!rows.length){ if(note) note.textContent='No templates or write-ups found in '+file.name+'.'; return; }
     // one style may carry several scoped rows (global, regional, country) —
     // the merge key is the pair, so a re-upload updates rather than collapses
     const key=t=>String(t.style).trim().toLowerCase()+'|'+String(t.view||'').trim().toLowerCase();
@@ -3845,7 +3921,7 @@ async function tplUploadFile(file){
     }
     comTplUserSave([...by.values()]);
     if(note) note.textContent=`${rows.length} template${rows.length===1?'':'s'} onboarded from ${file.name}`+
-      (replaced? ` (${replaced} updated)` : '')+'.';
+      (derived? `, ${derived} derived from write-ups` : '')+(replaced? ` (${replaced} updated)` : '')+'.';
     if(S.model) renderHouse();
     renderTplPane();
   }catch(e){ if(note) note.textContent='Could not read '+file.name+': '+e.message; }
@@ -3883,7 +3959,12 @@ function renderTplPane(){
 }
 function tplPreview(){
   const prev=$('tplPrev'); if(!prev) return;
-  const pat=($('tplPat')&&$('tplPat').value.trim())||'';
+  let pat=($('tplPat')&&$('tplPat').value.trim())||'';
+  let derivedNote='';
+  if(pat&&!/\{\w+\}/.test(pat)){
+    const d=comTplFromExample(pat);
+    if(d){ pat=d; derivedNote='<span style="opacity:.75">Derived pattern · </span>'+esc(d)+'<br>'; }
+  }
   if(!pat){ prev.innerHTML=''; return; }
   const m=S.model;
   if(!m){ prev.innerHTML='Load a driller file to preview the template on its own figures.'; return; }
@@ -3893,8 +3974,8 @@ function tplPreview(){
   const g=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
     .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
     .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0)||atF(a.rs)-atF(b.rs))[0];
-  if(!g){ prev.innerHTML=''; return; }
-  prev.innerHTML='<span style="opacity:.75">Preview · </span>'+
+  if(!g){ prev.innerHTML=derivedNote; return; }
+  prev.innerHTML=derivedNote+'<span style="opacity:.75">Preview · </span>'+
     comTplLineHtml(pat, g, m, L, houseDimKey(), houseDrvCount(), vpCtx(m,S.ytdM));
 }
 function houseCommentaryHtml(){
@@ -10288,7 +10369,20 @@ function cfgFromWorkbook(wb){
     for(const r of first.slice(1)){ if(!r||r[0]==null||r[0]==='') continue;
       (by[low(r[0])]=by[low(r[0])]||[]).push(r.slice(1)); }
     for(const [sec,rows] of Object.entries(by)) handle(sec,rows);
-  } else for(const sn of wb.SheetNames) handle(sn, XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null}));
+  } else for(const sn of wb.SheetNames){
+    // a tab named "Template IWPB Global" (or "Commentary template: CIB")
+    // carries a written example for that scope, not rows
+    const tmm=/^(?:commentary\s*)?template[\s:._\u2014-]+(.+)$/i.exec(String(sn).trim());
+    if(tmm){
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+      const txt=aoa.flat().map(x=>String(x==null?'':x).trim()).filter(Boolean).join(' ');
+      const pat=/\{\w+\}/.test(txt)? txt : comTplFromExample(txt);
+      if(pat){ if(tz!==true){ cfg.comtpl=[]; tz=true; }
+        cfg.comtpl.push({style:tmm[1].trim(), view:tmm[1].trim(), pattern:pat}); }
+      continue;
+    }
+    handle(sn, XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null}));
+  }
   if(tp.length) cfg.tilePriority=tp;
   return cfg;
 }
@@ -10566,7 +10660,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 08:05</td></tr>
+      <tr><td>Build</td><td>2026-08-15 08:16</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10744,9 +10838,13 @@ function init(){
     renderTplPane(); };
   $('tplPick').addEventListener('change',e=>tplSetStyle(e.target.value));
   $('btnTplSave').addEventListener('click',()=>{
-    const nm=$('tplName').value.trim(), pat=$('tplPat').value.trim();
+    const nm=$('tplName').value.trim(); let pat=$('tplPat').value.trim();
     if(!nm||!pat){ alert('A template needs a name and a pattern.'); return; }
-    if(!/\{\w+\}/.test(pat)&&!confirm('The pattern carries no {tokens}, so every line would read the same. Save anyway?')) return;
+    if(!/\{\w+\}/.test(pat)){
+      const d=comTplFromExample(pat);   // a write-up saves as its derived pattern
+      if(d) pat=d;
+      else if(!confirm('No figures were recognised in this text, so every line would read the same. Save it as written?')) return;
+    }
     const sc2=($('tplScope')&&$('tplScope').value)||'';
     const mine=comTplUser().filter(t=>String(t.style).trim().toLowerCase()!==nm.toLowerCase()
       ||String(t.view||'').trim().toLowerCase()!==sc2.toLowerCase());
