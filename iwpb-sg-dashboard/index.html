@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:38)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:43)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:38)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:43)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -975,7 +975,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 14:38</div>
+<div id="buildTag">build 2026-08-15 14:43</div>
 </aside>
 <main>
 
@@ -5189,8 +5189,16 @@ function groupByFn(rows, fn){
    speaks about, across any dimension the model carries */
 function cfgMetricList(){
   const own=CFG.metrics;
-  return ((own&&own.length)? own : CFG_DEFAULT.metrics||[])
-    .map(x=>({name:String(x.name||''), scope:String(x.scope||'')})).filter(x=>x.name&&x.scope);
+  const raw=((own&&own.length)? own : CFG_DEFAULT.metrics||[])
+    .map(x=>({name:String(x.name||''), scope:String(x.scope||''), applies:String(x.applies||'').trim()}))
+    .filter(x=>x.name&&x.scope);
+  const by=new Map();
+  for(const x of raw){
+    const k=x.name.trim().toLowerCase();
+    if(!by.has(k)) by.set(k,{name:x.name, scope:x.scope, defs:[]});
+    by.get(k).defs.push({sel:x.scope, applies:x.applies.toLowerCase()});
+  }
+  return [...by.values()];
 }
 function metricDef(name){
   const n=String(name||'').trim().toLowerCase();
@@ -5199,22 +5207,35 @@ function metricDef(name){
 /* a metric is a row selection: dim=value keeps, dim!=value excludes \u2014 so
    \u201cmicaL2=Revenue; micaL3!=Net Insurance Revenue\u201d reads Banking NII as
    the Revenue block less its insurance line, and every figure on the tile
-   is computed over exactly those rows */
-function metricRows(def, rows){
-  let out=rows;
-  for(const part of String(def.scope).split(/[;|]/)){
+   is computed over exactly those rows. The same name may be defined
+   differently per business (the Applies-to column): each row is judged by
+   the definition its own business wrote, the unscoped definition covers the
+   businesses that wrote none, and a group view is simply the sum of every
+   business read its own way. */
+function metricSelTest(sel, r){
+  for(const part of String(sel).split(/[;|]/)){
     const neg=part.includes('!=');
     const i=neg? part.indexOf('!=') : part.indexOf('=');
     if(i<0) continue;
     const k=part.slice(0,i).trim(), v=part.slice(i+(neg?2:1)).trim().toLowerCase();
     if(!k) continue;
-    if(!(S.model&&k in S.model.dimCols)) return [];
-    out=out.filter(r=>{
-      const rv=String(r.d[k]||'').trim().toLowerCase();
-      return neg? rv!==v : rv===v;
-    });
+    if(!(S.model&&k in S.model.dimCols)) return false;
+    const rv=String(r.d[k]||'').trim().toLowerCase();
+    if(neg? rv===v : rv!==v) return false;
   }
-  return out;
+  return true;
+}
+function metricRows(def, rows){
+  const defs=def.defs||[{sel:def.scope, applies:''}];
+  const scoped=defs.filter(d=>d.applies), open=defs.find(d=>!d.applies)||null;
+  if(!scoped.length){
+    return open? rows.filter(r=>metricSelTest(open.sel,r)) : [];
+  }
+  return rows.filter(r=>{
+    const biz=String(r.d.business||r.d.cgL1||'').trim().toLowerCase();
+    const d=scoped.find(x=>x.applies===biz)||open;
+    return d? metricSelTest(d.sel,r) : false;
+  });
 }
 function liveMetrics(rows){
   return cfgMetricList().filter(def=>metricRows(def,rows).length);
@@ -10524,7 +10545,9 @@ function cfgFromWorkbook(wb){
         else if(a&&b2) cfg.comtpl.push({style:a, view:'', pattern:b2});
       }
       else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
-        if(a&&b2) cfg.metrics.push({name:a, scope:b2}); }
+        // Key | Scope | Applies to \u2014 the same name may carry a different
+        // definition per business, each applied to its own rows
+        if(a&&b2) cfg.metrics.push({name:a, scope:b2, applies:c||''}); }
       else if(isCH){
         const cells=[a,b2,c,d,e2,f2];
         const lows=cells.map(x=>String(x).toLowerCase().replace(/[^a-z0-9]/g,''));
@@ -10626,6 +10649,7 @@ function cfgTemplateCSV(){
       '<pattern - e.g. {line} {var} {vs}, led by {drivers}.>',''],
     ['CountryHierarchy','<ID - optional>','<Level 1 - e.g. Global>','<Level 2 region - e.g. Asia>','<Level 3 country = tab name - e.g. Singapore>'],
     ...CFG_DEFAULT.metrics.map(x=>['Metrics',x.name,x.scope,'','']),
+    ['Metrics','<same name again - e.g. Banking NII>','<its definition for one business>','<Applies to - e.g. CIB>',''],
     ...['account','product'].flatMap(hk=>CFG_DEFAULT.hierarchies[hk].map(r=>{
       const lv=[...r.levels]; while(lv.length<5) lv.push('');
       return [hk==='account'?'AccountHierarchy':'ProductHierarchy', r.id, ...lv, r.match||''];
@@ -10864,7 +10888,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 14:38</td></tr>
+      <tr><td>Build</td><td>2026-08-15 14:43</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

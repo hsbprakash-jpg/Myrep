@@ -233,7 +233,14 @@ left-pane strip and the Filters pane.
   grid can carry: `dim=value` keeps rows, `dim!=value` excludes them — so
   `Banking NII` is defined as `micaL2=Revenue; micaL3!=Net Insurance
   Revenue`, the Revenue block less its insurance line, and every figure on
-  the tile is computed over exactly those rows.
+  the tile is computed over exactly those rows. The same name may carry a
+  **different definition per business** — an optional `Applies to` column
+  names whose definition each row is (`Banking NII | micaL2=Revenue;
+  micaL3!=Net Insurance Revenue | IWPB` beside `Banking NII | accH3=Banking
+  NII | CIB`): each business's rows are judged by the definition that
+  business wrote, a row with no `Applies to` covers the businesses that
+  wrote none, and a group view is simply the sum of every business read its
+  own way — never one business's definition forced on another's rows.
 - **The headline is always the year to date, through the last actual month.**
   Whatever the variance period compares on — a quarter, a single month, the
   full year — the figure at the top of a tile is the same one: the YTD
