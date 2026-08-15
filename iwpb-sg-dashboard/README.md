@@ -787,6 +787,14 @@ left-pane strip and the Filters pane.
   packs ship worked examples; a hand-picked style always overrides the
   scope.
 
+  **The Active style lists scopes, not style names.** However many
+  named styles the config carries, the pane's selector shows one entry
+  per **Scope** value — `Group`, `IWPB`, `CIB`, `HK`, `UK`, whatever
+  the CommentaryTemplates' Scope column defines — plus Auto, and any
+  style whose rows are deliberately unscoped, by its own name. Picking
+  a scope forces that scope's template (its last-defined row), still
+  filled from the selected variance period.
+
   **One selector, in the pane.** The Management Commentary panel
   carries no Style dropdown of its own: the narrative follows the
   scope and the **selected variance period**, exactly as the
