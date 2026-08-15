@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:43)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:49)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:43)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:49)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -975,7 +975,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 14:43</div>
+<div id="buildTag">build 2026-08-15 14:49</div>
 </aside>
 <main>
 
@@ -1487,6 +1487,7 @@ const CFG_DEFAULT={
   tilePriority:['revenue','net\\s*interest|\\bnii\\b','trading','\\bfee','\\bdirect\\s*cost','^costs?$','\\becl\\b|expected\\s+credit'],
   countrymap:[],
   dimensions:{},
+  calcdefs:[],
   metrics:[
     {name:'Revenue',      scope:'accH2=Revenue'},
     {name:'Banking NII',  scope:'accH3=Banking NII'},
@@ -3413,7 +3414,7 @@ function renderSummary(){
     return `
     <button class="card${(opt&&opt.parked)?' parked':''}" ${l2attr} title="View this line in the trajectory and commentary">
       ${(opt&&opt.ctl)||''}
-      <div class="thead"><span class="tname" title="${esc(name)}">${esc(name)}</span><span class="tunit">${esc(tu)}</span>
+      <div class="thead"><span class="tname" title="${esc((l=>l? name+' \u2014 '+l : name)(metricLineageTxt(name)))}">${esc(name)}</span><span class="tunit">${esc(tu)}</span>
         <span class="tval${(hv||0)<0?' negnum':''}"><span class="tvlbl">${esc(hLbl)}</span>${
           (k.isBS&&bsUnit())? fmtBS(hv) : fmt(hv)}</span></div>
       ${netSub}
@@ -5198,6 +5199,21 @@ function cfgMetricList(){
     if(!by.has(k)) by.set(k,{name:x.name, scope:x.scope, defs:[]});
     by.get(k).defs.push({sel:x.scope, applies:x.applies.toLowerCase()});
   }
+  // the Definitions tab \u2014 the lineage form \u2014 speaks over a Metrics row
+  // written for the same calculation and business
+  for(const cd of (CFG.calcdefs||[])){
+    const k=String(cd.calc).trim().toLowerCase(); if(!k) continue;
+    if(!by.has(k)) by.set(k,{name:String(cd.calc).trim(), scope:'', defs:[]});
+    const e=by.get(k);
+    const ap=String(cd.biz||'').trim().toLowerCase();
+    let d=e.defs.find(x=>x.applies===ap&&x.comps);
+    if(!d){
+      e.defs=e.defs.filter(x=>x.applies!==ap||x.comps);
+      d={sel:'', applies:ap, comps:[]};
+      e.defs.unshift(d);
+    }
+    d.comps.push({line:String(cd.line).trim(), minus:/^\s*(-|\u2212|less\b|minus\b)/i.test(String(cd.sign||'+'))});
+  }
   return [...by.values()];
 }
 function metricDef(name){
@@ -5225,17 +5241,45 @@ function metricSelTest(sel, r){
   }
   return true;
 }
+function metricRowHasLine(r, line){
+  const v=String(line||'').trim().toLowerCase(); if(!v||!S.model) return false;
+  for(const k in S.model.dimCols) if(String(r.d[k]||'').trim().toLowerCase()===v) return true;
+  return false;
+}
+function metricDefTest(d, r){
+  if(d.comps&&d.comps.length){
+    let inc=false;
+    for(const c of d.comps){
+      if(metricRowHasLine(r,c.line)){ if(c.minus) return false; inc=true; }
+    }
+    return inc;
+  }
+  return metricSelTest(d.sel, r);
+}
 function metricRows(def, rows){
   const defs=def.defs||[{sel:def.scope, applies:''}];
   const scoped=defs.filter(d=>d.applies), open=defs.find(d=>!d.applies)||null;
   if(!scoped.length){
-    return open? rows.filter(r=>metricSelTest(open.sel,r)) : [];
+    return open? rows.filter(r=>metricDefTest(open,r)) : [];
   }
   return rows.filter(r=>{
     const biz=String(r.d.business||r.d.cgL1||'').trim().toLowerCase();
     const d=scoped.find(x=>x.applies===biz)||open;
-    return d? metricSelTest(d.sel,r) : false;
+    return d? metricDefTest(d,r) : false;
   });
+}
+/* the lineage, in the words the config wrote it \u2014 shown on the tile's
+   tooltip so the calculation is never a guess */
+function metricLineageTxt(name){
+  const def=metricDef(name); if(!def) return '';
+  const parts=[];
+  for(const d of (def.defs||[])){
+    const who=d.applies? d.applies.toUpperCase()+': ' : '';
+    if(d.comps&&d.comps.length)
+      parts.push(who+d.comps.map(c=>(c.minus?'\u2212 ':'+ ')+c.line).join(' '));
+    else if(d.sel) parts.push(who+d.sel);
+  }
+  return parts.join('  \u00b7  ');
 }
 function liveMetrics(rows){
   return cfgMetricList().filter(def=>metricRows(def,rows).length);
@@ -10544,6 +10588,13 @@ function cfgFromWorkbook(wb){
         if(a&&c) cfg.comtpl.push({style:a, view:b2, pattern:c});
         else if(a&&b2) cfg.comtpl.push({style:a, view:'', pattern:b2});
       }
+      else if(sec==='definitions'||sec==='calcdefs'||sec==='calculationdefinitions'||sec==='lineage'){
+        // Calculation | Business | Line | Include \u2014 the lineage form: each
+        // component is a line of the driller by name, + includes it, \u2212
+        // carves it out, blank Business covers businesses that wrote none
+        if(/^calculation/i.test(String(a))) continue;
+        if(a&&c) cfg.calcdefs.push({calc:a, biz:b2||'', line:c, sign:d||'+'});
+      }
       else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
         // Key | Scope | Applies to \u2014 the same name may carry a different
         // definition per business, each applied to its own rows
@@ -10888,7 +10939,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 14:43</td></tr>
+      <tr><td>Build</td><td>2026-08-15 14:49</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

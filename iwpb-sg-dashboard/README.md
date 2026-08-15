@@ -240,7 +240,23 @@ left-pane strip and the Filters pane.
   NII | CIB`): each business's rows are judged by the definition that
   business wrote, a row with no `Applies to` covers the businesses that
   wrote none, and a group view is simply the sum of every business read its
-  own way — never one business's definition forced on another's rows.
+  own way — never one business's definition forced on another's rows. The
+  plain-language form is the **Definitions** tab — the calculation's lineage,
+  one component per row, in the file's own line names:
+
+  ```
+  Calculation  | Business | Line                   | Include
+  Banking NII  | IWPB     | Revenue                |   +
+  Banking NII  | IWPB     | Net Insurance Revenue  |   −
+  Banking NII  | CIB      | Banking NII            |   +
+  ```
+
+  `+` includes the named line (from any MICA or hierarchy level), `−` carves
+  it out, blank Business covers every business that wrote none. What the tab
+  reads is exactly what the tile computes — the tile's tooltip reads the
+  lineage back word for word — and a Definitions entry speaks over a Metrics
+  row written for the same calculation and business, so there is one place
+  to look and it wins.
 - **The headline is always the year to date, through the last actual month.**
   Whatever the variance period compares on — a quarter, a single month, the
   full year — the figure at the top of a tile is the same one: the YTD
