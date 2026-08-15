@@ -848,7 +848,13 @@ left-pane strip and the Filters pane.
   against/from base, percentages, mover lists after "led by", "driven
   by", "on the back of" or "reflecting", the subject line matched
   against the file's own line names, and place or business names, which
-  become the scope. Once derived it is an ordinary scoped template —
+  become the scope. **Placeholder figures are recognised too**, the way
+  template packs are actually written: `$Xm up/down` reads as the
+  movement, `x%` as the percentage, a bare `$Xm` as the figure itself,
+  and a named basis — "(Month) Actuals Vs Forecast", "FY Forecast vs
+  Target" — reads as the **selected variance period**, so a write-up
+  built on placeholders fills from whichever basis the left pane has
+  selected and re-fills when it changes. Once derived it is an ordinary scoped template —
   adopted by Auto, previewed, exported and overridden like any other —
   and as always the tokens fill from the page's computed figures, so
   the example's own numbers never survive into the output.
