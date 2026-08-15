@@ -759,11 +759,30 @@ left-pane strip and the Filters pane.
   style, and the reader's own pick on the panel is remembered. The Word
   and PPT exports carry whichever style is on the page.
 
+  **Scoped templates — the scope picks its own voice.** With the Style
+  selector on **Auto — match the scope** (the default), the page adopts
+  whichever defined template best fits where it is looking: an unscoped
+  multi-business page speaks the `Group` template, a selected business
+  its `IWPB Global` or `CIB Global` template, a region its `Regional`
+  and a country its `Country` one — re-resolved automatically as the
+  scope moves, with nothing to pick. A template's scope is its `Scope`
+  column, or simply its own name: `Group`, `Global`, `Regional`,
+  `Country`, optionally led by a business (`IWPB Global`) or a specific
+  place (`Singapore`) — the most specific match wins, so `IWPB Global`
+  beats plain `Global` when IWPB is selected. A scope with no template
+  defined speaks the pack narrative, so IWPB can have its own voice
+  while CIB reads the standard one until CIB defines its own. Both
+  packs ship worked examples; a hand-picked style always overrides the
+  scope.
+
   **Onboarding templates from the left pane.** The **Commentary
   templates** section in the left pane takes a template written the way
-  you write it: name it, type the pattern, and a live preview words the
-  file's first statement line as you type. Saving makes it the active
-  style and offers it on both selectors alongside the config's
+  you write it: name it, choose what it applies to (anywhere, a tier,
+  or a business tier such as `IWPB Global`), type the pattern, and a
+  live preview words the file's first statement line as you type. A
+  scoped template saved while Auto is on joins the rotation — the page
+  adopts it wherever it applies; a plain named one becomes the active
+  style and appears on both selectors alongside the config's
   templates; it is kept in the browser across sessions, and a template
   saved under a config style's name overrides that style for you alone.
   **Download as config rows** turns your saved templates into

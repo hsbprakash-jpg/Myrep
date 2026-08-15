@@ -41,7 +41,7 @@ Settings,unit_decimals,,,
 Settings,variance_periods,"qtr_py,ytd_tgt,mth_fc,fy_pfc,fy_py,fy_tgt",,
 Settings,commentary_dim,,,
 Settings,commentary_levels,"micaL1,micaL2,micaL3",,
-Settings,commentary_format,slide,,
+Settings,commentary_format,auto,,
 Settings,commentary_note,ex notables,,
 Settings,commentary_headline,FY Forecast,,
 Settings,commentary_fa_colours,Y,,
@@ -256,5 +256,9 @@ ProductHierarchy,B44,IWPB,Others,Other,,,
 ProductHierarchy,B45,IWPB,Others,Other,Non Wealth Insurance Distribution,,
 ProductHierarchy,B46,IWPB,Others,Other,Other Products,,
 ProductHierarchy,B47,IWPB,Others,Wealth Lending,,,
+CommentaryTemplates,Group narrative,Group,"{line} {var} {vs} across the Group, led by {drivers}."
+CommentaryTemplates,IWPB Global,IWPB Global,"{scope}: {line} {var} {vs}, led by {drivers}."
+CommentaryTemplates,IWPB Regional,IWPB Regional,"{scope}: {line} {var} {vs} across the region, driven by {drivers}."
+CommentaryTemplates,IWPB Country,IWPB Country,"In {scope}, {line} came in at {main}, {var} {vs} on {drivers}."
 CommentaryTemplates,Exec brief,,"{line} {var} {vs}, led by {drivers}."
 CommentaryTemplates,FP&A detail,,{line}: {main} against {base} — {varamt} ({varpct}) {vs}. Key movers: {drivers}.
