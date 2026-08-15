@@ -692,6 +692,18 @@ left-pane strip and the Filters pane.
   paragraphs any one block can carry, so a long document never buries the
   page's own commentary.
 
+- **One config file drives everything** — `Group_dashboard_config_pack.xlsx`
+  is the single source of truth: it carries every business side by side —
+  the merged CountryHierarchy (all businesses, regions and countries), both
+  businesses' Product and Account hierarchies, their metrics, written
+  commentary and scoped commentary templates (`IWPB Global` … `CIB
+  Country`), the six-basis variance periods and the tile controls — under
+  one Group branding. Upload this one workbook and the page serves the
+  Group, either business, any region and any country from it; maintain
+  this one file and nothing else. The per-business packs
+  (`IWPB_dashboard_config_pack.xlsx`, `CIB_dashboard_config_pack.xlsx`)
+  remain as worked single-business examples of the same format.
+
   A worked example ships with the packs: **`IWPB_dashboard_config_pack.xlsx`**
   carries a `Commentary` sheet of eight plain paragraphs with no tagging of
   any kind, and loading it with `sample/IWPB_SG_Driller_sixbasis.xlsx` pins
