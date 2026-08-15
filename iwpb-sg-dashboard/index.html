@@ -898,9 +898,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 12:46)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 13:14)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 12:46)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 13:14)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1000,7 +1000,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 12:46</div>
+<div id="buildTag">build 2026-08-15 13:14</div>
 </aside>
 <main>
 
@@ -2325,17 +2325,21 @@ function movTxt(k, v, p){
   if(p!=null) out.push((v!=null?'(':'')+(v!=null?'':(movUp(k,null,p)?'\u25B2':'\u25BC'))+pctAbs(p)+(v!=null?')':''));
   return out.join(' ');
 }
+/* A tile compares on three things and no more: the prior year, the forecast
+   and the target, all at the grain of the headline. The variance period the
+   page is reading drives the trajectory, the commentary and the pack \u2014 it
+   does not add a fourth row here. */
 function tileRows(k,m){
   const rows=[];
-  // the selected variance period always leads; the standard rows follow
   const L=cmpLabels(m);
   if(k.isBS){
-    if(k.cmpVar!=null) rows.push({lbl:k.cmpMode==='py'?'vs PY':L.vs.replace('YTD ',''), v:k.cmpVar, p:k.cmpVarPct});
+    const pyBal=(k.mthPy!=null? k.mthPy : k.fyPrior);
+    if(pyBal!=null&&k.cy!=null){ const v=k.cy-pyBal;
+      rows.push({lbl:'vs PY', v, p:pyBal? v/Math.abs(pyBal) : null}); }
     if(k.varBsFc!=null) rows.push({lbl:'vs Fcst', v:k.varBsFc, p:k.varBsFcPct});
     if(k.varTgt!=null) rows.push({lbl:'vs Tgt', v:k.varTgt, p:k.varTgtPct});
-    return rows;
+    return rows.slice(0,3);
   }
-  if(L.vp&&L.vp!=='auto'&&k.cmpVar!=null) rows.push({lbl:L.vs, v:k.cmpVar, p:k.cmpVarPct, lead:true});
   if(m.pyMonths.length&&k.py!=null) rows.push({lbl:'vs PY', v:k.varAbs, p:k.varPct});
   if(k.ytdFc!=null) rows.push({lbl:'vs Fcst', v:k.varFc, p:k.varFcPct});
   // target compares at the YTD grain, from a YTD target column only — a file
@@ -2343,7 +2347,7 @@ function tileRows(k,m){
   if(k.varYT!=null) rows.push({lbl:'vs Tgt', v:k.varYT, p:k.varYTPct});
   const seen=new Set();
   return rows.filter(r=>{ const key=r.lbl.toLowerCase(); if(seen.has(key)) return false; seen.add(key); return true; })
-    .slice(0, Math.max(3, rows.some(r=>r.lead)?4:3));
+    .slice(0,3);
 }
 /* a file supports the forecast basis via an FY forecast column OR forecast months */
 function fcBasis(m){
@@ -3120,6 +3124,34 @@ function applyTileOrder(list){
   return [...list].sort((a,b)=>idx(a.l2)-idx(b.l2));
 }
 function tileOrderClear(){ try{ localStorage.removeItem('iwpbsg_tileorder'); }catch(e){} }
+/* One tile per line. A merged configuration can name the same line twice \u2014
+   once in each pack's metric list, once as a rollup and once as its own row \u2014
+   and two lists can call one set of rows by two names. Both are one tile: a
+   name already on the grid does not come again, and neither do rows already
+   on it, whatever the second list calls them. Only a genuinely different
+   parent earns a second tile, and it says whose it is. */
+function tileDedupe(cards){
+  const seen=new Map(), byLen=new Map(), out=[];
+  for(const c of cards){
+    if(!c) continue;
+    const rs=c.rows||[];
+    const key=String(c.l2).trim().toLowerCase();
+    const prev=seen.get(key);
+    if(prev){
+      const same=(prev.rows||[]).length===rs.length&&(prev.rows||[]).every(r=>rs.includes(r));
+      if(same) continue;
+      if(!(c.l1&&c.l1!==c.l2&&String(c.l1)!==String(prev.l1||''))) continue;
+      c.l2=c.l2+' \u00b7 '+c.l1;
+    }
+    // the same rows under another name are the same tile
+    const grp=byLen.get(rs.length)||[];
+    if(rs.length&&grp.some(p=>{ const st=new Set(p.rows); return rs.every(r=>st.has(r)); })) continue;
+    grp.push(c); byLen.set(rs.length,grp);
+    seen.set(String(c.l2).trim().toLowerCase(),c);
+    out.push(c);
+  }
+  return out;
+}
 /* The month a tile's headline reads: the year to date through the last actual
    month \u2014 the month before the forecast begins. Selecting a forecast
    month, or ticking the forecast month in, moves the rest of the page but
@@ -3315,20 +3347,7 @@ function renderSummary(){
     }
   }
 
-  // A line offered twice \u2014 a config union naming it in two lists, or
-  // the same name under two parents carrying the same rows \u2014 is one
-  // card. The same name over different rows keeps both, each saying whose.
-  const seenC=new Map();
-  cards=cards.filter(c=>{
-    const key=String(c.l2).trim().toLowerCase();
-    const prev=seenC.get(key);
-    if(!prev){ seenC.set(key,c); return true; }
-    const same=prev.rows.length===c.rows.length&&prev.rows.every(r=>c.rows.includes(r));
-    if(same) return false;
-    if(c.l1&&c.l1!==c.l2) c.l2=c.l2+' \u00b7 '+c.l1;
-    return true;
-  });
-  cards=tileNetApply(cards, rows, m);
+  cards=tileNetApply(tileDedupe(cards), rows, m);
   const l1name=[...byL1g.keys()][0]||'Revenue';
   const tileNames=cards.map(c=>c.l2);
   const totName=tileL1? totalLabel(tileNames) : `Total ${l1name}`;
@@ -3423,17 +3442,14 @@ function renderSummary(){
       ? `<div class="krow actonly"><span class="kl">net of ${esc(netOf.map(x=>x.name).join(', '))}</span>
            <span class="kv">${fmt(netOf.reduce((t2,x)=>t2+(x.val||0),0))}</span><span class="kv"></span></div>`
       : '';
-    const perSub=(!k.isBS&&k.cmpMain!=null&&hv!=null&&Math.abs(k.cmpMain-hv)>0.005)
-      ? `<div class="krow actonly"><span class="kl">${esc(L.main)}</span>
-           <span class="kv">${fmt(k.cmpMain)}</span><span class="kv"></span></div>`
-      : '';
+
     return `
     <button class="card${(opt&&opt.parked)?' parked':''}" ${l2attr} title="View this line in the trajectory and commentary">
       ${(opt&&opt.ctl)||''}
       <div class="thead"><span class="tname" title="${esc(name)}">${esc(name)}</span><span class="tunit">${esc(tu)}</span>
         <span class="tval${(hv||0)<0?' negnum':''}"><span class="tvlbl">${esc(hLbl)}</span>${
           (k.isBS&&bsUnit())? fmtBS(hv) : fmt(hv)}</span></div>
-      ${netSub}${perSub}
+      ${netSub}
       ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
         :`<div class="krow actonly"><span class="kl">${esc(L.main)} actuals</span></div>`}
       <div class="vd">View detail →</div>
@@ -4652,7 +4668,7 @@ async function exportSummaryPPT(){
       }
     }
   }
-  ordered=tileNetApply(ordered.filter(c=>!tileHidden(c.l2)), rows, m);
+  ordered=tileNetApply(tileDedupe(ordered).filter(c=>!tileHidden(c.l2)), rows, m);
   const tiles=[
     ...(!summaryNoTotal(named)
       ? [{name:tileL1?totalLabel(byL2.map(c=>c.l2)):`Total ${l1name}`,k:kT,rows,hide:false}] : []),
@@ -4931,14 +4947,20 @@ function scorecardData(m){
     : /fy.*(tgt|target)/i.test(l)? 'FY vs Tgt'
     : /tgt|target/i.test(l)? 'vs Tgt' : l;
   const items=[], cols=[];
+  // the scorecard carries a line once, the same way the tiles do
+  const picked=[];
   for(const nm of defs){
     const f=tileFindLine(rows,nm); if(!f) continue;
+    picked.push({l2:f.name, rows:f.rows, l1:(f.rows[0]||{d:{}}).d.micaL1, f});
+  }
+  for(const p of tileDedupe(picked)){
+    const f=p.f;
     let k=kpi(f.rows,m,S.ytdM,S.includeFC);
     if(f.rows.length&&isBSLine(f.rows[0].d.micaL1||'')) k=bsRecast(k);
-    const trs=cmpHidden(f.name)? [] : tileRows(k,m);
+    const trs=cmpHidden(p.l2)? [] : tileRows(k,m);
     const map={};
     for(const r of trs){ const b=bucket(r.lbl); if(!(b in map)){ map[b]=r; if(!cols.includes(b)) cols.push(b); } }
-    items.push({name:f.name, k, map, scope:f.scope||f.name,
+    items.push({name:p.l2, k, map, scope:f.scope||f.name,
       unit:(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit()});
   }
   const parked=items.filter(it=>scHidden(it.name));
@@ -8444,8 +8466,9 @@ function renderKpiNav(){
       const f=tileFindLine(rowsAll,nm); if(!f) return null;
       let k=kpi(f.rows,m,S.ytdM,S.includeFC);
       if(f.rows.length&&isBSLine(f.rows[0].d.micaL1||'')) k=bsRecast(k);
-      return {l2:f.name, sc:f.scope||f.name, k};
+      return {l2:f.name, sc:f.scope||f.name, rows:f.rows, l1:(f.rows[0]||{d:{}}).d.micaL1, k};
     }).filter(Boolean);
+    items=tileDedupe(items);
   } else {
     const byL2=groupBy(rowsAll,tileDims()[1]);
     items=[...byL2.entries()].map(([l2,rs])=>{
@@ -10565,6 +10588,9 @@ function cfgFromWorkbook(wb){
         // Tile | Show — the plain-language form of tile control: N parks the
         // tile, Y shows it, and a tab of only-Y rows shows just those
         if(/^tiles?$/i.test(String(a))) continue;
+        // the tab's own note is prose, not a line: a sentence never parks a tile
+        if(String(a).length>60||/[.:]\s/.test(String(a))) continue;
+        if(b2&&!/^[YN]/i.test(String(b2).trim())) continue;
         if(a) cfg.tiles.push({name:a, show:(b2||'Y'), net:(c||'')});
       }
       else if(sec==='commentarytemplates'||sec==='commentarystyles'){
@@ -10917,7 +10943,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 12:46</td></tr>
+      <tr><td>Build</td><td>2026-08-15 13:14</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

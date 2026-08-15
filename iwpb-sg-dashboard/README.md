@@ -233,13 +233,20 @@ left-pane strip and the Filters pane.
   through the last month before the forecast begins, taken from the file's
   own YTD column, and labelled with that month (`JUN YTD`). Selecting a
   forecast month, or ticking the forecast month in, moves the rest of the
-  page but never that figure. Where the selected period reads something
-  else, its own figure stands directly beneath the headline (`Q2 2026
-  4,193`) with the comparison rows under it, so the tile, the trajectory and
-  the commentary still speak about the same basis without the headline
-  moving underneath them. Balances keep their closing balance, labelled the
+  page but never that figure. Balances keep their closing balance, labelled the
   same way (`JUN closing`). The PowerPoint one-pager leads with the same
   figure.
+- **Three comparisons on a tile, and no more** — `vs PY`, `vs Fcst`, `vs Tgt`,
+  all at the grain of the headline, balances included. The variance period the
+  page is reading drives the trajectory, the commentary and the reporting
+  pack; it does not add a fourth row to a tile.
+- **One tile per line.** A merged configuration names the same line more than
+  once — in each pack's metric list, as a rollup and again as its own row —
+  and two lists can call one set of rows by two names. The grid, the
+  PowerPoint one-pager and the left-hand KPI nav each show a line once: a name
+  already on the grid does not come again, and neither do rows already on it,
+  whatever the second list calls them. Only a genuinely different parent earns
+  a second tile, and that tile says whose it is (`Other · Costs`).
 - **A line nets in what offsets it.** Where a revenue line is reduced by
   another line beside it — an offset, a contra, a negative revenue line —
   the tile shows the **net**, and says what it netted in (`net of Other
