@@ -229,7 +229,11 @@ left-pane strip and the Filters pane.
   the default grid does not carry — resolved from the `Metrics` sheet or any
   MICA level, so `Banking NII | +` puts Banking NII on the grid, always
   visible, without touching the rest. An optional **Nets with** column names
-  the lines a tile nets in.
+  the lines a tile nets in. A `Metrics` row defines a named selection the
+  grid can carry: `dim=value` keeps rows, `dim!=value` excludes them — so
+  `Banking NII` is defined as `micaL2=Revenue; micaL3!=Net Insurance
+  Revenue`, the Revenue block less its insurance line, and every figure on
+  the tile is computed over exactly those rows.
 - **The headline is always the year to date, through the last actual month.**
   Whatever the variance period compares on — a quarter, a single month, the
   full year — the figure at the top of a tile is the same one: the YTD

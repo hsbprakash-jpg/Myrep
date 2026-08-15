@@ -38,6 +38,7 @@ MICA_ROWS = [
     ("MP10101010000", "NII - Interest Income",  "NII - Net Interest Income", "Revenue", +1, 55, "flow"),
     ("MP10101020000", "NII - Interest Expense", "NII - Net Interest Income", "Revenue", -1, 22, "flow"),
     ("MP10201010000", "NFI - Fee Income",       "Net Fee Income",            "Revenue", +1, 30, "flow"),
+    ("MP10301010000", "Insurance Manufacturing", "Net Insurance Revenue",     "Revenue", +1, 9, "flow"),
     ("MP20101010000", "Staff Costs",            "Direct Costs",              "Total Direct Cost", -1, 24, "flow"),
     ("MP20201010000", "Recharges",              "Indirect Costs",            "Total Indirect Costs (incl InterCo)", -1, 12, "flow"),
     ("MP30101010000", "ECL Charge",             "ECL",                       "Expected credit losses", -1, 6, "flow"),

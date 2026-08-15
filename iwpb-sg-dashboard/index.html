@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:18)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:23)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:18)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:23)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -975,7 +975,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 14:18</div>
+<div id="buildTag">build 2026-08-15 14:23</div>
 </aside>
 <main>
 
@@ -5196,14 +5196,23 @@ function metricDef(name){
   const n=String(name||'').trim().toLowerCase();
   return cfgMetricList().find(x=>x.name.trim().toLowerCase()===n)||null;
 }
+/* a metric is a row selection: dim=value keeps, dim!=value excludes \u2014 so
+   \u201cmicaL2=Revenue; micaL3!=Net Insurance Revenue\u201d reads Banking NII as
+   the Revenue block less its insurance line, and every figure on the tile
+   is computed over exactly those rows */
 function metricRows(def, rows){
   let out=rows;
   for(const part of String(def.scope).split(/[;|]/)){
-    const i=part.indexOf('='); if(i<0) continue;
-    const k=part.slice(0,i).trim(), v=part.slice(i+1).trim().toLowerCase();
+    const neg=part.includes('!=');
+    const i=neg? part.indexOf('!=') : part.indexOf('=');
+    if(i<0) continue;
+    const k=part.slice(0,i).trim(), v=part.slice(i+(neg?2:1)).trim().toLowerCase();
     if(!k) continue;
     if(!(S.model&&k in S.model.dimCols)) return [];
-    out=out.filter(r=>String(r.d[k]||'').trim().toLowerCase()===v);
+    out=out.filter(r=>{
+      const rv=String(r.d[k]||'').trim().toLowerCase();
+      return neg? rv!==v : rv===v;
+    });
   }
   return out;
 }
@@ -10503,7 +10512,7 @@ function cfgFromWorkbook(wb){
         if(/^tiles?$/i.test(String(a))) continue;
         // the tab's own note is prose, not a line: a sentence never parks a tile
         if(String(a).length>60||/[.:]\s/.test(String(a))) continue;
-        if(b2&&!/^[YN]/i.test(String(b2).trim())) continue;
+        if(b2&&!/^([YN]|\+|add\b)/i.test(String(b2).trim())) continue;
         if(a) cfg.tiles.push({name:a, show:(b2||'Y'), net:(c||'')});
       }
       else if(sec==='commentarytemplates'||sec==='commentarystyles'){
@@ -10855,7 +10864,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 14:18</td></tr>
+      <tr><td>Build</td><td>2026-08-15 14:23</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
