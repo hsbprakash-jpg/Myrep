@@ -124,8 +124,13 @@ Global subtotal per business and the Group at the foot. Every column
 casts exactly as displayed — the rounding point lands on the largest row
 of each block, and the Group line reads exactly what its tile reads. A
 lone country that would just rename its region is skipped; rows no
-business mapping claims appear as an Unallocated line so the table
-always adds up. A line a group defines no reading for (a per-business
+business mapping claims appear as an Unallocated line, and rows whose
+region the hierarchy never mapped appear under their own `(no region)`
+tier beside the named regions — never silently merged into a country
+line — so the table always adds up and any gap against the scoped tiles
+is visible. Note the scope bar and this page read differently by
+design: the tiles obey the full geographic scope, while this page
+always shows the whole tree. A line a group defines no reading for (a per-business
 Definition it never wrote) shows a dash rather than borrowing a figure;
 a line that sits wholly inside another (Banking NII inside Revenue) is
 headed `within Revenue` so nobody adds the two; balance-sheet tiles keep
