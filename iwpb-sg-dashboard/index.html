@@ -618,11 +618,31 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .cameta .cmk{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;
   color:var(--text-muted);font-weight:700}
 .cameta .cmv{display:block;font-size:12.5px;color:var(--text-primary)}
-details.casec{border:1px solid var(--border-strong);border-radius:6px;margin:8px 0;background:var(--surface-1)}
-details.casec>summary{cursor:pointer;padding:10px 14px;font-weight:700;font-size:13px;list-style:none}
+details.casec{border:1px solid var(--border-strong);border-left:3px solid var(--border-strong);
+  border-radius:8px;margin:10px 0;background:var(--surface-1);transition:border-color .12s, box-shadow .12s}
+details.casec:hover{border-color:var(--hsbc-red);box-shadow:0 2px 10px rgba(0,0,0,.05)}
+details.casec[open]{border-left-color:var(--hsbc-red)}
+details.casec>summary{cursor:pointer;padding:12px 16px;font-weight:700;font-size:13px;list-style:none;
+  display:flex;align-items:center;gap:10px}
 details.casec>summary::-webkit-details-marker{display:none}
-details.casec>summary::before{content:'\203A\00a0';display:inline-block;transition:transform .12s;margin-right:6px}
-details.casec[open]>summary::before{transform:rotate(90deg)}
+details.casec>summary::before{content:'\203A';display:inline-block;transition:transform .12s;
+  color:var(--text-muted);flex:none}
+details.casec[open]>summary::before{transform:rotate(90deg);color:var(--hsbc-red)}
+.casec .canum{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:10.5px;font-weight:800;color:var(--hsbc-red);
+  border:1.5px solid var(--hsbc-red);background:color-mix(in srgb, var(--hsbc-red) 6%, transparent)}
+.casec[open] .canum{background:var(--hsbc-red);color:#fff}
+.casec .catit{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.casec .cahead{flex:none;display:flex;align-items:center;gap:7px;font-weight:600;font-size:11.5px;
+  color:var(--text-secondary);max-width:46%;overflow:hidden}
+.casec .cahead .cav{font-variant-numeric:tabular-nums;font-weight:800;border:1px solid transparent;
+  border-radius:20px;padding:2px 9px;white-space:nowrap}
+.casec .cahead .cav.cafav{color:var(--status-good);background:color-mix(in srgb, var(--status-good) 9%, transparent)}
+.casec .cahead .cav.caunf{color:var(--status-critical);background:color-mix(in srgb, var(--status-critical) 9%, transparent)}
+.casec .cabody{border-top:1px solid var(--border);margin:0 16px;padding:12px 0 14px}
+.cameta{display:flex;flex-wrap:wrap;gap:8px}
+.cameta>div{background:var(--fold-bg);border:1px solid var(--border);border-radius:8px;
+  padding:7px 12px;min-width:120px}
 details.casec>summary:hover{color:var(--hsbc-red)}
 .cabody{padding:2px 14px 12px}
 .cadisc{margin:14px 0 0;padding:10px 14px;border-radius:6px;font-size:11.5px;text-align:center;
@@ -880,9 +900,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 16:17)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 16:25)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 16:17)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 16:25)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -952,7 +972,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 16:17</div>
+<div id="buildTag">build 2026-08-15 16:25</div>
 </aside>
 <main>
 
@@ -7151,6 +7171,25 @@ const COMALL_SECS=[
     per:'the full year vs target',      v:f=>f.fy,    d:f=>f.fVsTgt}
 ];
 function caNote(){ const n=cfgS('commentary_note'); return n? ` (${n})` : ''; }
+/* the one-line read a section's header carries while it is closed: the
+   result line's figure and movement on that section's own basis, so the
+   page already tells the story before anything is opened */
+function caHeadline(sec){
+  try{
+    const rows=filteredRows(); if(!rows.length) return null;
+    const tree=fsumTree(rows).filter(r=>!r.band&&r.name);
+    const res=tree.filter(r=>(r.lvl||0)===0)[0]; if(!res) return null;
+    const q=caFig(res.rows, sec, res.name);
+    if(q.va==null) return null;
+    const f=q.f;
+    const amt=v=>v==null? 'n/a' : f.ratio? fsumRatioTxt(Math.abs(v))
+      : f.bsFmt? '$'+fmtBS(Math.abs(v))+(bsUnit()||'bn') : '$'+fmtFull(Math.round(Math.abs(v)))+'m';
+    const fav=movFav(f.k, q.va, q.pct==null? undefined : q.pct);
+    const up=movUp(f.k, q.va, q.pct==null? undefined : q.pct);
+    return {name:res.name, val:amt(q.val), fav,
+      chip:(up?'\u25b2':'\u25bc')+amt(q.va)+(q.pct==null?'':' \u00b7 '+pctAbs(q.pct))+(fav?' F':' A')};
+  }catch(e){ return null; }
+}
 function caFig(rows, sec, name){
   const m=S.model, P=fsumPlan(m,S.ytdM);
   const f=fsumFigs(rows,m,P,S.ytdM,name);
@@ -7381,8 +7420,12 @@ function renderComAll(){
     n++;
     const d=document.createElement('details');
     d.className='casec';
-    d.innerHTML=`<summary>${esc(sec.lbl)}${esc(caNote())}</summary>
+    const hd=caHeadline(sec);
+    d.innerHTML=`<summary><span class="canum">${n}</span><span class="catit">${esc(sec.lbl)}${esc(caNote())}</span>${
+        hd? `<span class="cahead" title="${esc(hd.name)} on this basis">${esc(hd.name)} ${esc(hd.val)}<span class="cav ${hd.fav?'cafav':'caunf'}">${esc(hd.chip)}</span></span>` : ''
+      }</summary>
       <div class="cabody" id="caBody_${sec.id}" data-heading="${esc(sec.lbl+caNote())}"></div>`;
+    if(n===1) d.open=true;   // the first entry greets the reader already open
     host.appendChild(d);
     const slot=d.querySelector('.cabody');
     if(CA_ORIG) slot.innerHTML=`<div class="aicom"><div class="aicom-t">${body}</div></div>`;
@@ -10934,7 +10977,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 16:17</td></tr>
+      <tr><td>Build</td><td>2026-08-15 16:25</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
