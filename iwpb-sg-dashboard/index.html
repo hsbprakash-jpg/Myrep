@@ -898,9 +898,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 13:14)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 13:23)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 13:14)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 13:23)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1000,7 +1000,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 13:14</div>
+<div id="buildTag">build 2026-08-15 13:23</div>
 </aside>
 <main>
 
@@ -2325,29 +2325,34 @@ function movTxt(k, v, p){
   if(p!=null) out.push((v!=null?'(':'')+(v!=null?'':(movUp(k,null,p)?'\u25B2':'\u25BC'))+pctAbs(p)+(v!=null?')':''));
   return out.join(' ');
 }
-/* A tile compares on three things and no more: the prior year, the forecast
-   and the target, all at the grain of the headline. The variance period the
-   page is reading drives the trajectory, the commentary and the pack \u2014 it
-   does not add a fourth row here. */
+/* A tile compares on three things and no more \u2014 the prior year, the
+   forecast and the target. Every variance period is one of those three
+   comparisons at some grain, so the selected period does not add a fourth
+   row: it takes over its own family's row, in its own words \u2014 Current
+   QTR vs PY puts the quarter movement in the PY row as "vs Q2 2025",
+   FY vs Target puts the full-year read in the target row \u2014 and the
+   other two stay at the year-to-date grain of the headline. */
 function tileRows(k,m){
-  const rows=[];
   const L=cmpLabels(m);
+  const fam={py:null, fc:null, tgt:null};
   if(k.isBS){
     const pyBal=(k.mthPy!=null? k.mthPy : k.fyPrior);
     if(pyBal!=null&&k.cy!=null){ const v=k.cy-pyBal;
-      rows.push({lbl:'vs PY', v, p:pyBal? v/Math.abs(pyBal) : null}); }
-    if(k.varBsFc!=null) rows.push({lbl:'vs Fcst', v:k.varBsFc, p:k.varBsFcPct});
-    if(k.varTgt!=null) rows.push({lbl:'vs Tgt', v:k.varTgt, p:k.varTgtPct});
-    return rows.slice(0,3);
+      fam.py={lbl:'vs PY', v, p:pyBal? v/Math.abs(pyBal) : null}; }
+    if(k.varBsFc!=null) fam.fc={lbl:'vs Fcst', v:k.varBsFc, p:k.varBsFcPct};
+    if(k.varTgt!=null) fam.tgt={lbl:'vs Tgt', v:k.varTgt, p:k.varTgtPct};
+    if(L.vp&&L.vp!=='auto'&&k.cmpVar!=null&&(L.mode in fam))
+      fam[L.mode]={lbl:L.vs.replace(/^vs YTD /,'vs '), v:k.cmpVar, p:k.cmpVarPct};
+    return [fam.py,fam.fc,fam.tgt].filter(Boolean).slice(0,3);
   }
-  if(m.pyMonths.length&&k.py!=null) rows.push({lbl:'vs PY', v:k.varAbs, p:k.varPct});
-  if(k.ytdFc!=null) rows.push({lbl:'vs Fcst', v:k.varFc, p:k.varFcPct});
+  if(m.pyMonths.length&&k.py!=null) fam.py={lbl:'vs PY', v:k.varAbs, p:k.varPct};
+  if(k.ytdFc!=null) fam.fc={lbl:'vs Fcst', v:k.varFc, p:k.varFcPct};
   // target compares at the YTD grain, from a YTD target column only — a file
   // carrying just an FY target shows no target row rather than a phased one
-  if(k.varYT!=null) rows.push({lbl:'vs Tgt', v:k.varYT, p:k.varYTPct});
-  const seen=new Set();
-  return rows.filter(r=>{ const key=r.lbl.toLowerCase(); if(seen.has(key)) return false; seen.add(key); return true; })
-    .slice(0,3);
+  if(k.varYT!=null) fam.tgt={lbl:'vs Tgt', v:k.varYT, p:k.varYTPct};
+  if(L.vp&&L.vp!=='auto'&&k.cmpVar!=null&&(L.mode in fam))
+    fam[L.mode]={lbl:L.vs, v:k.cmpVar, p:k.cmpVarPct};
+  return [fam.py,fam.fc,fam.tgt].filter(Boolean).slice(0,3);
 }
 /* a file supports the forecast basis via an FY forecast column OR forecast months */
 function fcBasis(m){
@@ -10943,7 +10948,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 13:14</td></tr>
+      <tr><td>Build</td><td>2026-08-15 13:23</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

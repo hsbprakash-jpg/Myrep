@@ -236,10 +236,14 @@ left-pane strip and the Filters pane.
   page but never that figure. Balances keep their closing balance, labelled the
   same way (`JUN closing`). The PowerPoint one-pager leads with the same
   figure.
-- **Three comparisons on a tile, and no more** — `vs PY`, `vs Fcst`, `vs Tgt`,
-  all at the grain of the headline, balances included. The variance period the
-  page is reading drives the trajectory, the commentary and the reporting
-  pack; it does not add a fourth row to a tile.
+- **Three comparisons on a tile, and no more** — the prior year, the forecast
+  and the target, balances included. Every variance period is one of those
+  three comparisons at some grain, so the selected period never adds a fourth
+  row: it takes over its own family's row, in its own words — Current QTR vs
+  PY puts the quarter movement in the PY row as `vs Q2 2025`, FY vs Target
+  puts the full-year read in the target row as `vs FY26 target` — and the
+  other two stay at the year-to-date grain of the headline. The tile changes
+  as the period changes; the headline does not.
 - **One tile per line.** A merged configuration names the same line more than
   once — in each pack's metric list, as a rollup and again as its own row —
   and two lists can call one set of rows by two names. The grid, the
