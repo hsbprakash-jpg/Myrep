@@ -896,9 +896,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 09:57)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 10:11)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 09:57)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 10:11)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1011,7 +1011,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 09:57</div>
+<div id="buildTag">build 2026-08-15 10:11</div>
 </aside>
 <main>
 
@@ -4055,14 +4055,23 @@ function renderTplPane(){
   sel.innerHTML=opts
     .map(([v,l])=>`<option value="${esc(v)}"${st===v?' selected':''}>${esc(l)}</option>`).join('');
   const scSel=$('tplScope');
-  if(scSel&&!scSel.dataset.keep){
-    const m=S.model;
-    const bizzes=m? [...new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean))].sort() : [];
-    const tiers=['Group','Global','Regional','Country'];
+  if(scSel){
+    // Applies to speaks the config's language: only the scopes the
+    // CommentaryTemplates actually define are offered. A file with no scoped
+    // templates at all falls back to the generic ladder so a first scoped
+    // template can still be written.
+    const keep=scSel.value;
+    const scopes=[...new Set(comTplList().map(t=>String(t.scope||t.view||'').trim()).filter(Boolean))];
+    let items=scopes;
+    if(!items.length){
+      const m=S.model;
+      const bizzes=m? [...new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean))].sort() : [];
+      items=['Group','Global','Regional','Country',
+        ...bizzes.flatMap(B=>['Global','Regional','Country'].map(t2=>B+' '+t2))];
+    }
     scSel.innerHTML=`<option value="">Anywhere \u2014 picked by name</option>`+
-      tiers.map(t2=>`<option value="${t2}">${t2}</option>`).join('')+
-      bizzes.flatMap(B=>['Global','Regional','Country'].map(t2=>
-        `<option value="${esc(B+' '+t2)}">${esc(B+' '+t2)}</option>`)).join('');
+      items.map(t2=>`<option value="${esc(t2)}">${esc(t2)}</option>`).join('');
+    if(keep&&[...scSel.options].some(o=>o.value===keep)) scSel.value=keep;
   }
   const mineEl=$('tplMine');
   const mine=comTplUser();
@@ -10799,7 +10808,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 09:57</td></tr>
+      <tr><td>Build</td><td>2026-08-15 10:11</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
