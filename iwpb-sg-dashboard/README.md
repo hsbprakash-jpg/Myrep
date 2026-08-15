@@ -116,23 +116,24 @@ row as the fallback. A bare tab named after an entity group (a tab called
 inside another business — the country tab inside a business carries the
 business in its name (`IWPB UK`).
 
-The left pane carries a **Business performance** section — the
-consolidation shown as evidence: a rollup tree on the result line
-(countries under their region, regions under their Global business, the
-Group at the foot) where every block casts exactly as displayed — the
-rounding point lands on the largest row, and the Group line reads exactly
-what its tile reads. A lone country that would just rename its region is
-skipped; rows no business mapping claims appear as an Unallocated line so
-the tree always adds up. Its **Export to Excel** writes the full table:
-one column per KPI tile on the grid (Revenue, ECL, the cost lines…, the
-same names and the same netting), one row per business / region /
-country. A line a group defines no reading for (a per-business Definition
-it never wrote) is blank rather than borrowing a figure; a line that sits
-wholly inside another (Banking NII inside Revenue) is headed `within
-Revenue` so nobody adds the two; balance-sheet tiles keep their own
-column in the balance unit as closing positions — never added into a P&L
-column. The section reads the whole tree whatever geography is scoped
-elsewhere, and hides on a single-business file.
+**Business performance** is its own page off the left-hand nav, beside
+the Financial Summary — the consolidation shown as evidence: one column
+per KPI tile on the grid (Revenue, ECL, the cost lines…, the same names
+and the same netting), one row per business / region / country with a
+Global subtotal per business and the Group at the foot. Every column
+casts exactly as displayed — the rounding point lands on the largest row
+of each block, and the Group line reads exactly what its tile reads. A
+lone country that would just rename its region is skipped; rows no
+business mapping claims appear as an Unallocated line so the table
+always adds up. A line a group defines no reading for (a per-business
+Definition it never wrote) shows a dash rather than borrowing a figure;
+a line that sits wholly inside another (Banking NII inside Revenue) is
+headed `within Revenue` so nobody adds the two; balance-sheet tiles keep
+their own column in the balance unit as closing positions — never added
+into a P&L column. **Export to Excel** writes the same table as a
+workbook. The page reads the whole tree whatever geography is scoped
+elsewhere, and the nav link only appears on a file that carries more
+than one business group.
 
 Scoping lives in the **top scope bar**: the business line, region and
 country dropdowns beside Units (each narrowed to the level above it), with

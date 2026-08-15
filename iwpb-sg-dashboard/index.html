@@ -725,19 +725,10 @@ svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 .bp-table th .bp-hunit{font-size:10px;font-weight:400;color:#fff;opacity:.78}
 .bp-table th{white-space:nowrap}
 .bp-table .bp-ind{padding-left:16px;color:var(--text-secondary)}
+.bp-table .bp-ind2{padding-left:30px;color:var(--text-muted)}
 .bp-table tr.bp-sub td{font-weight:700;border-top:1.5px solid var(--border-strong);
   background:color-mix(in srgb, var(--hsbc-red) 3%, transparent)}
 .bp-table td.num.negnum b{color:var(--text-primary)}
-#bizPerfPane{padding:6px 18px 2px}
-.bpmeta{font-size:10px;color:var(--text-muted);margin:0 0 4px}
-.bptree{width:100%;border-collapse:collapse;font-size:11.5px}
-.bptree td{padding:3px 0;color:var(--text-secondary)}
-.bptree td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-.bptree tr.t1 td:first-child{padding-left:10px}
-.bptree tr.t2 td:first-child{padding-left:20px;color:var(--text-muted)}
-.bptree tr.bpt-sub td{font-weight:700;color:var(--text-primary);border-top:1px solid var(--border)}
-.bptree tr.bpt-tot td{font-weight:800;color:var(--text-primary);border-top:1.5px solid var(--border-strong)}
-#bizPerfPane .btn-quiet{margin:8px 0 6px;width:100%}
 .card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
 .card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -921,9 +912,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 19:49)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 19:54)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 19:49)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 19:54)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -945,6 +936,9 @@ setTimeout(function(){
     <button id="navFsum">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="3.2" rx="1" fill="currentColor"/><rect x="1" y="6" width="6" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="8.6" y="6" width="6.4" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="1" y="10" width="6" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="8.6" y="10" width="6.4" height="2.4" rx="1" fill="currentColor" opacity=".55"/></svg>
       <span data-lbl="nav_fsum">Financial Summary</span></button>
+    <button id="navBizperf" hidden>
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="4.4" height="14" rx="1" fill="currentColor"/><rect x="6.8" y="1" width="8.2" height="3" rx="1" fill="currentColor" opacity=".55"/><rect x="6.8" y="6.5" width="8.2" height="3" rx="1" fill="currentColor" opacity=".55"/><rect x="6.8" y="12" width="8.2" height="3" rx="1" fill="currentColor"/></svg>
+      <span data-lbl="nav_bizperf">Business performance</span></button>
     <button id="navComall">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1.5" width="14" height="2.4" rx="1" fill="currentColor"/><rect x="1" y="6" width="10" height="2.4" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="10.5" width="12" height="2.4" rx="1" fill="currentColor" opacity=".35"/></svg>
       <span data-lbl="nav_comall">All commentaries</span></button>
@@ -977,12 +971,6 @@ setTimeout(function(){
     <label><span data-lbl="lbl_ytd">YTD through</span> <select id="fMonth"></select></label>
     <label><span data-lbl="lbl_varper">Variance period</span> <select id="fVarPer"></select></label>
   </div>
-  <div class="sect sect-fold" id="sectBizRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer" hidden><span data-lbl="sect_bizperf">Business performance</span><span id="bizCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
-  <div id="bizPerfPane" hidden>
-    <div class="bpmeta" id="bizPerfMeta"></div>
-    <div id="bizPerfTree"></div>
-    <button class="btn-quiet" id="btnBizXlsx" title="The full table \u2014 every tile as a column, business / region / country rows">⤓ Export to Excel</button>
-  </div>
   <div class="sect sect-fold" id="sectTplRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_comtpl">Commentary templates</span><span id="tplCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="tplPanel">
     <label><span data-lbl="lbl_tplpick">Active style</span> <select id="tplPick" aria-label="Commentary style"></select></label>
@@ -992,7 +980,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 19:49</div>
+<div id="buildTag">build 2026-08-15 19:54</div>
 </aside>
 <main>
 
@@ -1286,6 +1274,15 @@ setTimeout(function(){
     </div>
   </div>
 
+  <div id="bizperfView" hidden>
+    <div class="pagehead"><div>
+      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
+      <h2 data-lbl="bizperf_title">Business performance</h2>
+      <p class="lede2" id="bizPerfLede"></p>
+    </div>
+    <div><button class="btn-quiet" id="btnBizXlsx" title="The table as a workbook \u2014 every tile as a column, business / region / country rows">⤓ Export to Excel</button></div></div>
+    <div class="panel"><div class="rvwwrap" id="bizPerfTable"></div></div>
+  </div>
   <div id="fsumView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
@@ -3361,26 +3358,38 @@ function bizPerfData(){
   };
   const ym2=tileYtdM();
   const colVals=cols.map(castCol);
-  const ri=cols.findIndex(c=>c.res);
-  const paneCol= ri>=0? cols[ri] : {name:'P&L', rs:basePL, bs:false};
-  const paneVals= ri>=0? colVals[ri] : castCol(paneCol);
-  return {cols, defs, colVals, gl, ym:ym2, paneName:paneCol.name, paneVals};
+  return {cols, defs, colVals, gl, ym:ym2};
 }
-function renderBizPerf(){
-  const sect=$('sectBizRow'), pane=$('bizPerfPane'), host=$('bizPerfTree');
-  if(!sect||!pane||!host) return;
+function bizPerfAvail(){
+  const m=S.model;
+  if(!m||!('business' in m.dimCols)) return false;
+  return new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean)).size>1;
+}
+function renderBizPerfView(){
+  const host=$('bizPerfTable');
   const D=bizPerfData();
-  sect.hidden=pane.hidden=!D;
-  if(!D) return;
+  if(!D){
+    host.innerHTML='<p class="note">This page needs a file that carries more than one business group.</p>';
+    $('bizPerfLede').textContent='';
+    return;
+  }
   const show=(x,d)=>{ const t2=Math.abs(x).toLocaleString(undefined,{maximumFractionDigits:d, minimumFractionDigits:d});
     return x<0? '('+t2+')' : t2; };
-  $('bizPerfMeta').textContent=`${D.paneName} \u00b7 ${MON_LBL[D.ym]} YTD \u00b7 ${cfgUnit()}`;
-  host.innerHTML=`<table class="bptree"><tbody>${D.defs.map((rd,i2)=>{
-    const x=D.paneVals.vals[i2];
-    const cls=(rd.cls==='tot'?'bpt-tot':rd.cls==='bp-sub'?'bpt-sub':'t'+rd.tier);
-    return `<tr class="${cls}"><td>${esc(rd.short)}</td><td class="num${(x||0)<0?' negnum':''}">${
-      x==null?'\u2013':show(x/D.paneVals.sc,D.paneVals.d)}</td></tr>`;
-  }).join('')}</tbody></table>`;
+  const th=c=>`<th class="num">${esc(c.name)}${
+    c.bs? `<div class="bp-hunit">${esc(bsUnit()? bsUnitLabel():cfgUnit())} \u00b7 closing</div>`
+    : c.memo? `<div class="bp-hunit">within ${esc(c.memo)}</div>`
+    : c.res? `<div class="bp-hunit">the result line</div>`:''}</th>`;
+  const lbl=rd=> rd.cls==='tot'||rd.cls==='bp-sub'
+    ? `<b>${esc(rd.txt)}</b>${rd.txt==='Unallocated'? ' <span class="bp-ind">(rows with no business mapping)</span>':''}`
+    : `<span class="${rd.tier===2?'bp-ind2':'bp-ind'}">${esc(rd.txt)}</span>`;
+  const body=D.defs.map((rd,i2)=>`<tr${rd.cls?` class="${rd.cls}"`:''}><td>${lbl(rd)}</td>${
+    D.cols.map((c,ci)=>{ const cv=D.colVals[ci], x=cv.vals[i2];
+      return x==null? '<td class="num">\u2013</td>'
+        : `<td class="num${x<0?' negnum':''}"><b>${show(x/cv.sc,cv.d)}</b></td>`; }).join('')}</tr>`).join('');
+  host.innerHTML=`<table class="ctable bp-table"><thead><tr>
+      <th>Business / Region / Country</th>${D.cols.map(th).join('')}
+    </tr></thead><tbody>${body}</tbody></table>`;
+  $('bizPerfLede').textContent=`One column per tile \u2014 countries add to their region, regions to each Global business, businesses to ${D.gl}, and every column casts exactly as shown \u00b7 P&L in ${cfgUnit()}, ${MON_LBL[D.ym]} YTD through the last actual month \u00b7 balances closing, never added into P&L \u00b7 \u2013 = not defined for that business`;
 }
 function bizPerfAoa(){
   const D=bizPerfData();
@@ -3593,7 +3602,6 @@ function renderSummary(){
   S._sumTiles=[
     ...(noTotal? [] : [{name:totName, k:kT, rows, hide:false, total:true}]),
     ...shown.map(c=>({name:c.l2, k:c.k, rows:c.rows, netOf:c.netOf, hide:cmpHidden(c.l2)}))];
-  renderBizPerf();
   const tileAttr=c=>`data-l2="${esc(c.scope||(scPfx+c.l2))}" data-name="${esc(c.l2)}"`;
   $('cardGrid').innerHTML=
     (noTotal? '' : cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false, {rows}))+
@@ -7296,6 +7304,7 @@ function setView(v){
   S.view=v;
   $('summaryView').hidden = v!=='summary';
   $('fsumView').hidden    = v!=='fsum';
+  $('bizperfView').hidden = v!=='bizperf';
   $('comallView').hidden  = v!=='comall';
   $('customView').hidden  = v!=='custom';
   $('builderView').hidden = v!=='builder';
@@ -7304,6 +7313,7 @@ function setView(v){
   $('simView').hidden     = v!=='sim';
   $('navSummary').classList.toggle('active',v==='summary');
   $('navFsum').classList.toggle('active',v==='fsum');
+  $('navBizperf').classList.toggle('active',v==='bizperf');
   $('navComall').classList.toggle('active',v==='comall');
   $('navCustom').classList.toggle('active',v==='custom');
   $('navBuilder').classList.toggle('active',v==='builder');
@@ -10219,6 +10229,7 @@ function render(){
   if(!S.model) return;
   if(S.view==='summary') renderSummary();
   else if(S.view==='fsum') renderFsum();
+  else if(S.view==='bizperf') renderBizPerfView();
   else if(S.view==='comall') renderComAll();
   else if(S.view==='custom') renderCustom();
   else if(S.view==='builder') renderBuilder();
@@ -10230,6 +10241,7 @@ function render(){
   document.querySelectorAll('.eyebrow').forEach(el=>el.textContent=cfgS('eyebrow')+(scTr? ' — '+scTr : ''));
   renderKpiNav();
   renderCountryNav();
+  $('navBizperf').hidden=!bizPerfAvail();
   const rows=filteredRows();
   $('rowCount').textContent=`${rows.length.toLocaleString()} rows in scope`;
 }
@@ -11148,7 +11160,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 19:49</td></tr>
+      <tr><td>Build</td><td>2026-08-15 19:54</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11190,6 +11202,7 @@ function init(){
   $('fUnits').addEventListener('change',e=>{ S.units=e.target.value; fillUnits(); render(); renderKpiNav(); });
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navFsum').addEventListener('click',()=>setView('fsum'));
+  $('navBizperf').addEventListener('click',()=>setView('bizperf'));
   $('navComall').addEventListener('click',()=>setView('comall'));
   $('caBasis').addEventListener('change',()=>{ CA_SEC=$('caBasis').value; renderComAll(); });
   // the commentary as it stands, into a document — every section shown, in order
@@ -11292,7 +11305,6 @@ function init(){
   };
   mkCollapse('sectCfgRow','cfgCaret','iwpbsg_cfg_collapsed',['#cfgPanel']);
   mkCollapse('sectPeriodRow','periodCaret','iwpbsg_period_collapsed',['#sideFilters']);
-  mkCollapse('sectBizRow','bizCaret','iwpbsg_bizperf_collapsed',['#bizPerfPane']);
   mkCollapse('sectTplRow','tplCaret','iwpbsg_tpl_collapsed',['#tplPanel']);
   renderTplPane();
   const tplSetStyle=v=>{ S.comStyle=v;
