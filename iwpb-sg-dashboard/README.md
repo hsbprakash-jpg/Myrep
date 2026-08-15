@@ -775,6 +775,17 @@ left-pane strip and the Filters pane.
   packs ship worked examples; a hand-picked style always overrides the
   scope.
 
+  **The style speaks on every composed surface.** The active style —
+  Auto-resolved or hand-picked — words the Management Commentary, each
+  **All Commentaries** section (on that section's own basis, so the
+  same sentence shape reads vs PY in one section and vs Target in the
+  next), and the **graph commentary's** movement sentence beneath the
+  mix panel, the builder and the dashboard widgets. The analytical
+  reads stay the writer's own — the section heads, the "largest line"
+  opener, shares and concentration — and choosing **Pack narrative**
+  restores every surface at once. The Word and PPT exports carry
+  whichever style is on the page.
+
   **Onboarding templates from the left pane.** The **Commentary
   templates** section in the left pane takes a template written the way
   you write it: name it, choose what it applies to (anywhere, a tier,
