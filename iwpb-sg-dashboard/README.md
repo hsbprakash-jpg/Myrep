@@ -243,11 +243,16 @@ left-pane strip and the Filters pane.
   P&L line, closing for a balance. The variance period drives the trajectory,
   the commentary and the reporting pack; it never renames or replaces a tile
   row. Tiles move only with the **YTD through** month.
-- **Tiles never invent lines.** The grid is the file's own MICA lines — or a
-  `tile_lines` list the config names explicitly. The `Metrics` sheet feeds
-  the KPI scorecard and the metric scopes, but metrics reach the tile grid
-  only when the config says `tile_metrics: Y` in so many words; the old
-  `auto` no longer puts every metric on the grid.
+- **Tiles never invent lines.** The grid is the file's own MICA lines —
+  **Level 1 and Level 2 together**: every Level 2 line and every Level 1
+  rollup, one tile each (a rollup that adds nothing over its only child is
+  dropped, and a P&L rollup's figure excludes the balance memo lines filed
+  beneath it, so a result and a balance are never added). `tile_level:
+  level1` or `level2` narrows the grid to one level; a `tile_lines` list
+  names the set explicitly. The `Metrics` sheet feeds the KPI scorecard and
+  the metric scopes, but metrics reach the tile grid only when the config
+  says `tile_metrics: Y` in so many words; the old `auto` no longer puts
+  every metric on the grid.
 - **One tile per line.** A merged configuration names the same line more than
   once — in each pack's metric list, as a rollup and again as its own row —
   and two lists can call one set of rows by two names. The grid, the

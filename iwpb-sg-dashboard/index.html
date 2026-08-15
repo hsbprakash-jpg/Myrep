@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:05)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:09)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:05)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:09)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -975,7 +975,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 14:05</div>
+<div id="buildTag">build 2026-08-15 14:09</div>
 </aside>
 <main>
 
@@ -3277,16 +3277,17 @@ function renderSummary(){
     }).filter(Boolean);
     scPfx='';
   } else {
-    cards=[...(tileL1?byL1g:groupBy(rows,TD[1])).entries()].map(([nm,rs])=>{
-      let k=kpi(rs,m,S.ytdM,S.includeFC);
-      if(isBSRow(rs[0])) k=bsRecast(k);
-      return {l2:nm, l1:tileL1?nm:rs[0].d[TD[0]], rows:rs, k};
+    cards=tileGroups(rows).map(g=>{
+      let k=kpi(g.rs,m,S.ytdM,S.includeFC);
+      if(isBSRow(g.rs[0])) k=bsRecast(k);
+      return {l2:g.nm, l1:g.lv===1? g.nm : g.rs[0].d[TD[0]], rows:g.rs,
+        scope:g.lv===1? 'l1:'+g.nm : undefined, k};
     });
     const anyPrio=cards.some(c=>PRIO_RES.some(rx=>rx.test(c.l2)));
     const firstAt=c=>{ let i=Infinity; for(const r of c.rows){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
     const within=anyPrio? (a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0) : (a,b)=>firstAt(a)-firstAt(b);
     cards.sort((a,b)=>(isBSLine(a.l2)?1:0)-(isBSLine(b.l2)?1:0) || within(a,b));
-    scPfx=tileL1?'l1:':'';
+    scPfx='';
     // A driller whose only P&L rollup is one Level 1 line would show that
     // result and the balance sheet and nothing of what drove it. Its own
     // Level 2 lines — revenue, the cost lines, the charge — lead the grid,
@@ -3370,7 +3371,8 @@ function renderSummary(){
       return `YTD: months added — \u201c${asOf.label}\u201d serves ${MON_LBL[asOf.ytdM]}, the selector is on ${MON_LBL[S.ytdM]}`;
     return `YTD from the \u201c${asOf.label}\u201d column`;
   })();
-  const lvl=tileL1?'MICA Level 1':'MICA Level 2';
+  const tlv=cfgS('tile_level').trim().toLowerCase();
+  const lvl= tlv==='level1'? 'MICA Level 1' : tlv==='level2'? 'MICA Level 2' : 'MICA Level 1 & 2';
   const anyBS=cards.some(c=>c.k.isBS)&&bsUnit();
   const unitTxt=anyBS? `P&L in ${cfgUnit()} · balances in ${bsUnitLabel()}` : `figures in ${cfgUnit()} as reported`;
   $('summaryLede').textContent= (L.mode==='none'
@@ -4598,8 +4600,7 @@ async function exportSummaryPPT(){
   const byL2=named.length
     ? named.map(nm=>tileFindLine(rows,nm)).filter(Boolean)
         .map(f=>({l2:f.name, rows:f.rows, k:kOf(f.rows)}))
-    : [...(tileL1?l1g:groupBy(rows,TD[1])).entries()]
-        .map(([l2,rs])=>({l2, rows:rs, k:kOf(rs)}))
+    : tileGroups(rows).map(g=>({l2:g.nm, rows:g.rs, k:kOf(g.rs)}))
         .sort((a,b)=>(a.k.isBS?1:0)-(b.k.isBS?1:0)||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
   const l1name=[...l1g.keys()][0]||'Revenue';
@@ -5306,6 +5307,33 @@ function tileNamedDefs(rows){
   return lm.length>=2? lm : [];
 }
 function tileLineDefs(){ return cfgNameList('tile_lines'); }
+/* The default tile set: MICA Level 1 and Level 2 together \u2014 every Level 2
+   line and every Level 1 rollup, one tile each (the dedupe drops a rollup
+   that adds nothing over its only child). tile_level: level1 / level2
+   narrows to one level. A P&L name never swallows the balance memo lines
+   filed beneath it \u2014 they are their own tiles and its figure excludes
+   them, so a result and a balance are never added. */
+function tileGroups(rows){
+  const TD=tileDims();
+  const mode=cfgS('tile_level').trim().toLowerCase();
+  const ent=(k,lv)=>[...groupBy(rows,k).entries()]
+    .filter(([nm])=>nm&&nm!=='(blank)')
+    .map(([nm,rs])=>({nm,rs,lv}));
+  const l2e=ent(TD[1],2), l1e=TD[0]===TD[1]? [] : ent(TD[0],1);
+  const ents= mode==='level1'? (l1e.length?l1e:l2e)
+    : mode==='level2'? l2e
+    : [...l2e,...l1e];
+  const out=[];
+  for(const e of ents){
+    let rs=e.rs;
+    if(!isBSLine(e.nm)&&rs.some(r=>isBSRow(r))){
+      rs=rs.filter(r=>!isBSRow(r));
+      if(!rs.length) continue;
+    }
+    out.push({nm:e.nm, rs, lv:e.lv});
+  }
+  return out;
+}
 // ';' or '|' become the only separators when present, so a metric name that
 // itself contains commas (Direct Cost ex VP, CC, GT) stays whole
 function cfgNameList(key){
@@ -8432,12 +8460,13 @@ function renderKpiNav(){
     }).filter(Boolean);
     items=tileDedupe(items);
   } else {
-    const byL2=groupBy(rowsAll,tileDims()[1]);
-    items=[...byL2.entries()].map(([l2,rs])=>{
-      let k=kpi(rs,m,S.ytdM,S.includeFC);
-      if(isBSRow(rs[0])) k=bsRecast(k);
-      return {l2, sc:l2, k};
-    }).sort((a,b)=>(isBSLine2(a)-isBSLine2(b))||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
+    items=tileGroups(rowsAll).map(g=>{
+      let k=kpi(g.rs,m,S.ytdM,S.includeFC);
+      if(isBSRow(g.rs[0])) k=bsRecast(k);
+      return {l2:g.nm, sc:(g.lv===1?'l1:':'')+g.nm, rows:g.rs,
+        l1:g.lv===1? g.nm : g.rs[0].d[tileDims()[0]], k};
+    });
+    items=tileDedupe(items).sort((a,b)=>(isBSLine2(a)-isBSLine2(b))||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   }
   function isBSLine2(x){ return x.k.isBS?1:0; }
   $('kpiNav').innerHTML=items.map(it=>{
@@ -10790,7 +10819,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 14:05</td></tr>
+      <tr><td>Build</td><td>2026-08-15 14:09</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
