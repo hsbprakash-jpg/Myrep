@@ -123,14 +123,16 @@ and the same netting), one row per business / region / country with a
 Global subtotal per business and the Group at the foot. Every column
 casts exactly as displayed — the rounding point lands on the largest row
 of each block, and the Group line reads exactly what its tile reads. A
-lone country that would just rename its region is skipped; rows no
-business mapping claims appear as an Unallocated line, and rows whose
-region the hierarchy never mapped appear under their own `(no region)`
-tier beside the named regions — never silently merged into a country
-line — so the table always adds up and any gap against the scoped tiles
-is visible. Note the scope bar and this page read differently by
-design: the tiles obey the full geographic scope, while this page
-always shows the whole tree. A line a group defines no reading for (a per-business
+lone country that would just rename its region is skipped. **The rollup
+counts only rows the hierarchy maps** — the same rows the scope bar can
+reach, the numbers the file itself consolidates to. Rows without a
+business mapping (an `Unallocated` line) and rows whose region the
+hierarchy never mapped (a `(no region)` tier beside the named regions)
+stay visible as grey memo lines that never join the sums, so a mapping
+gap shows itself instead of silently inflating a Global line; setting
+`bizperf_unmapped=add` restores adding them. Note the scope bar and
+this page read differently by design: the tiles obey the full
+geographic scope, while this page always shows the whole tree. A line a group defines no reading for (a per-business
 Definition it never wrote) shows a dash rather than borrowing a figure;
 a line that sits wholly inside another (Banking NII inside Revenue) is
 headed `within Revenue` so nobody adds the two; balance-sheet tiles keep
