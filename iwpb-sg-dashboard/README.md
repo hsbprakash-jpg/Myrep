@@ -1135,10 +1135,12 @@ What each section governs:
   it derives from the title; `fsum_title` still overrides the Financial
   Summary heading explicitly), landing page title, total
   tile label, tile grouping level (`auto`/`level1`/`level2`), collapse of
-  non-priority tiles, which tiles show at all (`tile_hidden` parks the
-  named tiles — exact names or patterns, so `cost.*` parks every cost
-  line; `tile_visible` keeps **only** the named ones and parks the
-  rest; parked tiles stay one click away behind the "Show parked tiles"
+  non-priority tiles, which tiles show at all (the plain-language form is the **`Tiles`
+  tab** — one row per tile, its name in column A, `Y` or `N` in column
+  B; `N` parks it, and a tab of only-`Y` rows shows just those. The
+  Settings rows remain for pattern work: `tile_hidden` parks the named
+  tiles — exact names or patterns, so `cost.*` parks every cost line —
+  and `tile_visible` keeps **only** the named ones; parked tiles stay one click away behind the "Show parked tiles"
   strip, a reader's own show/hide toggle still wins on their screen,
   and uploading a configuration re-baselines the tiles to its policy), the RAG threshold (`calc_rag_green_at`), the regex patterns that
   recognise Forecast and Target columns, the cost/ECL direction patterns,
