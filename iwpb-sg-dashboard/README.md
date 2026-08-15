@@ -787,6 +787,16 @@ left-pane strip and the Filters pane.
   packs ship worked examples; a hand-picked style always overrides the
   scope.
 
+  **The Style dropdown speaks the configuration's language.** It offers
+  **Auto — match the scope** plus the styles the config (and the
+  reader's own saves) define — nothing else. The built-in Pack
+  narrative and House cascade writers appear as choices only in a file
+  with no templates defined at all; with templates present they remain
+  the silent fallback wherever no scoped template matches, not a menu
+  entry. And whichever **variance period** is selected, the adopted
+  template stays applied and re-fills from that basis — figures,
+  vs-phrase and period label alike.
+
   **The style speaks on every composed surface.** The active style —
   Auto-resolved or hand-picked — words the Management Commentary, each
   **All Commentaries** section (on that section's own basis, so the
