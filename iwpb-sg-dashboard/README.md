@@ -231,11 +231,13 @@ left-pane strip and the Filters pane.
   Whatever the variance period compares on — a quarter, a single month, the
   full year — the figure at the top of a tile is the same one: the YTD
   through the last month before the forecast begins, taken from the file's
-  own YTD column, and labelled with that month (`JUN YTD`). Selecting a
-  forecast month, or ticking the forecast month in, moves the rest of the
-  page but never that figure. Balances keep their closing balance, labelled the
-  same way (`JUN closing`). The PowerPoint one-pager leads with the same
-  figure.
+  own YTD column, and labelled with that month (`JUN YTD`). The **YTD
+  through** selector offers actual months only — pick MAY and every tile
+  reads `MAY YTD`; forecast months are not offered, so the page never looks
+  like it is reading a month that hasn't happened. The forecast still feeds
+  everything it should: the FY bases, the trajectory's forecast tail and the
+  full-year outlook. Balances keep their closing balance, labelled the same
+  way (`JUN closing`). The PowerPoint one-pager leads with the same figure.
 - **Three comparisons on a tile, and no more** — the prior year, the forecast
   and the target, balances included. Every variance period is one of those
   three comparisons at some grain, so the selected period never adds a fourth

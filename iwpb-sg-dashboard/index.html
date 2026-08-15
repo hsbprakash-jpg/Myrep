@@ -898,9 +898,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 13:23)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 13:29)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 13:23)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 13:29)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1000,7 +1000,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 13:23</div>
+<div id="buildTag">build 2026-08-15 13:29</div>
 </aside>
 <main>
 
@@ -2734,8 +2734,10 @@ function ytdLabel(){
 
 function fillFilters(){
   const m=S.model;
-  // YTD month options: CY actual months capped at the last month that has data,
-  // then any later forecast months selectable as "(FC)"
+  // YTD month options: CY actual months capped at the last month that has
+  // data. Forecast months are not offered \u2014 the page reads actuals through
+  // the month picked, and the last actual month is as far as it goes; the
+  // forecast still feeds the FY bases, the trajectory and the outlook.
   const mSel=$('fMonth');
   const hasData=p=>m.rows.some(r=>r.v[p.col]!=null && r.v[p.col]!==0);
   const actuals=m.cyMonths.filter(p=>!p.fc);
@@ -2750,8 +2752,6 @@ function fillFilters(){
   const mset=new Set(actuals.filter(p=>p.m<=lastData).map(p=>p.m));
   for(const p of (m.ytdAsOfCols||[])) if(p.ytdM<=lastData) mset.add(p.ytdM);
   const opts=[...mset].sort((a,b)=>a-b).map(mm=>`<option value="${mm}">${MON_LBL[mm]}</option>`);
-  for(const p of m.cyMonths) if(p.fc && p.m>lastData)
-    opts.push(`<option value="fc${p.m}">${MON_LBL[p.m]} (FC)</option>`);
   mSel.innerHTML=opts.join('');
   S.ytdM=lastData; mSel.value=String(lastData);
   S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
@@ -10948,7 +10948,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 13:23</td></tr>
+      <tr><td>Build</td><td>2026-08-15 13:29</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
