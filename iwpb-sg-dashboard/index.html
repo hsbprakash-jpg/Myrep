@@ -728,6 +728,16 @@ svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 .bp-table tr.bp-sub td{font-weight:700;border-top:1.5px solid var(--border-strong);
   background:color-mix(in srgb, var(--hsbc-red) 3%, transparent)}
 .bp-table td.num.negnum b{color:var(--text-primary)}
+#bizPerfPane{padding:6px 18px 2px}
+.bpmeta{font-size:10px;color:var(--text-muted);margin:0 0 4px}
+.bptree{width:100%;border-collapse:collapse;font-size:11.5px}
+.bptree td{padding:3px 0;color:var(--text-secondary)}
+.bptree td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bptree tr.t1 td:first-child{padding-left:10px}
+.bptree tr.t2 td:first-child{padding-left:20px;color:var(--text-muted)}
+.bptree tr.bpt-sub td{font-weight:700;color:var(--text-primary);border-top:1px solid var(--border)}
+.bptree tr.bpt-tot td{font-weight:800;color:var(--text-primary);border-top:1.5px solid var(--border-strong)}
+#bizPerfPane .btn-quiet{margin:8px 0 6px;width:100%}
 .card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
 .card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -911,9 +921,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 19:41)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 19:49)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 19:41)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 19:49)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -967,6 +977,12 @@ setTimeout(function(){
     <label><span data-lbl="lbl_ytd">YTD through</span> <select id="fMonth"></select></label>
     <label><span data-lbl="lbl_varper">Variance period</span> <select id="fVarPer"></select></label>
   </div>
+  <div class="sect sect-fold" id="sectBizRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer" hidden><span data-lbl="sect_bizperf">Business performance</span><span id="bizCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
+  <div id="bizPerfPane" hidden>
+    <div class="bpmeta" id="bizPerfMeta"></div>
+    <div id="bizPerfTree"></div>
+    <button class="btn-quiet" id="btnBizXlsx" title="The full table \u2014 every tile as a column, business / region / country rows">⤓ Export to Excel</button>
+  </div>
   <div class="sect sect-fold" id="sectTplRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_comtpl">Commentary templates</span><span id="tplCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="tplPanel">
     <label><span data-lbl="lbl_tplpick">Active style</span> <select id="tplPick" aria-label="Commentary style"></select></label>
@@ -976,7 +992,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 19:41</div>
+<div id="buildTag">build 2026-08-15 19:49</div>
 </aside>
 <main>
 
@@ -1053,12 +1069,6 @@ setTimeout(function(){
         </div>
       </div>
       <div id="houseCom"></div>
-    </div>
-    <div class="panel" id="bizPerfPanel" hidden>
-      <div class="panel-head">
-        <div><h4 data-lbl="bizperf_title">Business performance</h4><p class="subtitle" id="bizPerfSub"></p></div>
-      </div>
-      <div class="rvwwrap" id="bizPerfTable"></div>
     </div>
     <div class="panel" id="mixPanel" style="display:none">
       <div class="panel-head">
@@ -3245,11 +3255,9 @@ function renderScopeChips(){
    computed over exactly the rows that scope holds, so the regions visibly
    add to their Global line and the Global lines to the Group. Balances stay
    out; an entity group with no regions is its own single row. */
-function renderBizPerf(){
-  const panel=$('bizPerfPanel'), host=$('bizPerfTable');
-  if(!panel||!host) return;
+function bizPerfData(){
   const m=S.model;
-  if(!m||!('business' in m.dimCols)){ panel.hidden=true; return; }
+  if(!m||!('business' in m.dimCols)) return null;
   // the whole tree, whatever geography is scoped elsewhere on the page
   const sv={c:S.filters.country, r:S.filters.region, b:S.filters.business};
   delete S.filters.country; delete S.filters.region; delete S.filters.business;
@@ -3257,7 +3265,7 @@ function renderBizPerf(){
   if(sv.c) S.filters.country=sv.c; if(sv.r) S.filters.region=sv.r; if(sv.b) S.filters.business=sv.b;
   const basePL=baseAll.filter(r=>!isBSRow(r));
   const bizzes=[...new Set(basePL.map(r=>String(r.d.business||'')).filter(Boolean))].sort();
-  if(bizzes.length<2){ panel.hidden=true; return; }
+  if(bizzes.length<2) return null;
   // one column per tile on the grid \u2014 the same lines, the same netting,
   // each read over the whole tree; the result tile joins as the last column
   // only while it is pure P&L, a mixed total never reaches this table
@@ -3274,7 +3282,7 @@ function renderBizPerf(){
     if(rs.length) cols.push({name:t.name, rs, bs:isBSRow(rs[0])});
   }
   // a line that sits wholly inside another (Banking NII inside Revenue) is
-  // a memo view of it \u2014 the header says so, so nobody adds the two
+  // a memo view of it \u2014 marked so, so nobody adds the two
   for(const c of cols){ if(c.bs) continue;
     for(const o of cols){ if(o===c||o.bs||o.rs.length<=c.rs.length) continue;
       const os=new Set(o.rs);
@@ -3282,43 +3290,54 @@ function renderBizPerf(){
     }
   }
   if(resCol) cols.push(resCol);
-  if(!cols.length){ panel.hidden=true; return; }
-  panel.hidden=false;
-  const ym=tileYtdM();
+  if(!cols.length) return null;
+  // the tree: countries under their region, regions under their business,
+  // the businesses under the Group \u2014 a tier appears only where it has
+  // something to add (a lone country that just renames its region is skipped)
+  const hasCty='country' in m.dimCols;
   const defs=[];
+  const ctyRows=(pool,parentLbl,B,R)=>{
+    if(!hasCty) return;
+    const ctys=[...new Set(pool.map(r=>String(r.d.country||'')).filter(Boolean))].sort();
+    if(!ctys.length||(ctys.length===1&&ctys[0]===parentLbl)) return;
+    for(const C of ctys)
+      defs.push({short:C, txt:`${B}${R?' \u00b7 '+R:''} \u00b7 ${C}`, tier:2, cls:'', biz:B, reg:R,
+        pred:r=>String(r.d.business||'')===B&&(R==null||String(r.d.region||'')===R)&&String(r.d.country||'')===C});
+  };
   for(const B of bizzes){
     const inB=r=>String(r.d.business||'')===B;
+    const bPool=basePL.filter(inB);
     const regs=('region' in m.dimCols)
-      ? [...new Set(basePL.filter(inB).map(r=>String(r.d.region||'')).filter(Boolean))].sort() : [];
-    // the region tier only earns its rows when there is more than one region
-    // to add \u2014 a single-region business would just repeat its own total
+      ? [...new Set(bPool.map(r=>String(r.d.region||'')).filter(Boolean))].sort() : [];
     if(regs.length>1){
-      for(const R of regs)
-        defs.push({lbl:`<span class="bp-ind">${esc(B)} \u00b7 ${esc(R)}</span>`, biz:B,
-          pred:r=>inB(r)&&String(r.d.region||'')===R, cls:''});
-      if(basePL.some(r=>inB(r)&&!String(r.d.region||'')))
-        defs.push({lbl:`<span class="bp-ind">${esc(B)} \u00b7 (no region)</span>`, biz:B,
-          pred:r=>inB(r)&&!String(r.d.region||''), cls:''});
-    }
-    defs.push({lbl:`<b>${esc(bizName(B))}</b>`, biz:B, pred:inB, cls:'bp-sub'});
+      for(const R of regs){
+        ctyRows(bPool.filter(r=>String(r.d.region||'')===R), R, B, R);
+        defs.push({short:R, txt:`${B} \u00b7 ${R}`, tier:1, cls:'', biz:B, reg:R,
+          pred:r=>inB(r)&&String(r.d.region||'')===R});
+      }
+      if(bPool.some(r=>!String(r.d.region||'')))
+        defs.push({short:'(no region)', txt:`${B} \u00b7 (no region)`, tier:1, cls:'', biz:B, reg:'',
+          pred:r=>inB(r)&&!String(r.d.region||'')});
+    } else ctyRows(bPool, B, B, null);
+    defs.push({short:bizName(B), txt:bizName(B), tier:0, cls:'bp-sub', biz:B, pred:inB});
   }
   if(baseAll.some(r=>!String(r.d.business||'')))
-    defs.push({lbl:`<b>Unallocated</b> <span class="bp-ind">(rows with no business mapping)</span>`,
-      pred:r=>!String(r.d.business||''), cls:'bp-sub'});
+    defs.push({short:'Unallocated', txt:'Unallocated', tier:0, cls:'bp-sub',
+      pred:r=>!String(r.d.business||'')});
   const gl=cfgS('group_label').split('\u2014')[0].trim()||'Group';
-  defs.push({lbl:`<b>${esc(gl)}</b>`, pred:null, cls:'tot'});
+  defs.push({short:gl, txt:gl, tier:0, cls:'tot', pred:null});
   const totI=defs.length-1;
-  // every figure is rounded so the column visibly casts: regions to their
-  // Global line, the Global lines to the Group. The rounding point lands on
-  // the largest row of the block, and the Group line always reads exactly
-  // what its tile reads \u2014 the table never shows a sum its parts miss
-  const colVals=cols.map(col=>{
+  // every figure is rounded so each block visibly casts \u2014 countries to
+  // their region, regions to their Global line, the Global lines to the
+  // Group. The rounding point lands on the largest row of the block, and
+  // the Group line always reads exactly what its tile reads
+  const castCol=col=>{
     const d=(col.bs&&bsUnit())? 1 : unitDec();
     const sc=Math.pow(10,d);
     const vals=defs.map(rd=>{
       const rs=rd.pred? col.rs.filter(rd.pred) : col.rs;
       if(!rs.length) return null;
-      const k=kpi(rs,m,ym,false);
+      const k=kpi(rs,m,ym2,false);
       const v=col.bs? bsRecast(k).cmpMain : k.cy;
       if(v==null) return null;
       return Math.round(((col.bs&&bsUnit())? v/bsUnitDiv() : uval(v))*sc);
@@ -3328,26 +3347,50 @@ function renderBizPerf(){
       const res=vals[par]-live.reduce((a,i2)=>a+vals[i2],0);
       if(res){ const big=live.reduce((a,i2)=>Math.abs(vals[i2])>Math.abs(vals[a])?i2:a,live[0]);
         vals[big]+=res; } };
-    foot(defs.map((rd,i2)=>rd.cls==='bp-sub'?i2:-1).filter(i2=>i2>=0), totI);
-    for(const B of bizzes)
-      foot(defs.map((rd,i2)=>(!rd.cls&&rd.biz===B)?i2:-1).filter(i2=>i2>=0),
-           defs.findIndex(rd=>rd.cls==='bp-sub'&&rd.biz===B));
+    const idx=f=>defs.map((rd,i2)=>f(rd)?i2:-1).filter(i2=>i2>=0);
+    foot(idx(rd=>rd.cls==='bp-sub'), totI);
+    for(const B of bizzes){
+      const subI=defs.findIndex(rd=>rd.cls==='bp-sub'&&rd.biz===B);
+      foot(idx(rd=>rd.tier===1&&rd.biz===B), subI);
+      foot(idx(rd=>rd.tier===2&&rd.biz===B&&rd.reg==null), subI);
+      for(const R of new Set(defs.filter(rd=>rd.tier===1&&rd.biz===B).map(rd=>rd.reg)))
+        foot(idx(rd=>rd.tier===2&&rd.biz===B&&rd.reg===R),
+             defs.findIndex(rd=>rd.tier===1&&rd.biz===B&&rd.reg===R));
+    }
     return {vals, d, sc};
-  });
+  };
+  const ym2=tileYtdM();
+  const colVals=cols.map(castCol);
+  const ri=cols.findIndex(c=>c.res);
+  const paneCol= ri>=0? cols[ri] : {name:'P&L', rs:basePL, bs:false};
+  const paneVals= ri>=0? colVals[ri] : castCol(paneCol);
+  return {cols, defs, colVals, gl, ym:ym2, paneName:paneCol.name, paneVals};
+}
+function renderBizPerf(){
+  const sect=$('sectBizRow'), pane=$('bizPerfPane'), host=$('bizPerfTree');
+  if(!sect||!pane||!host) return;
+  const D=bizPerfData();
+  sect.hidden=pane.hidden=!D;
+  if(!D) return;
   const show=(x,d)=>{ const t2=Math.abs(x).toLocaleString(undefined,{maximumFractionDigits:d, minimumFractionDigits:d});
     return x<0? '('+t2+')' : t2; };
-  const body=defs.map((rd,i2)=>`<tr${rd.cls?` class="${rd.cls}"`:''}><td>${rd.lbl}</td>${
-    cols.map((c,ci)=>{ const cv=colVals[ci], x=cv.vals[i2];
-      return x==null? '<td class="num">\u2013</td>'
-        : `<td class="num${x<0?' negnum':''}"><b>${show(x/cv.sc,cv.d)}</b></td>`; }).join('')}</tr>`).join('');
-  const th=c=>`<th class="num">${esc(c.name)}${
-    c.bs? `<div class="bp-hunit">${esc(bsUnit()? bsUnitLabel():cfgUnit())} \u00b7 closing</div>`
-    : c.memo? `<div class="bp-hunit">within ${esc(c.memo)}</div>`
-    : c.res? `<div class="bp-hunit">the result line</div>`:''}</th>`;
-  host.innerHTML=`<table class="ctable bp-table"><thead><tr>
-      <th>Business / Region</th>${cols.map(th).join('')}
-    </tr></thead><tbody>${body}</tbody></table>`;
-  $('bizPerfSub').textContent=`One column per tile \u2014 regions add to each Global business, businesses add to ${gl}, and every column casts exactly as shown \u00b7 P&L in ${cfgUnit()}, ${MON_LBL[ym]} YTD through the last actual month \u00b7 balances closing, never added into P&L \u00b7 \u2013 = not defined for that business`;
+  $('bizPerfMeta').textContent=`${D.paneName} \u00b7 ${MON_LBL[D.ym]} YTD \u00b7 ${cfgUnit()}`;
+  host.innerHTML=`<table class="bptree"><tbody>${D.defs.map((rd,i2)=>{
+    const x=D.paneVals.vals[i2];
+    const cls=(rd.cls==='tot'?'bpt-tot':rd.cls==='bp-sub'?'bpt-sub':'t'+rd.tier);
+    return `<tr class="${cls}"><td>${esc(rd.short)}</td><td class="num${(x||0)<0?' negnum':''}">${
+      x==null?'\u2013':show(x/D.paneVals.sc,D.paneVals.d)}</td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+function bizPerfAoa(){
+  const D=bizPerfData();
+  if(!D) return null;
+  const head=['Business / Region / Country',...D.cols.map(c=>
+    c.name+(c.bs? ` (${bsUnit()? bsUnitLabel():cfgUnit()} closing)` : c.memo? ` (within ${c.memo})` : ` (${cfgUnit()})`))];
+  const body=D.defs.map((rd,i2)=>[rd.txt,
+    ...D.cols.map((c,ci)=>{ const cv=D.colVals[ci], x=cv.vals[i2];
+      return x==null? '' : x/cv.sc; })]);
+  return [[`Business performance \u2014 ${MON_LBL[D.ym]} YTD through the last actual month`],[],head,...body];
 }
 function renderSummary(){
   const rows=filteredRows();
@@ -11105,7 +11148,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 19:41</td></tr>
+      <tr><td>Build</td><td>2026-08-15 19:49</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11170,6 +11213,8 @@ function init(){
   $('navCustom').addEventListener('click',()=>setView('custom'));
   $('fsumDepthSel').addEventListener('change',e=>{ S.fsumDepth=+e.target.value; renderFsum(); });
   $('btnFsumXlsx').addEventListener('click',()=>exportWB([{name:fsumSheetName(),aoa:fsumAOA()}],fsumFileName()));
+  $('btnBizXlsx').addEventListener('click',()=>{ const a=bizPerfAoa();
+    if(a) exportWB([{name:'Business performance', aoa:a, money:false}],brandSlug()+'_business_performance'); });
   $('btnFsumPptx').addEventListener('click',()=>fsumPptx());
   $('navBuilder').addEventListener('click',()=>setView('builder'));
   $('navQuery').addEventListener('click',()=>setView('query'));
@@ -11247,6 +11292,7 @@ function init(){
   };
   mkCollapse('sectCfgRow','cfgCaret','iwpbsg_cfg_collapsed',['#cfgPanel']);
   mkCollapse('sectPeriodRow','periodCaret','iwpbsg_period_collapsed',['#sideFilters']);
+  mkCollapse('sectBizRow','bizCaret','iwpbsg_bizperf_collapsed',['#bizPerfPane']);
   mkCollapse('sectTplRow','tplCaret','iwpbsg_tpl_collapsed',['#tplPanel']);
   renderTplPane();
   const tplSetStyle=v=>{ S.comStyle=v;
