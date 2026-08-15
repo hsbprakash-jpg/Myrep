@@ -896,9 +896,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 09:45)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 09:57)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 09:45)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 09:57)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1011,7 +1011,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 09:45</div>
+<div id="buildTag">build 2026-08-15 09:57</div>
 </aside>
 <main>
 
@@ -1403,6 +1403,22 @@ const DIM_SPECS = [
    override without touching code. */
 function normH(h){ return String(h==null?'':h).toLowerCase().replace(/[^a-z0-9]/g,''); }
 const DIM_BASE_KEYS=new Set(DIM_SPECS.map(sp=>sp.key));
+/* the label tables live above cfgCompile(): the boot-time call writes custom
+   dimension labels into them, and a stored configuration with a custom
+   dimension used to hit them before their declaration — a dead page with
+   no error in sight */
+const ALL_DIM_LABELS={country:'Country', region:'Region', business:'Business line', mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
+  prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
+  micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
+  prodCode:'Product code', prodL3:'Product Level 3', prodL2:'Product Level 2', prodL1:'Product Level 1',
+  segCode:'Segment code', cgL2:'Segment (CG L2)', cgL1:'CG Level 1',
+  funcCode:'Function code', funcL2:'Function (L2)', funcL1:'Function Level 1', entity:'Entity'};
+const FIELD_LABELS={metric:'Metric', cmp:'Comparison', country:'Country', region:'Region', business:'Business line', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
+  micaL4:'MICA Level 4', micaL5:'MICA Level 5',
+  prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3',
+  prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
+  prodCode:'Product code',
+  cgL1:'CG Level 1', cgL2:'Segment (CG L2)', funcL1:'Function Level 1', funcL2:'Function (L2)', entity:'Entity'};
 const CFG_DEFAULT={
   settings:{
     app_title:'IWPB Singapore Driller',
@@ -2662,12 +2678,7 @@ const S = {
   comStyle:(()=>{ try{ return localStorage.getItem('iwpbsg_comstyle')||''; }catch(e){ return ''; } })(),
   view:'summary', widgets:[],
 };
-const ALL_DIM_LABELS={country:'Country', region:'Region', business:'Business line', mica:'MICA code', micaL5:'MICA Level 5', micaL4:'MICA Level 4',
-  prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
-  micaL3:'MICA Level 3', micaL2:'MICA Level 2', micaL1:'MICA Level 1',
-  prodCode:'Product code', prodL3:'Product Level 3', prodL2:'Product Level 2', prodL1:'Product Level 1',
-  segCode:'Segment code', cgL2:'Segment (CG L2)', cgL1:'CG Level 1',
-  funcCode:'Function code', funcL2:'Function (L2)', funcL1:'Function Level 1', entity:'Entity'};
+
 const $=id=>document.getElementById(id);
 
 const GEO_DIMS=new Set(['country','region','business']);
@@ -4979,12 +4990,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
 
 
 /* ================= drag & drop chart builder ================= */
-const FIELD_LABELS={metric:'Metric', cmp:'Comparison', country:'Country', region:'Region', business:'Business line', micaL1:'MICA Level 1', micaL2:'MICA Level 2', micaL3:'MICA Level 3',
-  micaL4:'MICA Level 4', micaL5:'MICA Level 5',
-  prodL1:'Product Level 1', prodL2:'Product Level 2', prodL3:'Product Level 3',
-  prodL4:'Product Level 4', prodL5:'Product Level 5', prodL6:'Product Level 6', prodL7:'Product Level 7',
-  prodCode:'Product code',
-  cgL1:'CG Level 1', cgL2:'Segment (CG L2)', funcL1:'Function Level 1', funcL2:'Function (L2)', entity:'Entity'};
+
 const CAT_COLORS=['var(--cat1)','var(--cat2)','var(--cat3)','var(--cat4)','var(--cat5)','var(--cat6)','var(--cat7)'];
 const pairFill=si=>si===0?'var(--cat1)':si===1?'var(--series-2)':CAT_COLORS[si%CAT_COLORS.length];
 const B={groupBy:[], splitBy:[], measure:'cy', type:'column', l2:''};
@@ -10793,7 +10799,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 09:45</td></tr>
+      <tr><td>Build</td><td>2026-08-15 09:57</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
