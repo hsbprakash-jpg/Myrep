@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:09)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:18)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:09)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:18)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -975,7 +975,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 14:09</div>
+<div id="buildTag">build 2026-08-15 14:18</div>
 </aside>
 <main>
 
@@ -1406,7 +1406,7 @@ const CFG_DEFAULT={
     scorecard_hidden:'',
     tile_metrics:'auto',
     tile_dims:'',
-    tile_line_levels:'micaL1,micaL2',
+    tile_line_levels:'micaL1,micaL2,micaL3,micaL4',
     tile_expand_result:'Y',
     tile_level:'auto',
     collapse_rest:'Y',
@@ -3057,7 +3057,9 @@ function tileHidden(name){
   if(tl.length){
     const hit=tl.find(t2=>tileNameMatch(t2.name,n));
     if(hit) return String(hit.show).trim().toUpperCase().startsWith('N');
-    if(!tl.some(t2=>String(t2.show).trim().toUpperCase().startsWith('N'))) return true;
+    // "+" rows add tiles; only plain Y rows turn the tab into a show-list
+    const dec=tl.filter(t2=>!/^\s*(\+|add\b)/i.test(String(t2.show||'')));
+    if(dec.length&&!dec.some(t2=>String(t2.show).trim().toUpperCase().startsWith('N'))) return true;
   }
   if(tileHideGet().some(x=>tileNameMatch(x,n))) return true;
   const vis=cfgNameList('tile_visible');
@@ -3308,6 +3310,12 @@ function renderSummary(){
     }
   }
 
+  if(!named.length) for(const f of tileAddCards(rows, cards.map(c=>c.l2))){
+    let k=kpi(f.rows,m,S.ytdM,S.includeFC);
+    if(isBSRow(f.rows[0])) k=bsRecast(k);
+    cards.push({l2:f.name, l1:f.rows[0].d[TD[0]], rows:f.rows, added:true,
+      scope:f.scope||(f.key?'d:'+f.key+':'+f.name:undefined), k});
+  }
   cards=tileNetApply(tileDedupe(cards), rows, m);
   const l1name=[...byL1g.keys()][0]||'Revenue';
   const tileNames=cards.map(c=>c.l2);
@@ -3429,8 +3437,9 @@ function renderSummary(){
   const mixedFile=cards.some(c=>isBSLine(c.l2));
   const parked=orderedAll.filter(c=>tileHidden(c.l2));
   const liveCards=orderedAll.filter(c=>!tileHidden(c.l2));
+  // a line the configuration added by hand never hides behind the collapse
   const shown=(named.length||S.showAllKpis||!cfgYes('collapse_rest')||!prio.length||mixedFile)
-    ? liveCards : liveCards.slice(0,prio.length);
+    ? liveCards : liveCards.filter((c,i)=>i<prio.length||c.added);
   const tileAttr=c=>`data-l2="${esc(c.scope||(scPfx+c.l2))}" data-name="${esc(c.l2)}"`;
   $('cardGrid').innerHTML=
     (noTotal? '' : cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false, {rows}))+
@@ -4626,6 +4635,8 @@ async function exportSummaryPPT(){
       }
     }
   }
+  if(!named.length) for(const f of tileAddCards(rows, ordered.map(c=>c.l2)))
+    ordered.push({l2:f.name, rows:f.rows, k:kOf(f.rows)});
   ordered=tileNetApply(tileDedupe(ordered).filter(c=>!tileHidden(c.l2)), rows, m);
   const tiles=[
     ...(!summaryNoTotal(named)
@@ -5313,6 +5324,26 @@ function tileLineDefs(){ return cfgNameList('tile_lines'); }
    narrows to one level. A P&L name never swallows the balance memo lines
    filed beneath it \u2014 they are their own tiles and its figure excludes
    them, so a result and a balance are never added. */
+/* Tiles-tab rows marked "+" add a line the default grid does not carry \u2014
+   resolved the way tile_lines resolves: a Metrics definition first, then down
+   the MICA levels \u2014 without touching the rest of the grid. */
+function tileAddDefs(){
+  return ((CFG&&CFG.tiles)||[]).filter(t=>/^\s*(\+|add\b)/i.test(String(t.show||'')))
+    .map(t=>String(t.name).trim()).filter(Boolean);
+}
+function tileAddCards(rows, have){
+  const seen=new Set(have.map(h=>String(h).trim().toLowerCase()));
+  const out=[];
+  for(const nm of tileAddDefs()){
+    if(seen.has(nm.toLowerCase())) continue;
+    const f=tileFindLine(rows,nm);
+    if(f&&f.rows.length&&!seen.has(String(f.name).trim().toLowerCase())){
+      seen.add(String(f.name).trim().toLowerCase());
+      out.push(f);
+    }
+  }
+  return out;
+}
 function tileGroups(rows){
   const TD=tileDims();
   const mode=cfgS('tile_level').trim().toLowerCase();
@@ -8466,6 +8497,11 @@ function renderKpiNav(){
       return {l2:g.nm, sc:(g.lv===1?'l1:':'')+g.nm, rows:g.rs,
         l1:g.lv===1? g.nm : g.rs[0].d[tileDims()[0]], k};
     });
+    for(const f of tileAddCards(rowsAll, items.map(x=>x.l2))){
+      let k=kpi(f.rows,m,S.ytdM,S.includeFC);
+      if(isBSRow(f.rows[0])) k=bsRecast(k);
+      items.push({l2:f.name, sc:f.scope||f.name, rows:f.rows, l1:f.rows[0].d[tileDims()[0]], k});
+    }
     items=tileDedupe(items).sort((a,b)=>(isBSLine2(a)-isBSLine2(b))||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   }
   function isBSLine2(x){ return x.k.isBS?1:0; }
@@ -10819,7 +10855,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 14:09</td></tr>
+      <tr><td>Build</td><td>2026-08-15 14:18</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

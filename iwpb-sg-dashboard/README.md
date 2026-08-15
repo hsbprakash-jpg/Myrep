@@ -224,9 +224,12 @@ left-pane strip and the Filters pane.
   `tile_hidden` (a `;`- or `,`-separated list of tile names) to have a build
   open with those tiles parked out of the box; the reader's own first hide or
   restore takes over from then on. The plain-language form is the **Tiles**
-  tab of the configuration workbook: one row per tile, `Y` to show and `N` to
-  hide (a tab of only-`Y` rows shows just those), with an optional **Nets
-  with** column naming the lines that tile nets in.
+  tab of the configuration workbook: one row per tile, `Y` to show, `N` to
+  hide (a tab of only-`Y` rows shows just those), and `+` to **add** a line
+  the default grid does not carry — resolved from the `Metrics` sheet or any
+  MICA level, so `Banking NII | +` puts Banking NII on the grid, always
+  visible, without touching the rest. An optional **Nets with** column names
+  the lines a tile nets in.
 - **The headline is always the year to date, through the last actual month.**
   Whatever the variance period compares on — a quarter, a single month, the
   full year — the figure at the top of a tile is the same one: the YTD
