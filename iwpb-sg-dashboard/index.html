@@ -896,9 +896,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 10:31)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 10:51)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 10:31)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 10:51)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -998,7 +998,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 10:31</div>
+<div id="buildTag">build 2026-08-15 10:51</div>
 </aside>
 <main>
 
@@ -3195,6 +3195,19 @@ function renderSummary(){
     }
   }
 
+  // A line offered twice \u2014 a config union naming it in two lists, or
+  // the same name under two parents carrying the same rows \u2014 is one
+  // card. The same name over different rows keeps both, each saying whose.
+  const seenC=new Map();
+  cards=cards.filter(c=>{
+    const key=String(c.l2).trim().toLowerCase();
+    const prev=seenC.get(key);
+    if(!prev){ seenC.set(key,c); return true; }
+    const same=prev.rows.length===c.rows.length&&prev.rows.every(r=>c.rows.includes(r));
+    if(same) return false;
+    if(c.l1&&c.l1!==c.l2) c.l2=c.l2+' \u00b7 '+c.l1;
+    return true;
+  });
   const l1name=[...byL1g.keys()][0]||'Revenue';
   const tileNames=cards.map(c=>c.l2);
   const totName=tileL1? totalLabel(tileNames) : `Total ${l1name}`;
@@ -10761,7 +10774,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 10:31</td></tr>
+      <tr><td>Build</td><td>2026-08-15 10:51</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
