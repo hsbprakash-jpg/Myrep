@@ -826,7 +826,12 @@ left-pane strip and the Filters pane.
   `CommentaryTemplates` tab instead — they arrive with the config and
   the browser remembers them across sessions.
 
-  **A write-up instead of a pattern.** Nobody has to think in tokens: a
+  **A write-up instead of a pattern.** This is the normal form: the
+  Group pack's `CommentaryTemplates` rows are themselves written as
+  commentary sentences, and the pattern is detected automatically
+  wherever a Pattern cell carries no `{tokens}` — in the config rows,
+  in `Template <scope>` tabs, in template uploads and in the pane
+  alike.  Nobody has to think in tokens: a
   written commentary — *"Revenue of $4,193m was up $102m (2.5%) vs Q2
   2025, led by Mutual Funds and Deposits."* — is read and turned into
   its pattern automatically, a token placed where each figure sits and

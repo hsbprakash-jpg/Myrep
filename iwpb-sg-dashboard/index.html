@@ -996,7 +996,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 08:33</div>
+<div id="buildTag">build 2026-08-15 08:56</div>
 </aside>
 <main>
 
@@ -3729,11 +3729,21 @@ function comTplUser(){
   catch(e){ return []; }
 }
 function comTplUserSave(l){ try{ localStorage.setItem('iwpbsg_comtpl_user',JSON.stringify(l)); }catch(e){} }
+let COM_TPL_DERIVED=new Map();
+function comTplPatOf(t){
+  const p=String(t&&t.pattern||'');
+  if(!p||/\{\w+\}/.test(p)) return p;
+  if(COM_TPL_DERIVED.has(p)) return COM_TPL_DERIVED.get(p);
+  const d=comTplFromExample(p)||p;
+  COM_TPL_DERIVED.set(p,d);
+  return d;
+}
 function comTplList(){
   const cfgT=(CFG&&CFG.comtpl)||[];
   const mine=comTplUser();
   const ov=new Set(mine.map(t=>String(t.style).trim().toLowerCase()));
-  return [...cfgT.filter(t=>!ov.has(String(t.style||'').trim().toLowerCase())), ...mine];
+  return [...cfgT.filter(t=>!ov.has(String(t.style||'').trim().toLowerCase())), ...mine]
+    .map(t=>{ const d=comTplPatOf(t); return d===t.pattern? t : {...t, pattern:d}; });
 }
 function comTplStyles(){ return [...new Set(comTplList().map(t=>String(t.style||'').trim()).filter(Boolean))]; }
 function comTplPat(style){
@@ -3889,7 +3899,7 @@ function comTplFromExample(txt){
   const rescape=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   const AMT='\\$\\s?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:bn|m)\\b';
   // the movers clause keeps its own introducer
-  t=t.replace(/\b(led by|driven by|on the back of|reflecting)\b\s+[^.;]+/gi,'$1 {drivers}');
+  t=t.replace(/\b(led by|driven by|on the back of|reflecting|key movers:|movers:)\s+[^.;]+/gi,'$1 {drivers}');
   // a movement already in the pack's own notation
   t=t.replace(new RegExp('[\u25b2\u25bc]\\s?'+AMT+'[FA]?(?:\\s*/\\s*[\\d.]+%)?','g'),'{var}');
   t=t.replace(new RegExp(AMT+'[FA](?:\\s*/\\s*[\\d.]+%)?','g'),'{var}');
@@ -3898,7 +3908,9 @@ function comTplFromExample(txt){
   // an amount it is measured against
   t=t.replace(new RegExp('\\b(against|from)\\s+'+AMT,'gi'),'$1 {base}');
   // the comparison phrase
-  t=t.replace(/\bvs\.?\s+[\w&'\u2019\- ]+?(?=\s*[,.;:)]|$)/gi,'{vs}');
+  // the vs-phrase ends at punctuation or where the next clause begins —
+  // "vs the YTD target across the Group" keeps its across-clause
+  t=t.replace(/\bvs\.?\s+[\w&'\u2019\- ]+?(?=\s*[,.;:){]|\s+(?:across|led|driven|reflecting|on|with|as)\b|$)/gi,'{vs}');
   // percentages left standing
   t=t.replace(/\(\s?[\d.]+%\s?\)/g,'({varpct})');
   t=t.replace(/\b[\d.]+%/g,'{varpct}');
@@ -10700,6 +10712,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     applyCountryRegions(model);
     S.model=model; S.fileName=name;
     COM_DOC_CACHE=null;      // the commentary is matched again against this file
+    COM_TPL_DERIVED=new Map();   // and the write-up templates re-derive on its names
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
     S.showAllKpis=false; S.showParkedTiles=false; S.showParkedSc=false;
     Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
@@ -10740,7 +10753,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 08:33</td></tr>
+      <tr><td>Build</td><td>2026-08-15 08:56</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
