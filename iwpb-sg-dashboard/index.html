@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 13:54)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:01)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 13:54)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:01)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -975,7 +975,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 13:54</div>
+<div id="buildTag">build 2026-08-15 14:01</div>
 </aside>
 <main>
 
@@ -1771,7 +1771,7 @@ function bsRecast(k){
 function bsScope(rows){
   if(!rows||!rows.length||!bsUnit()) return false;
   if(rows.some(r=>isMemoLine(String(r.d.micaL1||'')))) return false;
-  return rows.every(r=>isBSLine(String(r.d.micaL1||'')));
+  return rows.every(r=>isBSRow(r));
 }
 function scopeUnit(rows){ return bsScope(rows)? bsUnitLabel() : cfgUnit(); }
 function bsBaseLbl(mode){
@@ -3169,7 +3169,7 @@ function tileNetApply(cards, rows, m){
   if(!cards||!cards.length||!m) return cards;
   const auto=cfgYes('tile_net_auto');
   const kOf=rs=>{ let k=kpi(rs,m,S.ytdM,S.includeFC);
-    if(rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k); return k; };
+    if(rs.length&&isBSRow(rs[0])) k=bsRecast(k); return k; };
   const val=c=>((c.k&&(c.k.cy!=null? c.k.cy : c.k.cmpMain))||0);
   // an offset joins one line and one only: the largest line of the opposite
   // sign under its own parent, so a contra never lands on two tiles at once
@@ -3213,7 +3213,7 @@ function tileNetApply(cards, rows, m){
     if(named&&named.length){
       for(const nm of named){
         const f=tileFindLine(rows,nm);
-        if(f&&f.rows.length&&!isBSLine(f.rows[0].d.micaL1||'')) adds.push({name:f.name, rows:f.rows});
+        if(f&&f.rows.length&&!isBSRow(f.rows[0])) adds.push({name:f.name, rows:f.rows});
       }
     } else if(named===null&&auto&&autoAdds.has(c)){
       adds=autoAdds.get(c);
@@ -3280,14 +3280,14 @@ function renderSummary(){
       const f=tileFindLine(rows,nm);
       if(!f){ missingLines.push(nm); return null; }
       let k=kpi(f.rows,m,S.ytdM,S.includeFC);
-      if(isBSLine(f.rows[0].d.micaL1||'')) k=bsRecast(k);
+      if(isBSRow(f.rows[0])) k=bsRecast(k);
       return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:f.scope||('d:'+f.key+':'+f.name), k};
     }).filter(Boolean);
     scPfx='';
   } else {
     cards=[...(tileL1?byL1g:groupBy(rows,TD[1])).entries()].map(([nm,rs])=>{
       let k=kpi(rs,m,S.ytdM,S.includeFC);
-      if(isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+      if(isBSRow(rs[0])) k=bsRecast(k);
       return {l2:nm, l1:tileL1?nm:rs[0].d[TD[0]], rows:rs, k};
     });
     const anyPrio=cards.some(c=>PRIO_RES.some(rx=>rx.test(c.l2)));
@@ -3335,7 +3335,7 @@ function renderSummary(){
       || lineOpts[0];
     S.trajLine=subj.key;
   }
-  const lead=subj? {l2:subj.name, k:(subj.rows.length&&isBSLine(subj.rows[0].d.micaL1||''))
+  const lead=subj? {l2:subj.name, k:(subj.rows.length&&isBSRow(subj.rows[0]))
       ? bsRecast(kpi(subj.rows,m,S.ytdM,S.includeFC)) : kpi(subj.rows,m,S.ytdM,S.includeFC)}
     : ((noTotal&&cards.length)? cards[0] : null);
   const kH=lead? lead.k : kT;
@@ -4601,7 +4601,7 @@ async function exportSummaryPPT(){
   const tileL1=cfgTileL1(l1g.size)||TD[0]===TD[1];
   const named=tileNamedDefs(rows);
   const kOf=(rs)=>{ let k=kpi(rs,m,S.ytdM,S.includeFC);
-    if(rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+    if(rs.length&&isBSRow(rs[0])) k=bsRecast(k);
     return k; };
   const byL2=named.length
     ? named.map(nm=>tileFindLine(rows,nm)).filter(Boolean)
@@ -4921,7 +4921,7 @@ function scorecardData(m){
   for(const p of tileDedupe(picked)){
     const f=p.f;
     let k=kpi(f.rows,m,S.ytdM,S.includeFC);
-    if(f.rows.length&&isBSLine(f.rows[0].d.micaL1||'')) k=bsRecast(k);
+    if(f.rows.length&&isBSRow(f.rows[0])) k=bsRecast(k);
     const trs=cmpHidden(p.l2)? [] : tileRows(k,m);
     const map={};
     for(const r of trs){ const b=bucket(r.lbl); if(!(b in map)){ map[b]=r; if(!cols.includes(b)) cols.push(b); } }
@@ -5410,12 +5410,12 @@ function chartData(cfg){
     : (gks0.includes('cmp')&&!gksNC.length)? ['cmp'] : gksNC;
   const kFor=rs=>{
     let k=kpi(rs,m,S.ytdM,S.includeFC);
-    if((gks[0]==='metric'||gks[0]==='cmp'||cmpSplit)&&rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+    if((gks[0]==='metric'||gks[0]==='cmp'||cmpSplit)&&rs.length&&isBSRow(rs[0])) k=bsRecast(k);
     return k;
   };
   const kCmp=rs=>{
     let k=kpi(rs,m,S.ytdM,false);
-    if(rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+    if(rs.length&&isBSRow(rs[0])) k=bsRecast(k);
     return k;
   };
   const gkey=r=>gks.map(k=>r.d[k]||'(blank)').join(' · ');
@@ -5425,7 +5425,7 @@ function chartData(cfg){
     // P&L and balances never total together: a mixed scope compares the P&L
     // side only (pick a balance-sheet KPI scope to compare balances)
     let crows=rows;
-    if(mixedScope(crows)){ crows=crows.filter(r=>!isBSLine(String(r.d.micaL1||''))); pnlOnly=true; }
+    if(mixedScope(crows)){ crows=crows.filter(r=>!isBSRow(r)); pnlOnly=true; }
     const k=kCmp(crows);
     groups=cmpBases(m).map(b=>({name:b.name, rows:crows, cy:(k.cy||0)/bsDv, py:(scatterBase(k,S.model)||0)/bsDv,
       val:b.pick(k)==null? null : b.pick(k)/bsDv})).filter(g=>g.val!=null);
@@ -7346,7 +7346,7 @@ function fsumFigs(rows, m, P, ytdM, name){
   // balance is the selected month's balance, the quarter the quarter column,
   // and a target or forecast baseline is the full-year column as-is — phased
   // targets and summed months belong to flows and would overstate a balance.
-  const bs=rows.length&&isBSLine(String(rows[0].d.micaL1||''));
+  const bs=rows.length&&isBSRow(rows[0]);
   // the line's own name decides how it prints: a closing balance restates to
   // billions, a ratio or a count stays as reported
   const ratio=isRatioLine(name||(rows.length? String(rows[0].d.micaL1||'') : ''));
@@ -7603,11 +7603,18 @@ function fsumSectionDefs(){
 function isRatioLine(name){ return !!(RE_RATIO&&RE_RATIO.test(String(name||''))); }
 function isMemoLine(name){ return !!(RE_MEMO&&RE_MEMO.test(String(name||''))); }
 function isBSLine(name){ return isMemoLine(name)||!!(RE_BS&&RE_BS.test(String(name||''))); }
+/* a balance-sheet row, wherever the balance name sits \u2014 the real extracts
+   carry Customer Deposits and Loan and Advances as Level 2 memo lines under
+   a Level 1 that reads PBT, so every level is consulted, not just the first */
+function isBSRow(r){
+  if(!r||!r.d) return false;
+  return isBSLine(String(r.d.micaL1||''))||isBSLine(String(r.d.micaL2||''));
+}
 /* a scope that carries balance-sheet lines beside P&L lines — adding the two
    is never a figure, whatever the configuration says */
 function mixedScope(rows){
   let bs=false, pl=false;
-  for(const r of rows){ if(isBSLine(String(r.d.micaL1||''))) bs=true; else pl=true;
+  for(const r of rows){ if(isBSRow(r)) bs=true; else pl=true;
     if(bs&&pl) return true; }
   return false;
 }
@@ -8207,7 +8214,7 @@ function renderCountryNav(){
   if(saveC) S.filters.country=saveC; if(saveR) S.filters.region=saveR;
   if(saveB) S.filters.business=saveB;
   const mk=rs=>{
-    const k=kpi(rs.filter(r=>!isBSLine(String(r.d.micaL1||''))),m,S.ytdM,S.includeFC);
+    const k=kpi(rs.filter(r=>!isBSRow(r)),m,S.ytdM,S.includeFC);
     return {k, rg:rag(k.favVarPct)};
   };
   const l1Name=(hasReg&&cfgCountryMap().l1)||cfgS('region_label');
@@ -8425,7 +8432,7 @@ function renderKpiNav(){
     items=namedM.map(nm=>{
       const f=tileFindLine(rowsAll,nm); if(!f) return null;
       let k=kpi(f.rows,m,S.ytdM,S.includeFC);
-      if(f.rows.length&&isBSLine(f.rows[0].d.micaL1||'')) k=bsRecast(k);
+      if(f.rows.length&&isBSRow(f.rows[0])) k=bsRecast(k);
       return {l2:f.name, sc:f.scope||f.name, rows:f.rows, l1:(f.rows[0]||{d:{}}).d.micaL1, k};
     }).filter(Boolean);
     items=tileDedupe(items);
@@ -8433,7 +8440,7 @@ function renderKpiNav(){
     const byL2=groupBy(rowsAll,tileDims()[1]);
     items=[...byL2.entries()].map(([l2,rs])=>{
       let k=kpi(rs,m,S.ytdM,S.includeFC);
-      if(isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k);
+      if(isBSRow(rs[0])) k=bsRecast(k);
       return {l2, sc:l2, k};
     }).sort((a,b)=>(isBSLine2(a)-isBSLine2(b))||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   }
@@ -8480,8 +8487,8 @@ function simStoreSet(o){ try{ localStorage.setItem('iwpbsg_sims',JSON.stringify(
 function simFcMonths(){ return S.model? S.model.cyMonths.filter(p=>p.fc) : []; }
 function simMatchRows(rows, ru){
   let match=ru.dim? rows.filter(r=>String(r.d[ru.dim]||'')===String(ru.val2)) : rows;
-  if(ru.stmt==='pl') match=match.filter(r=>!isBSLine(String(r.d.micaL1||'')));
-  else if(ru.stmt==='bs') match=match.filter(r=>isBSLine(String(r.d.micaL1||'')));
+  if(ru.stmt==='pl') match=match.filter(r=>!isBSRow(r));
+  else if(ru.stmt==='bs') match=match.filter(r=>isBSRow(r));
   return match;
 }
 /* what a rule actually touches — makes a small or zero impact self-explanatory */
@@ -8499,7 +8506,7 @@ function simRuleNote(r){
       : r.type==='amt'? (+r.val||0)
       : ((+r.val||0)*months.length - base);
     const dir= eff>0? 'raises the forecast' : eff<0? 'lowers the forecast' : 'no change';
-    const bsR=bsUnit()&&match.every(x=>isBSLine(String(x.d.micaL1||'')));
+    const bsR=bsUnit()&&match.every(x=>isBSRow(x));
     if((!r.stmt||r.stmt==='all')&&mixedScope(match))
       return '<div class="rnote warn">\u26a0 this scope spans P&L and balance rows \u2014 set \u201cApply to\u201d to target one side; applied to all, the impacts land on both statements</div>';
     if(bsR){
@@ -8576,7 +8583,7 @@ function simAgg(rules){
   const actMonths=m.cyMonths.filter(p=>!p.fc);
   const lastP=fcMonths.length? fcMonths[fcMonths.length-1] : m.cyMonths[m.cyMonths.length-1];
   const gRow=(name,rs)=>{
-    const bs=bsUnit()&&rs.length&&rs.every(x=>isBSLine(String(x.d.micaL1||'')));
+    const bs=bsUnit()&&rs.length&&rs.every(x=>isBSRow(x));
     const k=kpi(rs,m,S.ytdM,S.includeFC);
     if(bs){
       const baseC=sumBase(rs,[lastP]), simC=sumSim(rs,[lastP]);
@@ -8605,9 +8612,9 @@ function simAgg(rules){
     for(const r of simMatchRows(rows, ru)) matched.add(r);
   }
   const mArr=[...matched];
-  const bsFocus=!!(mArr.length&&bsUnit()&&mArr.every(r=>isBSLine(String(r.d.micaL1||''))));
+  const bsFocus=!!(mArr.length&&bsUnit()&&mArr.every(r=>isBSRow(r)));
   const mixed=mixedScope(rows);
-  const tRows=bsFocus? mArr : (mixed? rows.filter(r=>!isBSLine(String(r.d.micaL1||''))) : rows);
+  const tRows=bsFocus? mArr : (mixed? rows.filter(r=>!isBSRow(r)) : rows);
   const total=gRow(bsFocus? 'Scenario scope' : cfgS('total_label'), tRows);
   const dv=bsFocus? bsUnitDiv() : 1;
   const actSeries=actMonths.filter(p=>p.m<=S.ytdM||true).map(p=>({m:p.m,val:sumCols(tRows,[p.col])/dv}));
@@ -8894,7 +8901,7 @@ function aPerf(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
   // a file carrying balances beside a P&L is never totalled across the two —
   // the headline speaks for the P&L, the table lists every line in its unit
-  const plRows=rows.filter(r=>!isBSLine(String(r.d.micaL1||'')));
+  const plRows=rows.filter(r=>!isBSRow(r));
   const mixed=plRows.length&&plRows.length!==rows.length;
   const kT=aKpi(mixed? plRows : rows);
   const plNames=l1Names(plRows);
@@ -9001,7 +9008,7 @@ function aGeo(dim,label){
   return function(){
   const m=S.model, rows=filteredRows({geo:true}), L=cmpLabels(m);
   if(!(dim in m.dimCols)) return `This file carries no ${esc(label.toLowerCase())} breakdown.`+gnote();
-  const plRows=rows.filter(r=>!isBSLine(String(r.d.micaL1||'')));
+  const plRows=rows.filter(r=>!isBSRow(r));
   const g=[...groupBy(plRows.length?plRows:rows,dim).entries()].filter(([n])=>n)
     .map(([n,rs])=>({n,k:aKpi(rs)}));
   if(g.length<2){
@@ -9133,7 +9140,7 @@ function aBreak(byKey, mode){
   const key=(byKey in m.dimCols)? byKey : ('micaL2' in m.dimCols? 'micaL2' : null);
   if(!key) return 'This file carries no dimension to break that down by.'+gnote();
   const label=ALL_DIM_LABELS[key]||key;
-  const plRows=rows.filter(r=>!isBSLine(String(r.d.micaL1||'')));
+  const plRows=rows.filter(r=>!isBSRow(r));
   const useRows=plRows.length?plRows:rows;
   const g=[...groupBy(useRows,key).entries()].filter(([n])=>n).map(([n,rs])=>({n,k:aKpi(rs)}));
   if(!g.length) return `Nothing to break down by ${esc(label.toLowerCase())} in the current scope.`+gnote();
@@ -9157,7 +9164,7 @@ function aWhy(){
   if(!g.length) return 'No comparison baseline in this file, so I cannot attribute the movement.'+gnote();
   const up=[...g].sort((a,b)=>(b.k.cmpVar||0)-(a.k.cmpVar||0)).filter(x=>x.k.cmpVar>0).slice(0,3);
   const dn=[...g].sort((a,b)=>(a.k.cmpVar||0)-(b.k.cmpVar||0)).filter(x=>x.k.cmpVar<0).slice(0,3);
-  const kT=aKpi(rows.filter(r=>!isBSLine(String(r.d.micaL1||''))));
+  const kT=aKpi(rows.filter(r=>!isBSRow(r)));
   const note=()=>'';
   let h=`The ${movVal(kT,kT.cmpVar,kT.cmpVarPct)} movement ${esc(L.vs)} comes mostly from:`;
   h+=aTable(['Line','Movement',L.main,L.base],
@@ -9167,7 +9174,7 @@ function aWhy(){
 }
 function aTrend(){
   const m=S.model, all=filteredRows();
-  const pl=all.filter(r=>!isBSLine(String(r.d.micaL1||'')));
+  const pl=all.filter(r=>!isBSRow(r));
   const rows=(pl.length&&pl.length!==all.length)? pl : all;
   const k=aKpi(rows);
   const ser=(k.cySeries||[]).filter(p=>p.val!=null);
@@ -10031,7 +10038,7 @@ function renderCustom(){
     div.dataset.idx=idx;
     const rows=widgetRows(w.l2);
     let k=kpi(rows,m,S.ytdM,S.includeFC);
-    if(rows.length&&isBSLine(rows[0].d.micaL1||'')) k=bsRecast(k);
+    if(rows.length&&isBSRow(rows[0])) k=bsRecast(k);
     const wu=w.type==='scorecard'? (bsUnit()? cfgUnit()+' / '+bsUnitLabel() : cfgUnit()) : (k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
     const rg=rag(k.favVarPct);
     const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
@@ -10788,7 +10795,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 13:54</td></tr>
+      <tr><td>Build</td><td>2026-08-15 14:01</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
