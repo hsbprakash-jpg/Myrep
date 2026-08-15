@@ -896,9 +896,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 10:11)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 10:13)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 10:11)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 10:13)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -988,30 +988,17 @@ setTimeout(function(){
   </div>
   <div class="sect sect-fold" id="sectTplRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_comtpl">Commentary templates</span><span id="tplCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="tplPanel">
-    <p class="hint2" data-lbl="tpl_hint">Write the sentence the way you write it — the tokens fill from the page's own figures:
-      {line} {main} {base} {var} {varamt} {varpct} {vs} {drivers} {period} {month} {quarter} {fy} {ytd}.
-      Templates saved here live in this browser; the config's <b>CommentaryTemplates</b> tab shares a set with everyone.
-      A whole set onboards in one go with <b>\u2934 Upload templates</b> \u2014 a CSV or workbook of Style | Scope | Pattern rows, or a workbook whose tabs are written commentaries, one per scope. A write-up needs no tokens: paste it as written and the pattern is derived from where its figures sit.</p>
+    <p class="hint2" data-lbl="tpl_hint">Commentary templates live in the configuration \u2014 the
+      <b>CommentaryTemplates</b> tab (or a <b>Template &lt;scope&gt;</b> tab holding a write-up).
+      With the style on Auto the page adopts the template whose scope matches where it is looking;
+      pick a named style here to force one voice everywhere.</p>
     <label><span data-lbl="lbl_tplpick">Active style</span> <select id="tplPick" aria-label="Commentary style"></select></label>
-    <input id="tplName" class="srch" placeholder="Template name — e.g. IWPB Global" aria-label="Template name" style="margin:6px 18px 0;width:calc(100% - 36px)">
-    <label><span data-lbl="lbl_tplscope">Applies to</span> <select id="tplScope" aria-label="Template scope"></select></label>
-    <textarea id="tplPat" rows="3" placeholder="{line} {var} {vs}, led by {drivers}." aria-label="Template pattern"
-      style="margin:6px 18px 0;width:calc(100% - 36px);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;background:var(--surface-1);color:var(--text-primary);resize:vertical"></textarea>
-    <div id="tplPrev" class="hint2" style="margin-top:6px"></div>
-    <div style="display:flex;gap:10px;align-items:baseline;margin:6px 18px 0;flex-wrap:wrap">
-      <button class="btn-quiet" id="btnTplSave">＋ Save template</button>
-      <button class="btn-quiet" id="btnTplUpload" title="A CSV or workbook of Style | Scope | Pattern rows, merged into the saved set — the rest of the configuration is untouched">⤒ Upload templates</button>
-      <button class="linklike" id="btnTplCsv" title="The saved templates as CommentaryTemplates rows, ready to paste into the config workbook">Download as config rows</button>
-    </div>
-    <input type="file" id="tplFileIn" accept=".xlsx,.xls,.csv,.txt" hidden>
-    <div class="note" id="tplStatus" style="margin:4px 18px 0"></div>
-    <div id="tplMine"></div>
   </div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 10:11</div>
+<div id="buildTag">build 2026-08-15 10:13</div>
 </aside>
 <main>
 
@@ -4054,57 +4041,6 @@ function renderTplPane(){
   else if(st==='pack'||st==='house') opts.push([st, st==='pack'? 'Pack narrative':'House cascade']);
   sel.innerHTML=opts
     .map(([v,l])=>`<option value="${esc(v)}"${st===v?' selected':''}>${esc(l)}</option>`).join('');
-  const scSel=$('tplScope');
-  if(scSel){
-    // Applies to speaks the config's language: only the scopes the
-    // CommentaryTemplates actually define are offered. A file with no scoped
-    // templates at all falls back to the generic ladder so a first scoped
-    // template can still be written.
-    const keep=scSel.value;
-    const scopes=[...new Set(comTplList().map(t=>String(t.scope||t.view||'').trim()).filter(Boolean))];
-    let items=scopes;
-    if(!items.length){
-      const m=S.model;
-      const bizzes=m? [...new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean))].sort() : [];
-      items=['Group','Global','Regional','Country',
-        ...bizzes.flatMap(B=>['Global','Regional','Country'].map(t2=>B+' '+t2))];
-    }
-    scSel.innerHTML=`<option value="">Anywhere \u2014 picked by name</option>`+
-      items.map(t2=>`<option value="${esc(t2)}">${esc(t2)}</option>`).join('');
-    if(keep&&[...scSel.options].some(o=>o.value===keep)) scSel.value=keep;
-  }
-  const mineEl=$('tplMine');
-  const mine=comTplUser();
-  mineEl.innerHTML=mine.length? mine.map((t,i)=>
-    `<div class="drow" style="display:flex;gap:6px;align-items:center;margin:4px 18px 0;font-size:12px">
-      <b style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.pattern)}">${esc(t.style)}</b>
-      ${String(t.view||'').trim()?`<span class="note" style="font-size:10px">${esc(t.view)}</span>`:''}
-      <button class="linklike" data-tuse="${i}">Use</button>
-      <button class="linklike" data-tedit="${i}">Edit</button>
-      <button class="linklike" data-tdel="${i}" title="Remove">✕</button>
-    </div>`).join('') : '';
-  tplPreview();
-}
-function tplPreview(){
-  const prev=$('tplPrev'); if(!prev) return;
-  let pat=($('tplPat')&&$('tplPat').value.trim())||'';
-  let derivedNote='';
-  if(pat&&!/\{\w+\}/.test(pat)){
-    const d=comTplFromExample(pat);
-    if(d){ pat=d; derivedNote='<span style="opacity:.75">Derived pattern · </span>'+esc(d)+'<br>'; }
-  }
-  if(!pat){ prev.innerHTML=''; return; }
-  const m=S.model;
-  if(!m){ prev.innerHTML='Load a driller file to preview the template on its own figures.'; return; }
-  const L=cmpLabels(m), rows=filteredRows();
-  const LV=houseLevels(); if(!rows.length||!LV.length){ prev.innerHTML=''; return; }
-  const atF=fileOrder(m);
-  const g=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
-    .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
-    .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0)||atF(a.rs)-atF(b.rs))[0];
-  if(!g){ prev.innerHTML=derivedNote; return; }
-  prev.innerHTML=derivedNote+'<span style="opacity:.75">Preview · </span>'+
-    comTplLineHtml(pat, g, m, L, houseDimKey(), houseDrvCount(), vpCtx(m,S.ytdM));
 }
 function houseCommentaryHtml(){
   comSaidReset();
@@ -10808,7 +10744,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 10:11</td></tr>
+      <tr><td>Build</td><td>2026-08-15 10:13</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10985,49 +10921,6 @@ function init(){
     if(S.model) renderHouse();
     renderTplPane(); };
   $('tplPick').addEventListener('change',e=>tplSetStyle(e.target.value));
-  $('btnTplSave').addEventListener('click',()=>{
-    const nm=$('tplName').value.trim(); let pat=$('tplPat').value.trim();
-    if(!nm||!pat){ alert('A template needs a name and a pattern.'); return; }
-    if(!/\{\w+\}/.test(pat)){
-      const d=comTplFromExample(pat);   // a write-up saves as its derived pattern
-      if(d) pat=d;
-      else if(!confirm('No figures were recognised in this text, so every line would read the same. Save it as written?')) return;
-    }
-    const sc2=($('tplScope')&&$('tplScope').value)||'';
-    const mine=comTplUser().filter(t=>String(t.style).trim().toLowerCase()!==nm.toLowerCase()
-      ||String(t.view||'').trim().toLowerCase()!==sc2.toLowerCase());
-    mine.push({style:nm, view:sc2, pattern:pat});
-    comTplUserSave(mine);
-    // a scoped template saved while Auto is on joins the rotation — Auto
-    // adopts it where it applies; otherwise the new style becomes active
-    const scoped=!!(($('tplScope')&&$('tplScope').value)||comTplScopeScore(nm, comScopeCtx())>=0);
-    tplSetStyle(scoped&&comStyleSel()==='auto'? 'auto' : nm);
-  });
-  $('btnTplUpload').addEventListener('click',()=>$('tplFileIn').click());
-  $('tplFileIn').addEventListener('change',e=>{ if(e.target.files[0]) tplUploadFile(e.target.files[0]); e.target.value=''; });
-  $('btnTplCsv').addEventListener('click',()=>{
-    const mine=comTplUser();
-    if(!mine.length){ alert('No saved templates yet.'); return; }
-    const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; };
-    const csv=mine.map(t=>['CommentaryTemplates',t.style,t.view||'',t.pattern].map(q).join(',')).join('\r\n')+'\r\n';
-    const blob=new Blob([csv],{type:'text/csv'});
-    const a2=document.createElement('a'); a2.href=URL.createObjectURL(blob);
-    a2.download=brandSlug()+'_commentary_templates.csv'; document.body.appendChild(a2); a2.click(); a2.remove();
-  });
-  $('tplMine').addEventListener('click',e=>{
-    const use=e.target.closest('[data-tuse]'), ed=e.target.closest('[data-tedit]'), del=e.target.closest('[data-tdel]');
-    const mine=comTplUser();
-    if(use){ const t=mine[+use.dataset.tuse]; if(t) tplSetStyle(t.style); }
-    else if(ed){ const t=mine[+ed.dataset.tedit]; if(t){ $('tplName').value=t.style; $('tplPat').value=t.pattern;
-      if($('tplScope')) $('tplScope').value=String(t.view||''); tplPreview(); } }
-    else if(del){ const t=mine[+del.dataset.tdel]; if(!t) return;
-      const wasActive=comStyleSel()===t.style;   // judged before the template goes
-      comTplUserSave(mine.filter((_,i)=>i!==+del.dataset.tdel));
-      if(wasActive) tplSetStyle('pack'); else renderTplPane(); }
-  });
-  let tplPrevT=null;
-  const tplPrevSoon=()=>{ clearTimeout(tplPrevT); tplPrevT=setTimeout(tplPreview,250); };
-  $('tplPat').addEventListener('input',tplPrevSoon);
   $('btnCfgUpload').addEventListener('click',()=>$('cfgInput').click());
   $('cfgInput').addEventListener('change',e=>{ if(e.target.files[0]) handleCfgFile(e.target.files[0]); e.target.value=''; });
   $('btnCfgTemplate').addEventListener('click',downloadCfgTemplate);

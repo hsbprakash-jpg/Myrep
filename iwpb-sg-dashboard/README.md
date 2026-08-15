@@ -808,33 +808,13 @@ left-pane strip and the Filters pane.
   restores every surface at once. The Word and PPT exports carry
   whichever style is on the page.
 
-  **Onboarding templates from the left pane.** The **Commentary
-  templates** section in the left pane takes a template written the way
-  you write it: name it, choose what it applies to (anywhere, a tier,
-  or a business tier such as `IWPB Global`), type the pattern, and a
-  live preview words the file's first statement line as you type. A
-  scoped template saved while Auto is on joins the rotation — the page
-  adopts it wherever it applies; a plain named one becomes the active
-  style and appears on both selectors alongside the config's
-  templates; it is kept in the browser across sessions, and a template
-  saved under a config style's name overrides that style for you alone.
-  **Download as config rows** turns your saved templates into
-  `CommentaryTemplates` CSV rows ready to paste into the config
-  workbook when a personal style should become the team's.
-
-  **Onboarding a whole set at once — no pasting.** Keep your templates
-  in their own workbook or CSV of `Style | Scope | Pattern` rows and
-  press **⤒ Upload templates** in the pane: every row merges into your
-  saved set in one go, keyed by style *and* scope so one style keeps
-  its global, regional and country rows and a re-upload updates in
-  place rather than duplicating. Nothing else in the configuration is
-  touched — unlike a config upload, which replaces the whole
-  configuration. Your uploaded rows outrank the config's on the same
-  scope, and `sample/My_Commentary_Templates.xlsx` shows the shape.
-  For a set the whole team should have without anyone uploading
-  anything, put the same rows in the config pack's
-  `CommentaryTemplates` tab instead — they arrive with the config and
-  the browser remembers them across sessions.
+  **The pane picks; the config authors.** The left pane's Commentary
+  templates section is a picker, nothing more: the **Active style**
+  selector, offering Auto and the styles the configuration defines.
+  All template authoring lives in the one config workbook — the
+  `CommentaryTemplates` tab and `Template <scope>` tabs — so there is a
+  single place templates come from and nothing to paste or upload in
+  the page itself.
 
   **A write-up instead of a pattern.** This is the normal form: the
   Group pack's `CommentaryTemplates` rows are themselves written as
@@ -845,15 +825,10 @@ left-pane strip and the Filters pane.
   written commentary — *"Revenue of $4,193m was up $102m (2.5%) vs Q2
   2025, led by Mutual Funds and Deposits."* — is read and turned into
   its pattern automatically, a token placed where each figure sits and
-  every other word kept exactly as written. A write-up is accepted
-  three ways: a template upload whose **tabs are write-ups**, one tab
-  per scope named for it (`IWPB Global`, `CIB Regional`, `Group`,
-  `Singapore` — `sample/My_Commentary_Writeups.xlsx` shows the shape);
-  a **`Template <scope>` tab in the config workbook** (e.g. `Template
-  IWPB Global`), which travels with the config and overrides the
-  CommentaryTemplates sheet's row for the same scope; or **prose typed
-  straight into the pane's pattern box**, where the preview shows the
-  derived pattern before anything is saved. The recognition covers the
+  every other word kept exactly as written. A write-up lives in the config workbook: a `CommentaryTemplates`
+  row whose Pattern cell is prose, or a **`Template <scope>` tab**
+  (e.g. `Template IWPB Global`) holding a longer write-up, which
+  overrides the sheet's row for the same scope. The recognition covers the
   movement clause (up/down amounts, F/A notation), the vs-phrase, an
   against/from base, percentages, mover lists after "led by", "driven
   by", "on the back of" or "reflecting", the subject line matched
