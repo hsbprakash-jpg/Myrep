@@ -996,7 +996,7 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 08:16</div>
+<div id="buildTag">build 2026-08-15 08:22</div>
 </aside>
 <main>
 
@@ -2891,7 +2891,7 @@ function comText(hostId){
 }
 function widgetComSig(w){
   const c=w.cfg||{};
-  return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,effMeasure(c),c.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig();
+  return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,effMeasure(c),c.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig()+'|'+comStyleSig();
 }
 function widgetCommentaryHtml(w){
   const m=S.model, rows=widgetRows(w.l2), L=cmpLabels(m);
@@ -2978,7 +2978,28 @@ function chartCommentaryHtml(cfg){
       const best=perf.reduce((a,b)=>(b.k.favVarPct??-1e9)>(a.k.favVarPct??-1e9)?b:a);
       const worst=perf.reduce((a,b)=>(b.k.favVarPct??1e9)<(a.k.favVarPct??1e9)?b:a);
       const behind=perf.filter(x2=>(x2.k.favVarPct??0)<0);
-      if(best!==worst)
+      const patC=comTplActivePat();
+      if(patC&&best){
+        // the strongest line speaks in the active style; the laggard and the
+        // count keep the writer's grammar so nothing analytical is lost
+        const dkC=Object.keys(FIELD_LABELS).find(k3=>k3 in m2.dimCols&&!gC.includes(k3));
+        const bestCat=cats.find(c=>c.name===best.name);
+        const drC=(dkC&&bestCat&&bestCat.rows)? houseDrivers(bestCat.rows,dkC,2) : [];
+        const cvp2=vpCtx(m2,S.ytdM);
+        out+=' '+comTplFill(patC,{
+          line:`<b>${esc(best.name)}</b>`,
+          main:fmtK(best.k,best.k.cmpMain), base:fmtK(best.k,best.k.cmpBase),
+          'var':movVal(best.k,best.k.cmpVar,best.k.cmpVarPct)+' '+movPct(best.k,best.k.cmpVarPct),
+          varamt:movVal(best.k,best.k.cmpVar,best.k.cmpVarPct), varpct:pctAbs(best.k.cmpVarPct),
+          vs:esc(L2.vs), basename:esc(L2.base), period:esc(L2.period),
+          drivers:drC.length? drC.map(x3=>`${esc(x3.name)} (${faTxt(x3.k)})`).join(', ') : 'no single mover',
+          scope:esc(comScopeLabel()), month:esc(MON_LBL[S.ytdM]), quarter:'Q'+cvp2.q,
+          fy:esc(String(m2.yearCY||'')), ytd:esc(MON_LBL[S.ytdM]+' YTD'),
+        });
+        if(best!==worst)
+          out+=` <b>${esc(worst.name)}</b> lags at ${movPct(worst.k,worst.k.cmpVarPct)} (${movVal(worst.k,worst.k.cmpVar,worst.k.cmpVarPct)}).`;
+      }
+      else if(best!==worst)
         out+=` <b>${esc(best.name)}</b> runs strongest ${esc(L2.vs)} at ${movPct(best.k,best.k.cmpVarPct)}; <b>${esc(worst.name)}</b> lags at ${movPct(worst.k,worst.k.cmpVarPct)} (${movVal(worst.k,worst.k.cmpVar,worst.k.cmpVarPct)}).`;
       out+=` ${behind.length} of ${perf.length} lines sit behind the ${esc(L2.base)}.`;
     }
@@ -3738,6 +3759,14 @@ function comTplScopeScore(spec, cx){
   return any? score : -1;
 }
 function comTplRowScope(t){ return String(t.scope||t.view||'').trim()||String(t.style||''); }
+/* the pattern the active style resolves to \u2014 empty when the pack or the
+   house writer is speaking, so callers fall back to their own grammar */
+function comTplActivePat(){
+  const st=comStyleSel();
+  if(st==='pack'||st==='house') return '';
+  return st==='auto'? String((comTplAuto()||{}).pattern||'') : comTplPat(st);
+}
+function comStyleSig(){ return comStyleSel()+'|'+comTplActivePat(); }
 /* the template the current scope adopts on its own: the best-fitting scoped
    row, the reader's own templates outranking the config's on a tie */
 function comTplAuto(){
@@ -4073,7 +4102,7 @@ function renderMix(){
   $('mixTitle').textContent=chartTitle(MX);
   $('mixSub').textContent=`${cmpLabels(S.model).period} · ${scopeUnit(scopeFilter(filteredRows(),MX.l2))}`;
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
-  aiComment($('mixCom'), 'mix|'+JSON.stringify([MX.l2,MX.groupBy,MX.measure,MX.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig(),
+  aiComment($('mixCom'), 'mix|'+JSON.stringify([MX.l2,MX.groupBy,MX.measure,MX.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig()+'|'+comStyleSig(),
     ()=>chartCommentaryHtml({...MX}));
 }
 function saveMix(){ try{ localStorage.setItem('iwpbsg_mix',JSON.stringify(MX)); }catch(e){} }
@@ -6425,7 +6454,7 @@ function renderBuilder(){
   $('bPrevTitle').textContent=chartTitle(cfg);
   $('bPrevSub').textContent=`YTD ${ytdLabel()} · respects the filters in the left pane · top ${cfg.type==='donut'?6:8} categories, rest folded into Other`;
   pv.appendChild(buildChartEl(cfg));
-  aiComment($('bCom'), 'bld|'+JSON.stringify([B.l2,B.groupBy,B.splitBy,B.measure,B.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig(),
+  aiComment($('bCom'), 'bld|'+JSON.stringify([B.l2,B.groupBy,B.splitBy,B.measure,B.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig()+'|'+comStyleSig(),
     ()=>chartCommentaryHtml(cfg));
 }
 
@@ -6970,11 +6999,31 @@ function caSectionHtml(sec){
           `<b>${esc(String(k2.r.name).replace(/^o\/w\s+/i,''))}</b> ${caVar(k2.q)}`).join(', ')
       : '';
     const said=comTail(x.r.name,'comall');
-    const tail=(listed? '' : (inlined||caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 3 : 4)))
-      +said+(listed? ':' : '');
+    const pat=depth? '' : comTplActivePat();
+    let lead=`<b>${esc(x.r.name)}</b> of ${val} are ${va}`;
+    let drv=listed? '' : (inlined||caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 3 : 4));
+    if(pat){
+      // the section's own basis fills the tokens; a pattern that names its
+      // movers itself is not given them a second time
+      const drvList=(caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, 4)||'')
+        .replace(/^\s*driven by\s*/,'').trim();
+      const cvp=vpCtx(m,S.ytdM);
+      lead=comTplFill(pat,{
+        line:`<b>${esc(x.r.name)}</b>`,
+        main:caAmt(x.q.f, x.q.val, false),
+        base:caAmt(x.q.f, (x.q.val!=null&&x.q.va!=null)? x.q.val-x.q.va : null, false),
+        'var':va, varamt:caAmt(x.q.f, x.q.va, true, x.q.pct), varpct:pctAbs(x.q.pct),
+        vs:'vs '+esc(sec.base), basename:esc(sec.base), period:esc(sec.per),
+        drivers:drvList||'no single mover', scope:esc(comScopeLabel()),
+        month:esc(MON_LBL[S.ytdM]), quarter:'Q'+cvp.q,
+        fy:esc(String(m.yearCY||'')), ytd:esc(MON_LBL[S.ytdM]+' YTD'),
+      });
+      if(/\{drivers\}/.test(pat)&&!inlined) drv='';
+    }
+    const tail=drv+said+(listed? ':' : '');
     let t=depth
       ? `<li><b>${esc(x.r.name)}</b> ${va}${tail}`
-      : `<p class="ca-sub"><b>${esc(x.r.name)}</b> of ${val} are ${va}${tail}</p>`;
+      : `<p class="ca-sub">${lead}${tail}</p>`;
     if(listed) t+='<ul class="houselist">'+kids.map(k2=>lineHtml(k2, depth+1)).join('')+'</ul>';
     if(depth) t+='</li>';
     return t;
@@ -10660,7 +10709,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 08:16</td></tr>
+      <tr><td>Build</td><td>2026-08-15 08:22</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
