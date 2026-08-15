@@ -914,9 +914,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 20:51)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 21:08)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 20:51)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 21:08)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -982,7 +982,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 20:51</div>
+<div id="buildTag">build 2026-08-15 21:08</div>
 </aside>
 <main>
 
@@ -3305,28 +3305,32 @@ function bizPerfData(){
   const memoMode=String(cfgS('bizperf_unmapped')||'').trim().toLowerCase()!=='add';
   const hasReg='region' in m.dimCols;
   const regOf=r=>String(r.d.region||'');
+  // a row is unmapped whether its region cell is empty or the hierarchy
+  // stamped the literal 'Unmapped' on a tab it could not place
+  const unm=r=>{ const v=regOf(r); return !v||/^unmapped$/i.test(v); };
   const bizHasReg={};
-  for(const B of bizzes) bizHasReg[B]=hasReg&&basePL.some(r=>String(r.d.business||'')===B&&regOf(r));
+  for(const B of bizzes) bizHasReg[B]=hasReg&&basePL.some(r=>String(r.d.business||'')===B&&!unm(r));
   const counted=r=>{ if(!memoMode) return true;
     const b=String(r.d.business||'');
     if(!b) return false;
-    return !(bizHasReg[b]&&!regOf(r)); };
+    return !(bizHasReg[b]&&unm(r)); };
   const defs=[];
   const ctyRows=(pool,parentLbl,B,R,memo)=>{
     if(!hasCty) return;
     const ctys=[...new Set(pool.map(r=>String(r.d.country||'')).filter(Boolean))].sort();
     if(!ctys.length||(ctys.length===1&&ctys[0]===parentLbl)) return;
     for(const C of ctys)
-      defs.push({short:C, txt:`${B}${R!=null?' \u00b7 '+(R||'(no region)'):''} \u00b7 ${C}`, tier:2,
+      defs.push({short:C, txt:`${B}${R!=null?' \u00b7 '+(R||'(unmapped)'):''} \u00b7 ${C}`, tier:2,
         cls:memo?'bp-memo':'', memoRow:!!memo, biz:B, reg:R,
-        pred:r=>String(r.d.business||'')===B&&(R==null||String(r.d.region||'')===R)&&String(r.d.country||'')===C});
+        pred:r=>String(r.d.business||'')===B&&String(r.d.country||'')===C
+          &&(R==null||(R===''? unm(r) : String(r.d.region||'')===R))});
   };
   for(const B of bizzes){
     const inB=r=>String(r.d.business||'')===B;
     const bPool=basePL.filter(inB);
-    const regs=('region' in m.dimCols)
-      ? [...new Set(bPool.map(r=>String(r.d.region||'')).filter(Boolean))].sort() : [];
-    const blank=bPool.some(r=>!String(r.d.region||''));
+    const regs=hasReg
+      ? [...new Set(bPool.filter(r=>!unm(r)).map(regOf).filter(Boolean))].sort() : [];
+    const blank=bPool.some(unm);
     // one named region beside unmapped rows still earns the tier: merging
     // the two into one country row would hide that the scope bar and this
     // table are reading different slices
@@ -3337,11 +3341,11 @@ function bizPerfData(){
           pred:r=>inB(r)&&String(r.d.region||'')===R});
       }
       if(blank){
-        ctyRows(bPool.filter(r=>!String(r.d.region||'')), '(no region)', B, '', memoMode);
-        defs.push({short:'(no region)'+(memoMode?' \u2014 not in the rollup':''),
-          txt:`${B} \u00b7 (no region)`+(memoMode?' \u2014 not in the rollup':''),
+        ctyRows(bPool.filter(unm), '(unmapped)', B, '', memoMode);
+        defs.push({short:'(unmapped)'+(memoMode?' \u2014 not in the rollup':''),
+          txt:`${B} \u00b7 (unmapped)`+(memoMode?' \u2014 not in the rollup':''),
           tier:1, cls:memoMode?'bp-memo':'', memoRow:memoMode, biz:B, reg:'',
-          pred:r=>inB(r)&&!String(r.d.region||'')});
+          pred:r=>inB(r)&&unm(r)});
       }
     } else ctyRows(bPool, B, B, null);
     defs.push({short:bizName(B), txt:bizName(B), tier:0, cls:'bp-sub', biz:B,
@@ -11206,7 +11210,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 20:51</td></tr>
+      <tr><td>Build</td><td>2026-08-15 21:08</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

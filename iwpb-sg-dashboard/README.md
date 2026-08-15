@@ -127,7 +127,9 @@ lone country that would just rename its region is skipped. **The rollup
 counts only rows the hierarchy maps** — the same rows the scope bar can
 reach, the numbers the file itself consolidates to. Rows without a
 business mapping (an `Unallocated` line) and rows whose region the
-hierarchy never mapped (a `(no region)` tier beside the named regions)
+hierarchy never mapped — an empty region cell or the literal `Unmapped`
+the merge stamps on a tab the CountryHierarchy cannot place (an
+`(unmapped)` tier beside the named regions)
 stay visible as grey memo lines that never join the sums, so a mapping
 gap shows itself instead of silently inflating a Global line; setting
 `bizperf_unmapped=add` restores adding them. Note the scope bar and
