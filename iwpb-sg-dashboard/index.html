@@ -900,9 +900,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 17:41)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 18:35)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 17:41)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 18:35)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -958,21 +958,14 @@ setTimeout(function(){
   </div>
   <div class="sect sect-fold" id="sectTplRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_comtpl">Commentary templates</span><span id="tplCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="tplPanel">
-    <p class="hint2" data-lbl="tpl_hint">Commentary templates live in the configuration — the
-      <b>CommentaryTemplates</b> tab (or a <b>Template &lt;scope&gt;</b> tab holding a write-up).
-      With the style on Auto the page adopts the template whose scope matches where it is looking;
-      pick a named style here to force one voice everywhere.</p>
     <label><span data-lbl="lbl_tplpick">Active style</span> <select id="tplPick" aria-label="Commentary style"></select></label>
-    <p class="hint2" data-lbl="comload_hint">Written commentary lives in the configuration —
-      <b>Commentary</b> rows, addressed or bare paragraphs. Bare paragraphs are read against the
-      names in the driller and lead the blocks they name; nothing is reworded.</p>
     <p class="hint2" id="comInNote"></p>
   </div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 17:41</div>
+<div id="buildTag">build 2026-08-15 18:35</div>
 </aside>
 <main>
 
@@ -10984,7 +10977,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 17:41</td></tr>
+      <tr><td>Build</td><td>2026-08-15 18:35</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
