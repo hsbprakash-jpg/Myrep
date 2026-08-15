@@ -1169,14 +1169,14 @@ negatives or positive magnitudes).
 ## Configuration
 
 The app's behavioural rules are externalised into an uploadable
-configuration — **left pane → Configuration → Upload config**. Two formats
-are accepted, both parsed locally:
-
-- an **xlsx workbook with a sheet per section** — `Settings`,
-  `TilePriority`, `Dimensions`, `Views`
-- a **flat CSV** with columns `Sheet,Key,Value,Extra1,Extra2,Extra3`
-  (`IWPB_SG_dashboard_config.csv` in this folder is the template, also
-  downloadable in-app)
+configuration — **left pane → Configuration → Upload config**. There is
+**one configuration file**: `Group_dashboard_config_pack.xlsx` in this
+folder, an xlsx workbook with a sheet per section — `Settings`, `Tiles`,
+`TilePriority`, `Dimensions`, `Views`, `Metrics`, `Commentary`,
+`CommentaryTemplates`, the hierarchies. Everything the page does is driven
+from it. (A flat CSV with columns `Sheet,Key,Value,Extra1,Extra2,Extra3` is
+also accepted for tooling that emits CSV; the in-app download offers it. A
+sample lives under `sample/`.)
 
 What each section governs:
 
