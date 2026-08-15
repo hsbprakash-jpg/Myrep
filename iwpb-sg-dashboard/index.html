@@ -917,9 +917,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 21:35)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 21:44)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 21:35)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 21:44)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -985,7 +985,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 21:35</div>
+<div id="buildTag">build 2026-08-15 21:44</div>
 </aside>
 <main>
 
@@ -1286,7 +1286,7 @@ setTimeout(function(){
       <p class="lede2" id="bizPerfLede"></p>
     </div>
     <div><button class="btn-quiet" id="btnBizXlsx" title="The table as a workbook \u2014 every tile as a column, business / region / country rows">⤓ Export to Excel</button></div></div>
-    <div class="panel"><div class="rvwwrap" id="bizPerfTable"></div></div>
+    <div class="panel"><p class="note" id="bizPerfWarn" hidden style="color:var(--hsbc-red);font-weight:600;margin:0 0 10px"></p><div class="rvwwrap" id="bizPerfTable"></div></div>
   </div>
   <div id="fsumView" hidden>
     <div class="pagehead"><div>
@@ -3477,6 +3477,11 @@ function renderBizPerfView(){
     scopeSet(rd.scope[0]||'', rd.scope[1]||'', rd.scope[2]||'');
     setView('summary');
   }));
+  const warns=[];
+  if(S.model.dupCombos) warns.push(`${S.model.dupCombos.toLocaleString()} dimension combinations sit on more than one row (${S.model.dupExtra.toLocaleString()} extra rows) \u2014 the figures that touch them add up more than once`);
+  for(const t of (S.model.totMix||[])) warns.push(`\u201c${t.tot}\u201d sits beside ${t.others} detail values in ${t.dim} \u2014 totals and details add together`);
+  $('bizPerfWarn').hidden=!warns.length;
+  if(warns.length) $('bizPerfWarn').textContent='\u26a0 The file duplicates: '+warns.join(' \u00b7 ')+' \u2014 see the ingest report for the first example.';
   $('bizPerfLede').textContent=`One column per tile \u2014 countries add to their region, regions to each Global business, businesses to ${D.gl}, and every column casts exactly as shown \u00b7 P&L in ${cfgUnit()}, ${MON_LBL[D.ym]} YTD through the last actual month \u00b7 balances closing, never added into P&L \u00b7 \u2013 = not defined for that business \u00b7 * carries a column\u2019s rounding point${D.memoNote?' \u00b7 rows without a mapping are shown in grey but never added':''}${D.consol?' \u00b7 the Group line is the file\u2019s own consolidation \u2014 the eliminations line carries its gap against the roll-up':''}`;
 }
 function bizPerfAoa(){
@@ -11205,6 +11210,38 @@ function ingestArrayBuffer(buf, name, fromCache){
     model.sheetName=sheetName;
     applyHierarchies(model);
     applyCountryRegions(model);
+    /* A driller carries each dimension combination on exactly one row.
+       The same combination on several rows \u2014 a tab ingested twice, two
+       vintages of the same slice, a copied block \u2014 inflates every sum
+       that touches it. And a dimension whose values mix 'Total \u2026' with
+       detail members double-counts by construction. Both are said out
+       loud at ingest, with the rows to prove it. */
+    {
+      const byDims=new Map();
+      for(const r of model.rows){
+        const k=JSON.stringify(r.d);
+        byDims.set(k,(byDims.get(k)||0)+1);
+      }
+      let combos=0, extra=0, sample=null;
+      for(const [k,n] of byDims) if(n>1){ combos++; extra+=n-1; if(!sample) sample=JSON.parse(k); }
+      model.dupCombos=combos; model.dupExtra=extra; model.dupSample=sample;
+      model.totMix=[];
+      for(const k of Object.keys(model.dimCols)){
+        const vals=[...new Set(model.rows.map(r=>String(r.d[k]||'')).filter(Boolean))];
+        const tot=vals.find(v=>/^total\b|\btotal$/i.test(v));
+        if(!tot||vals.length<2) continue;
+        // a name is not proof \u2014 'Total Direct Cost' is an ordinary P&L
+        // line. The flag needs the figures: the total member weighing the
+        // same as all the other members together
+        let mT=0, mO=0;
+        for(const r of model.rows){
+          let m2=0; for(const v of r.v) if(typeof v==='number') m2+=Math.abs(v);
+          if(String(r.d[k]||'')===tot) mT+=m2; else mO+=m2;
+        }
+        if(mT&&mO&&Math.abs(mT-mO)/Math.max(mT,mO)<0.05)
+          model.totMix.push({dim:k, tot, others:vals.length-1});
+      }
+    }
     S.model=model; S.fileName=name;
     COM_DOC_CACHE=null;      // the commentary is matched again against this file
     COM_TPL_DERIVED=new Map();   // and the write-up templates re-derive on its names
@@ -11218,6 +11255,8 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>Sheet</td><td>${esc(sheetName)}</td></tr>
       ${model.groupTab? `<tr><td>Group</td><td>read from the <b>${esc(model.groupTab)}</b> tab \u2014 the consolidated figures speak for the Group, and the tab is never added to the countries</td></tr>` : ''}
       ${model.groupSkipped&&model.groupSkipped.length? `<tr><td>Group</td><td>tab ${esc(model.groupSkipped.join(', '))} set aside (group_consolidation: rollup) \u2014 the Group is the roll-up of the country tabs</td></tr>` : ''}
+      ${model.dupCombos? `<tr><td>Duplication</td><td><b>${model.dupCombos.toLocaleString()} dimension combination${model.dupCombos===1?'':'s'} appear${model.dupCombos===1?'s':''} on more than one row</b> (${model.dupExtra.toLocaleString()} extra row${model.dupExtra===1?'':'s'}) \u2014 every figure that touches them adds up more than once. First example: ${esc(Object.entries(model.dupSample||{}).filter(([,v])=>v).map(([k,v])=>k+'='+v).join(' \u00b7 '))}. Check the extract for a repeated block or two vintages of the same slice.</td></tr>` : ''}
+      ${model.totMix&&model.totMix.length? model.totMix.map(t=>`<tr><td>Double count</td><td>The <b>${esc(t.dim)}</b> dimension carries <b>\u201c${esc(t.tot)}\u201d</b> beside ${t.others} detail value${t.others===1?'':'s'} \u2014 totals and their own details add together. Filter one side out, or remove the total rows from the extract.</td></tr>`).join('') : ''}
       ${model.unmappedTabs&&model.unmappedTabs.length? `<tr><td>Unmapped</td><td>${model.unmappedTabs.length} tab name${model.unmappedTabs.length===1?'':'s'} not found in the CountryHierarchy \u2014 grouped as Unmapped: <b>${esc(model.unmappedTabs.slice(0,6).join(', '))}${model.unmappedTabs.length>6?' \u2026':''}</b>. Add a row per name to the configuration's CountryHierarchy sheet to place them.</td></tr>` : ''}
       ${model.globalTabWarn&&model.globalTabWarn.length? `<tr><td>\u26a0 Global tab</td><td>tab ${esc(model.globalTabWarn.join(', '))} looks like a business consolidation, and it was merged as a <b>country</b> \u2014 a Global business is always summed from its own tabs, so this will double-count. Remove the tab, or name it Group / add it to group_tab_patterns if it is the Group consolidation.</td></tr>` : ''}
       ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — the top of the left pane is their sum; pick a node in the left pane or top bar</td></tr>`:''}
@@ -11248,7 +11287,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 21:35</td></tr>
+      <tr><td>Build</td><td>2026-08-15 21:44</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
