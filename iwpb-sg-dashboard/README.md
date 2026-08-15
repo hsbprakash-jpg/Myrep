@@ -117,13 +117,18 @@ inside another business — the country tab inside a business carries the
 business in its name (`IWPB UK`).
 
 Beneath the Management Commentary the Summary carries a **Business
-performance** table — the consolidation shown as evidence: one row per
-region under its business, a Global subtotal per business, the Group at the
-foot, each with the P&L YTD and the three comparisons. The regions visibly
-add to their Global line and the Global lines to the Group; rows no
-business mapping claims appear as an Unallocated line so the table always
-adds up; balances stay out. The table reads the whole tree whatever
-geography is scoped elsewhere, and hides on a single-business file.
+performance** table — the consolidation shown as evidence, organised by
+tile: one column per KPI tile on the grid (Revenue, ECL, the cost lines…),
+the same names and the same netting, and one row per region under its
+business, a Global subtotal per business and the Group at the foot. In
+every column the regions visibly add to their Global line and the Global
+lines to the Group; a line a group defines no reading for (a per-business
+Definition it never wrote) shows a dash rather than a borrowed figure;
+rows no business mapping claims appear as an Unallocated line so the
+table always adds up. Balance-sheet tiles keep their own column in the
+balance unit as closing positions — never added into a P&L column. The
+table reads the whole tree whatever geography is scoped elsewhere, and
+hides on a single-business file.
 
 Scoping lives in the **top scope bar**: the business line, region and
 country dropdowns beside Units (each narrowed to the level above it), with
