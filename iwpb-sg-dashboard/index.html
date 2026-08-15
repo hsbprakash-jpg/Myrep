@@ -728,6 +728,7 @@ svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 .bp-table .bp-ind2{padding-left:30px;color:var(--text-muted)}
 .bp-table .bp-adj{color:var(--text-muted);font-weight:400;margin-left:1px}
 .bp-table tr.bp-memo td{color:var(--text-muted);font-style:italic}
+.bp-table tr.bp-elim td{font-style:italic;border-top:1px solid var(--border)}
 .bp-table tr.bp-sub td{font-weight:700;border-top:1.5px solid var(--border-strong);
   background:color-mix(in srgb, var(--hsbc-red) 3%, transparent)}
 .bp-table td.num.negnum b{color:var(--text-primary)}
@@ -914,9 +915,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 21:08)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 21:31)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 21:08)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 21:31)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -982,7 +983,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 21:08</div>
+<div id="buildTag">build 2026-08-15 21:31</div>
 </aside>
 <main>
 
@@ -3257,31 +3258,38 @@ function renderScopeChips(){
 function bizPerfData(){
   const m=S.model;
   if(!m||!('business' in m.dimCols)) return null;
-  // the whole tree, whatever geography is scoped elsewhere on the page
+  /* Every figure on this page reads through the same scope machinery the
+     tiles read: a cell is filteredRows() under that row's business/region/
+     country scope, never a private row-selection of this page's own. The
+     Group line is what the unscoped tiles show \u2014 the file's own Group
+     consolidation where it carries one \u2014 and any gap against the
+     roll-up stands as an explicit consolidation line, never forced away. */
   const sv={c:S.filters.country, r:S.filters.region, b:S.filters.business};
-  delete S.filters.country; delete S.filters.region; delete S.filters.business;
+  const setGeo=(b2,r2,c2)=>{
+    if(b2!=null) S.filters.business=new Set([b2]); else delete S.filters.business;
+    if(r2!=null) S.filters.region=new Set([r2]); else delete S.filters.region;
+    if(c2!=null) S.filters.country=new Set([c2]); else delete S.filters.country; };
+  const restore=()=>{ delete S.filters.country; delete S.filters.region; delete S.filters.business;
+    if(sv.c) S.filters.country=sv.c; if(sv.r) S.filters.region=sv.r; if(sv.b) S.filters.business=sv.b; };
+  try{
+  setGeo(null,null,null);
   const baseAll=filteredRows({geo:true});
-  if(sv.c) S.filters.country=sv.c; if(sv.r) S.filters.region=sv.r; if(sv.b) S.filters.business=sv.b;
   const basePL=baseAll.filter(r=>!isBSRow(r));
   const bizzes=[...new Set(basePL.map(r=>String(r.d.business||'')).filter(Boolean))].sort();
   if(bizzes.length<2) return null;
-  // one column per tile on the grid \u2014 the same lines, the same netting,
-  // each read over the whole tree; the result tile joins as the last column
-  // only while it is pure P&L, a mixed total never reaches this table
   const lineOf=nm=>{ const f=tileFindLine(baseAll,nm); return f? f.rows : null; };
   const cols=[]; let resCol=null;
   for(const t of (S._sumTiles||[])){
     if(t.total){
       if(t.rows&&t.rows.length&&!t.rows.some(r=>isBSRow(r)))
-        resCol={name:t.name, rs:basePL, bs:false, res:true};
+        resCol={name:t.name, rs:basePL, bs:false, res:true, nets:[]};
       continue;
     }
     let rs=lineOf(t.name)||t.rows||[];
-    for(const n of (t.netOf||[])) rs=rs.concat(lineOf(n.name)||[]);
-    if(rs.length) cols.push({name:t.name, rs, bs:isBSRow(rs[0])});
+    const nets=(t.netOf||[]).map(n=>n.name);
+    for(const n of nets) rs=rs.concat(lineOf(n)||[]);
+    if(rs.length) cols.push({name:t.name, rs, nets, bs:isBSRow(rs[0])});
   }
-  // a line that sits wholly inside another (Banking NII inside Revenue) is
-  // a memo view of it \u2014 marked so, so nobody adds the two
   const spansPL=cols.map(o=>{ if(o.bs) return false;
     const os=new Set(o.rs); return basePL.every(r=>os.has(r)); });
   for(const c of cols){ if(c.bs) continue;
@@ -3293,15 +3301,6 @@ function bizPerfData(){
   }
   if(resCol) cols.push(resCol);
   if(!cols.length) return null;
-  // the tree: countries under their region, regions under their business,
-  // the businesses under the Group \u2014 a tier appears only where it has
-  // something to add (a lone country that just renames its region is skipped)
-  const hasCty='country' in m.dimCols;
-  // the rollup counts only rows the hierarchy maps \u2014 the same rows the
-  // scope bar can reach, the numbers the file itself consolidates to. Rows
-  // without a business or (where the business is regionally mapped) without
-  // a region stay on the table as memo lines, never in the sums;
-  // bizperf_unmapped=add restores adding them
   const memoMode=String(cfgS('bizperf_unmapped')||'').trim().toLowerCase()!=='add';
   const hasReg='region' in m.dimCols;
   const regOf=r=>String(r.d.region||'');
@@ -3314,16 +3313,19 @@ function bizPerfData(){
     const b=String(r.d.business||'');
     if(!b) return false;
     return !(bizHasReg[b]&&unm(r)); };
+  const hasCty='country' in m.dimCols;
   const defs=[];
   const ctyRows=(pool,parentLbl,B,R,memo)=>{
     if(!hasCty) return;
     const ctys=[...new Set(pool.map(r=>String(r.d.country||'')).filter(Boolean))].sort();
     if(!ctys.length||(ctys.length===1&&ctys[0]===parentLbl)) return;
-    for(const C of ctys)
-      defs.push({short:C, txt:`${B}${R!=null?' \u00b7 '+(R||'(unmapped)'):''} \u00b7 ${C}`, tier:2,
-        cls:memo?'bp-memo':'', memoRow:!!memo, biz:B, reg:R,
-        pred:r=>String(r.d.business||'')===B&&String(r.d.country||'')===C
-          &&(R==null||(R===''? unm(r) : String(r.d.region||'')===R))});
+    for(const C of ctys){
+      if(memo) defs.push({short:C, txt:`${B} \u00b7 (unmapped) \u00b7 ${C}`, tier:2,
+        cls:'bp-memo', memoRow:true, biz:B, reg:R,
+        pred:r=>String(r.d.business||'')===B&&unm(r)&&String(r.d.country||'')===C});
+      else defs.push({short:C, txt:`${B}${R!=null?' \u00b7 '+R:''} \u00b7 ${C}`, tier:2, cls:'',
+        biz:B, reg:R, scope:[B,R,C]});
+    }
   };
   for(const B of bizzes){
     const inB=r=>String(r.d.business||'')===B;
@@ -3331,14 +3333,12 @@ function bizPerfData(){
     const regs=hasReg
       ? [...new Set(bPool.filter(r=>!unm(r)).map(regOf).filter(Boolean))].sort() : [];
     const blank=bPool.some(unm);
-    // one named region beside unmapped rows still earns the tier: merging
-    // the two into one country row would hide that the scope bar and this
-    // table are reading different slices
+    // the region tier earns its rows when there is more than one named
+    // region \u2014 or one beside unmapped rows the sums must not swallow
     if(regs.length>1||(regs.length&&blank)){
       for(const R of regs){
-        ctyRows(bPool.filter(r=>String(r.d.region||'')===R), R, B, R);
-        defs.push({short:R, txt:`${B} \u00b7 ${R}`, tier:1, cls:'', biz:B, reg:R,
-          pred:r=>inB(r)&&String(r.d.region||'')===R});
+        ctyRows(bPool.filter(r=>regOf(r)===R), R, B, R);
+        defs.push({short:R, txt:`${B} \u00b7 ${R}`, tier:1, cls:'', biz:B, reg:R, scope:[B,R,null]});
       }
       if(blank){
         ctyRows(bPool.filter(unm), '(unmapped)', B, '', memoMode);
@@ -3348,8 +3348,7 @@ function bizPerfData(){
           pred:r=>inB(r)&&unm(r)});
       }
     } else ctyRows(bPool, B, B, null);
-    defs.push({short:bizName(B), txt:bizName(B), tier:0, cls:'bp-sub', biz:B,
-      pred:r=>inB(r)&&counted(r)});
+    defs.push({short:bizName(B), txt:bizName(B), tier:0, cls:'bp-sub', biz:B, scope:[B,null,null]});
   }
   if(baseAll.some(r=>!String(r.d.business||'')))
     defs.push({short:'Unallocated'+(memoMode?' \u2014 not in the rollup':''),
@@ -3357,30 +3356,47 @@ function bizPerfData(){
       cls:memoMode?'bp-memo':'bp-sub', memoRow:memoMode,
       pred:r=>!String(r.d.business||'')});
   const gl=cfgS('group_label').split('\u2014')[0].trim()||'Group';
-  defs.push({short:gl, txt:gl, tier:0, cls:'tot', pred:counted});
+  const hasConsol=!!(m.groupRows&&m.groupRows.length);
+  // the file's own Group tab is not the sum of the tabs \u2014 eliminations
+  // and central items live only there. The gap gets its own line
+  if(hasConsol)
+    defs.push({short:'Consolidation & eliminations', tier:0, cls:'bp-elim', elim:true,
+      txt:'Consolidation & eliminations \u2014 the Group tab against the roll-up'});
+  defs.push({short:gl, txt:gl, tier:0, cls:'tot', scope:[null,null,null]});
   const totI=defs.length-1;
-  // every figure is rounded so each block visibly casts \u2014 countries to
-  // their region, regions to their Global line, the Global lines to the
-  // Group. The rounding point lands on the largest row of the block, and
-  // the Group line always reads exactly what its tile reads
+  // each row's rows, read the way the scope bar reads them
+  const defRows=defs.map(rd=>{
+    if(rd.elim) return null;
+    if(rd.pred) return baseAll.filter(rd.pred);
+    setGeo(rd.scope[0],rd.scope[1],rd.scope[2]);
+    let rows=filteredRows();
+    if(!(rd.cls==='tot'&&hasConsol)) rows=rows.filter(counted);
+    return rows;
+  });
+  const ym2=tileYtdM();
   const castCol=col=>{
     const d=(col.bs&&bsUnit())? 1 : unitDec();
     const sc=Math.pow(10,d);
-    const raws=defs.map(rd=>{
-      const rs=rd.pred? col.rs.filter(rd.pred) : col.rs;
+    const raws=defs.map((rd,i2)=>{
+      if(rd.elim) return null;
+      const rows=defRows[i2];
+      if(!rows||!rows.length) return null;
+      // the result column is the slice's whole P&L, not a named line
+      let rs;
+      if(col.res) rs=rows.filter(r=>!isBSRow(r));
+      else{
+        const f=tileFindLine(rows,col.name);
+        rs=f? f.rows : [];
+        for(const n of (col.nets||[])){ const f2=tileFindLine(rows,n); if(f2) rs=rs.concat(f2.rows); }
+      }
       if(!rs.length) return null;
       const k=kpi(rs,m,ym2,false);
       const v=col.bs? bsRecast(k).cmpMain : k.cy;
       if(v==null) return null;
       return ((col.bs&&bsUnit())? v/bsUnitDiv() : uval(v))*sc;
     });
-    // round the way the tiles display \u2014 half away from zero on the
-    // magnitude \u2014 so a figure reads the same here and on its tile
     const vals=raws.map(x=>x==null? null : (x<0?-1:1)*Math.round(Math.abs(x)));
     const adj=new Set();
-    // the rounding point lands on the most borderline cell of the block
-    // (largest remainder), and that cell is marked \u2014 every other cell
-    // is its own independently rounded figure, matching its scoped tile
     const foot=(kids,par)=>{ const live=kids.filter(i2=>vals[i2]!=null);
       if(par<0||vals[par]==null||!live.length) return;
       let res=vals[par]-live.reduce((a,i2)=>a+vals[i2],0);
@@ -3391,8 +3407,15 @@ function bizPerfData(){
           (raws[i2]-vals[i2])*step>(raws[a]-vals[a])*step? i2 : a, live[0]);
         vals[pick]+=step; adj.add(pick); res-=step;
       } };
-    const idx=f=>defs.map((rd,i2)=>(f(rd)&&!rd.memoRow)?i2:-1).filter(i2=>i2>=0);
-    foot(idx(rd=>rd.cls==='bp-sub'), totI);
+    const idx=f=>defs.map((rd,i2)=>(f(rd)&&!rd.memoRow&&!rd.elim)?i2:-1).filter(i2=>i2>=0);
+    // top down: settle the Global lines against the Group first, then let
+    // each region cast to its settled Global line, countries to regions
+    const elimI=defs.findIndex(rd=>rd.elim);
+    if(elimI>=0){
+      const subs=idx(rd=>rd.cls==='bp-sub');
+      vals[elimI]= vals[totI]==null? null
+        : vals[totI]-subs.reduce((a,i2)=>a+(vals[i2]||0),0);
+    } else foot(idx(rd=>rd.cls==='bp-sub'), totI);
     for(const B of bizzes){
       const subI=defs.findIndex(rd=>rd.cls==='bp-sub'&&rd.biz===B);
       foot(idx(rd=>rd.tier===1&&rd.biz===B), subI);
@@ -3403,10 +3426,17 @@ function bizPerfData(){
     }
     return {vals, d, sc, adj};
   };
-  const ym2=tileYtdM();
   const colVals=cols.map(castCol);
+  // a consolidation line that is zero everywhere says nothing \u2014 drop it
+  const elimI=defs.findIndex(rd=>rd.elim);
+  if(elimI>=0&&colVals.every(cv=>!cv.vals[elimI])){
+    defs.splice(elimI,1);
+    for(const cv of colVals){ cv.vals.splice(elimI,1);
+      cv.adj=new Set([...cv.adj].map(i2=>i2>elimI? i2-1 : i2)); }
+  }
   return {cols, defs, colVals, gl, ym:ym2,
-    memoNote:defs.some(rd=>rd.memoRow)};
+    memoNote:defs.some(rd=>rd.memoRow), consol:hasConsol};
+  } finally { restore(); }
 }
 function bizPerfAvail(){
   const m=S.model;
@@ -3439,7 +3469,7 @@ function renderBizPerfView(){
   host.innerHTML=`<table class="ctable bp-table"><thead><tr>
       <th>Business / Region / Country</th>${D.cols.map(th).join('')}
     </tr></thead><tbody>${body}</tbody></table>`;
-  $('bizPerfLede').textContent=`One column per tile \u2014 countries add to their region, regions to each Global business, businesses to ${D.gl}, and every column casts exactly as shown \u00b7 P&L in ${cfgUnit()}, ${MON_LBL[D.ym]} YTD through the last actual month \u00b7 balances closing, never added into P&L \u00b7 \u2013 = not defined for that business \u00b7 * carries a column\u2019s rounding point${D.memoNote?' \u00b7 rows without a mapping are shown in grey but never added':''}`;
+  $('bizPerfLede').textContent=`One column per tile \u2014 countries add to their region, regions to each Global business, businesses to ${D.gl}, and every column casts exactly as shown \u00b7 P&L in ${cfgUnit()}, ${MON_LBL[D.ym]} YTD through the last actual month \u00b7 balances closing, never added into P&L \u00b7 \u2013 = not defined for that business \u00b7 * carries a column\u2019s rounding point${D.memoNote?' \u00b7 rows without a mapping are shown in grey but never added':''}${D.consol?' \u00b7 the Group line is the file\u2019s own consolidation \u2014 the eliminations line carries its gap against the roll-up':''}`;
 }
 function bizPerfAoa(){
   const D=bizPerfData();
@@ -11210,7 +11240,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 21:08</td></tr>
+      <tr><td>Build</td><td>2026-08-15 21:31</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

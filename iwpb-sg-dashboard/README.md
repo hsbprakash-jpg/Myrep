@@ -123,9 +123,16 @@ and the same netting), one row per business / region / country with a
 Global subtotal per business and the Group at the foot. Every column
 casts exactly as displayed — the rounding point lands on the largest row
 of each block, and the Group line reads exactly what its tile reads. A
-lone country that would just rename its region is skipped. **The rollup
-counts only rows the hierarchy maps** — the same rows the scope bar can
-reach, the numbers the file itself consolidates to. Rows without a
+lone country that would just rename its region is skipped. **Every cell reads
+through the same scope machinery the tiles read** — a row's figure is
+exactly what the scope bar would show for that business / region /
+country, never a private row-selection of the page's own, so the page
+and the tiles cannot disagree. The Group line is what the unscoped
+tiles show: the file's own Group consolidation tab where it carries
+one, and any gap against the roll-up stands as an explicit
+`Consolidation & eliminations` line so the column still casts in plain
+sight. **The rollup counts only rows the hierarchy maps** — the same
+rows the scope bar can reach. Rows without a
 business mapping (an `Unallocated` line) and rows whose region the
 hierarchy never mapped — an empty region cell or the literal `Unmapped`
 the merge stamps on a tab the CountryHierarchy cannot place (an
