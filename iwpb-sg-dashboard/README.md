@@ -116,6 +116,15 @@ row as the fallback. A bare tab named after an entity group (a tab called
 inside another business — the country tab inside a business carries the
 business in its name (`IWPB UK`).
 
+Beneath the Management Commentary the Summary carries a **Business
+performance** table — the consolidation shown as evidence: one row per
+region under its business, a Global subtotal per business, the Group at the
+foot, each with the P&L YTD and the three comparisons. The regions visibly
+add to their Global line and the Global lines to the Group; rows no
+business mapping claims appear as an Unallocated line so the table always
+adds up; balances stay out. The table reads the whole tree whatever
+geography is scoped elsewhere, and hides on a single-business file.
+
 Scoping lives in the **top scope bar**: the business line, region and
 country dropdowns beside Units (each narrowed to the level above it), with
 the active scope shown as removable chips on the Summary. Picking a scope

@@ -717,6 +717,10 @@ svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 .ctable td:first-child{overflow-wrap:anywhere;min-width:100px}
 .ctable td.num{text-align:right;white-space:nowrap}
 .ctable tr.tot td{font-weight:700;border-top:2px solid var(--text-primary)}
+.bp-table .bp-ind{padding-left:16px;color:var(--text-secondary)}
+.bp-table tr.bp-sub td{font-weight:700;border-top:1.5px solid var(--border-strong);
+  background:color-mix(in srgb, var(--hsbc-red) 3%, transparent)}
+.bp-table td.num.negnum b{color:var(--text-primary)}
 .card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
 .card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -900,9 +904,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 18:41)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 18:50)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 18:41)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 18:50)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -965,7 +969,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 18:41</div>
+<div id="buildTag">build 2026-08-15 18:50</div>
 </aside>
 <main>
 
@@ -1042,6 +1046,12 @@ setTimeout(function(){
         </div>
       </div>
       <div id="houseCom"></div>
+    </div>
+    <div class="panel" id="bizPerfPanel" hidden>
+      <div class="panel-head">
+        <div><h4 data-lbl="bizperf_title">Business performance</h4><p class="subtitle" id="bizPerfSub"></p></div>
+      </div>
+      <div class="rvwwrap" id="bizPerfTable"></div>
     </div>
     <div class="panel" id="mixPanel" style="display:none">
       <div class="panel-head">
@@ -3222,6 +3232,55 @@ function renderScopeChips(){
     scopeSet(d==='business'?'':b3, d==='region'?'':r, d==='country'?'':c);
   }));
 }
+/* The consolidation as evidence, beneath the Management Commentary: one row
+   per region under its business, a Global subtotal per business, the Group
+   at the foot \u2014 every figure the P&L YTD through the last actual month,
+   computed over exactly the rows that scope holds, so the regions visibly
+   add to their Global line and the Global lines to the Group. Balances stay
+   out; an entity group with no regions is its own single row. */
+function renderBizPerf(){
+  const panel=$('bizPerfPanel'), host=$('bizPerfTable');
+  if(!panel||!host) return;
+  const m=S.model;
+  if(!m||!('business' in m.dimCols)){ panel.hidden=true; return; }
+  // the whole tree, whatever geography is scoped elsewhere on the page
+  const sv={c:S.filters.country, r:S.filters.region, b:S.filters.business};
+  delete S.filters.country; delete S.filters.region; delete S.filters.business;
+  const base=filteredRows({geo:true}).filter(r=>!isBSRow(r));
+  if(sv.c) S.filters.country=sv.c; if(sv.r) S.filters.region=sv.r; if(sv.b) S.filters.business=sv.b;
+  const bizzes=[...new Set(base.map(r=>String(r.d.business||'')).filter(Boolean))].sort();
+  if(bizzes.length<2){ panel.hidden=true; return; }
+  panel.hidden=false;
+  const ym=tileYtdM();
+  const kOf=rs=>kpi(rs, m, ym, false);
+  const cell=(k,v,p)=>`<td class="num">${v==null?'\u2013':movVal(k,v,p)}</td>`;
+  const line=(k)=>cell(k,k.varAbs,k.varPct)+cell(k,k.varFc,k.varFcPct)+cell(k,k.varYT,k.varYTPct);
+  const row=(lbl,rs,cls)=>{ const k=kOf(rs);
+    return `<tr${cls?` class="${cls}"`:''}><td>${lbl}</td><td class="num${(k.cy||0)<0?' negnum':''}"><b>${fmt(k.cy)}</b></td>${line(k)}</tr>`; };
+  let body='';
+  for(const B of bizzes){
+    const bRows=base.filter(r=>String(r.d.business||'')===B);
+    const regs=('region' in m.dimCols)
+      ? [...new Set(bRows.map(r=>String(r.d.region||'')).filter(Boolean))].sort() : [];
+    // the region tier only earns its rows when there is more than one region
+    // to add \u2014 a single-region business would just repeat its own total
+    if(regs.length>1){
+      for(const R of regs)
+        body+=row(`<span class="bp-ind">${esc(B)} \u00b7 ${esc(R)}</span>`, bRows.filter(r=>String(r.d.region||'')===R));
+      const unk=bRows.filter(r=>!String(r.d.region||''));
+      if(unk.length) body+=row(`<span class="bp-ind">${esc(B)} \u00b7 (no region)</span>`, unk);
+    }
+    body+=row(`<b>${esc(bizName(B))}</b>`, bRows, 'bp-sub');
+  }
+  const orphan=base.filter(r=>!String(r.d.business||''));
+  if(orphan.length) body+=row(`<b>Unallocated</b> <span class="bp-ind">(rows with no business mapping)</span>`, orphan, 'bp-sub');
+  body+=row(`<b>${esc(cfgS('group_label').split('\u2014')[0].trim()||'Group')}</b>`, base, 'tot');
+  host.innerHTML=`<table class="ctable bp-table"><thead><tr>
+      <th>Business / Region</th><th class="num">${esc(MON_LBL[ym])} YTD</th>
+      <th class="num">vs PY</th><th class="num">vs Fcst</th><th class="num">vs Tgt</th>
+    </tr></thead><tbody>${body}</tbody></table>`;
+  $('bizPerfSub').textContent=`Regions add to each Global business, and the businesses add to the Group \u2014 P&L in ${cfgUnit()}, ${MON_LBL[ym]} YTD through the last actual month \u00b7 balances reported separately`;
+}
 function renderSummary(){
   const rows=filteredRows();
   $('rowCount').textContent=`${rows.length.toLocaleString()} rows in scope`;
@@ -3343,6 +3402,7 @@ function renderSummary(){
 
   $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY}`;
   renderScopeChips();
+  renderBizPerf();
   const ytdSrc=(()=>{
     if(cfgS('calc_ytd_actuals').toLowerCase()==='months')
       return 'YTD: months added — the config sets calc_ytd_actuals=months';
@@ -10977,7 +11037,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 18:41</td></tr>
+      <tr><td>Build</td><td>2026-08-15 18:50</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

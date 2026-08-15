@@ -44,6 +44,7 @@ PRODUCTS = [
 # tab name → revenue scale, cost scale (Corp Centre is a cost centre)
 TABS = [
     ("IWPB India",    40, 18),
+    ("IWPB France",   25, 12),
     ("CIB Singapore", 55, 24),
     ("HK",            70, 30),
     ("UK",            45, 22),
