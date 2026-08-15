@@ -900,9 +900,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 18:35)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 18:41)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 18:35)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 18:41)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -951,7 +951,7 @@ setTimeout(function(){
       <button class="linklike" id="btnCfgReset">Reset to defaults</button></div>
     <div class="note" id="cfgStatus"></div>
   </div>
-  <div class="sect sect-fold" id="sectPeriodRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_period">Period &amp; RAG</span><span id="periodCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
+  <div class="sect sect-fold" id="sectPeriodRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_period">Period</span><span id="periodCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="sideFilters">
     <label><span data-lbl="lbl_ytd">YTD through</span> <select id="fMonth"></select></label>
     <label><span data-lbl="lbl_varper">Variance period</span> <select id="fVarPer"></select></label>
@@ -965,7 +965,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 18:35</div>
+<div id="buildTag">build 2026-08-15 18:41</div>
 </aside>
 <main>
 
@@ -1577,7 +1577,7 @@ const CFG_DEFAULT={
     nav_sim:'Simulation Assistant', nav_fsum:'Financial Summary',
     nav_comall:'All commentaries',
     sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
-    sect_config:'Configuration', sect_period:'Period & RAG',
+    sect_config:'Configuration', sect_period:'Period',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
     btn_newfile:'Load new Driller',
     btn_regen:'Regenerate', btn_retrieve:'Retrieve',
@@ -10977,7 +10977,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 18:35</td></tr>
+      <tr><td>Build</td><td>2026-08-15 18:41</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
