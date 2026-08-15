@@ -975,24 +975,28 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
   <div id="tplPanel">
     <p class="hint2" data-lbl="tpl_hint">Write the sentence the way you write it — the tokens fill from the page's own figures:
       {line} {main} {base} {var} {varamt} {varpct} {vs} {drivers} {period} {month} {quarter} {fy} {ytd}.
-      Templates saved here live in this browser; the config's <b>CommentaryTemplates</b> tab shares a set with everyone.</p>
+      Templates saved here live in this browser; the config's <b>CommentaryTemplates</b> tab shares a set with everyone.
+      A whole set onboards in one go with <b>\u2934 Upload templates</b> \u2014 a CSV or workbook of Style | Scope | Pattern rows.</p>
     <label><span data-lbl="lbl_tplpick">Active style</span> <select id="tplPick" aria-label="Commentary style"></select></label>
     <input id="tplName" class="srch" placeholder="Template name — e.g. IWPB Global" aria-label="Template name" style="margin:6px 18px 0;width:calc(100% - 36px)">
     <label><span data-lbl="lbl_tplscope">Applies to</span> <select id="tplScope" aria-label="Template scope"></select></label>
     <textarea id="tplPat" rows="3" placeholder="{line} {var} {vs}, led by {drivers}." aria-label="Template pattern"
       style="margin:6px 18px 0;width:calc(100% - 36px);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;background:var(--surface-1);color:var(--text-primary);resize:vertical"></textarea>
     <div id="tplPrev" class="hint2" style="margin-top:6px"></div>
-    <div style="display:flex;gap:10px;align-items:baseline;margin:6px 18px 0">
+    <div style="display:flex;gap:10px;align-items:baseline;margin:6px 18px 0;flex-wrap:wrap">
       <button class="btn-quiet" id="btnTplSave">＋ Save template</button>
+      <button class="btn-quiet" id="btnTplUpload" title="A CSV or workbook of Style | Scope | Pattern rows, merged into the saved set — the rest of the configuration is untouched">⤒ Upload templates</button>
       <button class="linklike" id="btnTplCsv" title="The saved templates as CommentaryTemplates rows, ready to paste into the config workbook">Download as config rows</button>
     </div>
+    <input type="file" id="tplFileIn" accept=".xlsx,.xls,.csv,.txt" hidden>
+    <div class="note" id="tplStatus" style="margin:4px 18px 0"></div>
     <div id="tplMine"></div>
   </div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 07:43</div>
+<div id="buildTag">build 2026-08-15 08:05</div>
 </aside>
 <main>
 
@@ -3800,6 +3804,51 @@ function comTplLineHtml(pat, g, m, L, dimKey, N, c){
     scope:esc(comScopeLabel()),
   };
   return comTplFill(pat,ctx);
+}
+/* A file of templates, onboarded in one go: a workbook is read from its
+   CommentaryTemplates tab (or its first sheet), a CSV as rows \u2014 either
+   Style | Scope | Pattern, or the four-column config form with
+   CommentaryTemplates leading. Rows merge into the browser-saved set by
+   name; nothing else in the configuration is touched. */
+function comTplRowsFromWb(wb){
+  const sn=wb.SheetNames.find(n=>/commentary\s*templates|templates|styles/i.test(n))||wb.SheetNames[0];
+  const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+  const out=[];
+  for(let r of aoa){
+    if(!r||!r.length) continue;
+    r=r.map(x=>String(x==null?'':x).trim());
+    if(/^commentarytemplates$|^commentarystyles$/i.test(String(r[0]).replace(/[^a-z]/gi,''))) r=r.slice(1);
+    const [a,b2,c]=[r[0]||'',r[1]||'',r[2]||''];
+    if(!a||a.startsWith('<')) continue;
+    if(/^style$/i.test(a)) continue;                  // the header row
+    if(c) out.push({style:a, view:b2, pattern:c});
+    else if(b2) out.push({style:a, view:'', pattern:b2});
+  }
+  return out;
+}
+async function tplUploadFile(file){
+  const note=$('tplStatus');
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const rows=comTplRowsFromWb(wb);
+    if(!rows.length){ if(note) note.textContent='No Style | Scope | Pattern rows found in '+file.name+'.'; return; }
+    // one style may carry several scoped rows (global, regional, country) —
+    // the merge key is the pair, so a re-upload updates rather than collapses
+    const key=t=>String(t.style).trim().toLowerCase()+'|'+String(t.view||'').trim().toLowerCase();
+    const mine=comTplUser();
+    const by=new Map(mine.map(t=>[key(t), t]));
+    let added=0, replaced=0;
+    for(const t of rows){
+      if(by.has(key(t))) replaced++; else added++;
+      by.set(key(t), t);
+    }
+    comTplUserSave([...by.values()]);
+    if(note) note.textContent=`${rows.length} template${rows.length===1?'':'s'} onboarded from ${file.name}`+
+      (replaced? ` (${replaced} updated)` : '')+'.';
+    if(S.model) renderHouse();
+    renderTplPane();
+  }catch(e){ if(note) note.textContent='Could not read '+file.name+': '+e.message; }
 }
 /* ---- the pane: onboard a template, pick the active style ---------------
    The dynamic pieces render into their own hosts so the reader's typing in
@@ -10517,7 +10566,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 07:43</td></tr>
+      <tr><td>Build</td><td>2026-08-15 08:05</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10698,14 +10747,18 @@ function init(){
     const nm=$('tplName').value.trim(), pat=$('tplPat').value.trim();
     if(!nm||!pat){ alert('A template needs a name and a pattern.'); return; }
     if(!/\{\w+\}/.test(pat)&&!confirm('The pattern carries no {tokens}, so every line would read the same. Save anyway?')) return;
-    const mine=comTplUser().filter(t=>String(t.style).trim().toLowerCase()!==nm.toLowerCase());
-    mine.push({style:nm, view:($('tplScope')&&$('tplScope').value)||'', pattern:pat});
+    const sc2=($('tplScope')&&$('tplScope').value)||'';
+    const mine=comTplUser().filter(t=>String(t.style).trim().toLowerCase()!==nm.toLowerCase()
+      ||String(t.view||'').trim().toLowerCase()!==sc2.toLowerCase());
+    mine.push({style:nm, view:sc2, pattern:pat});
     comTplUserSave(mine);
     // a scoped template saved while Auto is on joins the rotation — Auto
     // adopts it where it applies; otherwise the new style becomes active
     const scoped=!!(($('tplScope')&&$('tplScope').value)||comTplScopeScore(nm, comScopeCtx())>=0);
     tplSetStyle(scoped&&comStyleSel()==='auto'? 'auto' : nm);
   });
+  $('btnTplUpload').addEventListener('click',()=>$('tplFileIn').click());
+  $('tplFileIn').addEventListener('change',e=>{ if(e.target.files[0]) tplUploadFile(e.target.files[0]); e.target.value=''; });
   $('btnTplCsv').addEventListener('click',()=>{
     const mine=comTplUser();
     if(!mine.length){ alert('No saved templates yet.'); return; }

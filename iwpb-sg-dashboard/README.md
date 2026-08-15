@@ -789,6 +789,20 @@ left-pane strip and the Filters pane.
   `CommentaryTemplates` CSV rows ready to paste into the config
   workbook when a personal style should become the team's.
 
+  **Onboarding a whole set at once — no pasting.** Keep your templates
+  in their own workbook or CSV of `Style | Scope | Pattern` rows and
+  press **⤒ Upload templates** in the pane: every row merges into your
+  saved set in one go, keyed by style *and* scope so one style keeps
+  its global, regional and country rows and a re-upload updates in
+  place rather than duplicating. Nothing else in the configuration is
+  touched — unlike a config upload, which replaces the whole
+  configuration. Your uploaded rows outrank the config's on the same
+  scope, and `sample/My_Commentary_Templates.xlsx` shows the shape.
+  For a set the whole team should have without anyone uploading
+  anything, put the same rows in the config pack's
+  `CommentaryTemplates` tab instead — they arrive with the config and
+  the browser remembers them across sessions.
+
   **How it decides which line a comment is about.** This is text matching
   against the names in your own file. It reads names; it does not understand
   banking. Four things can resolve a sentence, and the left pane says which one
