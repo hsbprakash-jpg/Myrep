@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 15:50)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 16:17)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 15:50)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 16:17)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -916,9 +916,6 @@ setTimeout(function(){
     <button id="navQuery">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="3" rx="1" fill="currentColor"/><rect x="1" y="6.5" width="9" height="3" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="12" width="12" height="3" rx="1" fill="currentColor" opacity=".6"/></svg>
       <span data-lbl="nav_query">Query builder</span></button>
-    <button id="navTable">
-      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="2" width="14" height="2.4" rx="1" fill="currentColor"/><rect x="1" y="6.8" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="11.6" width="14" height="2.4" rx="1" fill="currentColor" opacity=".6"/></svg>
-      <span data-lbl="nav_table">Data drill down</span></button>
     <button id="navAssist">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1C4.1 1 1 3.6 1 6.8c0 1.8 1 3.4 2.6 4.5L3 15l3.5-2c.5.1 1 .1 1.5.1 3.9 0 7-2.6 7-5.8S11.9 1 8 1z" fill="currentColor"/></svg>
       <span data-lbl="nav_assist">MI Assistant</span></button>
@@ -955,7 +952,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 15:50</div>
+<div id="buildTag">build 2026-08-15 16:17</div>
 </aside>
 <main>
 
@@ -1279,26 +1276,6 @@ setTimeout(function(){
     </div>
   </div>
 
-  <div id="tableView" hidden>
-    <div class="pagehead"><div>
-      <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>Data Drill Down <span class="unitsfx" data-unitsfx></span></h2>
-      <p class="lede2">Drill into the underlying driller rows in scope of the current filters.</p>
-    </div></div>
-    <div class="panel">
-      <div class="panel-head">
-        <div><h4>Filtered source rows</h4><p class="subtitle" id="tableSub"></p></div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input class="rvwsearch" id="dataSearch" placeholder="Search rows…" aria-label="Search rows">
-          <button class="btn-quiet" id="btnDataFClear" hidden>✕ Clear column filters</button>
-          <button class="btn-quiet" id="btnMonthsToggle">Collapse months</button>
-          <button class="btn-quiet" id="btnExportData">⤓ Export all rows to Excel</button>
-        </div>
-      </div>
-      <div class="rvwwrap" id="rawTable"></div>
-      <div id="dataPager"></div>
-    </div>
-  </div>
 </section>
 
 </main>
@@ -7139,7 +7116,6 @@ function setView(v){
   $('customView').hidden  = v!=='custom';
   $('builderView').hidden = v!=='builder';
   $('queryView').hidden   = v!=='query';
-  $('tableView').hidden   = v!=='table';
   $('assistView').hidden  = v!=='assist';
   $('simView').hidden     = v!=='sim';
   $('navSummary').classList.toggle('active',v==='summary');
@@ -7148,7 +7124,6 @@ function setView(v){
   $('navCustom').classList.toggle('active',v==='custom');
   $('navBuilder').classList.toggle('active',v==='builder');
   $('navQuery').classList.toggle('active',v==='query');
-  $('navTable').classList.toggle('active',v==='table');
   $('navAssist').classList.toggle('active',v==='assist');
   $('navSim').classList.toggle('active',v==='sim');
   render();
@@ -8622,9 +8597,9 @@ function renderKpiNav(){
         // switch to My dashboard without rebuilding the KPI list — a re-render
         // here would remove the dragged node and cancel the drag
         S.view='custom';
-        $('summaryView').hidden=true; $('tableView').hidden=true;
+        $('summaryView').hidden=true;
         $('customView').hidden=false;
-        for(const id of ['navSummary','navTable']) $(id).classList.remove('active');
+        $('navSummary').classList.remove('active');
         $('navCustom').classList.add('active');
         renderCustom();
       }
@@ -10043,7 +10018,7 @@ function render(){
   else if(S.view==='query') renderQuery();
   else if(S.view==='assist') renderAssist();
   else if(S.view==='sim') renderSim();
-  else renderTable();
+  else renderSummary();
   const scTr=scopeTrail();
   document.querySelectorAll('.eyebrow').forEach(el=>el.textContent=cfgS('eyebrow')+(scTr? ' — '+scTr : ''));
   renderKpiNav();
@@ -10557,7 +10532,7 @@ function applyCfgDom(){
   const svw=parseFloat(cfgS('sim_value_width'));
   document.documentElement.style.setProperty('--sim-val-w', (isFinite(svw)&&svw>=10? svw : 50)+'ch');
   const NAVV={summary:'navSummary',fsum:'navFsum',custom:'navCustom',builder:'navBuilder',query:'navQuery',
-    table:'navTable',assist:'navAssist',sim:'navSim'};
+    assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
   if(!cfgViewOn(S.view)) S.view='summary';
   if(S.model){ S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
@@ -10959,7 +10934,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 15:50</td></tr>
+      <tr><td>Build</td><td>2026-08-15 16:17</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11035,9 +11010,6 @@ function init(){
     if(qLastResult&&qLastResult.viewAoa) exportWB([{name:'Query results', aoa:qLastResult.viewAoa, money:false}],brandSlug()+'_query');
   });
   $('btnQMonths').addEventListener('click',()=>{ qExpandMonths=!qExpandMonths; renderQueryResults(); });
-  $('btnMonthsToggle').addEventListener('click',()=>{
-    S.expandMonths=S.expandMonths===false?true:false; renderTable();
-  });
   $('btnQSave').addEventListener('click',()=>{
     const n=$('qName').value.trim(); if(!n) return;
     const all=qSavedAll();
@@ -11070,7 +11042,6 @@ function init(){
     const b=$('btnPin'), t=b.textContent;
     b.textContent='Pinned ✓'; setTimeout(()=>{ b.textContent=t; },1200);
   });
-  $('navTable').addEventListener('click',()=>setView('table'));
   $('navAssist').addEventListener('click',()=>setView('assist'));
   $('navSim').addEventListener('click',()=>setView('sim'));
   // commentary the business wrote: carried in the configuration, nothing
@@ -11188,9 +11159,6 @@ function init(){
   $('btnExportChart').addEventListener('click',()=>{
     if(B.groupBy.length) exportWB([{name:'Chart data', aoa:chartAOA({...B})}],brandSlug()+'_chart');
   });
-  $('btnExportData').addEventListener('click',()=>exportWB([{name:'Source rows', aoa:rowsAOA(), money:false}],brandSlug()+'_data'));
-  $('dataSearch').addEventListener('input',e=>{ S.dataQ=e.target.value; dataPager.page=1; renderTable(); });
-  $('btnDataFClear').addEventListener('click',()=>{ DATAF={}; dfClose(); dataPager.page=1; renderTable(); });
   $('btnPptMix').addEventListener('click',()=>exportPPT([{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')}],brandSlug()+'_mix'));
   $('btnTileOrder').addEventListener('click',()=>{ tileOrderClear(); renderSummary(); });
   $('btnPptSummary').addEventListener('click',()=>exportSummaryPPT());

@@ -1182,8 +1182,10 @@ numbers (negatives in red brackets); and red monochrome charts with a grey
 prior-year series. The left pane is deliberately spare: the dashboards
 navigation, the Configuration section, the period controls (YTD-through
 month and variance period) and the Commentary templates picker — scoping
-happens in the top scope bar, and the Data view and Excel exports carry
-the default column set
+happens in the top scope bar, and the Excel exports carry
+the default column set. The old Data drill down page is retired — the
+**Query builder** covers it: drag the columns you want, filter and sort,
+run, and **⤓ Export to Excel** on the Results panel downloads the result
 RAG compares YTD actuals with the same
 prior-year months: **green at or above prior year, red below it**. There is
 no amber and no watch band — an in-between rating only ever meant "within a
