@@ -105,6 +105,17 @@ Group. A **Global business** is one business consolidated across its
 regions, so a single-business file with no Group tab is headed
 **Global IWPB**, never Group.
 
+**Business groups are whatever the CountryHierarchy declares** — its
+Level 0 values. IWPB and CIB are the classic global businesses, and entity
+groups sit beside them as peers: the Group pack declares **HK**, **UK** and
+**Corp Centre**, each consolidating exactly the same way — the Group is the
+sum of all five (Corp Centre negative and all), each group scopes every
+page, and per-group Definitions read each group its own way with a `GROUP`
+row as the fallback. A bare tab named after an entity group (a tab called
+`UK`) resolves to that group even where the same name exists as a country
+inside another business — the country tab inside a business carries the
+business in its name (`IWPB UK`).
+
 Scoping lives in the **top scope bar**: the business line, region and
 country dropdowns beside Units (each narrowed to the level above it), with
 the active scope shown as removable chips on the Summary. Picking a scope

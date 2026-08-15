@@ -900,9 +900,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 16:25)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 17:41)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 16:25)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 17:41)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -972,7 +972,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 16:25</div>
+<div id="buildTag">build 2026-08-15 17:41</div>
 </aside>
 <main>
 
@@ -10787,7 +10787,14 @@ function chResolveTab(name){
   const cm=CFG.countrymap||[];
   const low=String(name).trim().toLowerCase();
   const exact=cm.filter(e2=>e2.country&&String(e2.country).trim().toLowerCase()===low);
-  if(exact.length) return {business:String(exact[0].l0||'').trim(), country:String(exact[0].country).trim()};
+  if(exact.length){
+    // a bare name that is both an entity group (HK, UK) and a country inside
+    // another business resolves to the group named after itself \u2014 the tab
+    // for the country inside a business says the business in its name
+    const self=exact.find(e2=>String(e2.l0||'').trim().toLowerCase()===low);
+    const pick=self||exact[0];
+    return {business:String(pick.l0||'').trim(), country:String(pick.country).trim()};
+  }
   for(const e2 of cm){
     if(!e2.country||!e2.l0) continue;
     if(low===(String(e2.l0).trim()+' '+String(e2.country).trim()).toLowerCase())
@@ -10977,7 +10984,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 16:25</td></tr>
+      <tr><td>Build</td><td>2026-08-15 17:41</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
