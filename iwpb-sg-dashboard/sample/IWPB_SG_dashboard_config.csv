@@ -161,7 +161,6 @@ Labels,lbl_units,Units,,
 Labels,kpi_hint,Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card,,
 Labels,dec_eyebrow,Decisions required,,
 Labels,dec_title,Executive decisions,,
-Drivers,<line or value - e.g. Loans>,<driver note the AI weaves into commentary>,,
 CountryHierarchy,<ID - optional>,<Level 1 - e.g. Global>,<Level 2 region - e.g. Asia>,<Level 3 country = tab name - e.g. Singapore>
 Metrics,Revenue,accH2=Revenue,,
 Metrics,Banking NII,accH3=Banking NII,,

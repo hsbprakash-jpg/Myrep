@@ -162,28 +162,10 @@ aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
   font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)}
 #tplPanel .srch{font-size:11.5px}
 #tplPanel #tplPrev{margin:6px 18px 0}
-#drvPanel .drvrow{display:grid;grid-template-columns:1fr 24px;gap:4px 4px;margin:7px 14px 0 18px;align-items:center;position:relative}
-#drvPanel .drvrow .drv-t{grid-column:1 / span 2}
-#drvPanel input[type=text]{font:inherit;font-size:11.5px;padding:5px 8px;border:1px solid var(--border-strong);
-  border-radius:5px;background:var(--surface-2);color:var(--text-primary);min-width:0;width:100%;outline:none}
-#drvPanel input[type=text]:focus{border-color:var(--hsbc-red);box-shadow:0 0 0 2px var(--fold-bg)}
-#drvPanel .drv-x{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0}
-#drvPanel .drv-x:hover{color:var(--hsbc-red)}
 #simCmpOut .ctable{width:auto;min-width:min(100%,460px);max-width:100%}
 #simCmpOut .ctable td:first-child,#simCmpOut .ctable th:first-child{min-width:160px;padding-right:26px}
 #simCmpOut .ctable td.num,#simCmpOut .ctable th.num{white-space:nowrap}
-#drvPanel #comInNote{margin:5px 18px 0;color:var(--status-good)}
-#drvPanel .drvhint{grid-column:1 / span 2;font-size:10px;color:var(--status-good);margin-top:1px}
-#drvPanel .drvhint.warn{color:#b57a00}
-#drvPanel .drv-dd{position:absolute;top:31px;left:0;right:28px;z-index:40;background:var(--surface-2);
-  border:1px solid var(--border-strong);border-radius:7px;box-shadow:0 8px 22px rgba(0,0,0,.16);
-  max-height:250px;overflow-y:auto;padding:3px 0}
-#drvPanel .drv-dg{font-size:9.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
-  color:var(--fold-red);background:var(--fold-bg);padding:3px 10px;margin-top:2px}
-#drvPanel .drv-dg:first-child{margin-top:0}
-#drvPanel .drv-di{font-size:11.5px;padding:5px 10px 5px 14px;cursor:pointer;color:var(--text-primary);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#drvPanel .drv-di:hover,#drvPanel .drv-di.act{background:color-mix(in srgb, var(--hsbc-red) 8%, var(--surface-2))}
+#tplPanel #comInNote{margin:5px 18px 0;color:var(--status-good)}
 aside.side nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
   padding:8px 18px 8px 15px;font:inherit;font-size:13px;color:var(--text-secondary);cursor:pointer;
   border-left:3px solid transparent;text-align:left}
@@ -898,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 13:29)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 13:54)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 13:29)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 13:54)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -969,7 +951,6 @@ setTimeout(function(){
   <div id="sideFilters">
     <label><span data-lbl="lbl_ytd">YTD through</span> <select id="fMonth"></select></label>
     <label><span data-lbl="lbl_varper">Variance period</span> <select id="fVarPer"></select></label>
-    <label class="chk"><input type="checkbox" id="fFC"> <span data-lbl="lbl_fc">Include forecast month</span></label>
   </div>
   <div class="sect sect-row sect-fold" id="sectFiltersRow" title="Collapse / expand the filters" style="cursor:pointer">
     <span data-lbl="sect_filters">Filters — all columns</span>
@@ -978,16 +959,6 @@ setTimeout(function(){
   <div class="sect sect-fold" id="sectOutputRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_output">Output fields</span><span id="outputCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <p class="hint2">Tick the columns to include in the Data view and Excel exports.</p>
   <div id="outFields"></div>
-  <div class="sect sect-fold" id="sectDrvRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_drivers">Drivers · AI commentary</span><span id="drvCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
-  <div id="drvPanel">
-    <p class="hint2" data-lbl="drv_hint">Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.</p>
-    <div id="drvList"></div>
-    <button class="btn-quiet" id="btnDrvAdd" style="margin:6px 18px 0">+ Add driver</button>
-    <p class="hint2" data-lbl="comload_hint">Written commentary lives in the configuration —
-      <b>Commentary</b> rows, addressed or bare paragraphs. Bare paragraphs are read against the
-      names in the driller and lead the blocks they name; nothing is reworded.</p>
-    <p class="hint2" id="comInNote"></p>
-  </div>
   <div class="sect sect-fold" id="sectTplRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_comtpl">Commentary templates</span><span id="tplCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="tplPanel">
     <p class="hint2" data-lbl="tpl_hint">Commentary templates live in the configuration \u2014 the
@@ -995,12 +966,16 @@ setTimeout(function(){
       With the style on Auto the page adopts the template whose scope matches where it is looking;
       pick a named style here to force one voice everywhere.</p>
     <label><span data-lbl="lbl_tplpick">Active style</span> <select id="tplPick" aria-label="Commentary style"></select></label>
+    <p class="hint2" data-lbl="comload_hint">Written commentary lives in the configuration —
+      <b>Commentary</b> rows, addressed or bare paragraphs. Bare paragraphs are read against the
+      names in the driller and lead the blocks they name; nothing is reworded.</p>
+    <p class="hint2" id="comInNote"></p>
   </div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 13:29</div>
+<div id="buildTag">build 2026-08-15 13:54</div>
 </aside>
 <main>
 
@@ -1611,7 +1586,6 @@ const CFG_DEFAULT={
     {id:'B46', levels:['IWPB','Others','Other','Other Products','']},
     {id:'B47', levels:['IWPB','Others','Wealth Lending','','']}
   ]},
-  drivers:{},
   commentary:[],
   comFree:[],
   tiles:[],
@@ -1634,10 +1608,9 @@ const CFG_DEFAULT={
     sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
     sect_config:'Configuration', sect_period:'Period & RAG',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
-    btn_newfile:'Load new Driller', sect_drivers:'Drivers · AI commentary',
+    btn_newfile:'Load new Driller',
     btn_regen:'Regenerate', btn_retrieve:'Retrieve',
-    drv_hint:'Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.',
-    lbl_ytd:'YTD through', lbl_fc:'Include forecast month',
+    lbl_ytd:'YTD through',
     lbl_varper:'Variance period', lbl_units:'Units',
     sect_comtpl:'Commentary templates', lbl_tplpick:'Active style', lbl_tplscope:'Applies to',
     kpi_hint:'Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card',
@@ -2727,9 +2700,7 @@ function fillVarPeriod(){
   sel.parentElement.style.display=opts.length>1?'':'none';
 }
 function ytdLabel(){
-  const base=`Jan–${MON_LBL[S.ytdM]}`;
-  const fcP=S.model.cyMonths.find(p=>p.fc&&p.m<=S.ytdM);
-  return S.includeFC&&fcP? base+' (incl. FC)' : base;
+  return `Jan–${MON_LBL[S.ytdM]}`;
 }
 
 function fillFilters(){
@@ -2757,8 +2728,6 @@ function fillFilters(){
   S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
   S.units=cfgS('display_units').trim().toLowerCase()||'as';
   fillUnits(); fillVarPeriod(); renderTplPane();
-  const hasFC=m.cyMonths.some(p=>p.fc);
-  $('fFC').parentElement.style.display=hasFC?'':'none';
 
   // checkbox filter group per dimension column present in the file
   S.filters={};
@@ -2859,7 +2828,7 @@ function aiComment(host, sig, a, b){
   const saved= locked? st[base].t : (st[sig]&&st[sig].t);
   let text; try{ text=saved!=null? saved : gen(); }catch(e){ text=''; }
   // A retained text that still carries the generated opening keeps it in step
-  // with the Drivers section and the ingested commentary; text the reader has
+  // with the ingested commentary; text the reader has
   // fully rewritten is left alone. The swap is done on parsed nodes, not on the
   // string: the opening now carries movement markup of its own, and a regex for
   // the closing tag stopped at the first nested span and tore the block in half.
@@ -2919,7 +2888,7 @@ function comText(hostId){
 }
 function widgetComSig(w){
   const c=w.cfg||{};
-  return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,effMeasure(c),c.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig()+'|'+comStyleSig();
+  return 'wid|'+w.id+'|'+JSON.stringify([c.l2,c.groupBy,c.splitBy,effMeasure(c),c.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+comStyleSig();
 }
 function widgetCommentaryHtml(w){
   const m=S.model, rows=widgetRows(w.l2), L=cmpLabels(m);
@@ -2938,9 +2907,7 @@ function widgetCommentaryHtml(w){
     out+=` Strongest month <b>${MON_LBL[hi.m]}</b> (${fmt(hi.val)}); softest <b>${MON_LBL[lo2.m]}</b> (${fmt(lo2.val)}).`;
   }
   if(k.outlook!=null&&L.mode!=='py') out+=` Full-year outlook <b>${fmt(k.outlook)}</b>${k.target!=null?` vs target ${fmt(k.target)} (${fmt(k.varTgt)})`:''}.`;
-  const dt=driverFor(nm);
-  const wrote=[...comWritten('dashboard', [nm]).map(esc),
-    ...(dt? [`<b>${esc(nm)}</b> \u2014 ${esc(dt)}.`] : [])];
+  const wrote=comWritten('dashboard', [nm]).map(esc);
   if(wrote.length) out=`<span class="drvlead">${wrote.join(' ')}</span> `+out;
   return out;
 }
@@ -3036,12 +3003,9 @@ function chartCommentaryHtml(cfg){
     const share=Math.abs(v(lead)/total);
     if(share>0.5) out+=` Concentration risk: over half the total sits in one line.`;
   }
-  // What the business has written leads the commentary, then the drivers, then
-  // the figures the page computed. One span holds the written words so an
-  // edited commentary still picks up a change to what was ingested.
-  const dnotes=cats.map(c=>({c, t:driverFor(c.name)})).filter(x2=>x2.t)
-    .filter((x2,i2,arr)=>arr.findIndex(y2=>y2.t===x2.t)===i2)
-    .sort((a,b)=>Math.abs(v(b.c))-Math.abs(v(a.c))).slice(0,4);
+  // What the business has written leads the commentary, then the figures the
+  // page computed. One span holds the written words so an edited commentary
+  // still picks up a change to what was ingested.
   // what the chart pins onto its own bars is not repeated in the block beneath
   const onChart=new Set(comPinned(aKey, cats.map(c=>c.name)).map(q=>q.t));
   // a written line is joined to its own figures rather than printed beside them
@@ -3062,8 +3026,7 @@ function chartCommentaryHtml(cfg){
     }
   }
   const wrote=[...composed,
-    ...comWritten('chart', cats.map(c=>c.name)).filter(t=>!onChart.has(t)&&!said.has(t)).map(esc),
-    ...dnotes.map(x2=>`<b>${esc(x2.c.name)}</b> \u2014 ${esc(x2.t)}.`)];
+    ...comWritten('chart', cats.map(c=>c.name)).filter(t=>!onChart.has(t)&&!said.has(t)).map(esc)];
   return (wrote.length? `<span class="drvlead">${wrote.join(' ')}</span> ` : '')+out;
 }
 let TILE_DRAG=null, TILE_ALL=[];
@@ -3413,9 +3376,6 @@ function renderSummary(){
     }
     if(asOf.ytdM!==S.ytdM)
       return `YTD: months added — \u201c${asOf.label}\u201d serves ${MON_LBL[asOf.ytdM]}, the selector is on ${MON_LBL[S.ytdM]}`;
-    const cySel2=m.cyMonths.filter(p=>p.m<=S.ytdM&&(!p.fc||S.includeFC));
-    if(cySel2.some(p=>p.fc))
-      return `YTD: months added incl. forecast — untick \u201cInclude forecast month\u201d to read \u201c${asOf.label}\u201d`;
     return `YTD from the \u201c${asOf.label}\u201d column`;
   })();
   const lvl=tileL1?'MICA Level 1':'MICA Level 2';
@@ -3668,7 +3628,7 @@ function renderHouse(){
   const stPat= st==='auto'? String((comTplAuto()||{}).pattern||'')
              : (st!=='pack'&&st!=='house')? comTplPat(st) : '';
   aiComment($('houseCom'), 'house|'+filterNote()+'|'+S.ytdM+'|'+cur+'|'+L.vp+'|'+L.mode+'|'+
-    st+'|'+stPat+'|'+drvSig(),
+    st+'|'+stPat,
     // the per-line reasons are woven into the sentences below; the lead
     // carries what was written about the period as a whole, and anything
     // about a line the statement never named
@@ -4321,7 +4281,7 @@ function renderMix(){
   $('mixTitle').textContent=chartTitle(MX);
   $('mixSub').textContent=`${cmpLabels(S.model).period} · ${scopeUnit(scopeFilter(filteredRows(),MX.l2))}`;
   const el=$('mixChart'); el.innerHTML=''; el.appendChild(buildChartEl({...MX}));
-  aiComment($('mixCom'), 'mix|'+JSON.stringify([MX.l2,MX.groupBy,MX.measure,MX.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig()+'|'+comStyleSig(),
+  aiComment($('mixCom'), 'mix|'+JSON.stringify([MX.l2,MX.groupBy,MX.measure,MX.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+comStyleSig(),
     ()=>chartCommentaryHtml({...MX}));
 }
 function saveMix(){ try{ localStorage.setItem('iwpbsg_mix',JSON.stringify(MX)); }catch(e){} }
@@ -6678,7 +6638,7 @@ function renderBuilder(){
   $('bPrevTitle').textContent=chartTitle(cfg);
   $('bPrevSub').textContent=`YTD ${ytdLabel()} · respects the filters in the left pane · top ${cfg.type==='donut'?6:8} categories, rest folded into Other`;
   pv.appendChild(buildChartEl(cfg));
-  aiComment($('bCom'), 'bld|'+JSON.stringify([B.l2,B.groupBy,B.splitBy,B.measure,B.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+drvSig()+'|'+comStyleSig(),
+  aiComment($('bCom'), 'bld|'+JSON.stringify([B.l2,B.groupBy,B.splitBy,B.measure,B.type])+'|'+filterNote()+'|'+S.ytdM+'|'+vpSel()+'|'+comStyleSig(),
     ()=>chartCommentaryHtml(cfg));
 }
 
@@ -7306,7 +7266,7 @@ function renderComAll(){
     host.appendChild(d);
     const slot=d.querySelector('.cabody');
     if(CA_ORIG) slot.innerHTML=`<div class="aicom"><div class="aicom-t">${body}</div></div>`;
-    else aiComment(slot, 'ca|'+sec.id+'|'+filterNote(true)+'|'+S.ytdM+'|'+comInSig()+'|'+drvSig(),
+    else aiComment(slot, 'ca|'+sec.id+'|'+filterNote(true)+'|'+S.ytdM+'|'+comInSig(),
       {ctx:filterNote(true)}, ()=>caSectionHtml(sec));
   }
   if(!n) host.innerHTML='<p class="note">This file carries no comparison the pack writes on \u2014 a target, a forecast or a prior year is needed.</p>';
@@ -7877,7 +7837,7 @@ function renderFsum(){
   const lblB=$('fsumLblReset');
   if(lblB) lblB.onclick=()=>{ try{ localStorage.removeItem('iwpbsg_fsumlbl'); }catch(e){} renderFsum(); };
   renderFsumNotes(rows, m, P);
-  aiComment($('fsumCom'), 'fsum|'+filterNote(true)+'|'+S.ytdM+'|'+drvSig(),
+  aiComment($('fsumCom'), 'fsum|'+filterNote(true)+'|'+S.ytdM,
     {ctx:filterNote(true)}, ()=>fsumCommentary(rows,m,P));
 }
 /* Is a variance favourable for this line? Costs and ECL are stored as
@@ -7991,13 +7951,12 @@ function renderFsumLv(){
     el.addEventListener('click',()=>place(el.dataset.k,null)));
 }
 /* The pack prints a short note beside each line. A note the business has
-   written — from the Drivers pane or the config's Drivers sheet — always
-   leads; where none exists the line describes itself from its own figures,
+   written always leads; where none exists the line describes itself from its own figures,
    in the same words the grid uses, so the column is never blank and never
    invented. */
 function fsumNoteLines(rows){
   const named=cfgNameList('fsum_note_lines');
-  const hasWritten=n=>!!(comForLine(n,'line')[0]||driverFor(n));
+  const hasWritten=n=>!!comForLine(n,'line')[0];
   const tree=fsumTree(rows).filter(r=>!r.band&&r.name);
   if(named.length){
     const by=new Map(tree.map(r=>[String(r.name).trim().toLowerCase(), r]));
@@ -8010,9 +7969,8 @@ function fsumNoteLines(rows){
   return tree.filter(r=>hasWritten(r.name)).map(r=>({name:r.name, rows:r.rows}));
 }
 function fsumNoteText(name, rs, m, P){
-  // what the business wrote about this line, else the driver note, else the
-  // line reads its own figures
-  const own=comForLine(name,'line')[0]||driverFor(name);
+  // what the business wrote about this line, else the line reads its own figures
+  const own=comForLine(name,'line')[0];
   if(own&&comStyle()==='verbatim') return {html:esc(own), own:true};
   const f=fsumFigs(rs, m, P, S.ytdM, name), k=f.k;
   const nf=v=>f.ratio? fsumRatioTxt(v) : f.bsFmt? fmtBS(v)+bsUnit() : fmtFull(Math.round(v==null?0:v));
@@ -8037,7 +7995,7 @@ function renderFsumNotes(rows, m, P){
   const mode=String(cfgS('fsum_notes')||'auto').trim().toLowerCase();
   if(mode==='n'){ host.hidden=true; host.innerHTML=''; return; }
   const lines=fsumNoteLines(rows);
-  const anyOwn=lines.some(l=>comForLine(l.name,'line')[0]||driverFor(l.name));
+  const anyOwn=lines.some(l=>!!comForLine(l.name,'line')[0]);
   if(!lines.length||(mode!=='y'&&!anyOwn&&!cfgNameList('fsum_note_lines').length)){
     host.hidden=true; host.innerHTML=''; return;
   }
@@ -8078,14 +8036,11 @@ function fsumCommentary(rows,m,P){
       .map(([nm,rs])=>fsumBlockText(nm, rs, m, P, null)).join(' ');
   });
   let h=parts.join('<br><br>');
-  const movers=fsumMovers(rows,m,P);
-  const dt=movers.map(x=>driverFor(x.name)).filter(Boolean);
   const wrote=[...comWritten('fsum', []).map(esc),
     ...comUnsaid('fsum', comNamesOf(rows)).map(q=>{
       const d=comDigest(q.text, q.name);
       return `<b>${esc(q.name)}</b> \u2014 ${esc(d)}${/[\u2026.!?]$/.test(d)?'':'.'}`;
-    }),
-    ...(dt.length? [esc(dt[0])+'.'] : [])];
+    })];
   if(wrote.length) h=`<span class="drvlead">${wrote.join(' ')}</span> `+h;
   return h;
 }
@@ -9203,8 +9158,7 @@ function aWhy(){
   const up=[...g].sort((a,b)=>(b.k.cmpVar||0)-(a.k.cmpVar||0)).filter(x=>x.k.cmpVar>0).slice(0,3);
   const dn=[...g].sort((a,b)=>(a.k.cmpVar||0)-(b.k.cmpVar||0)).filter(x=>x.k.cmpVar<0).slice(0,3);
   const kT=aKpi(rows.filter(r=>!isBSLine(String(r.d.micaL1||''))));
-  const drv=definedDrivers();
-  const note=n=>{ const d=drv.find(x=>String(n).toLowerCase().includes(String(x.name).toLowerCase())); return d? ` — ${esc(d.text)}`:''; };
+  const note=()=>'';
   let h=`The ${movVal(kT,kT.cmpVar,kT.cmpVarPct)} movement ${esc(L.vs)} comes mostly from:`;
   h+=aTable(['Line','Movement',L.main,L.base],
     [...up,...dn].map(x=>[esc(x.n)+note(x.n),movVal(x.k,x.k.cmpVar,x.k.cmpVarPct),aCell(x.k,x.k.cmpMain),aCell(x.k,x.k.cmpBase)]));
@@ -9368,26 +9322,6 @@ function renderAssist(){
     b.addEventListener('click',()=>{ const q=AQ.find(x=>x.id===b.dataset.id); if(q) aiAsk(q.q); }));
 }
 
-/* ================= business drivers (feed AI commentary) ================= */
-let DRIVERS=null;
-function driversDef(){
-  if(!DRIVERS){
-    try{ DRIVERS=JSON.parse(localStorage.getItem('iwpbsg_drivers')||'null'); }catch(e){ DRIVERS=null; }
-    if(!Array.isArray(DRIVERS)){
-      try{ const mOld=JSON.parse(localStorage.getItem('iwpbsg_mission')||'null');
-        DRIVERS=(mOld&&Array.isArray(mOld.drivers))? mOld.drivers : []; }catch(e){ DRIVERS=[]; }
-    }
-  }
-  return DRIVERS;
-}
-function driversSave(){ try{ localStorage.setItem('iwpbsg_drivers',JSON.stringify(driversDef())); }catch(e){} }
-function definedDrivers(){
-  // pane entries first so a local edit overrides a config note for the same line
-  const out=[], cd=(CFG&&CFG.drivers)||{};
-  for(const d of driversDef()) if(d&&d.name&&d.text) out.push({name:d.name,text:d.text});
-  for(const [n,t] of Object.entries(cd)) if(n&&t&&!/^</.test(n)) out.push({name:n,text:t});
-  return out;
-}
 /* ================= commentary the business has written =================
    The page computes figures; it never writes narrative. Where the business has
    written the narrative — a Commentary sheet in the config, a Commentary tab in
@@ -9516,7 +9450,7 @@ function comWritten(view, names){
   return comInAll().filter(c=>comViewOK(c.view, view)&&comMatchLine(c.line, names))
     .map(c=>String(c.text).trim());
 }
-/* the written words, in the same span the Drivers text uses, so a commentary
+/* the written words, in one leading span, so a commentary
    the reader has edited still picks up a change to what was ingested */
 function comLead(view, names){
   const t=comWritten(view, names);
@@ -9938,97 +9872,6 @@ function comInParse(txt){
   }
   return out.filter(c=>c.text);
 }
-function driverFor(name){
-  if(name==null) return null;
-  const n=String(name).trim().toLowerCase(); if(!n) return null;
-  for(const d of definedDrivers()){
-    const dn=String(d.name).trim().toLowerCase();
-    if(dn&&(n===dn||n.includes(dn)||dn.includes(n))) return d.text;
-  }
-  return null;
-}
-function drvSig(){ return definedDrivers().map(d=>d.name+':'+d.text).join(';'); }
-let DRV_OPT_CACHE=null, DRV_OPT_CACHE_M=null;
-function driverOptions(){
-  const m=S.model; if(!m) return [];
-  if(DRV_OPT_CACHE&&DRV_OPT_CACHE_M===m) return DRV_OPT_CACHE;
-  const keys=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
-  const sets={}; keys.forEach(k=>sets[k]=new Set());
-  for(const r of m.rows) for(const k of keys){ const v=r.d[k]; if(v) sets[k].add(String(v)); }
-  DRV_OPT_CACHE=keys.map(k=>[FIELD_LABELS[k],[...sets[k]].sort()]).filter(g=>g[1].length&&g[1].length<=300);
-  DRV_OPT_CACHE_M=m;
-  return DRV_OPT_CACHE;
-}
-function driverMatches(name){
-  const m=S.model; if(!m||!name||!String(name).trim()) return [];
-  const n=String(name).trim().toLowerCase(), set=new Set();
-  for(const r of m.rows){
-    for(const key of Object.keys(m.dimCols)){
-      const v=r.d[key]; if(!v) continue;
-      const lv=String(v).toLowerCase();
-      if(lv===n||lv.includes(n)||n.includes(lv)) set.add(String(v));
-    }
-    if(set.size>3) break;
-  }
-  return [...set].slice(0,3);
-}
-function drawDrivers(){
-  const host=$('drvList'); if(!host) return;
-  const ds=driversDef();
-  const cfgN=Object.keys((CFG&&CFG.drivers)||{}).filter(n2=>!/^</.test(n2)).length;
-  host.innerHTML=ds.map((d,i)=>{
-    const mt=d.name? driverMatches(d.name) : [];
-    const hint= !d.name? ''
-      : !d.text? '<div class="drvhint warn">add the driver note below — the driver is inactive without it</div>'
-      : mt.length? `<div class="drvhint">✓ matches: ${mt.map(esc).join(' · ')}</div>`
-      : '<div class="drvhint warn">⚠ no line in the loaded data matches this name</div>';
-    return `<div class="drvrow" data-i="${i}">
-      <input type="text" class="drv-n" placeholder="Type to search the line / value…" value="${esc(d.name)}" autocomplete="off" title="Line or value the driver applies to — type to search">
-      <div class="drv-dd" hidden></div>
-      <button class="drv-x" title="Remove driver">✕</button>
-      <input type="text" class="drv-t" placeholder="Driver note — e.g. mortgage repricing +50bps" value="${esc(d.text)}">
-      ${hint}</div>`;}).join('')
-    +(cfgN?`<p class="note" style="margin:5px 18px 0">${cfgN} driver${cfgN>1?'s':''} loaded from the config file.</p>`:'');
-  host.querySelectorAll('.drvrow').forEach(row=>{
-    const i=+row.dataset.i;
-    const inp=row.querySelector('.drv-n'), dd=row.querySelector('.drv-dd');
-    const commit=v=>{ ds[i].name=v; driversSave(); drawDrivers(); render(); };
-    const build=q=>{
-      const ql=String(q||'').trim().toLowerCase();
-      let html='', count=0;
-      for(const g of driverOptions()){
-        const hit=g[1].filter(v=>!ql||v.toLowerCase().includes(ql)).slice(0,15);
-        if(!hit.length) continue;
-        html+=`<div class="drv-dg">${esc(g[0])}</div>`+hit.map(v=>`<div class="drv-di" data-v="${esc(v)}">${esc(v)}</div>`).join('');
-        count+=hit.length; if(count>=45) break;
-      }
-      dd.innerHTML=html||'<div class="drv-dg">no matching line in the loaded data</div>';
-      dd.hidden=false; dd._act=-1;
-      dd.querySelectorAll('.drv-di').forEach(el=>el.addEventListener('mousedown',e2=>{
-        e2.preventDefault(); dd.hidden=true; inp.value=el.dataset.v; commit(el.dataset.v); }));
-    };
-    inp.addEventListener('focus',()=>build(inp.value));
-    inp.addEventListener('input',()=>build(inp.value));
-    inp.addEventListener('keydown',e2=>{
-      if(dd.hidden) return;
-      const items=[...dd.querySelectorAll('.drv-di')];
-      if(e2.key==='ArrowDown'||e2.key==='ArrowUp'){
-        e2.preventDefault();
-        dd._act=Math.max(0,Math.min(items.length-1,(dd._act<0?-1:dd._act)+(e2.key==='ArrowDown'?1:-1)));
-        items.forEach((el,ix)=>el.classList.toggle('act',ix===dd._act));
-        if(items[dd._act]) items[dd._act].scrollIntoView({block:'nearest'});
-      } else if(e2.key==='Enter'&&dd._act>=0&&items[dd._act]){
-        e2.preventDefault(); dd.hidden=true; inp.value=items[dd._act].dataset.v; commit(inp.value);
-      } else if(e2.key==='Escape'){ dd.hidden=true; }
-    });
-    inp.addEventListener('blur',()=>{ setTimeout(()=>{ dd.hidden=true; },120);
-      if(inp.value!==ds[i].name) commit(inp.value); });
-    row.querySelector('.drv-t').addEventListener('change',e=>{ ds[i].text=e.target.value; driversSave(); drawDrivers(); render(); });
-    row.querySelector('.drv-x').addEventListener('click',()=>{ ds.splice(i,1); driversSave(); drawDrivers(); render(); });
-  });
-}
-
-
 function render(){
   if(!S.model) return;
   if(S.view==='summary') renderSummary();
@@ -10558,7 +10401,6 @@ function applyCfgDom(){
   if(!cfgViewOn(S.view)) S.view='summary';
   if(S.model){ S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
     S.units=cfgS('display_units').trim().toLowerCase()||'as'; fillUnits(); fillVarPeriod(); }
-  drawDrivers();
 }
 function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
@@ -10577,7 +10419,6 @@ function cfgFromWorkbook(wb){
       else if(sec==='dimensions'){ if(a) cfg.dimensions[a]={label:b2||null, filter:c||'Y', sim:d||'Y', match:e2||null}; }
       else if(sec==='views'){ if(a) cfg.views[a.toLowerCase()]=b2||'Y'; }
       else if(sec==='labels'){ if(a) cfg.labels[a.toLowerCase()]=b2; }
-      else if(sec==='drivers'){ if(a&&b2) cfg.drivers[a]=b2; }
       else if(sec==='aliases'||sec==='alias'){
         // Alias | Line — what the commentary calls it, and the line in the file
         if(a&&b2) cfg.aliases.push({alias:a, line:b2});
@@ -10701,7 +10542,6 @@ function cfgTemplateCSV(){
     ['Dimensions','<new key - e.g. channel>','<label - e.g. Channel>','Y','N','<driller column to match - e.g. channel>'],
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
-    ['Drivers','<line or value - e.g. Loans>','<driver note the AI weaves into commentary>','',''],
     ['Commentary','<view - Summary / Financial Summary / Chart / Dashboard / blank = all>',
       '<line - e.g. Revenue; blank = the whole view>','<the words the business wrote>','',''],
     ['Aliases','<what the commentary calls it - e.g. NII>','<the line in the driller - e.g. NII - Interest Income>','','',''],
@@ -10948,7 +10788,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 13:29</td></tr>
+      <tr><td>Build</td><td>2026-08-15 13:54</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10988,22 +10828,12 @@ function init(){
   });
   $('fMonth').addEventListener('change',e=>{
     const v=e.target.value;
-    if(v.startsWith('fc')){ S.ytdM=+v.slice(2); S.includeFC=true; $('fFC').checked=true; }
-    else S.ytdM=+v;
+    S.ytdM=+v;
     fillVarPeriod();
     render();
   });
   $('fVarPer').addEventListener('change',e=>{ S.varPeriod=e.target.value; fillVarPeriod(); render(); });
   $('fUnits').addEventListener('change',e=>{ S.units=e.target.value; fillUnits(); render(); renderKpiNav(); });
-  $('fFC').addEventListener('change',e=>{
-    S.includeFC=e.target.checked;
-    // unticking FC while an FC month is selected falls back to the last actual month
-    if(!S.includeFC && $('fMonth').value.startsWith('fc')){
-      S.ytdM=S.lastActualM; $('fMonth').value=String(S.lastActualM);
-    }
-    fillVarPeriod();
-    render();
-  });
   $('navSummary').addEventListener('click',()=>setView('summary'));
   $('navFsum').addEventListener('click',()=>setView('fsum'));
   $('navComall').addEventListener('click',()=>setView('comall'));
@@ -11078,7 +10908,6 @@ function init(){
   $('navTable').addEventListener('click',()=>setView('table'));
   $('navAssist').addEventListener('click',()=>setView('assist'));
   $('navSim').addEventListener('click',()=>setView('sim'));
-  $('btnDrvAdd').addEventListener('click',()=>{ driversDef().push({name:'',text:''}); driversSave(); drawDrivers(); });
   // commentary the business wrote: carried in the configuration, nothing
   // loaded separately and nothing hidden in the driller
   function comShow(){
@@ -11116,8 +10945,6 @@ function init(){
   mkCollapse('sectPeriodRow','periodCaret','iwpbsg_period_collapsed',['#sideFilters']);
   mkCollapse('sectFiltersRow','filtersCaret','iwpbsg_filters_collapsed',['#dimFilters']);
   mkCollapse('sectOutputRow','outputCaret','iwpbsg_output_collapsed',['p.hint2','#outFields']);
-  mkCollapse('sectDrvRow','drvCaret','iwpbsg_drv_collapsed',['#drvPanel']);
-  drawDrivers();
   mkCollapse('sectTplRow','tplCaret','iwpbsg_tpl_collapsed',['#tplPanel']);
   renderTplPane();
   const tplSetStyle=v=>{ S.comStyle=v;

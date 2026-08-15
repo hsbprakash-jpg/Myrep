@@ -636,8 +636,8 @@ left-pane strip and the Filters pane.
   a Luxembourg paragraph is group commentary and belongs; a paragraph naming a
   *selected* value stays even when it names others too ("India led while
   Luxembourg lagged" belongs in the India view); and a paragraph naming no
-  value of the dimension at all is neutral and always belongs. The Drivers
-  pane counts what is being held back, so nothing disappears silently. This
+  value of the dimension at all is neutral and always belongs. The left pane's
+  commentary note counts what is being held back, so nothing disappears silently. This
   governs every view the document feeds — the six bases, the management
   commentary, the Financial Summary, the charts.
 
@@ -693,8 +693,8 @@ left-pane strip and the Filters pane.
   **The words are kept, not the answers.** The paragraphs are stored as
   written and matched afresh every time they are read — next month's driller
   re-matches the same paragraphs against next month's names with nobody
-  tagging a thing, and the Drivers pane always says how many matched, how many
-  were addressed by hand, and what the filters are holding back.
+  tagging a thing, and the left pane's commentary note always says how many
+  matched, how many were addressed by hand, and what the filters are holding back.
 
   **The page writes the sentence; the document gives the cause.** Quoting a
   paragraph beside the figures says the same thing twice — the paragraph reads
@@ -790,8 +790,8 @@ left-pane strip and the Filters pane.
   the line, product or region it is about, matched loosely against the names on
   the page, and blank means the view as a whole. Where nothing is written a block
   reads its own figures exactly as before, so ingesting one line never silences
-  the rest. A written line also leads its own row in the Line commentary column,
-  ahead of the Drivers note. Editing a block and keeping it still works: the
+  the rest. A written line also leads its own row in the Line commentary column.
+  Editing a block and keeping it still works: the
   written words refresh in place on the next ingest while your own edits stay.
 
   **Commentary templates — choosing how the narrative is worded.** The
@@ -946,9 +946,9 @@ left-pane strip and the Filters pane.
   once edited it becomes your own note, kept like any other.
 - **Line commentary, as the pack prints it** — the reporting pack sets a
   short note beside each line, and the Financial Summary now carries the same
-  column beneath the grid. A note written by the business leads — from the
-  **Drivers** pane in the left rail or the config's `Drivers` sheet, keyed by
-  the line's name — and a line without one reads its own figures in the
+  column beneath the grid. A note written by the business leads — a
+  **Commentary** row in the config, keyed by the line's name — and a line
+  without one reads its own figures in the
   page's own words (`JUN YTD 2,293 — ▼46 vs target; JUN ▼4 vs forecast`),
   each in that line's unit, so a note and the row beside it can never
   disagree. `fsum_note_lines` sets which lines are commented on and in what
@@ -1150,13 +1150,7 @@ filter for EVERY dimension column in the file — each column expands to its dis
 with All/None shortcuts and a search box for long lists, and any
 combination applies to every view, chart and export. Below that, an
 Output fields section with checkboxes chooses which dimension columns and
-period column groups appear in the Data view and in Excel exports, and a
-**Drivers** section holds known business drivers — a line or dimension
-value plus its explanation (e.g. `Loans → mortgage repricing +50bps`) —
-which the AI commentary weaves into its narrative wherever that line
-surfaces as a mover (Mix analysis, chart builder, pinned dashboard
-charts). Drivers can be typed in the pane or shipped in the config file's
-`Drivers` section (Key = line or value, Value = driver note). RAG compares YTD actuals with the same
+period column groups appear in the Data view and in Excel exports. RAG compares YTD actuals with the same
 prior-year months: **green at or above prior year, red below it**. There is
 no amber and no watch band — an in-between rating only ever meant "within a
 tolerance nobody agreed", and it let the same figure read three ways
