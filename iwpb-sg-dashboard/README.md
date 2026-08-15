@@ -223,7 +223,40 @@ left-pane strip and the Filters pane.
   Summary and the KPI scorecard still carry the line in full. Set
   `tile_hidden` (a `;`- or `,`-separated list of tile names) to have a build
   open with those tiles parked out of the box; the reader's own first hide or
-  restore takes over from then on.
+  restore takes over from then on. The plain-language form is the **Tiles**
+  tab of the configuration workbook: one row per tile, `Y` to show and `N` to
+  hide (a tab of only-`Y` rows shows just those), with an optional **Nets
+  with** column naming the lines that tile nets in.
+- **The headline is always the year to date, through the last actual month.**
+  Whatever the variance period compares on — a quarter, a single month, the
+  full year — the figure at the top of a tile is the same one: the YTD
+  through the last month before the forecast begins, taken from the file's
+  own YTD column, and labelled with that month (`JUN YTD`). Selecting a
+  forecast month, or ticking the forecast month in, moves the rest of the
+  page but never that figure. Where the selected period reads something
+  else, its own figure stands directly beneath the headline (`Q2 2026
+  4,193`) with the comparison rows under it, so the tile, the trajectory and
+  the commentary still speak about the same basis without the headline
+  moving underneath them. Balances keep their closing balance, labelled the
+  same way (`JUN closing`). The PowerPoint one-pager leads with the same
+  figure.
+- **A line nets in what offsets it.** Where a revenue line is reduced by
+  another line beside it — an offset, a contra, a negative revenue line —
+  the tile shows the **net**, and says what it netted in (`net of Other
+  Revenue (212)`) so nothing is silent. The netting is done on the rows
+  themselves, so the year to date, every variance period and the trajectory
+  all net the same way, and a line already inside the tile is never counted
+  twice. The configuration has the first word: a **Nets with** entry on the
+  `Tiles` tab (`Revenue | Y | Other Revenue, Revenue offsets`), or a
+  `tile_net` rule (`Revenue = Other Revenue; Total Opex = Recoveries`),
+  names exactly what nets with what; `-` in that column stops a netting the
+  page would otherwise make, and `tile_net_auto: N` switches the automatic
+  rule off everywhere. With nothing named, the page nets a line only when it
+  runs against its own block — a negative line inside a positive revenue
+  block — and only into the largest line of that block under the same
+  parent, never into two tiles at once, and never a cost, an ECL or a
+  balance (`revenue_patterns` decides what reads as revenue). A balance
+  never joins a P&L line.
 - **Move a tile where you want it** — drag any KPI tile onto another and it
   lands there, before or after depending on which half of the target you drop
   on. The order holds whatever produced the tiles: a config-named set

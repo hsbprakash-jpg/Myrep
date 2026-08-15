@@ -24,6 +24,7 @@ Settings,collapse_rest,Y,,
 Settings,fc_label_pattern,forecast|fcst|\bfc\b,,
 Settings,target_label_pattern,\btarget\b|\btgt\b|target|tgt,,
 Settings,cost_patterns,cost|\becls?\b|expected\s+credit|impair|expense|\boffsets?\b|contra,,
+Settings,revenue_patterns,revenue|income|\bfees?\b|\bnii\b|turnover|\bnnii\b,,
 Settings,memo_patterns,,,
 Settings,fsum_memo_label,Key Metrics,,
 Settings,balance_sheet_patterns,deposit|\bloan|advance|mortgage|\bcasa\b|balance|\basset|liabilit|\brwa\b|\baum\b|\bnnm\b|customer\s*account,,
@@ -263,3 +264,5 @@ CommentaryTemplates,IWPB Country,IWPB Country,"In {scope}, {line} came in at {ma
 CommentaryTemplates,Exec brief,,"{line} {var} {vs}, led by {drivers}."
 CommentaryTemplates,FP&A detail,,{line}: {main} against {base} — {varamt} ({varpct}) {vs}. Key movers: {drivers}.
 Settings,tile_visible,
+Settings,tile_net,,,
+Settings,tile_net_auto,Y,,

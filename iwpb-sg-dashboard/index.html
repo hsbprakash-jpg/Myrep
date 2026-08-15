@@ -718,7 +718,9 @@ svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 .card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
 .card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.card .tval{font-size:19px;font-weight:750;font-variant-numeric:tabular-nums;flex:none}
+.card .tval{font-size:19px;font-weight:750;font-variant-numeric:tabular-nums;flex:none;text-align:right}
+.card .tval .tvlbl{display:block;font-size:9px;font-weight:600;letter-spacing:.3px;
+  color:var(--text-muted);line-height:1.1;margin-bottom:1px}
 .krow{display:flex;align-items:baseline;margin-top:4px;font-size:12.5px}
 .krow .kl{color:var(--text-secondary);flex:1}
 .krow .kv{font-weight:700;font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
@@ -896,9 +898,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 10:53)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 12:46)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 10:53)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 12:46)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -998,7 +1000,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 10:53</div>
+<div id="buildTag">build 2026-08-15 12:46</div>
 </aside>
 <main>
 
@@ -1424,6 +1426,8 @@ const CFG_DEFAULT={
     tile_lines:'',
     tile_hidden:'',
     tile_visible:'',
+    tile_net:'',
+    tile_net_auto:'Y',
     scorecard_hidden:'',
     tile_metrics:'auto',
     tile_dims:'',
@@ -1434,6 +1438,7 @@ const CFG_DEFAULT={
     fc_label_pattern:'forecast|fcst|\\bfc\\b',
     target_label_pattern:'\\btarget\\b|\\btgt\\b|target|tgt',
     cost_patterns:'cost|\\becls?\\b|expected\\s+credit|impair|expense|\\boffsets?\\b|contra',
+    revenue_patterns:'revenue|income|\\bfees?\\b|\\bnii\\b|turnover|\\bnnii\\b',
     memo_patterns:'',
     chart_note_shape:'bubble',
     chart_note_head:'N',
@@ -1642,7 +1647,7 @@ const CFG_DEFAULT={
 for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:'Y'};
 let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null');
   if(v&&v.settings) return v; }catch(e){} return JSON.parse(JSON.stringify(CFG_DEFAULT)); })();
-let RE_FC,RE_TGT,RE_COST,RE_HIDE,RE_BS,RE_MEMO,RE_RATIO,PRIO_RES;
+let RE_FC,RE_TGT,RE_COST,RE_REV,RE_HIDE,RE_BS,RE_MEMO,RE_RATIO,PRIO_RES;
 function cfgS(k){ const v=CFG.settings&&CFG.settings[k]; return (v==null||v==='')? CFG_DEFAULT.settings[k] : String(v); }
 function brandName(){ const t=cfgS('app_title'); return t.replace(/\s*driller\s*$/i,'').trim()||t; }
 function brandMark(){ const v=cfgS('logo_mark'); if(v) return v.slice(0,4);
@@ -1676,6 +1681,7 @@ function cfgCompile(){
   RE_FC=cfgRe(cfgS('fc_label_pattern'),CFG_DEFAULT.settings.fc_label_pattern);
   RE_TGT=cfgRe(cfgS('target_label_pattern'),CFG_DEFAULT.settings.target_label_pattern);
   RE_COST=cfgRe(cfgS('cost_patterns'),CFG_DEFAULT.settings.cost_patterns);
+  RE_REV=cfgRe(cfgS('revenue_patterns'),CFG_DEFAULT.settings.revenue_patterns);
   RE_HIDE=cfgRe(cfgS('hidden_cmp_patterns'),CFG_DEFAULT.settings.hidden_cmp_patterns);
   RE_BS=cfgRe(cfgS('balance_sheet_patterns'),CFG_DEFAULT.settings.balance_sheet_patterns);
   RE_MEMO=cfgS('memo_patterns').trim()? cfgRe(cfgS('memo_patterns'),'') : null;
@@ -3114,6 +3120,120 @@ function applyTileOrder(list){
   return [...list].sort((a,b)=>idx(a.l2)-idx(b.l2));
 }
 function tileOrderClear(){ try{ localStorage.removeItem('iwpbsg_tileorder'); }catch(e){} }
+/* The month a tile's headline reads: the year to date through the last actual
+   month \u2014 the month before the forecast begins. Selecting a forecast
+   month, or ticking the forecast month in, moves the rest of the page but
+   never the figure at the top of a tile. */
+function tileYtdM(){
+  const la=(typeof S!=='undefined'&&S.lastActualM!=null)? S.lastActualM : S.ytdM;
+  return Math.min(S.ytdM, la);
+}
+/* the same KPI read at that month, with no forecast in it \u2014 recomputed
+   only when the selection is not already sitting on it */
+function tileYtdK(k, rows, m){
+  if(!k||k.isBS||!rows||!m) return k;
+  const ym=tileYtdM();
+  if(ym===S.ytdM && !(S.includeFC && m.cyMonths.some(p=>p.fc&&p.m<=S.ytdM))) return k;
+  return kpi(rows, m, ym, false);
+}
+/* Lines that offset another line rather than standing on their own \u2014 a
+   negative revenue line beside the revenue it reduces. The configuration has
+   the first word: a Tiles-tab \u201cNets with\u201d entry, or a tile_net rule,
+   names what a tile nets in (\u201c-\u201d nets nothing). With nothing named, a
+   revenue tile nets in a sibling under the same parent that carries the
+   opposite sign and is itself a revenue or offset line \u2014 never a cost, an
+   ECL or a balance. The netting is done on the rows, so the year to date,
+   every variance period and the trajectory all net the same way, and a line
+   already inside the tile is never counted twice. */
+function tileNetRules(){
+  const out=new Map();
+  for(const t of ((CFG&&CFG.tiles)||[]))
+    if(t&&t.net&&String(t.net).trim()) out.set(String(t.name).trim().toLowerCase(), String(t.net));
+  for(const rule of String(cfgS('tile_net')||'').split(/[;|]/)){
+    const i=rule.indexOf('=');
+    if(i<0) continue;
+    const tgt=rule.slice(0,i).trim(), lst=rule.slice(i+1).trim();
+    if(tgt&&lst) out.set(tgt.toLowerCase(), lst);
+  }
+  return out;
+}
+function tileNetNames(name){
+  const v=tileNetRules().get(String(name).trim().toLowerCase());
+  if(v==null) return null;
+  if(/^(n|no|none|-)$/i.test(String(v).trim())) return [];
+  return String(v).split(/[,;|]/).map(x=>x.trim()).filter(Boolean);
+}
+function isOffsetName(n){ return /offsets?|contra|elimination/i.test(String(n||'')); }
+function isRevenueLine(n){ return !!(RE_REV&&RE_REV.test(String(n||''))); }
+function tileNetApply(cards, rows, m){
+  if(!cards||!cards.length||!m) return cards;
+  const auto=cfgYes('tile_net_auto');
+  const kOf=rs=>{ let k=kpi(rs,m,S.ytdM,S.includeFC);
+    if(rs.length&&isBSLine(rs[0].d.micaL1||'')) k=bsRecast(k); return k; };
+  const val=c=>((c.k&&(c.k.cy!=null? c.k.cy : c.k.cmpMain))||0);
+  // an offset joins one line and one only: the largest line of the opposite
+  // sign under its own parent, so a contra never lands on two tiles at once
+  const autoAdds=new Map();
+  const claimed=[...tileNetRules().values()].join(',').split(/[,;|]/).map(x=>x.trim()).filter(Boolean);
+  // which way a parent's lines point: the block's own sign. A line running
+  // against its block is what offsets the block \u2014 a line running with it
+  // never is, so the offset is never mistaken for the line it reduces.
+  const blockSign=new Map();
+  for(const c of cards){
+    if(!c.rows||!c.rows.length||(c.k&&c.k.isBS)) continue;
+    const g=String(c.l1||'');
+    blockSign.set(g,(blockSign.get(g)||0)+val(c));
+  }
+  const withBlock=c=>{ const t=blockSign.get(String(c.l1||''))||0, v=val(c);
+    return !t||!v? null : (v>0)===(t>0); };
+  if(auto) for(const o of cards){
+    if(!o.rows||!o.rows.length||(o.k&&o.k.isBS)) continue;
+    const ov=val(o); if(!ov||withBlock(o)!==false) continue;         // runs with its block: not an offset
+    // a line a rule already nets somewhere is never netted again on its own
+    if(claimed.some(x=>tileNameMatch(x,String(o.l2).trim().toLowerCase()))) continue;
+    if(RE_COST.test(String(o.l2))&&!isOffsetName(o.l2)) continue;   // costs and ECL stand alone
+    if(!isRevenueLine(o.l2)&&!isOffsetName(o.l2)) continue;
+    let best=null;
+    for(const t of cards){
+      if(t===o||!t.rows||!t.rows.length||(t.k&&t.k.isBS)) continue;
+      if(!isRevenueLine(t.l2)||tileNetNames(t.l2)!=null) continue;
+      if(String(t.l1||'')!==String(o.l1||'')) continue;              // only within one parent
+      if(withBlock(t)!==true) continue;                              // the line the block is made of
+      if(o.rows.every(r=>t.rows.includes(r))) continue;              // already inside it
+      if(!best||Math.abs(val(t))>Math.abs(val(best))) best=t;
+    }
+    if(!best) continue;
+    if(!autoAdds.has(best)) autoAdds.set(best,[]);
+    autoAdds.get(best).push({name:o.l2, rows:o.rows});
+  }
+  for(const c of cards){
+    if(!c.rows||!c.rows.length||(c.k&&c.k.isBS)) continue;
+    const named=tileNetNames(c.l2);
+    let adds=[];
+    if(named&&named.length){
+      for(const nm of named){
+        const f=tileFindLine(rows,nm);
+        if(f&&f.rows.length&&!isBSLine(f.rows[0].d.micaL1||'')) adds.push({name:f.name, rows:f.rows});
+      }
+    } else if(named===null&&auto&&autoAdds.has(c)){
+      adds=autoAdds.get(c);
+    }
+    if(!adds.length) continue;
+    const have=new Set(c.rows), extra=[], netOf=[];
+    for(const a of adds){
+      const rs=a.rows.filter(r=>!have.has(r));
+      if(!rs.length) continue;              // already inside the tile: already net
+      rs.forEach(r=>have.add(r));
+      extra.push(...rs);
+      netOf.push({name:a.name, val:kOf(rs).cy});
+    }
+    if(!extra.length) continue;
+    c.rows=[...c.rows,...extra];
+    c.k=kOf(c.rows);
+    c.netOf=netOf;
+  }
+  return cards;
+}
 /* the active Global Business scope, shown as removable chips on the summary */
 function renderScopeChips(){
   const host=$('scopeChips'); if(!host) return;
@@ -3208,6 +3328,7 @@ function renderSummary(){
     if(c.l1&&c.l1!==c.l2) c.l2=c.l2+' \u00b7 '+c.l1;
     return true;
   });
+  cards=tileNetApply(cards, rows, m);
   const l1name=[...byL1g.keys()][0]||'Revenue';
   const tileNames=cards.map(c=>c.l2);
   const totName=tileL1? totalLabel(tileNames) : `Total ${l1name}`;
@@ -3290,19 +3411,29 @@ function renderSummary(){
       aria-label="${parked?'Show':'Hide'} ${esc(name)}">${parked?'\u21ba':'\u2715'}</span>`;
   const cardHtml=(name,l1,k,l2attr,hideCmp,opt)=>{
     const trs=hideCmp?[]:tileRows(k,m);
+    // the headline is always the year to date through the last actual month;
+    // the variance period below it may read a quarter, a month or the full
+    // year, and where it does, its own figure stands under the headline
+    const kY=(!k.isBS&&opt&&opt.rows)? tileYtdK(k,opt.rows,m) : k;
+    const hv=k.isBS? k.cmpMain : (kY.cy!=null? kY.cy : k.cmpMain);
     const tu=(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
-    // a month or quarter basis leads the headline, and the YTD stands beside
-    // it \u2014 a flow tile always says the year to date as well
-    const ytdSub=(!k.isBS&&k.cy!=null&&(L.grain||'ytd')!=='ytd')
-      ? `<div class="krow actonly"><span class="kl">${esc(MON_LBL[S.ytdM])} YTD ${esc(String(m.yearCY||''))}</span>
-           <span class="kv">${fmt(k.cy)}</span><span class="kv"></span></div>`
+    const hLbl=MON_LBL[tileYtdM()]+(k.isBS? ' closing' : ' YTD');
+    const netOf=(opt&&opt.netOf)||[];
+    const netSub=netOf.length
+      ? `<div class="krow actonly"><span class="kl">net of ${esc(netOf.map(x=>x.name).join(', '))}</span>
+           <span class="kv">${fmt(netOf.reduce((t2,x)=>t2+(x.val||0),0))}</span><span class="kv"></span></div>`
+      : '';
+    const perSub=(!k.isBS&&k.cmpMain!=null&&hv!=null&&Math.abs(k.cmpMain-hv)>0.005)
+      ? `<div class="krow actonly"><span class="kl">${esc(L.main)}</span>
+           <span class="kv">${fmt(k.cmpMain)}</span><span class="kv"></span></div>`
       : '';
     return `
     <button class="card${(opt&&opt.parked)?' parked':''}" ${l2attr} title="View this line in the trajectory and commentary">
       ${(opt&&opt.ctl)||''}
       <div class="thead"><span class="tname" title="${esc(name)}">${esc(name)}</span><span class="tunit">${esc(tu)}</span>
-        <span class="tval${(k.cmpMain||0)<0?' negnum':''}">${(k.isBS&&bsUnit())? fmtBS(k.cmpMain) : fmt(k.cmpMain)}</span></div>
-      ${ytdSub}
+        <span class="tval${(hv||0)<0?' negnum':''}"><span class="tvlbl">${esc(hLbl)}</span>${
+          (k.isBS&&bsUnit())? fmtBS(hv) : fmt(hv)}</span></div>
+      ${netSub}${perSub}
       ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
         :`<div class="krow actonly"><span class="kl">${esc(L.main)} actuals</span></div>`}
       <div class="vd">View detail →</div>
@@ -3327,10 +3458,11 @@ function renderSummary(){
     ? liveCards : liveCards.slice(0,prio.length);
   const tileAttr=c=>`data-l2="${esc(c.scope||(scPfx+c.l2))}" data-name="${esc(c.l2)}"`;
   $('cardGrid').innerHTML=
-    (noTotal? '' : cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false))+
-    shown.map(c=>cardHtml(c.l2, c.l1, c.k, tileAttr(c), cmpHidden(c.l2), {ctl:hideCtl(c.l2,false)})).join('')+
+    (noTotal? '' : cardHtml(totName, `All KPIs`, kT, 'data-l2=""', false, {rows}))+
+    shown.map(c=>cardHtml(c.l2, c.l1, c.k, tileAttr(c), cmpHidden(c.l2),
+      {ctl:hideCtl(c.l2,false), rows:c.rows, netOf:c.netOf})).join('')+
     ((parked.length&&S.showParkedTiles)? parked.map(c=>cardHtml(c.l2, c.l1, c.k, tileAttr(c), cmpHidden(c.l2),
-      {parked:true, ctl:hideCtl(c.l2,true)})).join('') : '')+
+      {parked:true, ctl:hideCtl(c.l2,true), rows:c.rows, netOf:c.netOf})).join('') : '')+
     (parked.length?`<button class="card morecard" id="btnParkedKpis">${
       S.showParkedTiles? `Hide ${parked.length} tile${parked.length>1?'s':''} again`
         : `${parked.length} hidden tile${parked.length>1?'s':''} \u2014 show`}</button>`:'')+
@@ -4492,9 +4624,9 @@ async function exportSummaryPPT(){
     return k; };
   const byL2=named.length
     ? named.map(nm=>tileFindLine(rows,nm)).filter(Boolean)
-        .map(f=>({l2:f.name, k:kOf(f.rows)}))
+        .map(f=>({l2:f.name, rows:f.rows, k:kOf(f.rows)}))
     : [...(tileL1?l1g:groupBy(rows,TD[1])).entries()]
-        .map(([l2,rs])=>({l2, k:kOf(rs)}))
+        .map(([l2,rs])=>({l2, rows:rs, k:kOf(rs)}))
         .sort((a,b)=>(a.k.isBS?1:0)-(b.k.isBS?1:0)||Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
   const l1name=[...l1g.keys()][0]||'Revenue';
@@ -4512,7 +4644,7 @@ async function exportSummaryPPT(){
       const rs1=l1g.get(pl[0].l2);
       const kids=[...groupBy(rs1,TD[1]).entries()]
         .filter(([n])=>n&&n!=='(blank)'&&n!==pl[0].l2)
-        .map(([l2,rs])=>({l2, k:kOf(rs)}));
+        .map(([l2,rs])=>({l2, rows:rs, k:kOf(rs)}));
       if(kids.length>1){
         const at=rs=>{ let i=Infinity; for(const r of rs){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
         kids.sort((a2,b2)=>at(l1g.get(pl[0].l2).filter(r=>r.d[TD[1]]===a2.l2))-at(l1g.get(pl[0].l2).filter(r=>r.d[TD[1]]===b2.l2)));
@@ -4520,11 +4652,11 @@ async function exportSummaryPPT(){
       }
     }
   }
-  ordered=ordered.filter(c=>!tileHidden(c.l2));
+  ordered=tileNetApply(ordered.filter(c=>!tileHidden(c.l2)), rows, m);
   const tiles=[
     ...(!summaryNoTotal(named)
-      ? [{name:tileL1?totalLabel(byL2.map(c=>c.l2)):`Total ${l1name}`,k:kT,hide:false}] : []),
-    ...ordered.map(c=>({name:c.l2,k:c.k,hide:cmpHidden(c.l2)}))].slice(0,16);
+      ? [{name:tileL1?totalLabel(byL2.map(c=>c.l2)):`Total ${l1name}`,k:kT,rows,hide:false}] : []),
+    ...ordered.map(c=>({name:c.l2,k:c.k,rows:c.rows,netOf:c.netOf,hide:cmpHidden(c.l2)}))].slice(0,16);
   const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
     return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
   // font sizes step down with content length so nothing overflows its box
@@ -4553,8 +4685,12 @@ async function exportSummaryPPT(){
   tiles.forEach((t,i)=>{
     const tx=X0+(i%COLS)*(TW+GX), ty=Y0+Math.floor(i/COLS)*(TH+GY);
     slide.addShape('rect',{x:tx,y:ty,w:TW,h:TH,fill:{color:'FFFFFF'},line:{color:'C8C7C3',width:1}});
-    const tu=(t.k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
-    const nm=nameTxt(t.name)+'  ·  '+tu, vTxt=(t.k.isBS&&bsUnit())? fmtBS(t.k.cmpMain) : fmt(t.k.cmpMain);
+    const tu=((t.k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit())
+      +(t.k.isBS? '' : '  ·  '+MON_LBL[tileYtdM()]+' YTD');
+    // the slide leads with the same figure the page does: the year to date
+    const tkY=(!t.k.isBS&&t.rows)? tileYtdK(t.k,t.rows,m) : t.k;
+    const tv=t.k.isBS? t.k.cmpMain : (tkY.cy!=null? tkY.cy : t.k.cmpMain);
+    const nm=nameTxt(t.name)+'  ·  '+tu, vTxt=(t.k.isBS&&bsUnit())? fmtBS(tv) : fmt(tv);
     slide.addText(nm,{x:tx+0.1,y:ty+0.05,w:TW-1.18,h:0.42,fontSize:nameFs(nm),bold:true,
       color:'1A1A19',fontFace:'Segoe UI',wrap:true,fit:'shrink',valign:'top',lineSpacing:nameFs(nm)+1});
     slide.addText(vTxt,{x:tx+TW-1.12,y:ty+0.05,w:1.02,h:0.28,align:'right',bold:true,valign:'top',
@@ -10429,7 +10565,7 @@ function cfgFromWorkbook(wb){
         // Tile | Show — the plain-language form of tile control: N parks the
         // tile, Y shows it, and a tab of only-Y rows shows just those
         if(/^tiles?$/i.test(String(a))) continue;
-        if(a) cfg.tiles.push({name:a, show:(b2||'Y')});
+        if(a) cfg.tiles.push({name:a, show:(b2||'Y'), net:(c||'')});
       }
       else if(sec==='commentarytemplates'||sec==='commentarystyles'){
         // Style | View | Pattern — with two columns, Style | Pattern; the
@@ -10781,7 +10917,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 10:53</td></tr>
+      <tr><td>Build</td><td>2026-08-15 12:46</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
