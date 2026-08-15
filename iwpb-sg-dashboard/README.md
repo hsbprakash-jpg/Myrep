@@ -168,7 +168,12 @@ left-pane strip and the Filters pane.
   the business movement (revenue up ▲, cost up ▲) and the colour the
   favourability (green favourable, red unfavourable). The **⤓ PPT** button
   beside Export to Excel produces the same tile grid as a single
-  widescreen slide, built natively in PowerPoint.
+  widescreen slide, built natively in PowerPoint. The deck mirrors the
+  screen exactly: the tiles the summary is showing right now, in their
+  rendered order — a tile behind "Show all" or parked stays off the deck,
+  and a panel the screen hides never becomes a slide — followed by the
+  page's own commentary: the hero line, the trajectory and Mix notes where
+  those panels are visible, and the Management Commentary on its own slides.
 - **One way of writing a movement, in every view.** The KPI tiles and their
   trajectory strip, the KPI scorecard, the auto-written commentary, the
   executive decisions, the attention chips, the management commentary, every
