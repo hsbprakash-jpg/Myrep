@@ -245,18 +245,23 @@ left-pane strip and the Filters pane.
   one component per row, in the file's own line names:
 
   ```
-  Calculation  | Business | Line                   | Include
-  Banking NII  | IWPB     | Revenue                |   +
-  Banking NII  | IWPB     | Net Insurance Revenue  |   −
-  Banking NII  | CIB      | Banking NII            |   +
+  Calculation  | Business | Line                   | Include | MICA level | Tile
+  Banking NII  | IWPB     | Revenue                |   +     |    L2      |
+  Banking NII  | IWPB     | Net Insurance Revenue  |   −     |    L3      |
+  Banking NII  | CIB      | Banking NII            |   +     |   accH3    |
   ```
 
-  `+` includes the named line (from any MICA or hierarchy level), `−` carves
-  it out, blank Business covers every business that wrote none. What the tab
-  reads is exactly what the tile computes — the tile's tooltip reads the
-  lineage back word for word — and a Definitions entry speaks over a Metrics
-  row written for the same calculation and business, so there is one place
-  to look and it wins.
+  `+` includes the named line, `−` carves it out, blank Business covers
+  every business that wrote none. **MICA level** pins the name to the level
+  it lives at — `L1`..`L4` for MICA, or a hierarchy key like `accH3` — so a
+  name that exists at two levels is never guessed (blank searches every
+  level). A defined calculation **follows through by itself**: it joins the
+  tile grid, the slide deck, the KPI nav and the tile-driven commentary with
+  no further wiring — put `N` in the **Tile** column to keep it a definition
+  only. What the tab reads is exactly what the tile computes — the tile's
+  tooltip reads the lineage back word for word, level included — and a
+  Definitions entry speaks over a Metrics row written for the same
+  calculation and business, so there is one place to look and it wins.
 - **The headline is always the year to date, through the last actual month.**
   Whatever the variance period compares on — a quarter, a single month, the
   full year — the figure at the top of a tile is the same one: the YTD

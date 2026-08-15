@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:49)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 14:52)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:49)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 14:52)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -975,7 +975,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 14:49</div>
+<div id="buildTag">build 2026-08-15 14:52</div>
 </aside>
 <main>
 
@@ -5212,7 +5212,8 @@ function cfgMetricList(){
       d={sel:'', applies:ap, comps:[]};
       e.defs.unshift(d);
     }
-    d.comps.push({line:String(cd.line).trim(), minus:/^\s*(-|\u2212|less\b|minus\b)/i.test(String(cd.sign||'+'))});
+    d.comps.push({line:String(cd.line).trim(), level:String(cd.level||'').trim(),
+      minus:/^\s*(-|\u2212|less\b|minus\b)/i.test(String(cd.sign||'+'))});
   }
   return [...by.values()];
 }
@@ -5241,8 +5242,18 @@ function metricSelTest(sel, r){
   }
   return true;
 }
-function metricRowHasLine(r, line){
+function calcLevelKey(v){
+  const t=String(v||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(!t) return '';
+  const m=t.match(/^(?:mica)?l(?:evel)?([1-4])$/)||t.match(/^([1-4])$/);
+  if(m) return 'micaL'+m[1];
+  for(const k in (S.model? S.model.dimCols : {})) if(k.toLowerCase()===t) return k;
+  return t;
+}
+function metricRowHasLine(r, line, level){
   const v=String(line||'').trim().toLowerCase(); if(!v||!S.model) return false;
+  const lk=calcLevelKey(level);
+  if(lk) return String(r.d[lk]||'').trim().toLowerCase()===v;
   for(const k in S.model.dimCols) if(String(r.d[k]||'').trim().toLowerCase()===v) return true;
   return false;
 }
@@ -5250,7 +5261,7 @@ function metricDefTest(d, r){
   if(d.comps&&d.comps.length){
     let inc=false;
     for(const c of d.comps){
-      if(metricRowHasLine(r,c.line)){ if(c.minus) return false; inc=true; }
+      if(metricRowHasLine(r,c.line,c.level)){ if(c.minus) return false; inc=true; }
     }
     return inc;
   }
@@ -5276,7 +5287,7 @@ function metricLineageTxt(name){
   for(const d of (def.defs||[])){
     const who=d.applies? d.applies.toUpperCase()+': ' : '';
     if(d.comps&&d.comps.length)
-      parts.push(who+d.comps.map(c=>(c.minus?'\u2212 ':'+ ')+c.line).join(' '));
+      parts.push(who+d.comps.map(c=>(c.minus?'\u2212 ':'+ ')+c.line+(c.level?' ['+c.level+']':'')).join(' '));
     else if(d.sel) parts.push(who+d.sel);
   }
   return parts.join('  \u00b7  ');
@@ -5402,8 +5413,19 @@ function tileLineDefs(){ return cfgNameList('tile_lines'); }
    resolved the way tile_lines resolves: a Metrics definition first, then down
    the MICA levels \u2014 without touching the rest of the grid. */
 function tileAddDefs(){
-  return ((CFG&&CFG.tiles)||[]).filter(t=>/^\s*(\+|add\b)/i.test(String(t.show||'')))
-    .map(t=>String(t.name).trim()).filter(Boolean);
+  const fromTiles=((CFG&&CFG.tiles)||[]).filter(t=>/^\s*(\+|add\b)/i.test(String(t.show||'')))
+    .map(t=>String(t.name).trim());
+  // every calculation the Definitions tab writes, unless a row says Tile: N
+  const off=new Set(((CFG&&CFG.calcdefs)||[]).filter(d=>/^n/i.test(String(d.tile||'').trim()))
+    .map(d=>String(d.calc).trim().toLowerCase()));
+  const fromDefs=[...new Set(((CFG&&CFG.calcdefs)||[]).map(d=>String(d.calc).trim()))]
+    .filter(n=>n&&!off.has(n.toLowerCase()));
+  const seen=new Set(), out=[];
+  for(const n of [...fromTiles, ...fromDefs]){
+    const k=n.toLowerCase();
+    if(n&&!seen.has(k)){ seen.add(k); out.push(n); }
+  }
+  return out;
 }
 function tileAddCards(rows, have){
   const seen=new Set(have.map(h=>String(h).trim().toLowerCase()));
@@ -10593,7 +10615,7 @@ function cfgFromWorkbook(wb){
         // component is a line of the driller by name, + includes it, \u2212
         // carves it out, blank Business covers businesses that wrote none
         if(/^calculation/i.test(String(a))) continue;
-        if(a&&c) cfg.calcdefs.push({calc:a, biz:b2||'', line:c, sign:d||'+'});
+        if(a&&c) cfg.calcdefs.push({calc:a, biz:b2||'', line:c, sign:d||'+', level:e2||'', tile:f2||''});
       }
       else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
         // Key | Scope | Applies to \u2014 the same name may carry a different
@@ -10939,7 +10961,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 14:49</td></tr>
+      <tr><td>Build</td><td>2026-08-15 14:52</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
