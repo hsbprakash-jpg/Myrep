@@ -918,9 +918,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 22:19)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 22:21)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 22:19)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 22:21)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -987,7 +987,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 22:19</div>
+<div id="buildTag">build 2026-08-15 22:21</div>
 </aside>
 <main>
 
@@ -2123,6 +2123,14 @@ function parseSheet(aoa){
   const pyYtdAsOfCols=ytdCols.filter(p=>!p.target&&!p.fy&&!p.fc&&p.ytdM!=null&&p.ytdYear===pyYY2).sort(byM);
   const ytdTgtAsOfCols=ytdCols.filter(p=>p.target&&!p.fy&&p.ytdM!=null&&(p.ytdYear==null||p.ytdYear===cyYY)).sort(byM);
   const fcProfile=cyMonths.map(p=>({m:p.m, w:rows.reduce((s2,r)=>s2+Math.abs(r.v[p.col]||0),0)}));
+  // a file that never says its year still reports as one: the config's
+  // report_year, else the calendar year the page runs in \u2014 the column
+  // matching above already ran on the file's own text, this is display
+  if(!/^\d{4}$/.test(String(yearCY))){
+    const ry=String((typeof CFG!=='undefined'&&cfgS('report_year'))||'').trim();
+    yearCY=/^\d{4}$/.test(ry)? ry : String(new Date().getFullYear());
+  }
+  if(!/^\d{4}$/.test(String(yearPY))) yearPY=String(+yearCY-1);
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
     fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, pyYtdAsOfCols, ytdTgtAsOfCols, fcProfile, yearPY, yearCY};
 }
@@ -11323,7 +11331,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 22:19</td></tr>
+      <tr><td>Build</td><td>2026-08-15 22:21</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
