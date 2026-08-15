@@ -787,6 +787,13 @@ left-pane strip and the Filters pane.
   packs ship worked examples; a hand-picked style always overrides the
   scope.
 
+  **One selector, in the pane.** The Management Commentary panel
+  carries no Style dropdown of its own: the narrative follows the
+  scope and the **selected variance period**, exactly as the
+  trajectory and tiles above it — a style pinned to one basis can
+  never contradict the graph beside it. The left pane's **Active
+  style** is the single deliberate override.
+
   **The Style dropdown speaks the configuration's language.** It offers
   **Auto — match the scope** plus the styles the config (and the
   reader's own saves) define — nothing else. The built-in Pack
