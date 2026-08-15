@@ -759,6 +759,17 @@ left-pane strip and the Filters pane.
   style, and the reader's own pick on the panel is remembered. The Word
   and PPT exports carry whichever style is on the page.
 
+  **Onboarding templates from the left pane.** The **Commentary
+  templates** section in the left pane takes a template written the way
+  you write it: name it, type the pattern, and a live preview words the
+  file's first statement line as you type. Saving makes it the active
+  style and offers it on both selectors alongside the config's
+  templates; it is kept in the browser across sessions, and a template
+  saved under a config style's name overrides that style for you alone.
+  **Download as config rows** turns your saved templates into
+  `CommentaryTemplates` CSV rows ready to paste into the config
+  workbook when a personal style should become the team's.
+
   **How it decides which line a comment is about.** This is text matching
   against the names in your own file. It reads names; it does not understand
   banking. Four things can resolve a sentence, and the left pane says which one

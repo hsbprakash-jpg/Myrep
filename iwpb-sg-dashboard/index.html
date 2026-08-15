@@ -157,6 +157,11 @@ aside.side .sect.sect-fold{color:var(--fold-red);background:var(--fold-bg);
   border-left:3px solid var(--hsbc-red);transition:background .15s}
 aside.side .sect.sect-fold:hover{background:var(--fold-bg-h)}
 .unitsfx{font-weight:600;color:var(--text-muted);font-size:.72em}
+#tplPanel label{display:flex;align-items:center;gap:6px;margin:6px 18px 0;font-size:12px;color:var(--text-muted)}
+#tplPanel select{flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:5px 8px;
+  font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)}
+#tplPanel .srch{font-size:11.5px}
+#tplPanel #tplPrev{margin:6px 18px 0}
 #drvPanel .drvrow{display:grid;grid-template-columns:1fr 24px;gap:4px 4px;margin:7px 14px 0 18px;align-items:center;position:relative}
 #drvPanel .drvrow .drv-t{grid-column:1 / span 2}
 #drvPanel input[type=text]{font:inherit;font-size:11.5px;padding:5px 8px;border:1px solid var(--border-strong);
@@ -966,11 +971,27 @@ footer{text-align:center;color:var(--text-muted);font-size:11px;padding:18px}
       names in the driller and lead the blocks they name; nothing is reworded.</p>
     <p class="hint2" id="comInNote"></p>
   </div>
+  <div class="sect sect-fold" id="sectTplRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_comtpl">Commentary templates</span><span id="tplCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
+  <div id="tplPanel">
+    <p class="hint2" data-lbl="tpl_hint">Write the sentence the way you write it — the tokens fill from the page's own figures:
+      {line} {main} {base} {var} {varamt} {varpct} {vs} {drivers} {period} {month} {quarter} {fy} {ytd}.
+      Templates saved here live in this browser; the config's <b>CommentaryTemplates</b> tab shares a set with everyone.</p>
+    <label><span data-lbl="lbl_tplpick">Active style</span> <select id="tplPick" aria-label="Commentary style"></select></label>
+    <input id="tplName" class="srch" placeholder="Template name — e.g. My exec style" aria-label="Template name" style="margin:6px 18px 0;width:calc(100% - 36px)">
+    <textarea id="tplPat" rows="3" placeholder="{line} {var} {vs}, led by {drivers}." aria-label="Template pattern"
+      style="margin:6px 18px 0;width:calc(100% - 36px);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;background:var(--surface-1);color:var(--text-primary);resize:vertical"></textarea>
+    <div id="tplPrev" class="hint2" style="margin-top:6px"></div>
+    <div style="display:flex;gap:10px;align-items:baseline;margin:6px 18px 0">
+      <button class="btn-quiet" id="btnTplSave">＋ Save template</button>
+      <button class="linklike" id="btnTplCsv" title="The saved templates as CommentaryTemplates rows, ready to paste into the config workbook">Download as config rows</button>
+    </div>
+    <div id="tplMine"></div>
+  </div>
   <div class="foot">
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-14 19:30</div>
+<div id="buildTag">build 2026-08-15 07:29</div>
 </aside>
 <main>
 
@@ -1590,6 +1611,7 @@ const CFG_DEFAULT={
     drv_hint:'Known business drivers — the AI weaves them into chart commentary wherever the line appears as a mover.',
     lbl_ytd:'YTD through', lbl_fc:'Include forecast month',
     lbl_varper:'Variance period', lbl_units:'Units',
+    sect_comtpl:'Commentary templates', lbl_tplpick:'Active style',
     kpi_hint:'Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card',
     dec_eyebrow:'Decisions required', dec_title:'Executive decisions'
   }
@@ -2701,7 +2723,7 @@ function fillFilters(){
   S.ytdM=lastData; mSel.value=String(lastData);
   S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
   S.units=cfgS('display_units').trim().toLowerCase()||'as';
-  fillUnits(); fillVarPeriod();
+  fillUnits(); fillVarPeriod(); renderTplPane();
   const hasFC=m.cyMonths.some(p=>p.fc);
   $('fFC').parentElement.style.display=hasFC?'':'none';
 
@@ -3646,7 +3668,18 @@ function comSumLead(){
    fills the pattern per line from the page's own figures \u2014 a template
    governs word order and tone, never arithmetic. The written commentary
    still leads each line through the same stitching the other writers use. */
-function comTplList(){ return (CFG&&CFG.comtpl)||[]; }
+function comTplUser(){
+  try{ const v=JSON.parse(localStorage.getItem('iwpbsg_comtpl_user')||'[]');
+    return Array.isArray(v)? v.filter(t=>t&&String(t.style||'').trim()&&String(t.pattern||'').trim()) : []; }
+  catch(e){ return []; }
+}
+function comTplUserSave(l){ try{ localStorage.setItem('iwpbsg_comtpl_user',JSON.stringify(l)); }catch(e){} }
+function comTplList(){
+  const cfgT=(CFG&&CFG.comtpl)||[];
+  const mine=comTplUser();
+  const ov=new Set(mine.map(t=>String(t.style).trim().toLowerCase()));
+  return [...cfgT.filter(t=>!ov.has(String(t.style||'').trim().toLowerCase())), ...mine];
+}
 function comTplStyles(){ return [...new Set(comTplList().map(t=>String(t.style||'').trim()).filter(Boolean))]; }
 function comTplPat(style, view){
   const want=String(style||'').trim().toLowerCase();
@@ -3684,27 +3717,65 @@ function tplCommentaryHtml(style){
   if(!groups.length) return '';
   const c=vpCtx(m,S.ytdM);
   let h=`<p><u>(${esc(MON_LBL[S.ytdM])}) ${esc(L.main)} Vs ${esc(L.base)}${cfgS('commentary_note')?` (${esc(cfgS('commentary_note'))})`:''}:</u></p>`;
-  h+='<ul class="actlist">'+groups.map(g=>{
-    const bs=isBSLine(g.name);
-    // an expense line names no products as movers \u2014 the same rule as
-    // everywhere else; the cut falls back the way the slide writer's does
-    let dk=dimKey;
-    if(/^prod/.test(dk)&&caIsCost(g.rs,g.name))
-      dk=['cgL2','country','entity','funcL2'].find(k2=>k2 in m.dimCols)||'';
-    const dr=dk? houseDrivers(g.rs,dk,N) : [];
-    const drTxt=dr.length? dr.map(x=>`${esc(x.name)} (${faTxt(x.k)})`).join(', ') : 'no single mover';
-    const k=g.k;
-    const ctx={
-      line:`<b>${esc(g.name)}</b>`,
-      main:slVal(k.cmpMain,bs), base:slVal(k.cmpBase,bs),
-      'var':slVar(k,bs), varamt:slVar(k,bs).replace(/ \/ [^<]*$/,''), varpct:pctAbs(k.cmpVarPct),
-      vs:esc(L.vs), basename:esc(L.base), period:esc(L.period),
-      drivers:drTxt, month:esc(MON_LBL[S.ytdM]), quarter:'Q'+c.q,
-      fy:esc(String(m.yearCY||'')), ytd:esc(MON_LBL[S.ytdM]+' YTD'),
-    };
-    return `<li>${comTplFill(pat,ctx)}${comTail(g.name)}</li>`;
-  }).join('')+'</ul>';
+  h+='<ul class="actlist">'+groups.map(g=>
+    `<li>${comTplLineHtml(pat,g,m,L,dimKey,N,c)}${comTail(g.name)}</li>`).join('')+'</ul>';
   return h;
+}
+function comTplLineHtml(pat, g, m, L, dimKey, N, c){
+  const bs=isBSLine(g.name);
+  // an expense line names no products as movers \u2014 the same rule as
+  // everywhere else; the cut falls back the way the slide writer's does
+  let dk=dimKey;
+  if(/^prod/.test(dk)&&caIsCost(g.rs,g.name))
+    dk=['cgL2','country','entity','funcL2'].find(k2=>k2 in m.dimCols)||'';
+  const dr=dk? houseDrivers(g.rs,dk,N) : [];
+  const drTxt=dr.length? dr.map(x=>`${esc(x.name)} (${faTxt(x.k)})`).join(', ') : 'no single mover';
+  const k=g.k;
+  const ctx={
+    line:`<b>${esc(g.name)}</b>`,
+    main:slVal(k.cmpMain,bs), base:slVal(k.cmpBase,bs),
+    'var':slVar(k,bs), varamt:slVar(k,bs).replace(/ \/ [^<]*$/,''), varpct:pctAbs(k.cmpVarPct),
+    vs:esc(L.vs), basename:esc(L.base), period:esc(L.period),
+    drivers:drTxt, month:esc(MON_LBL[S.ytdM]), quarter:'Q'+c.q,
+    fy:esc(String(m.yearCY||'')), ytd:esc(MON_LBL[S.ytdM]+' YTD'),
+  };
+  return comTplFill(pat,ctx);
+}
+/* ---- the pane: onboard a template, pick the active style ---------------
+   The dynamic pieces render into their own hosts so the reader's typing in
+   the name and pattern boxes is never wiped by a re-render. */
+function renderTplPane(){
+  const sel=$('tplPick'); if(!sel) return;
+  const st=comStyleSel();
+  sel.innerHTML=[['pack','Pack narrative'],['house','House cascade'],
+    ...comTplStyles().map(x=>[x,x])]
+    .map(([v,l])=>`<option value="${esc(v)}"${st===v?' selected':''}>${esc(l)}</option>`).join('');
+  const mineEl=$('tplMine');
+  const mine=comTplUser();
+  mineEl.innerHTML=mine.length? mine.map((t,i)=>
+    `<div class="drow" style="display:flex;gap:6px;align-items:center;margin:4px 18px 0;font-size:12px">
+      <b style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.pattern)}">${esc(t.style)}</b>
+      <button class="linklike" data-tuse="${i}">Use</button>
+      <button class="linklike" data-tedit="${i}">Edit</button>
+      <button class="linklike" data-tdel="${i}" title="Remove">✕</button>
+    </div>`).join('') : '';
+  tplPreview();
+}
+function tplPreview(){
+  const prev=$('tplPrev'); if(!prev) return;
+  const pat=($('tplPat')&&$('tplPat').value.trim())||'';
+  if(!pat){ prev.innerHTML=''; return; }
+  const m=S.model;
+  if(!m){ prev.innerHTML='Load a driller file to preview the template on its own figures.'; return; }
+  const L=cmpLabels(m), rows=filteredRows();
+  const LV=houseLevels(); if(!rows.length||!LV.length){ prev.innerHTML=''; return; }
+  const atF=fileOrder(m);
+  const g=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
+    .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0)||atF(a.rs)-atF(b.rs))[0];
+  if(!g){ prev.innerHTML=''; return; }
+  prev.innerHTML='<span style="opacity:.75">Preview · </span>'+
+    comTplLineHtml(pat, g, m, L, houseDimKey(), houseDrvCount(), vpCtx(m,S.ytdM));
 }
 function houseCommentaryHtml(){
   comSaidReset();
@@ -10375,7 +10446,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-14 19:30</td></tr>
+      <tr><td>Build</td><td>2026-08-15 07:29</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -10545,6 +10616,44 @@ function init(){
   mkCollapse('sectOutputRow','outputCaret','iwpbsg_output_collapsed',['p.hint2','#outFields']);
   mkCollapse('sectDrvRow','drvCaret','iwpbsg_drv_collapsed',['#drvPanel']);
   drawDrivers();
+  mkCollapse('sectTplRow','tplCaret','iwpbsg_tpl_collapsed',['#tplPanel']);
+  renderTplPane();
+  const tplSetStyle=v=>{ S.comStyle=v;
+    try{ localStorage.setItem('iwpbsg_comstyle',v); }catch(e){}
+    if(S.model) renderHouse();
+    renderTplPane(); };
+  $('tplPick').addEventListener('change',e=>tplSetStyle(e.target.value));
+  $('btnTplSave').addEventListener('click',()=>{
+    const nm=$('tplName').value.trim(), pat=$('tplPat').value.trim();
+    if(!nm||!pat){ alert('A template needs a name and a pattern.'); return; }
+    if(!/\{\w+\}/.test(pat)&&!confirm('The pattern carries no {tokens}, so every line would read the same. Save anyway?')) return;
+    const mine=comTplUser().filter(t=>String(t.style).trim().toLowerCase()!==nm.toLowerCase());
+    mine.push({style:nm, view:'', pattern:pat});
+    comTplUserSave(mine);
+    tplSetStyle(nm);
+  });
+  $('btnTplCsv').addEventListener('click',()=>{
+    const mine=comTplUser();
+    if(!mine.length){ alert('No saved templates yet.'); return; }
+    const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; };
+    const csv=mine.map(t=>['CommentaryTemplates',t.style,t.view||'',t.pattern].map(q).join(',')).join('\r\n')+'\r\n';
+    const blob=new Blob([csv],{type:'text/csv'});
+    const a2=document.createElement('a'); a2.href=URL.createObjectURL(blob);
+    a2.download=brandSlug()+'_commentary_templates.csv'; document.body.appendChild(a2); a2.click(); a2.remove();
+  });
+  $('tplMine').addEventListener('click',e=>{
+    const use=e.target.closest('[data-tuse]'), ed=e.target.closest('[data-tedit]'), del=e.target.closest('[data-tdel]');
+    const mine=comTplUser();
+    if(use){ const t=mine[+use.dataset.tuse]; if(t) tplSetStyle(t.style); }
+    else if(ed){ const t=mine[+ed.dataset.tedit]; if(t){ $('tplName').value=t.style; $('tplPat').value=t.pattern; tplPreview(); } }
+    else if(del){ const t=mine[+del.dataset.tdel]; if(!t) return;
+      const wasActive=comStyleSel()===t.style;   // judged before the template goes
+      comTplUserSave(mine.filter((_,i)=>i!==+del.dataset.tdel));
+      if(wasActive) tplSetStyle('pack'); else renderTplPane(); }
+  });
+  let tplPrevT=null;
+  const tplPrevSoon=()=>{ clearTimeout(tplPrevT); tplPrevT=setTimeout(tplPreview,250); };
+  $('tplPat').addEventListener('input',tplPrevSoon);
   $('btnCfgUpload').addEventListener('click',()=>$('cfgInput').click());
   $('cfgInput').addEventListener('change',e=>{ if(e.target.files[0]) handleCfgFile(e.target.files[0]); e.target.value=''; });
   $('btnCfgTemplate').addEventListener('click',downloadCfgTemplate);
@@ -10586,7 +10695,7 @@ function init(){
   $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ aiAsk($('aiInput').value); $('aiInput').value=''; } });
   $('houseDim').addEventListener('change',e=>{ HOUSE_DIM=e.target.value; renderHouse(); });
   $('houseStyle').addEventListener('change',e=>{ S.comStyle=e.target.value;
-    try{ localStorage.setItem('iwpbsg_comstyle',S.comStyle); }catch(err){} renderHouse(); });
+    try{ localStorage.setItem('iwpbsg_comstyle',S.comStyle); }catch(err){} renderHouse(); renderTplPane(); });
   const hf=$('houseFoldHead');
   const hToggle=()=>{ try{ localStorage.setItem('iwpbsg_house_fold', houseCollapsed()?'0':'1'); }catch(e){}
     applyHouseFold(); };
