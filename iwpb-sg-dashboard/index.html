@@ -880,9 +880,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 15:24)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 15:50)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 15:24)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 15:50)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -926,19 +926,6 @@ setTimeout(function(){
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 13 L5 8 L8 10.5 L15 2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M1 15 L5 11.5 L8 13 L15 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2" opacity=".6"/></svg>
       <span data-lbl="nav_sim">Simulation Assistant</span></button>
   </nav>
-  <div class="sect sect-fold" id="sectCountries" hidden title="Collapse / expand the countries"><span data-lbl="sect_countries">Countries</span><span id="cnavCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
-  <div id="countryNav"></div>
-  <div id="cpick" hidden>
-    <button id="cpickBtn" aria-haspopup="listbox"></button>
-    <div id="cpickPanel" hidden>
-      <input class="srch" id="cpickSrch" placeholder="Search countries&hellip;" aria-label="Search countries">
-      <div id="cpickList"></div>
-    </div>
-  </div>
-  <div class="sect sect-fold" id="sectKpisRow" title="Collapse / expand the KPI list" style="display:flex;align-items:center;gap:6px;cursor:pointer">
-    <span data-lbl="sect_kpis">KPIs · MICA Level 2</span><span id="kpiCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
-  <div id="kpiNav"></div>
-  <div class="hint" data-lbl="kpi_hint">Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card</div>
   <div class="sect sect-fold" id="sectCfgRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_config">Configuration</span><span id="cfgCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="cfgPanel">
     <button class="btn-quiet" id="btnCfgUpload">⤒ Upload config (xlsx / csv)</button>
@@ -952,16 +939,9 @@ setTimeout(function(){
     <label><span data-lbl="lbl_ytd">YTD through</span> <select id="fMonth"></select></label>
     <label><span data-lbl="lbl_varper">Variance period</span> <select id="fVarPer"></select></label>
   </div>
-  <div class="sect sect-row sect-fold" id="sectFiltersRow" title="Collapse / expand the filters" style="cursor:pointer">
-    <span data-lbl="sect_filters">Filters — all columns</span>
-    <span style="display:flex;align-items:baseline;gap:8px"><button class="linklike" id="btnClearFilters">Reset</button><span id="filtersCaret" style="font-size:10px;color:inherit">▾</span></span></div>
-  <div id="dimFilters"></div>
-  <div class="sect sect-fold" id="sectOutputRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_output">Output fields</span><span id="outputCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
-  <p class="hint2">Tick the columns to include in the Data view and Excel exports.</p>
-  <div id="outFields"></div>
   <div class="sect sect-fold" id="sectTplRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_comtpl">Commentary templates</span><span id="tplCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="tplPanel">
-    <p class="hint2" data-lbl="tpl_hint">Commentary templates live in the configuration \u2014 the
+    <p class="hint2" data-lbl="tpl_hint">Commentary templates live in the configuration — the
       <b>CommentaryTemplates</b> tab (or a <b>Template &lt;scope&gt;</b> tab holding a write-up).
       With the style on Auto the page adopts the template whose scope matches where it is looking;
       pick a named style here to force one voice everywhere.</p>
@@ -975,7 +955,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 15:24</div>
+<div id="buildTag">build 2026-08-15 15:50</div>
 </aside>
 <main>
 
@@ -2722,9 +2702,11 @@ function fillFilters(){
   S.units=cfgS('display_units').trim().toLowerCase()||'as';
   fillUnits(); fillVarPeriod(); renderTplPane();
 
-  // checkbox filter group per dimension column present in the file
+  // the scope state: the top scope bar and the summary chips drive it \u2014
+  // the per-column checkbox pane has left the rail
   S.filters={};
-  const dimsDiv=$('dimFilters'); dimsDiv.innerHTML='';
+  const dimsDiv=$('dimFilters');
+  if(dimsDiv){ dimsDiv.innerHTML='';
   for(const spec of DIM_SPECS){
     const k=spec.key;
     if(!(k in m.dimCols)||!cfgDimShow(k)) continue;
@@ -2761,15 +2743,17 @@ function fillFilters(){
         l.style.display=l.title.toLowerCase().includes(q)?'':'none');
     });
     dimsDiv.appendChild(det);
-  }
+  } }
 
-  // output fields: dimension columns + period column groups
+  // output fields: the Data view and the Excel exports carry the default
+  // columns \u2014 the tick-box pane has left the rail
   const DEFAULT_OUT=['mica','micaL3','micaL2','prodCode','prodL3','prodL2','cgL2','funcL2','entity'];
   S.outDims=new Set(DEFAULT_OUT.filter(k=>k in m.dimCols));
   S.outPeriods=new Set(['pyMonths','cyMonths','quarters','ytd']);
   const PGROUPS=[['pyMonths',`${m.yearPY} months`,m.pyMonths.length],['cyMonths',`${m.yearCY} months`,m.cyMonths.length],
     ['quarters','Quarterly columns',m.quarterCols.length],['ytd','YTD columns',m.ytdCols.length]].filter(g=>g[2]>0);
   const of=$('outFields');
+  if(of){
   of.innerHTML=`<div class="ofh">Dimensions</div>`+
     DIM_SPECS.filter(s=>s.key in m.dimCols&&cfgDimShow(s.key)).map(s=>
       `<label><input type="checkbox" data-dim="${s.key}"${S.outDims.has(s.key)?' checked':''}><span>${esc(ALL_DIM_LABELS[s.key]||s.label)}</span></label>`).join('')+
@@ -2784,6 +2768,7 @@ function fillFilters(){
     if(b.checked) S.outPeriods.add(b.dataset.per); else S.outPeriods.delete(b.dataset.per);
     if(S.view==='table') render();
   }));
+  }
 }
 function outPeriodCols(){
   const m=S.model, per=[];
@@ -8355,11 +8340,11 @@ function cnavToggle(k){ const st=cnavOpen(); if(st.has(k)) st.delete(k); else st
   try{ localStorage.setItem('iwpbsg_cnav_open', JSON.stringify([...st])); }catch(e){} }
 function renderCountryNav(){
   const host=$('countryNav'), sect=$('sectCountries');
-  if(!host||!S.model) return;
+  if(!S.model) return;
   const m=S.model; S.filters=S.filters||{};
   const cs=('country' in m.dimCols)? [...new Set(m.rows.map(r=>String(r.d.country||'')).filter(Boolean))].sort() : [];
-  if(cs.length<2){ sect.hidden=true; host.innerHTML=''; fillScopeBar(null); return; }
-  sect.hidden=false;
+  if(cs.length<2){ if(sect) sect.hidden=true; if(host) host.innerHTML=''; fillScopeBar(null); return; }
+  if(sect) sect.hidden=false;
   const hasReg='region' in m.dimCols, hasBiz='business' in m.dimCols;
   const bizzes=hasBiz? [...new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean))].sort() : [];
   const bizTier=bizzes.length>1;
@@ -8436,6 +8421,7 @@ function renderCountryNav(){
   };
   if(bizTier) for(const B of bizzes) addEntries(base.filter(r=>String(r.d.business||'')===B), B);
   else addEntries(base, '');
+  if(host){
   host.innerHTML=items.map(it=>{
     const bOk=!it.b||curB===it.b;
     const act= it.dim==='country'? (curC===it.val&&bOk)
@@ -8454,6 +8440,7 @@ function renderCountryNav(){
     const dim=b.dataset.dim, val=b.dataset.c, bz=b.dataset.b;
     scopeSet(dim==='business'? val : bz, dim==='region'? val:'', dim==='country'? val:'');
   }));
+  }
   renderCpick(entries, curC, curB, bizTier, hasReg);
   fillScopeBar({hasReg, hasBiz:bizTier, bizzes, cs, curB, curC, curR, topName, l1Name, m});
 }
@@ -8461,6 +8448,7 @@ function renderCountryNav(){
    grouped by their node, RAG dot and P&L YTD per row, click to scope */
 let CPICK={entries:[], curC:'', curB:'', bizTier:false, hasReg:false};
 function renderCpick(entries, curC, curB, bizTier, hasReg){
+  if(!$('cpick')) return;
   const wrap=$('cpick'); if(!wrap) return;
   CPICK={entries, curC, curB, bizTier, hasReg};
   wrap.hidden=!entries.length;
@@ -8584,7 +8572,7 @@ function fillScopeBar(ctx){
   };
 }
 function renderKpiNav(){
-  const m=S.model; if(!m) return;
+  const m=S.model; if(!m||!$('kpiNav')) return;
   const rowsAll=filteredRows();
   const namedM=tileNamedDefs(rowsAll);
   let items;
@@ -10971,7 +10959,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 15:24</td></tr>
+      <tr><td>Build</td><td>2026-08-15 15:50</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11002,12 +10990,6 @@ function init(){
     $('dashView').hidden=true; $('btnNewFile').hidden=true; $('sideNav').hidden=true;
     $('uploadView').hidden=false; $('ingestReport').innerHTML=''; fi.value='';
     refreshCachedInfo();
-  });
-  $('btnClearFilters').addEventListener('click',()=>{
-    S.filters={};
-    document.querySelectorAll('#dimFilters .fltlist input').forEach(b=>{ b.checked=true; });
-    document.querySelectorAll('#dimFilters .cnt').forEach(c=>{ c.textContent='All'; c.classList.remove('on'); });
-    render();
   });
   $('fMonth').addEventListener('change',e=>{
     const v=e.target.value;
@@ -11121,13 +11103,8 @@ function init(){
     });
     apply();
   };
-  mkCollapse('sectKpisRow','kpiCaret','iwpbsg_kpinav_collapsed',['#kpiNav','.hint[data-lbl="kpi_hint"]']);
-  mkCollapse('sectCountries','cnavCaret','iwpbsg_cnav_collapsed',['#countryNav','#cpick']);
-  document.addEventListener('click',e=>{ if(S.cpickOpen&&!e.target.closest('#cpick')){ S.cpickOpen=false; const pp=$('cpickPanel'); if(pp) pp.hidden=true; } });
   mkCollapse('sectCfgRow','cfgCaret','iwpbsg_cfg_collapsed',['#cfgPanel']);
   mkCollapse('sectPeriodRow','periodCaret','iwpbsg_period_collapsed',['#sideFilters']);
-  mkCollapse('sectFiltersRow','filtersCaret','iwpbsg_filters_collapsed',['#dimFilters']);
-  mkCollapse('sectOutputRow','outputCaret','iwpbsg_output_collapsed',['p.hint2','#outFields']);
   mkCollapse('sectTplRow','tplCaret','iwpbsg_tpl_collapsed',['#tplPanel']);
   renderTplPane();
   const tplSetStyle=v=>{ S.comStyle=v;

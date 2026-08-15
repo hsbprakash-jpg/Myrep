@@ -105,20 +105,11 @@ Group. A **Global business** is one business consolidated across its
 regions, so a single-business file with no Group tab is headed
 **Global IWPB**, never Group.
 
-A **Countries strip** appears in the left pane: the Group/Region row —
-the consolidation where the file carries one, else the sum of every country —
-then one row per country with its P&L YTD and RAG; click
-a row to scope every page, chart, export and simulation to that country
-(the Country filter group mirrors the choice). The strip stays quiet:
-the whole section folds from its header like the other left-pane
-sections, the tree stops at business lines and regions (business rows
-carry a persistent expand/collapse caret), and countries live in a
-**country dropdown** beneath the tree — a picker showing the current
-selection with its RAG dot and value, opening a searchable panel of
-countries grouped by business line and region. Picking a country scopes
-the whole app (keeping the business-line scope), a clear row restores
-the wider scope, and scoping from anywhere else keeps the picker in
-sync. Region consolidation keeps
+Scoping lives in the **top scope bar**: the business line, region and
+country dropdowns beside Units (each narrowed to the level above it), with
+the active scope shown as removable chips on the Summary. Picking a scope
+there drives every page, chart, export and simulation, and clearing a chip
+restores the wider view. Region consolidation keeps
 all the standing rules: YTD from YTD columns, balances as closing
 positions in `US$bn`, P&L in `US$m`, and P&L and balance sheet never
 totalled together. Country also works as an ordinary column
@@ -1188,16 +1179,12 @@ The design follows HSBC management-reporting conventions: a light left pane
 with a red brand block, section headers and pink-highlighted active items; a
 red uppercase eyebrow over large page titles; flat white stat tiles with big
 numbers (negatives in red brackets); and red monochrome charts with a grey
-prior-year series. The left pane hosts the dashboards navigation and a KPI
-shortcut list (each MICA Level 2 line with its RAG dot and YTD value — click
-to analyse it in Mix analysis, drag onto My dashboard to add it).
-Below the KPI list, the left pane holds the controls: period settings
-(YTD-through month, variance period, include-forecast), then a checkbox
-filter for EVERY dimension column in the file — each column expands to its distinct values
-with All/None shortcuts and a search box for long lists, and any
-combination applies to every view, chart and export. Below that, an
-Output fields section with checkboxes chooses which dimension columns and
-period column groups appear in the Data view and in Excel exports. RAG compares YTD actuals with the same
+prior-year series. The left pane is deliberately spare: the dashboards
+navigation, the Configuration section, the period controls (YTD-through
+month and variance period) and the Commentary templates picker — scoping
+happens in the top scope bar, and the Data view and Excel exports carry
+the default column set
+RAG compares YTD actuals with the same
 prior-year months: **green at or above prior year, red below it**. There is
 no amber and no watch band — an in-between rating only ever meant "within a
 tolerance nobody agreed", and it let the same figure read three ways
