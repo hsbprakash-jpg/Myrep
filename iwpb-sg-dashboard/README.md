@@ -238,14 +238,16 @@ left-pane strip and the Filters pane.
   everything it should: the FY bases, the trajectory's forecast tail and the
   full-year outlook. Balances keep their closing balance, labelled the same
   way (`JUN closing`). The PowerPoint one-pager leads with the same figure.
-- **Three comparisons on a tile, and no more** — the prior year, the forecast
-  and the target, balances included. Every variance period is one of those
-  three comparisons at some grain, so the selected period never adds a fourth
-  row: it takes over its own family's row, in its own words — Current QTR vs
-  PY puts the quarter movement in the PY row as `vs Q2 2025`, FY vs Target
-  puts the full-year read in the target row as `vs FY26 target` — and the
-  other two stay at the year-to-date grain of the headline. The tile changes
-  as the period changes; the headline does not.
+- **Three comparisons on a tile, and no more** — `vs PY`, `vs Fcst`,
+  `vs Tgt`, in those words, at the grain of the headline: year to date for a
+  P&L line, closing for a balance. The variance period drives the trajectory,
+  the commentary and the reporting pack; it never renames or replaces a tile
+  row. Tiles move only with the **YTD through** month.
+- **Tiles never invent lines.** The grid is the file's own MICA lines — or a
+  `tile_lines` list the config names explicitly. The `Metrics` sheet feeds
+  the KPI scorecard and the metric scopes, but metrics reach the tile grid
+  only when the config says `tile_metrics: Y` in so many words; the old
+  `auto` no longer puts every metric on the grid.
 - **One tile per line.** A merged configuration names the same line more than
   once — in each pack's metric list, as a rollup and again as its own row —
   and two lists can call one set of rows by two names. The grid, the
