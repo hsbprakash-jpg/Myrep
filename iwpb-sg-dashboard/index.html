@@ -975,9 +975,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 17:07)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 17:36)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 17:07)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 17:36)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1044,7 +1044,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 17:07</div>
+<div id="buildTag">build 2026-08-16 17:36</div>
 </aside>
 <main>
 
@@ -1121,6 +1121,7 @@ setTimeout(function(){
         </div>
       </div>
       <div id="houseCom"></div>
+      <p class="cadisc" id="houseDisc" hidden></p>
     </div>
     <div class="panel" id="mixPanel" style="display:none">
       <div class="panel-head">
@@ -1362,6 +1363,7 @@ setTimeout(function(){
       <p class="note" id="fsumNote"></p>
       <div id="fsumNotes" hidden></div>
       <div id="fsumCom"></div>
+      <p class="cadisc" id="fsumDisc" hidden></p>
     </div>
   </div>
 
@@ -4013,9 +4015,21 @@ function houseCollapsed(){
   const v=localStorage.getItem('iwpbsg_house_fold');
   return v!=null? v==='1' : cfgYes('commentary_collapsed');
 }
+/* the disclaimer stands under a generated commentary wherever one appears,
+   worded once in the configuration */
+function comDiscTxt(){
+  return cfgS('commentary_disclaimer')||CFG_DEFAULT.settings.commentary_disclaimer;
+}
+function comDiscSet(id, show){
+  const dz=$(id); if(!dz) return;
+  dz.hidden=!show;
+  if(show) dz.textContent=comDiscTxt();
+}
 function applyHouseFold(){
   const c=houseCollapsed();
   const com=$('houseCom'), ctl=$('houseCtl'), car=$('houseCaret'), sub=$('houseSub');
+  const dz=$('houseDisc');
+  if(dz) dz.style.display=c?'none':'';
   if(com) com.style.display=c?'none':'';
   if(ctl) ctl.style.display=c?'none':'';
   if(sub) sub.style.display=c?'none':'';
@@ -4043,6 +4057,7 @@ function renderHouse(){
                     : st!=='pack'? tplCommentaryHtml(st)   // 'auto' and named styles alike
                     : slideCommentaryHtml();
           return comSumLead()+caSummaryLine()+body; });
+  comDiscSet('houseDisc', true);
 }
 
 /* ---- slide-format management commentary -------------------------------
@@ -8539,6 +8554,7 @@ function renderFsum(){
   renderFsumNotes(rows, m, P);
   aiComment($('fsumCom'), 'fsum|'+filterNote(true)+'|'+S.ytdM,
     {ctx:filterNote(true)}, ()=>fsumCommentary(rows,m,P));
+  comDiscSet('fsumDisc', true);
 }
 /* Is a variance favourable for this line? Costs and ECL are stored as
    negatives, so a positive variance is favourable on every line; a file that
@@ -11621,7 +11637,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 17:07</td></tr>
+      <tr><td>Build</td><td>2026-08-16 17:36</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11835,13 +11851,13 @@ function init(){
   hf.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); hToggle(); } });
   $('btnHouseWord').addEventListener('click',()=>comDocx(
     [{id:'houseCom', heading:cmpLabels(S.model).period, note:filterNote()}],
-    `${cfgS('app_title')} — management commentary`));
+    `${cfgS('app_title')} — management commentary`, comDiscTxt()));
   $('btnFsumWord').addEventListener('click',()=>comDocx(
     [{id:'fsumCom', heading:`${fsumTitleS()} — ${MON_LBL[S.ytdM]}'${fsumPlan(S.model,S.ytdM).yy} Actuals`,
       note:filterNote(true)},
      {id:'fsumNotes', heading:'Line commentary', note:''},
      {id:'houseCom', heading:cmpLabels(S.model).period, note:filterNote()}],
-    `${fsumTitleS()} — commentary`));
+    `${fsumTitleS()} — commentary`, comDiscTxt()));
   $('btnHouseCopy').addEventListener('click',()=>{
     const el=$('houseCom').querySelector('.aicom-t'); if(!el) return;
     const txt=el.innerText.replace(/\n{3,}/g,'\n\n');

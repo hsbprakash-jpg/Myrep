@@ -734,11 +734,15 @@ left-pane strip and the Filters pane.
   with the result across every basis in one sentence: *"PBT (Reported) is $101m
   down on YTD vs target, $18m down on the month vs forecast and $307m down on
   the full year vs target."* The standard disclaimer stands under the
-  commentary once there is one to disclaim. Its wording is the config file's
+  commentary once there is one to disclaim — under **every** generated
+  commentary, not just this page: the Management commentary on the KPI
+  summary, the Financial Summary's own words and the All commentaries page
+  each carry it, and on the summary it folds away with the commentary it
+  belongs to. Its wording is the config file's
   to own — a `commentary_disclaimer` row on the **Settings** sheet — so each
-  business ships its approved words in its pack, the Word export carries the
-  same words, and leaving the row out keeps the standard text. The CIB pack
-  carries its own wording as a worked example.
+  business ships its approved words in its pack, every surface and the Word
+  exports carry the same words, and leaving the row out keeps the standard
+  text. The CIB pack carries its own wording as a worked example.
 
   **Base Commentary** shows the generated text; **Updated Commentary** is the same
   text editable and kept, block by block, like every other commentary on the
