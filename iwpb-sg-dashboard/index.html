@@ -772,7 +772,11 @@ svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 .bp-table tbody tr[data-bp]:hover td{background:color-mix(in srgb, var(--hsbc-red) 5%, transparent)}
 .bp-table tr.bp-sub td{font-weight:700;border-top:1.5px solid var(--border-strong);
   background:color-mix(in srgb, var(--hsbc-red) 3%, transparent)}
-.bp-table td.num.negnum b{color:var(--text-primary)}
+.bp-table td.num{font-weight:450;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.bp-table tr.bp-reg td.num{color:var(--text-primary)}
+.bp-table tr.bp-sub td.num,.bp-table tr.tot td.num{font-weight:700;color:var(--text-primary)}
+.bp-table td.num.negnum{color:#c21a1a}
+.bp-table tr.bp-sub td.num.negnum,.bp-table tr.tot td.num.negnum{color:#c21a1a}
 .card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
 .card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -956,9 +960,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:53)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:55)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:53)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:55)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1025,7 +1029,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 09:53</div>
+<div id="buildTag">build 2026-08-16 09:55</div>
 </aside>
 <main>
 
@@ -3576,7 +3580,7 @@ function renderBizPerfView(){
     D.cols.map((c,ci)=>{ const cv=D.colVals[ci], x=cv.vals[i2];
       if(x==null) return '<td class="num">\u2013</td>';
       const t2=show(x/cv.sc,cv.d);
-      return `<td class="num${x<0?' negnum':''}">${rd.memoRow? t2 : '<b>'+t2+'</b>'}${
+      return `<td class="num${x<0?' negnum':''}">${t2}${
           cv.adj.has(i2)?'<span class="bp-adj" title="carries the column\u2019s rounding point so the column casts exactly">*</span>':''}</td>`; }).join('')}</tr>`).join('');
   host.innerHTML=`<table class="ctable bp-table"><thead><tr>
       <th>Business / Region / Country</th>${D.cols.map(th).join('')}
@@ -11497,7 +11501,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 09:53</td></tr>
+      <tr><td>Build</td><td>2026-08-16 09:55</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
