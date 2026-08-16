@@ -334,6 +334,17 @@ aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var
 .qitem.qflt button:hover{color:var(--hsbc-red)}
 .qwell.qfrow{flex:1;min-width:260px;min-height:40px;padding:4px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
 .qwell.qfrow .empty{flex-basis:100%;padding:6px}
+th.qhf{cursor:pointer}
+th.qhf:hover{background:color-mix(in srgb, var(--hsbc-red) 12%, transparent)}
+th.qhf .qhfhint{opacity:.35;font-size:9px}
+th.qhf .qhfon{color:#ffd9dd;font-size:9px}
+#qhPop{position:fixed;z-index:80;background:var(--surface-1);border:1px solid var(--border-strong);
+  border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px;display:flex;
+  flex-direction:column;gap:7px;min-width:210px}
+#qhPop .qhp-t{font-size:11px;font-weight:800}
+#qhPop select,#qhPop input{padding:5px 8px;border:1px solid var(--border-strong);border-radius:4px;
+  background:var(--surface-2);color:var(--text-primary);font-size:12px}
+#qhPop .qhp-b{display:flex;justify-content:flex-end;gap:7px}
 .qitem .qhead{display:flex;align-items:center;gap:6px}
 .qitem .qhead .nm{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qitem .qhead button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:0 3px}
@@ -939,9 +950,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:33)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:36)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:33)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:36)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1008,7 +1019,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 09:33</div>
+<div id="buildTag">build 2026-08-16 09:36</div>
 </aside>
 <main>
 
@@ -1196,7 +1207,7 @@ setTimeout(function(){
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
       <h2>Query Builder <span class="unitsfx" data-unitsfx></span></h2>
-      <p class="lede2">Tick a field to add it to the output — ticking order sets the column order — and use +F to filter. Then run the query.</p>
+      <p class="lede2">Tick a field to add it to the output — ticking order sets the column order — then run the query. Click a result column header to filter on it.</p>
     </div>
     <div id="qbActions">
       <input type="text" id="qName" placeholder="Saved query name">
@@ -1210,7 +1221,7 @@ setTimeout(function(){
     <div class="qcol" id="qbFieldsBand">
       <div class="qfhead">
         <h6 style="margin:0">Available fields</h6>
-        <p class="qsub" style="margin:0"><span id="qFieldCount"></span> fields · tick = output column · +F = filter</p>
+        <p class="qsub" style="margin:0"><span id="qFieldCount"></span> fields · tick = output column · click a result header to filter</p>
         <label class="qsub" style="margin:0 0 0 auto;display:inline-flex;align-items:center;gap:5px;cursor:pointer;flex:0 0 auto;white-space:nowrap"><input type="checkbox" id="qChkAll" style="accent-color:var(--hsbc-red);margin:0">Select all</label>
         <input id="qFieldSearch" placeholder="Search all available fields" aria-label="Search fields">
       </div>
@@ -7260,7 +7271,6 @@ function renderQuery(){
         <label title="Tick to add this field to the output \u2014 ticking order sets the column order">
           <input type="checkbox" data-chk="${f.id}"${Q.out.includes(f.id)?' checked':''}>
           <span class="nm" title="${esc(f.label)}">${esc(f.label)}</span></label>
-        <button data-w="filters" title="Add to Filters">+F</button>
       </div>`).join('')).join('')||'<p class="note">No fields match.</p>';
   const visIds=[...byGroup.values()].flat().map(f=>f.id);
   const ca=$('qChkAll');
@@ -7274,8 +7284,6 @@ function renderQuery(){
     };
   }
   $('qFieldList').querySelectorAll('.qfield').forEach(el=>{
-    el.querySelectorAll('button').forEach(b=>
-      b.addEventListener('click',()=>qAdd(b.dataset.w, el.dataset.id)));
     const cb=el.querySelector('[data-chk]');
     if(cb) cb.addEventListener('change',()=>{
       const id=cb.dataset.chk;
@@ -7302,7 +7310,7 @@ function renderQuery(){
         ${fd.kind==='dim'?`list="dl_${f.id.replace(':','_')}"`:''}>`:''}
       <button data-del="${i}" aria-label="Remove filter">✕</button>
     </div>`;
-  }).join(''):'<div class="empty">No filters \u2014 +F on a field adds one here</div>';
+  }).join(''):'<div class="empty">No filters \u2014 click a result column header to add one</div>';
   fw.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ Q.filters.splice(+b.dataset.del,1); renderQuery(); }));
   fw.querySelectorAll('[data-op]').forEach(s=>s.addEventListener('change',()=>{ Q.filters[+s.dataset.op].op=s.value; renderQuery(); }));
   fw.querySelectorAll('[data-val]').forEach(inp=>inp.addEventListener('input',()=>{ Q.filters[+inp.dataset.val].val=inp.value; }));
@@ -7384,7 +7392,7 @@ function renderQueryResults(){
   // view columns: month fields optionally collapsed into one summed column
   let vflds;
   if(qExpandMonths){
-    vflds=flds.map(f=>({label:f.label, kind:f.kind, get:r=>f.kind==='dim'?r.d[f.key]:r.v[f.col]}));
+    vflds=flds.map(f=>({label:f.label, kind:f.kind, fid:f.id, get:r=>f.kind==='dim'?r.d[f.key]:r.v[f.col]}));
   } else {
     const mset=monthColSet();
     vflds=[]; let grp=null;
@@ -7396,7 +7404,7 @@ function renderQueryResults(){
     }
     vflds=vflds.map(f=>f.cols
       ?{label:`Months Σ (${f.cols.length})`, kind:'per', get:sumGetter(f.cols)}
-      :{label:f.label, kind:f.kind, get:r=>f.kind==='dim'?r.d[f.key]:r.v[f.col]});
+      :{label:f.label, kind:f.kind, fid:f.id, get:r=>f.kind==='dim'?r.d[f.key]:r.v[f.col]});
   }
   const aoa=[vflds.map(f=>f.label)];
   for(const r of rows) aoa.push(vflds.map(f=>f.get(r)));
@@ -7406,13 +7414,55 @@ function renderQueryResults(){
   $('btnQMonths').textContent=qExpandMonths?'Collapse months':'Expand months';
   const {start, shown}=renderPager($('qPager'), qPager, count, renderQueryResults);
   let html='<table class="grid review"><thead><tr>'+vflds.map(f=>
-    `<th${f.kind==='dim'?' style="text-align:left"':''}>${esc(f.label)}</th>`).join('')+'</tr></thead><tbody>';
+    `<th${f.kind==='dim'?' style="text-align:left"':''}${f.fid?` class="qhf" data-fid="${esc(f.fid)}" title="Filter on ${esc(f.label)}"`:''}>${esc(f.label)}${
+      f.fid&&Q.filters.some(x=>x.id===f.fid)?' <span class="qhfon">⏷</span>':(f.fid?' <span class="qhfhint">⏷</span>':'')}</th>`).join('')+'</tr></thead><tbody>';
   aoa.slice(1+start, 1+start+shown).forEach(r=>{
     html+='<tr>'+r.map((v,ci)=>vflds[ci].kind==='per'?`<td>${fmtCell(v)}</td>`
       :`<td class="namecell" style="text-align:left">${esc(v==null?'':v)}</td>`).join('')+'</tr>';
   });
   $('qResTable').innerHTML=html+'</tbody></table>';
   $('qResTable').scrollTop=0;
+  $('qResTable').querySelectorAll('th.qhf').forEach(th=>
+    th.addEventListener('click',e=>qHeadFilter(th.dataset.fid, th, e)));
+}
+/* click a result header \u2014 a small filter lands beneath it: operator,
+   value, apply. One filter per field; applying re-runs the query. */
+function qHeadFilter(fid, th){
+  const old=document.getElementById('qhPop'); if(old) old.remove();
+  const fd=qFieldById(fid); if(!fd) return;
+  const cur=Q.filters.find(x=>x.id===fid)||{op:fd.kind==='dim'?'contains':'gt', val:''};
+  const ops=fd.kind==='dim'?Q_DIM_OPS:Q_PER_OPS;
+  const pop=document.createElement('div'); pop.id='qhPop';
+  pop.innerHTML=`<div class="qhp-t">${esc(fd.label)}</div>
+    <select id="qhpOp">${ops.map(([v,l])=>`<option value="${v}"${cur.op===v?' selected':''}>${l}</option>`).join('')}</select>
+    <input type="text" id="qhpVal" value="${esc(cur.val||'')}" placeholder="${fd.kind==='dim'?'Value\u2026':'Number\u2026'}"
+      ${fd.kind==='dim'?`list="dl_${fid.replace(':','_')}"`:''}>
+    <div class="qhp-b"><button class="btn-quiet" id="qhpClear">Clear</button>
+    <button class="btn-primary" id="qhpApply" style="padding:5px 14px">Apply</button></div>`;
+  document.body.appendChild(pop);
+  const r=th.getBoundingClientRect();
+  pop.style.left=Math.min(window.innerWidth-pop.offsetWidth-8, Math.max(8, r.left))+'px';
+  pop.style.top=(r.bottom+4)+'px';
+  const close=()=>{ pop.remove(); document.removeEventListener('mousedown',out,true); };
+  const out=e=>{ if(!pop.contains(e.target)) close(); };
+  document.addEventListener('mousedown',out,true);
+  const apply=()=>{
+    const op=pop.querySelector('#qhpOp').value, val=pop.querySelector('#qhpVal').value;
+    const i=Q.filters.findIndex(x=>x.id===fid);
+    const needsVal=!['blank','nblank','nz'].includes(op);
+    if(needsVal&&!String(val).trim()){ if(i>=0) Q.filters.splice(i,1); }
+    else if(i>=0) Object.assign(Q.filters[i],{op,val});
+    else Q.filters.push({id:fid, op, val});
+    close(); renderQuery(); runQuery();
+  };
+  pop.querySelector('#qhpApply').addEventListener('click',apply);
+  pop.querySelector('#qhpVal').addEventListener('keydown',e=>{ if(e.key==='Enter') apply(); });
+  pop.querySelector('#qhpClear').addEventListener('click',()=>{
+    const i=Q.filters.findIndex(x=>x.id===fid);
+    if(i>=0) Q.filters.splice(i,1);
+    close(); renderQuery(); runQuery();
+  });
+  pop.querySelector('#qhpVal').focus();
 }
 
 function renderPager(el,state,total,rerender){
@@ -11441,7 +11491,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 09:33</td></tr>
+      <tr><td>Build</td><td>2026-08-16 09:36</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
