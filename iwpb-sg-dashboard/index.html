@@ -305,7 +305,7 @@ aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var
 #qFieldList .qfield{flex:0 0 auto;margin:0}
 @media (max-width:1100px){#qbGrid{grid-template-columns:1fr 1fr}}
 .qcol{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:12px 14px;min-height:0}
-.qcol h6{margin:0 0 2px;font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
+.qcol h6{margin:0 0 7px;font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
 .qcol .qsub{font-size:10.5px;color:var(--text-muted);margin:0 0 10px}
 #qFieldSearch{width:auto;padding:6px 9px;border:1px solid var(--border-strong);border-radius:4px;
   background:var(--surface-2);color:var(--text-primary);font-size:12px;margin-bottom:0}
@@ -315,9 +315,9 @@ aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var
 .qfield .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qfield button{background:none;border:none;color:var(--series-1);font-size:10px;font-weight:800;cursor:pointer;padding:0 2px}
 .qfield button:hover{text-decoration:underline}
-.qwell{border:2px dashed var(--border-strong);border-radius:6px;min-height:120px;padding:8px}
+.qwell{border:2px dashed var(--border-strong);border-radius:6px;min-height:58px;padding:6px}
 .qwell.dropover{border-color:var(--hsbc-red);background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
-.qwell .empty{color:var(--text-muted);font-size:11.5px;text-align:center;padding:26px 6px}
+.qwell .empty{color:var(--text-muted);font-size:11px;text-align:center;padding:12px 6px}
 .qitem{border:1px solid var(--border);border-radius:6px;background:var(--surface-2);padding:6px 8px;margin:5px 0;font-size:12px}
 .qitem .qhead{display:flex;align-items:center;gap:6px}
 .qitem .qhead .nm{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -924,9 +924,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:51)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:54)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:51)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:54)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -993,7 +993,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 08:51</div>
+<div id="buildTag">build 2026-08-16 08:54</div>
 </aside>
 <main>
 
@@ -1194,17 +1194,14 @@ setTimeout(function(){
     <div id="qbGrid">
       <div class="qcol">
         <h6>Filters</h6>
-        <p class="qsub">Drop fields here and pick an operator and value.</p>
         <div class="qwell" data-qwell="filters" id="qFilters"></div>
       </div>
       <div class="qcol">
         <h6>Output columns</h6>
-        <p class="qsub">Drag entries up or down to change their sequence.</p>
         <div class="qwell" data-qwell="out" id="qOut"></div>
       </div>
       <div class="qcol">
         <h6>Sort by</h6>
-        <p class="qsub">Add one or more fields and toggle direction.</p>
         <div class="qwell" data-qwell="sort" id="qSort"></div>
       </div>
     </div>
@@ -7247,7 +7244,7 @@ function renderQuery(){
       ${needsVal?`<input type="text" data-val="${i}" value="${esc(f.val||'')}" placeholder="${fd.kind==='dim'?'Value…':'Number…'}"
         ${fd.kind==='dim'?`list="dl_${f.id.replace(':','_')}"`:''}>`:''}
     </div>`;
-  }).join(''):'<div class="empty">Drop filter fields here</div>';
+  }).join(''):'<div class="empty">Drop fields here \u2014 pick an operator and value</div>';
   fw.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ Q.filters.splice(+b.dataset.del,1); renderQuery(); }));
   fw.querySelectorAll('[data-op]').forEach(s=>s.addEventListener('change',()=>{ Q.filters[+s.dataset.op].op=s.value; renderQuery(); }));
   fw.querySelectorAll('[data-val]').forEach(inp=>inp.addEventListener('input',()=>{ Q.filters[+inp.dataset.val].val=inp.value; }));
@@ -7280,7 +7277,7 @@ function renderQuery(){
     return `<div class="qitem"><div class="qhead"><span class="nm">${esc(fd.label)}</span>
       <button class="dir" data-dir="${i}">${s.dir==='asc'?'Asc ▲':'Desc ▼'}</button>
       <button data-sdel="${i}" aria-label="Remove sort">✕</button></div></div>`;
-  }).join(''):'<div class="empty">Drop sort fields here</div>';
+  }).join(''):'<div class="empty">Drop sort fields here \u2014 click to toggle direction</div>';
   sw.querySelectorAll('[data-sdel]').forEach(b=>b.addEventListener('click',()=>{ Q.sort.splice(+b.dataset.sdel,1); renderQuery(); }));
   sw.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>{
     const s=Q.sort[+b.dataset.dir]; s.dir=s.dir==='asc'?'desc':'asc'; renderQuery(); }));
@@ -11414,7 +11411,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 08:51</td></tr>
+      <tr><td>Build</td><td>2026-08-16 08:54</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
