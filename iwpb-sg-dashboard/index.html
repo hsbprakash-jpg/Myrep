@@ -960,9 +960,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 10:27)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 11:48)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 10:27)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 11:48)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1029,7 +1029,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 10:27</div>
+<div id="buildTag">build 2026-08-16 11:48</div>
 </aside>
 <main>
 
@@ -9168,10 +9168,28 @@ let SIM=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_sim_cur')||'
   return {name:'', rules:[], by:'micaL1'}; })();
 function saveSimCur(){ try{ localStorage.setItem('iwpbsg_sim_cur',JSON.stringify(SIM)); }catch(e){} }
 function simStore(){ try{ return JSON.parse(localStorage.getItem('iwpbsg_sims')||'{}'); }catch(e){ return {}; } }
+function simSeedFromCfg(){
+  const sc=(CFG&&CFG.scenarios)||[];
+  if(!sc.length) return;
+  const store=simStore();
+  const byName={};
+  for(const r of sc)
+    (byName[r.scen]=byName[r.scen]||[]).push({dim:r.dim||'', val2:r.val2||'',
+      dim2:r.dim2||'', val22:r.val22||'', stmt:r.stmt||'all', type:r.type||'pct',
+      val:+r.val||0, from:+r.from||6, to:+r.to||11});
+  let changed=false;
+  for(const n of Object.keys(byName))
+    if(!(n in store)){ store[n]={rules:byName[n], by:'micaL1'}; changed=true; }
+  if(changed) simStoreSet(store);
+}
 function simStoreSet(o){ try{ localStorage.setItem('iwpbsg_sims',JSON.stringify(o)); }catch(e){} }
 function simFcMonths(){ return S.model? S.model.cyMonths.filter(p=>p.fc) : []; }
 function simMatchRows(rows, ru){
   let match=ru.dim? rows.filter(r=>String(r.d[ru.dim]||'')===String(ru.val2)) : rows;
+  // a second condition \u2014 a line AND a geography \u2014 comes from the
+  // configuration's Scenarios sheet; the editor leaves it untouched
+  if(ru.dim2&&ru.val22)
+    match=match.filter(r=>String(r.d[ru.dim2]||'')===String(ru.val22));
   if(ru.stmt==='pl') match=match.filter(r=>!isBSRow(r));
   else if(ru.stmt==='bs') match=match.filter(r=>isBSRow(r));
   return match;
@@ -9441,6 +9459,7 @@ function renderSim(){
         <option value="setm"${r.type==='setm'?' selected':''}>Set monthly total (${esc(cfgUnit())})</option>
       </select>
       <input class="rv" type="number" step="any" value="${simValIn(r)}" title="${(r.type==='pct'||r.type==='pctfy')?'Percentage change':'Amount in '+esc(cfgUnit())+' — the same units as the figures in the file'}">
+      ${r.dim2&&r.val22? `<span class="rlbl" title="Set in the configuration's Scenarios sheet">\u00b7 within ${esc(FIELD_LABELS[r.dim2]||r.dim2)} = ${esc(r.val22)}</span>`:''}
       <span class="rlbl">from</span><select class="rfrom">${mOpt(r.from)}</select>
       <span class="rlbl">to</span><select class="rto">${mOpt(r.to)}</select>
       <button class="rx" title="Remove rule" aria-label="Remove rule">✕</button>
@@ -11095,9 +11114,11 @@ function applyCfgDom(){
   if(!cfgViewOn(S.view)) S.view='summary';
   if(S.model){ S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
     S.units=cfgS('display_units').trim().toLowerCase()||'as'; fillUnits(); fillVarPeriod(); }
+  simSeedFromCfg();
 }
 function cfgFromWorkbook(wb){
   LIVEMET_CACHE=null;
+  CFG_DEFAULT.scenarios=CFG_DEFAULT.scenarios||[];
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
   const low=x=>deMoji(String(x==null?'':x).trim()).trim();
   const tp=[], hb={}; let mz=false, cz=false, tz=false, chCols=null;
@@ -11148,6 +11169,29 @@ function cfgFromWorkbook(wb){
         // carves it out, blank Business covers businesses that wrote none
         if(/^calculation/i.test(String(a))) continue;
         if(a&&c) cfg.calcdefs.push({calc:a, biz:b2||'', line:c, sign:d||'+', level:e2||'', tile:f2||''});
+      }
+      else if(sec==='scenarios'){
+        // Scenario | Dim | Value | Dim2 | Value2 | Statement | Type | Change | From | To
+        if(/^scenario$/i.test(String(a))) continue;
+        const dimKey=x=>{ x=String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+          const MAP={country:'country', region:'region', business:'business', businessline:'business',
+            micalevel1:'micaL1', mical1:'micaL1', micalevel2:'micaL2', mical2:'micaL2',
+            micalevel3:'micaL3', mical3:'micaL3', micalevel4:'micaL4', mical4:'micaL4',
+            productlevel1:'prodL1', productlevel2:'prodL2', productlevel3:'prodL3'};
+          return MAP[x]||String(x||'');
+        };
+        const monIdx=x=>{ const t2=String(x==null?'':x).trim().toUpperCase();
+          if(/^\d+$/.test(t2)) return +t2;
+          const i2=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']
+            .findIndex(mn=>t2.startsWith(mn));
+          return i2>=0? i2 : 6;
+        };
+        const t2=String(g2||'pct').toLowerCase();
+        const type=/fy/.test(t2)? 'pctfy' : /am|\$/.test(t2)? 'amt' : /set/.test(t2)? 'setm' : 'pct';
+        if(a&&(b2||d)) cfg.scenarios.push({scen:a, dim:dimKey(b2), val2:c,
+          dim2:dimKey(d), val22:e2, stmt:(f2||'all').toLowerCase(), type,
+          val:parseFloat(String(r[7]==null?'':r[7]).replace(/[%,]/g,''))||0,
+          from:monIdx(r[8]), to:monIdx(r[9])});
       }
       else if(sec==='metrics'){ if(mz!==true){ cfg.metrics=[]; mz=true; }
         // Key | Scope | Applies to \u2014 the same name may carry a different
@@ -11491,6 +11535,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       }
     }
     S.model=model; S.model0=model; S.reportYear='cy'; S.fileName=name;
+    simSeedFromCfg();
     COM_DOC_CACHE=null;      // the commentary is matched again against this file
     COM_TPL_DERIVED=new Map();   // and the write-up templates re-derive on its names
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
@@ -11535,7 +11580,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 10:27</td></tr>
+      <tr><td>Build</td><td>2026-08-16 11:48</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

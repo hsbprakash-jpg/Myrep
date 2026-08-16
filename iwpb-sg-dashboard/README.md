@@ -1180,6 +1180,27 @@ left-pane strip and the Filters pane.
   scopes total the P&L side only, with balances stated separately.
   Scenarios save by name (localStorage) for reload; the work-in-progress
   scenario survives refreshes.
+
+  **Pre-loaded scenarios from the config pack** — an optional `Scenarios`
+  sheet in the configuration workbook ships ready-made scenarios to every
+  user who opens the dashboard, instead of each living in one person's
+  browser. Columns: `Scenario | Dim | Value | Dim2 | Value2 | Statement |
+  Type | Change | From | To`. Rows sharing a Scenario name become one
+  multi-rule scenario. `Dim`/`Value` is the main scope (e.g.
+  `MICA Level 3` = `NII - Net Interest Income`); `Dim2`/`Value2` is an
+  optional second condition — a line *within* a geography — shown on the
+  rule as "· within Region = MENAT" (dims accepted: Country, Region,
+  Business, MICA Level 1–4, Product Level 1–3). `Statement` is `pl`, `bs`
+  or `all`; `Type` is `pct` (% change), `pctfy` (% of full year), `amt`
+  (add amount) or `setm` (set monthly total); `Change` is the number;
+  `From`/`To` are month names (`AUG`…`DEC`). Seeding happens when the
+  config loads and never overwrites a scenario the user already saved
+  under the same name; a seeded rule whose scope matches nothing in the
+  loaded driller shows the usual "no rows match" note rather than
+  silently doing nothing. The Group pack ships six Middle East crisis
+  scenarios built this way (Gulf rate cuts, EGP devaluation, deposit
+  flight, Gulf inflows upside, trade disruption, and an oil-spike
+  counter-case).
 - **Data** — the filtered source rows, paginated with search. Every text
   column header carries a **filter button**: it opens a value picker
   (searchable, Select all / Clear, tick the values to keep) that combines
