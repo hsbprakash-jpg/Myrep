@@ -296,20 +296,26 @@ aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var
   padding:0 1px;font-weight:800;letter-spacing:.3px}
 .fchip .chipbtn:hover{text-decoration:underline}
 /* ---------- query builder ---------- */
-#qbGrid{display:grid;grid-template-columns:minmax(300px,1.35fr) repeat(3,minmax(210px,1fr));gap:14px;align-items:start}
+#qbGrid{display:grid;grid-template-columns:repeat(3,minmax(210px,1fr));gap:14px;align-items:start}
+#qbFieldsBand{min-height:0;margin-bottom:14px;padding:10px 14px}
+.qfhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.qfhead input{flex:1;min-width:220px;margin:0}
+#qFieldList{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;max-height:132px;overflow:auto;margin-top:8px}
+#qFieldList .qgroup{margin:0 2px 0 10px}
+#qFieldList .qfield{flex:0 0 auto;margin:0}
 @media (max-width:1100px){#qbGrid{grid-template-columns:1fr 1fr}}
-.qcol{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:12px 14px;min-height:340px}
+.qcol{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:12px 14px;min-height:0}
 .qcol h6{margin:0 0 2px;font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
 .qcol .qsub{font-size:10.5px;color:var(--text-muted);margin:0 0 10px}
-#qFieldSearch{width:100%;padding:6px 9px;border:1px solid var(--border-strong);border-radius:4px;
-  background:var(--surface-2);color:var(--text-primary);font-size:12px;margin-bottom:9px}
+#qFieldSearch{width:auto;padding:6px 9px;border:1px solid var(--border-strong);border-radius:4px;
+  background:var(--surface-2);color:var(--text-primary);font-size:12px;margin-bottom:0}
 .qgroup{font-size:9.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--text-muted);margin:9px 0 4px}
 .qfield{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:6px;
   padding:4px 8px;margin:3px 0;font-size:12px;background:var(--surface-2);cursor:grab}
 .qfield .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qfield button{background:none;border:none;color:var(--series-1);font-size:10px;font-weight:800;cursor:pointer;padding:0 2px}
 .qfield button:hover{text-decoration:underline}
-.qwell{border:2px dashed var(--border-strong);border-radius:6px;min-height:210px;padding:8px}
+.qwell{border:2px dashed var(--border-strong);border-radius:6px;min-height:120px;padding:8px}
 .qwell.dropover{border-color:var(--hsbc-red);background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
 .qwell .empty{color:var(--text-muted);font-size:11.5px;text-align:center;padding:26px 6px}
 .qitem{border:1px solid var(--border);border-radius:6px;background:var(--surface-2);padding:6px 8px;margin:5px 0;font-size:12px}
@@ -918,9 +924,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:48)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:51)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:48)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:51)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -987,7 +993,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 08:48</div>
+<div id="buildTag">build 2026-08-16 08:51</div>
 </aside>
 <main>
 
@@ -1177,13 +1183,15 @@ setTimeout(function(){
       <h2>Query Builder <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2">Drag fields into Filters, Output Columns or Sort By — or use the +F / +O / +S shortcuts — then run the query. Output sequence controls the result column order.</p>
     </div></div>
-    <div id="qbGrid">
-      <div class="qcol">
-        <h6>Available fields</h6>
-        <p class="qsub"><span id="qFieldCount"></span> fields from the loaded file</p>
+    <div class="qcol" id="qbFieldsBand">
+      <div class="qfhead">
+        <h6 style="margin:0">Available fields</h6>
+        <p class="qsub" style="margin:0"><span id="qFieldCount"></span> fields · drag, or +F filter / +O output / +S sort</p>
         <input id="qFieldSearch" placeholder="Search all available fields" aria-label="Search fields">
-        <div id="qFieldList" style="max-height:430px;overflow:auto"></div>
       </div>
+      <div id="qFieldList"></div>
+    </div>
+    <div id="qbGrid">
       <div class="qcol">
         <h6>Filters</h6>
         <p class="qsub">Drop fields here and pick an operator and value.</p>
@@ -11406,7 +11414,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 08:48</td></tr>
+      <tr><td>Build</td><td>2026-08-16 08:51</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
