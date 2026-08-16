@@ -960,9 +960,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:55)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 10:04)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:55)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 10:04)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1029,7 +1029,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 09:55</div>
+<div id="buildTag">build 2026-08-16 10:04</div>
 </aside>
 <main>
 
@@ -1244,6 +1244,7 @@ setTimeout(function(){
           <div class="qwell qfrow" data-qwell="filters" id="qFilters"></div>
         </div>
         <div style="display:flex;gap:8px">
+          <button class="btn-quiet" id="btnQZero" hidden>Show zero rows</button>
           <button class="btn-quiet" id="btnQMonths">Collapse months</button>
           <button class="btn-quiet" id="btnQExport">⤓ Export to Excel</button>
         </div>
@@ -7228,7 +7229,7 @@ function renderBuilder(){
 }
 
 /* ================= query builder ================= */
-const Q={filters:[], out:[], sort:[]};
+const Q={filters:[], out:[], sort:[], showZero:false};
 let qLastResult=null;
 const Q_DIM_OPS=[['contains','contains'],['eq','equals'],['neq','not equals'],['blank','is blank'],['nblank','is not blank']];
 const Q_PER_OPS=[['gt','>'],['ge','≥'],['lt','<'],['le','≤'],['eq','='],['neq','≠'],['nz','not zero'],['blank','is blank']];
@@ -7370,6 +7371,16 @@ function runQuery(){
       }
     }
   }
+  // a driller extract carries empty combination rows by the thousand:
+  // where figure columns are on the output, rows whose every selected
+  // figure is nil hide by default \u2014 counted, and one click away
+  const perOut=Q.out.map(qFieldById).filter(f2=>f2&&f2.kind==='per');
+  let zeroHidden=0;
+  if(perOut.length&&!Q.showZero){
+    const n0=rows.length;
+    rows=rows.filter(r=>perOut.some(f2=>{ const v=r.v[f2.col]; return v!=null&&v!==0; }));
+    zeroHidden=n0-rows.length;
+  }
   // no sort selection any more: the results order by the output columns,
   // in ticking order \u2014 dimensions A\u2013Z, figures descending
   const autoSort=Q.out.map(id=>({fd:qFieldById(id), dir: (qFieldById(id)||{}).kind==='dim'?'asc':'desc'}))
@@ -7390,7 +7401,7 @@ function runQuery(){
   const flds=outIds.map(qFieldById).filter(Boolean);
   const aoa=[flds.map(f=>f.label)];
   for(const r of rows) aoa.push(flds.map(f=>f.kind==='dim'? r.d[f.key] : r.v[f.col]));
-  qLastResult={rows, count:rows.length, flds};
+  qLastResult={rows, count:rows.length, flds, zeroHidden};
   qPager.page=1;
   renderQueryResults();
 }
@@ -7420,7 +7431,11 @@ function renderQueryResults(){
   for(const r of rows) aoa.push(vflds.map(f=>f.get(r)));
   qLastResult.viewAoa=aoa;
   $('qResults').hidden=false;
-  $('qResSub').textContent=`${count.toLocaleString()} rows match the query`;
+  const zh=qLastResult.zeroHidden||0;
+  $('qResSub').textContent=`${count.toLocaleString()} rows match the query`+
+    (zh? ` \u00b7 ${zh.toLocaleString()} all-zero rows hidden` : (Q.showZero&&qLastResult.flds.some(f=>f.kind==='per')? ' \u00b7 zero rows shown' : ''));
+  const zb=$('btnQZero');
+  if(zb){ zb.hidden=!(zh||Q.showZero); zb.textContent=Q.showZero? 'Hide zero rows' : 'Show zero rows'; }
   $('btnQMonths').textContent=qExpandMonths?'Collapse months':'Expand months';
   const {start, shown}=renderPager($('qPager'), qPager, count, renderQueryResults);
   let html='<table class="grid review"><thead><tr>'+vflds.map(f=>
@@ -11501,7 +11516,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 09:55</td></tr>
+      <tr><td>Build</td><td>2026-08-16 10:04</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11584,6 +11599,7 @@ function init(){
   $('btnQExport').addEventListener('click',()=>{
     if(qLastResult&&qLastResult.viewAoa) exportWB([{name:'Query results', aoa:qLastResult.viewAoa, money:false}],brandSlug()+'_query');
   });
+  $('btnQZero').addEventListener('click',()=>{ Q.showZero=!Q.showZero; runQuery(); });
   $('btnQMonths').addEventListener('click',()=>{ qExpandMonths=!qExpandMonths; renderQueryResults(); });
   $('btnQSave').addEventListener('click',()=>{
     const n=$('qName').value.trim(); if(!n) return;
