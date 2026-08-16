@@ -1,6 +1,6 @@
 # IWPB Singapore Driller — KPI Dashboard
 
-A self-contained, single-file web app that ingests the IWPB Singapore TM1 extract
+A self-contained, single-file web app that ingests the IWPB Singapore TM1
 extract and shows a **RAG-rated KPI summary at MICA Level 2** with full
 drill-down. No server, no build step, no network calls — open `index.html` in
 any modern browser and everything (including XLSX parsing via an embedded copy
@@ -1318,6 +1318,17 @@ What each section governs:
   extend the list (`auto`, `ytd_py`, `ytd_fc`, `mom`, `mth_py`,
   `mth_tgt` remain understood); entries a file cannot serve are hidden
   automatically.
+
+  **Tile size** is configurable too: `tile_height` (default `124`) is the
+  height in pixels every tile shares, and `tile_min_width` (default `236`)
+  is the narrowest a tile may become before the grid drops a column — so
+  it governs how many tiles sit in a row, and therefore how many rows the
+  summary needs. Raise `tile_height` for a roomier grid; raise
+  `tile_min_width` for fewer, wider tiles. `tile_height` is a floor rather
+  than a cap: a tile whose content needs more room still grows, so setting
+  it very low simply lets the tiles find their natural height. Values that
+  are not numbers, or below the workable minimums (60px high, 150px wide),
+  fall back to the defaults rather than breaking the grid.
 - **Hierarchy check** — the ingest report states whether the cascade adds
   up: it names any row that matched no line (they group under Unmapped)
   and any line that keeps rows of its own while also having children, so

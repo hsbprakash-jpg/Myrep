@@ -450,8 +450,8 @@ main{flex:1;min-width:0;padding:14px 20px}
   background:var(--surface-2);font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
 /* ---------- KPI summary ---------- */
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:9px;justify-content:flex-start}
-.cards .card{min-height:124px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile-w,236px),1fr));gap:9px;justify-content:flex-start}
+.cards .card{min-height:var(--tile-h,124px)}
 .greet{font-size:13px;color:var(--text-secondary);margin:0 0 6px}
 .greet b{color:var(--text-primary)}
 .commentary{background:var(--surface-1);border:1px solid var(--border);border-left:4px solid var(--hsbc-red);
@@ -975,9 +975,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 13:46)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 17:04)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 13:46)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 17:04)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1044,7 +1044,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 13:46</div>
+<div id="buildTag">build 2026-08-16 17:04</div>
 </aside>
 <main>
 
@@ -1476,6 +1476,7 @@ const CFG_DEFAULT={
     dashboard_page_size:'6',
     font_greeting:'', font_commentary:'', font_eyebrow:'',
     sim_value_width:'50',
+    tile_height:'124', tile_min_width:'236',
     month_case:'upper',
     unit_label:'US$m',
     display_units:'as',
@@ -11142,6 +11143,12 @@ function applyCfgDom(){
   for(let i=0;i<MON_LBL.length;i++) MON_LBL[i]=upM? MON_LBL_BASE[i].toUpperCase() : MON_LBL_BASE[i];
   const svw=parseFloat(cfgS('sim_value_width'));
   document.documentElement.style.setProperty('--sim-val-w', (isFinite(svw)&&svw>=10? svw : 50)+'ch');
+  // tile size: the height is a floor the content can still grow past, and the
+  // width is the narrowest a tile may be before the grid drops a column
+  const tlh=parseFloat(cfgS('tile_height'));
+  document.documentElement.style.setProperty('--tile-h', (isFinite(tlh)&&tlh>=60? tlh : 124)+'px');
+  const tlw=parseFloat(cfgS('tile_min_width'));
+  document.documentElement.style.setProperty('--tile-w', (isFinite(tlw)&&tlw>=150? tlw : 236)+'px');
   const NAVV={summary:'navSummary',fsum:'navFsum',custom:'navCustom',builder:'navBuilder',query:'navQuery',
     assist:'navAssist',sim:'navSim'};
   for(const [v,id] of Object.entries(NAVV)){ const b=$(id); if(b) b.style.display=cfgViewOn(v)?'':'none'; }
@@ -11614,7 +11621,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 13:46</td></tr>
+      <tr><td>Build</td><td>2026-08-16 17:04</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
