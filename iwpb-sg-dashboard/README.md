@@ -1319,8 +1319,8 @@ What each section governs:
   `mth_tgt` remain understood); entries a file cannot serve are hidden
   automatically.
 
-  **Tile size** is configurable too: `tile_height` (default `124`) is the
-  height in pixels every tile shares, and `tile_min_width` (default `236`)
+  **Tile size** is configurable too: `tile_height` (default `150`) is the
+  height in pixels every tile shares, and `tile_min_width` (default `252`)
   is the narrowest a tile may become before the grid drops a column — so
   it governs how many tiles sit in a row, and therefore how many rows the
   summary needs. Raise `tile_height` for a roomier grid; raise
