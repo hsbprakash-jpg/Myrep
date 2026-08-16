@@ -1185,8 +1185,12 @@ left-pane strip and the Filters pane.
   `Simulations` sheet in the configuration workbook ships ready-made
   simulations to every user who opens the dashboard, instead of each
   living in one person's browser. Columns: `Simulation | Dim | Value |
-  Dim2 | Value2 | Statement | Type | Change | From | To`. Rows sharing a
-  Simulation name become one multi-rule simulation. (A sheet still named
+  Dim2 | Value2 | Statement | Type | Change | From | To | Category`. Rows
+  sharing a Simulation name become one multi-rule simulation, and
+  `Category` files it on the page — the Saved simulations list and the
+  compare picker group under those headings (Cost, Macroeconomic,
+  Geopolitical, or whatever the sheet says), with anything a person saved
+  themselves last under **My simulations**. (A sheet still named
   `Scenarios`, the tab's earlier name, is read exactly the same way, so
   packs already in circulation keep working.) `Dim`/`Value` is the main
   scope (e.g.
@@ -1207,7 +1211,9 @@ left-pane strip and the Filters pane.
   cuts, China hard landing, US/Europe recession, a markets-rally upside,
   and stagflation), and five cost cases (pay review, variable pay
   true-up, savings programme, indirect cost inflation, and an offshoring
-  footprint shift that lowers UK direct costs while raising Asia's).
+  footprint shift that lowers UK direct costs while raising Asia's),
+  filed on the sheet as Geopolitical, Macroeconomic and Cost
+  respectively.
 - **Data** — the filtered source rows, paginated with search. Every text
   column header carries a **filter button**: it opens a value picker
   (searchable, Select all / Clear, tick the values to keep) that combines

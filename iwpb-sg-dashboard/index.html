@@ -530,6 +530,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 #simSaved select{border:1px solid var(--border);border-radius:6px;padding:7px 10px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);min-width:240px}
 #simRules{overflow-x:auto}
 .cmppick{display:flex;flex-wrap:wrap;gap:10px 18px;margin:6px 0 4px}
+.cmpcat{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);margin:10px 0 0}
+.cmpcat:first-child{margin-top:2px}
 .cmppick label{font-size:12.5px;color:var(--text-secondary)}
 #simRules .rnote{grid-column:1 / -1;font-size:11px;color:var(--text-muted);margin:2px 0 0 40px}
 #simRules .rnote.warn{color:#b57a00;font-weight:600}
@@ -960,9 +962,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 12:46)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 12:50)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 12:46)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 12:50)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1029,7 +1031,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 12:46</div>
+<div id="buildTag">build 2026-08-16 12:50</div>
 </aside>
 <main>
 
@@ -9172,15 +9174,30 @@ function simSeedFromCfg(){
   const sc=(CFG&&CFG.scenarios)||[];
   if(!sc.length) return;
   const store=simStore();
-  const byName={};
+  const byName={}, catOf={};
   for(const r of sc)
     (byName[r.scen]=byName[r.scen]||[]).push({dim:r.dim||'', val2:r.val2||'',
       dim2:r.dim2||'', val22:r.val22||'', stmt:r.stmt||'all', type:r.type||'pct',
       val:+r.val||0, from:+r.from||6, to:+r.to||11});
+  for(const r of sc) if(r.cat&&!catOf[r.scen]) catOf[r.scen]=r.cat;
   let changed=false;
   for(const n of Object.keys(byName))
-    if(!(n in store)){ store[n]={rules:byName[n], by:'micaL1'}; changed=true; }
+    if(!(n in store)){ store[n]={rules:byName[n], by:'micaL1', cat:catOf[n]||''}; changed=true; }
   if(changed) simStoreSet(store);
+}
+/* saved simulations filed under the category the configuration gives them
+   — cost, macroeconomic and so on; anything a person saved themselves has
+   none and sits at the end under its own heading */
+function simGroups(){
+  const store=simStore(), by=new Map(), MINE='My simulations';
+  for(const n of Object.keys(store).sort()){
+    const k=(store[n]&&store[n].cat)||MINE;
+    if(!by.has(k)) by.set(k,[]);
+    by.get(k).push(n);
+  }
+  const keys=[...by.keys()].filter(k=>k!==MINE).sort();
+  if(by.has(MINE)) keys.push(MINE);
+  return keys.map(k=>({cat:k, names:by.get(k)}));
 }
 function simStoreSet(o){ try{ localStorage.setItem('iwpbsg_sims',JSON.stringify(o)); }catch(e){} }
 function simFcMonths(){ return S.model? S.model.cyMonths.filter(p=>p.fc) : []; }
@@ -9412,7 +9429,8 @@ function renderSim(){
   const names=Object.keys(store).sort();
   $('simSaved').innerHTML=names.length?
     `<label>Saved simulations
-      <select id="simSel">${names.map(n=>`<option${SIM.name===n?' selected':''}>${esc(n)}</option>`).join('')}</select>
+      <select id="simSel">${simGroups().map(g=>`<optgroup label="${esc(g.cat)}">${
+        g.names.map(n=>`<option${SIM.name===n?' selected':''}>${esc(n)}</option>`).join('')}</optgroup>`).join('')}</select>
     </label>
     <button class="btn-quiet" id="btnSimLoad">Load</button>
     <button class="btn-quiet" id="btnSimDel">Delete</button>`
@@ -9551,8 +9569,9 @@ function renderSimCompare(){
   const names=Object.keys(simStore()).sort();
   SIM_CMP.sel=SIM_CMP.sel.filter(n=>names.includes(n));
   $('simCmpPick').innerHTML= names.length?
-    `<div class="cmppick">${names.map(n=>`<label class="chk"><input type="checkbox" data-cmp="${esc(n)}"${
-      SIM_CMP.sel.includes(n)?' checked':''}> ${esc(n)}</label>`).join('')}</div>`
+    simGroups().map(g=>`<div class="cmpcat">${esc(g.cat)}</div><div class="cmppick">${
+      g.names.map(n=>`<label class="chk"><input type="checkbox" data-cmp="${esc(n)}"${
+        SIM_CMP.sel.includes(n)?' checked':''}> ${esc(n)}</label>`).join('')}</div>`).join('')
     : '<p class="note">Save two or more simulations above, then tick them here to compare.</p>';
   $('simCmpPick').querySelectorAll('[data-cmp]').forEach(cb=>cb.addEventListener('change',()=>{
     const n=cb.dataset.cmp;
@@ -11188,7 +11207,7 @@ function cfgFromWorkbook(wb){
         };
         const t2=String(g2||'pct').toLowerCase();
         const type=/fy/.test(t2)? 'pctfy' : /am|\$/.test(t2)? 'amt' : /set/.test(t2)? 'setm' : 'pct';
-        if(a&&(b2||d)) cfg.scenarios.push({scen:a, dim:dimKey(b2), val2:c,
+        if(a&&(b2||d)) cfg.scenarios.push({scen:a, cat:low(r[10]), dim:dimKey(b2), val2:c,
           dim2:dimKey(d), val22:e2, stmt:(f2||'all').toLowerCase(), type,
           val:parseFloat(String(r[7]==null?'':r[7]).replace(/[%,]/g,''))||0,
           from:monIdx(r[8]), to:monIdx(r[9])});
@@ -11580,7 +11599,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 12:46</td></tr>
+      <tr><td>Build</td><td>2026-08-16 12:50</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11760,7 +11779,8 @@ function init(){
   $('btnSimSave').addEventListener('click',()=>{
     SIM.name=$('simName').value.trim();
     if(!SIM.name){ alert('Give the simulation a name first.'); return; }
-    const st=simStore(); st[SIM.name]={rules:SIM.rules, by:SIM.by}; simStoreSet(st); saveSimCur(); renderSim();
+    const st=simStore(); st[SIM.name]={rules:SIM.rules, by:SIM.by,
+      cat:(st[SIM.name]&&st[SIM.name].cat)||''}; simStoreSet(st); saveSimCur(); renderSim();
   });
   $('btnSimNew').addEventListener('click',()=>{ SIM={name:'',rules:[],by:'micaL1'}; SIM_LAST=null; saveSimCur(); renderSim(); });
   $('btnSimClear').addEventListener('click',()=>{
