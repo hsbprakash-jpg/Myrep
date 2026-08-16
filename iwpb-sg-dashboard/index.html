@@ -924,9 +924,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:56)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:04)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:56)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:04)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -993,7 +993,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 08:56</div>
+<div id="buildTag">build 2026-08-16 09:04</div>
 </aside>
 <main>
 
@@ -4996,20 +4996,20 @@ async function exportSummaryPPT(){
     return l<=22?11 : l<=30?10 : l<=42?9 : l<=58?8 : 7; };
   const nameTxt=n=>String(n).length>76? String(n).slice(0,75)+'\u2026' : String(n);
   const valFs=t2=>{ const l=String(t2).length; return l>10?9.5 : l>7?11.5 : 13; };
-  const cellFs=t2=>String(t2).length>8? 8.5 : 9.5;
+  const cellFs=t2=>String(t2).length>8? 8.2 : 9;
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const slide=p.addSlide(); slide.background={color:'FFFFFF'};
   pptCriteria(slide);
   slide.addText(`${cfgS('landing_title')} \u2014 ${MON_LBL[S.ytdM]} ${m.yearCY}`,
     {x:0.4,y:0.18,w:12.5,h:0.38,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI',valign:'top'});
-  const COLS=4, TW=3.04, TH=1.42, GX=0.11, GY=0.13, X0=0.42, Y0=1.12;
+  const COLS=4, TW=3.04, TH=1.26, GX=0.11, GY=0.11, X0=0.42, Y0=1.12;
   const heroTxt=($('commentary')&&$('commentary').textContent.trim())||'';
   const visEl=el=>!!(el&&el.offsetParent!==null);
   const trajOn=visEl($('trajPanel')), mixOn=visEl($('mixChart'));
   const trajSvg=trajOn? $('trajPanel').querySelector('svg') : null;
   const mixSvg=mixOn? $('mixChart').querySelector('svg') : null;
   const tilesBottom=Y0+Math.ceil(tiles.length/COLS)*(TH+GY);
-  const onePage= tiles.length<=8 && trajSvg && tilesBottom<=4.45;
+  const onePage= tiles.length<=8 && trajSvg && tilesBottom<=4.2;
   // header: subtitle, then the narrative on its own line beneath it
   slide.addText(`${cmpLabels(m).period} \u00b7 figures in ${cfgUnit()} as reported`,
     {x:0.4,y:0.58,w:12.5,h:0.26,fontSize:11,color:'52514E',fontFace:'Segoe UI'});
@@ -5029,21 +5029,21 @@ async function exportSummaryPPT(){
       color:'1A1A19',fontFace:'Segoe UI',wrap:true,fit:'shrink',valign:'top',lineSpacing:nameFs(nm)+1});
     slide.addText(vTxt,{x:tx+TW-1.12,y:ty+0.05,w:1.02,h:0.28,align:'right',bold:true,valign:'top',
       fontSize:valFs(vTxt),color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
-    slide.addShape('rect',{x:tx+0.1,y:ty+0.5,w:TW-0.2,h:0.014,fill:{color:'1A1A19'},line:{type:'none'}});
+    slide.addShape('rect',{x:tx+0.1,y:ty+0.46,w:TW-0.2,h:0.014,fill:{color:'1A1A19'},line:{type:'none'}});
     const trs=t.hide?[]:tileRows(t.k,m).slice(0,3);
     if(!trs.length)
-      slide.addText(`${cmpLabels(m).main} actuals`,{x:tx+0.1,y:ty+0.56,w:TW-0.2,h:0.24,
-        fontSize:9.5,color:'8A8880',fontFace:'Segoe UI'});
+      slide.addText(`${cmpLabels(m).main} actuals`,{x:tx+0.1,y:ty+0.51,w:TW-0.2,h:0.22,
+        fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
     trs.forEach((r,ri)=>{
       const fav=movFav(t.k,r.v,r.p), up=movUp(t.k,r.v,r.p);
       const col=fav?'0B7A0B':'C21A1A', tri=up?'\u25B2':'\u25BC';
-      const ry=ty+0.55+ri*0.27;
+      const ry=ty+0.5+ri*0.245;
       const aTxt=r.v==null?'\u2013':tri+((t.k.isBS&&bsUnit())? fmtBS(Math.abs(r.v)) : fmt(Math.abs(r.v)));
       const pTxt=r.p==null?'':tri+pctAbs(r.p);
-      slide.addText(r.lbl,{x:tx+0.1,y:ry,w:0.78,h:0.24,fontSize:9.5,color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
-      slide.addText(aTxt,{x:tx+0.88,y:ry,w:1.0,h:0.24,fontSize:cellFs(aTxt),bold:true,color:col,
+      slide.addText(r.lbl,{x:tx+0.1,y:ry,w:0.78,h:0.22,fontSize:9,color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
+      slide.addText(aTxt,{x:tx+0.88,y:ry,w:1.0,h:0.22,fontSize:cellFs(aTxt),bold:true,color:col,
         align:'right',fontFace:'Segoe UI',fit:'shrink'});
-      slide.addText(pTxt,{x:tx+1.92,y:ry,w:TW-2.04,h:0.24,fontSize:cellFs(pTxt),bold:true,color:col,
+      slide.addText(pTxt,{x:tx+1.92,y:ry,w:TW-2.04,h:0.22,fontSize:cellFs(pTxt),bold:true,color:col,
         align:'right',fontFace:'Segoe UI',fit:'shrink'});
     });
   });
@@ -5073,7 +5073,28 @@ async function exportSummaryPPT(){
         color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
     };
     if(trajOn) await half(0.42,6.05,trajTitle,trajSvg,null,comText('trajCom'));
-    if(mixOn) await half(6.87,6.05,chartTitle(MX),mixSvg,chartAOA({...MX}),comText('mixCom'));
+    if(paras.length){
+      // the words take the right half of the band; what cannot fit flows
+      // to a (cont.) slide, and the mix keeps a slide of its own
+      slide.addText('Management commentary \u2014 '+cmpLabels(m).period,
+        {x:6.87,y:bandY,w:6.05,h:0.24,fontSize:10.5,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
+      slide.addShape('rect',{x:6.87,y:bandY+0.27,w:1.4,h:0.03,fill:{color:'DB0011'},line:{type:'none'}});
+      const top2=bandY+0.4, capLines=Math.floor((7.16-top2)/0.16);
+      const first=[]; let used2=0;
+      while(paras.length){
+        const cost=Math.ceil(paras[0].length/56)+0.5;
+        if(first.length&&used2+cost>capLines) break;
+        if(!first.length&&cost>capLines+4) break;
+        used2+=cost; first.push(paras.shift());
+      }
+      if(first.length){
+        slide.addText(first.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:4}})),
+          {x:6.87,y:top2,w:6.05,h:7.16-top2,fontSize:9.5,color:'1A1A19',fontFace:'Segoe UI',
+           valign:'top',wrap:true,fit:'shrink'});
+        paraOnPage1=true;
+      }
+      if(mixOn) await pptChartSlide(p,{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')});
+    } else if(mixOn) await half(6.87,6.05,chartTitle(MX),mixSvg,chartAOA({...MX}),comText('mixCom'));
   } else {
     // the room the tiles leave on page one belongs to the words: the
     // narrative line, then as much of the Management commentary as fits,
@@ -11409,7 +11430,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 08:56</td></tr>
+      <tr><td>Build</td><td>2026-08-16 09:04</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
