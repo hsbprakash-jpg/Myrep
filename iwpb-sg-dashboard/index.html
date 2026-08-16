@@ -326,12 +326,12 @@ aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var
 .qitem select,.qitem input[type=text]{width:100%;margin-top:5px;padding:4px 7px;border:1px solid var(--border-strong);
   border-radius:4px;background:var(--surface-1);color:var(--text-primary);font-size:11.5px}
 .qitem .dir{color:var(--series-1);font-weight:700;cursor:pointer;font-size:11px;background:none;border:none;padding:0}
-#qbActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+#qbActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;margin:0 0 4px}
 #qbActions input[type=text]{padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;
-  background:var(--surface-2);color:var(--text-primary);font-size:12.5px;min-width:180px}
+  background:var(--surface-2);color:var(--text-primary);font-size:12.5px;min-width:140px;width:150px}
 #qbActions select{padding:6px 8px;border:1px solid var(--border-strong);border-radius:4px;
   background:var(--surface-2);color:var(--text-primary);font-size:12.5px}
-#qbActions .end{margin-left:auto;display:flex;gap:8px}
+
 #sideFilters{padding:2px 18px 0;display:flex;flex-direction:column;gap:10px}
 #sideFilters label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--text-secondary);font-weight:600}
 #sideFilters select{width:100%;padding:5px 8px;border:1px solid var(--border-strong);border-radius:4px;
@@ -924,9 +924,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:54)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:56)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:54)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:56)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -993,7 +993,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 08:54</div>
+<div id="buildTag">build 2026-08-16 08:56</div>
 </aside>
 <main>
 
@@ -1182,6 +1182,15 @@ setTimeout(function(){
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
       <h2>Query Builder <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2">Drag fields into Filters, Output Columns or Sort By — or use the +F / +O / +S shortcuts — then run the query. Output sequence controls the result column order.</p>
+    </div>
+    <div id="qbActions">
+      <input type="text" id="qName" placeholder="Saved query name">
+      <button class="btn-quiet" id="btnQSave">Save query</button>
+      <select id="qSaved" aria-label="Saved queries"></select>
+      <button class="btn-quiet" id="btnQLoad">Load</button>
+      <button class="btn-quiet" id="btnQDelete">Delete</button>
+      <button class="btn-quiet" id="btnQClear">Clear</button>
+      <button class="btn-primary" id="btnQRun" style="padding:8px 24px">Run query</button>
     </div></div>
     <div class="qcol" id="qbFieldsBand">
       <div class="qfhead">
@@ -1205,18 +1214,7 @@ setTimeout(function(){
         <div class="qwell" data-qwell="sort" id="qSort"></div>
       </div>
     </div>
-    <div id="qbActions">
-      <input type="text" id="qName" placeholder="Saved query name">
-      <button class="btn-quiet" id="btnQSave">Save query</button>
-      <select id="qSaved" aria-label="Saved queries"></select>
-      <button class="btn-quiet" id="btnQLoad">Load</button>
-      <button class="btn-quiet" id="btnQDelete">Delete</button>
-      <div class="end">
-        <button class="btn-quiet" id="btnQClear">Clear</button>
-        <button class="btn-primary" id="btnQRun" style="padding:8px 24px">Run query</button>
-      </div>
-    </div>
-    <div class="panel" id="qResults" style="margin-top:16px" hidden>
+    <div class="panel" id="qResults" style="margin-top:14px" hidden>
       <div class="panel-head">
         <div><h4>Results</h4><p class="subtitle" id="qResSub"></p></div>
         <div style="display:flex;gap:8px">
@@ -11411,7 +11409,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 08:54</td></tr>
+      <tr><td>Build</td><td>2026-08-16 08:56</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
