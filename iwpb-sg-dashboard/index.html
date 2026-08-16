@@ -535,12 +535,13 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .cmppick label{font-size:12.5px;color:var(--text-secondary)}
 #simRules .rnote{grid-column:1 / -1;font-size:11px;color:var(--text-muted);margin:2px 0 0 40px}
 #simRules .rnote.warn{color:#b57a00;font-weight:600}
-#simRules .simrule{display:grid;grid-template-columns:40px 128px minmax(200px,var(--sim-val-w,50ch)) 50px 142px 72px 150px 96px 32px 74px 16px 74px 26px;justify-content:start;
+#simRules .simrule{display:grid;grid-template-columns:40px 128px minmax(200px,var(--sim-val-w,50ch)) auto 50px 142px 72px 150px 96px 32px 74px 16px 74px 26px;justify-content:start;
   gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface-2);margin-bottom:8px;font-size:12.5px;min-width:1110px}
 .simrule select,.simrule input{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary);width:100%;min-width:0}
 .simrule input[type=number]{width:100%}
 .simrule .rlbl{color:var(--text-muted);font-size:11px}
+.simrule .rcond{white-space:nowrap}
 .simrule .rx{margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px}
 .simrule .rx:hover{color:var(--hsbc-red)}
 #simResults .atable{border-collapse:collapse;font-size:12px;margin-top:10px;table-layout:auto;
@@ -962,9 +963,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 12:50)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 13:04)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 12:50)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 13:04)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1031,7 +1032,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 12:50</div>
+<div id="buildTag">build 2026-08-16 13:04</div>
 </aside>
 <main>
 
@@ -9465,6 +9466,8 @@ function renderSim(){
       ${r.dim?`<select class="rval">${
         (vals(r.dim).includes(String(r.val2))?'':`<option value="${esc(r.val2)}" selected>(not in this file) ${esc(r.val2)||'—'}</option>`)+
         vals(r.dim).map(v=>`<option${r.val2===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`:'<span class="note">all rows</span>'}
+      <span class="rlbl rcond"${r.dim2&&r.val22?' title="Set in the configuration\'s Simulations sheet"':''}>${
+        r.dim2&&r.val22? `\u00b7 within ${esc(FIELD_LABELS[r.dim2]||r.dim2)} = ${esc(r.val22)}`:''}</span>
       <span class="rlbl">Apply to</span>
       <select class="rstmt" title="Which statement the rule applies to">${
         [['all','P&L + balances'],['pl','P&L only'],['bs','Balances only']].map(([v,l])=>
@@ -9477,7 +9480,6 @@ function renderSim(){
         <option value="setm"${r.type==='setm'?' selected':''}>Set monthly total (${esc(cfgUnit())})</option>
       </select>
       <input class="rv" type="number" step="any" value="${simValIn(r)}" title="${(r.type==='pct'||r.type==='pctfy')?'Percentage change':'Amount in '+esc(cfgUnit())+' — the same units as the figures in the file'}">
-      ${r.dim2&&r.val22? `<span class="rlbl" title="Set in the configuration's Simulations sheet">\u00b7 within ${esc(FIELD_LABELS[r.dim2]||r.dim2)} = ${esc(r.val22)}</span>`:''}
       <span class="rlbl">from</span><select class="rfrom">${mOpt(r.from)}</select>
       <span class="rlbl">to</span><select class="rto">${mOpt(r.to)}</select>
       <button class="rx" title="Remove rule" aria-label="Remove rule">✕</button>
@@ -11599,7 +11601,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 12:50</td></tr>
+      <tr><td>Build</td><td>2026-08-16 13:04</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
