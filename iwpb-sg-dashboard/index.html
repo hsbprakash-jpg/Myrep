@@ -145,7 +145,6 @@ body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,san
 .pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:0 0 7px;flex-wrap:wrap}
 .pagehead .eyebrow{color:var(--hsbc-red);font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase}
 .pagehead h2{margin:1px 0 1px;font-size:19px;font-weight:650;letter-spacing:.4px;text-transform:uppercase}
-.pagehead h2.plain{text-transform:none;letter-spacing:.2px}
 .pagehead .lede2{color:var(--text-secondary);font-size:12.5px;margin:0;max-width:640px}
 #layout{display:flex;min-height:calc(100vh - 56px)}
 /* left pane — light, red accents, pink active highlight */
@@ -977,9 +976,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 18:34)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 18:39)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 18:34)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 18:39)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -997,25 +996,25 @@ setTimeout(function(){
   <nav>
     <button id="navSummary" class="active">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1.2" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="6" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="9" y="9" width="6" height="6" rx="1.2" fill="currentColor"/></svg>
-      <span data-lbl="nav_summary">KPI summary</span></button>
+      <span data-lbl="nav_summary">KPI Summary</span></button>
     <button id="navFsum">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="3.2" rx="1" fill="currentColor"/><rect x="1" y="6" width="6" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="8.6" y="6" width="6.4" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="1" y="10" width="6" height="2.4" rx="1" fill="currentColor" opacity=".55"/><rect x="8.6" y="10" width="6.4" height="2.4" rx="1" fill="currentColor" opacity=".55"/></svg>
       <span data-lbl="nav_fsum">Financial Summary</span></button>
     <button id="navBizperf" hidden>
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="4.4" height="14" rx="1" fill="currentColor"/><rect x="6.8" y="1" width="8.2" height="3" rx="1" fill="currentColor" opacity=".55"/><rect x="6.8" y="6.5" width="8.2" height="3" rx="1" fill="currentColor" opacity=".55"/><rect x="6.8" y="12" width="8.2" height="3" rx="1" fill="currentColor"/></svg>
-      <span data-lbl="nav_bizperf">Business performance</span></button>
+      <span data-lbl="nav_bizperf">Business Performance</span></button>
     <button id="navComall">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1.5" width="14" height="2.4" rx="1" fill="currentColor"/><rect x="1" y="6" width="10" height="2.4" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="10.5" width="12" height="2.4" rx="1" fill="currentColor" opacity=".35"/></svg>
-      <span data-lbl="nav_comall">All commentaries</span></button>
+      <span data-lbl="nav_comall">All Commentaries</span></button>
     <button id="navCustom">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="9" height="6" rx="1.2" fill="currentColor"/><rect x="12" y="1" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="3" height="6" rx="1.2" fill="currentColor" opacity=".5"/><rect x="6" y="9" width="9" height="6" rx="1.2" fill="currentColor"/></svg>
-      <span data-lbl="nav_custom">My dashboard</span></button>
+      <span data-lbl="nav_custom">My Dashboard</span></button>
     <button id="navBuilder">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="8" width="3.4" height="7" rx="1" fill="currentColor" opacity=".55"/><rect x="6.3" y="4" width="3.4" height="11" rx="1" fill="currentColor"/><rect x="11.6" y="1" width="3.4" height="14" rx="1" fill="currentColor" opacity=".55"/></svg>
-      <span data-lbl="nav_builder">Drag &amp; drop charts</span></button>
+      <span data-lbl="nav_builder">Drag &amp; Drop Charts</span></button>
     <button id="navQuery">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="3" rx="1" fill="currentColor"/><rect x="1" y="6.5" width="9" height="3" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="12" width="12" height="3" rx="1" fill="currentColor" opacity=".6"/></svg>
-      <span data-lbl="nav_query">Query builder</span></button>
+      <span data-lbl="nav_query">Query Builder</span></button>
     <button id="navAssist">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1C4.1 1 1 3.6 1 6.8c0 1.8 1 3.4 2.6 4.5L3 15l3.5-2c.5.1 1 .1 1.5.1 3.9 0 7-2.6 7-5.8S11.9 1 8 1z" fill="currentColor"/></svg>
       <span data-lbl="nav_assist">MI Assistant</span></button>
@@ -1046,7 +1045,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 18:34</div>
+<div id="buildTag">build 2026-08-16 18:39</div>
 </aside>
 <main>
 
@@ -1176,7 +1175,7 @@ setTimeout(function(){
   <div id="comallView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2 class="plain" data-lbl="comall_title">All commentaries <span class="unitsfx" data-unitsfx></span></h2>
+      <h2 data-lbl="comall_title">All Commentaries <span class="unitsfx" data-unitsfx></span></h2>
       <p class="lede2" data-lbl="comall_lede">Every comparison the file supports, written the way the pack writes it —
         one section each, from the same figures as the Financial Summary.</p>
     </div></div>
@@ -1331,7 +1330,7 @@ setTimeout(function(){
   <div id="bizperfView" hidden>
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2 class="plain" data-lbl="bizperf_title">Business performance</h2>
+      <h2 data-lbl="bizperf_title">Business performance</h2>
       <p class="lede2" id="bizPerfLede"></p>
     </div>
     <div><button class="btn-quiet" id="btnBizXlsx" title="The table as a workbook \u2014 every tile as a column, business / region / country rows">⤓ Export to Excel</button></div></div>
@@ -1652,10 +1651,10 @@ const CFG_DEFAULT={
   aliases:[],
   views:{summary:'Y',fsum:'Y',comall:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
   labels:{
-    nav_summary:'KPI summary', nav_custom:'My dashboard', nav_builder:'Drag & drop charts',
-    nav_query:'Query builder', nav_table:'Data drill down', nav_assist:'MI Assistant',
+    nav_summary:'KPI Summary', nav_custom:'My Dashboard', nav_builder:'Drag & Drop Charts',
+    nav_query:'Query Builder', nav_table:'Data Drill Down', nav_assist:'MI Assistant',
     nav_sim:'Simulation Assistant', nav_fsum:'Financial Summary',
-    nav_comall:'All commentaries',
+    nav_comall:'All Commentaries', nav_bizperf:'Business Performance',
     sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
     sect_config:'Configuration', sect_period:'Period',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
@@ -11670,7 +11669,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 18:34</td></tr>
+      <tr><td>Build</td><td>2026-08-16 18:39</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
