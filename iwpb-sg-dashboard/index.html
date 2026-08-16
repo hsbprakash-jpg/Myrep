@@ -960,9 +960,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 10:04)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 10:14)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 10:04)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 10:14)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1029,7 +1029,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 10:04</div>
+<div id="buildTag">build 2026-08-16 10:14</div>
 </aside>
 <main>
 
@@ -3556,7 +3556,9 @@ function bizPerfData(){
 function bizPerfAvail(){
   const m=S.model;
   if(!m||!('business' in m.dimCols)) return false;
-  return new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean)).size>1;
+  if(m._bpAvail===undefined)
+    m._bpAvail=new Set(m.rows.map(r=>String(r.d.business||'')).filter(Boolean)).size>1;
+  return m._bpAvail;
 }
 function renderBizPerfView(){
   const host=$('bizPerfTable');
@@ -4650,6 +4652,12 @@ const MX=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_mix')||'nul
   return {groupBy:'prodL2', splitBy:null, measure:'cy', type:'donut', l2:''}; })();
 function renderMix(){
   const m=S.model;
+  // the mix chart re-renders only when something it reads moved — on a
+  // large file it dominated every summary render otherwise
+  const mixKey=JSON.stringify([MX, filterNote(), S.ytdM, S.varPeriod, S.units,
+    S.fileName, S.reportYear||'cy', S.trajLine]);
+  if(S._mixKey===mixKey && $('mixChart') && $('mixChart').childElementCount){ return; }
+  S._mixKey=mixKey;
   if(!(MX.groupBy in m.dimCols)) MX.groupBy=Object.keys(FIELD_LABELS).find(k=>k in m.dimCols);
   const dims=Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols);
   const l1s=[...new Set(m.rows.map(r=>r.d.micaL1).filter(Boolean))].sort();
@@ -7386,11 +7394,13 @@ function runQuery(){
   const autoSort=Q.out.map(id=>({fd:qFieldById(id), dir: (qFieldById(id)||{}).kind==='dim'?'asc':'desc'}))
     .filter(s=>s.fd);
   if(Q.sort.length||autoSort.length){
-    const sorts=(Q.sort.length? Q.sort.map(s=>({fd:qFieldById(s.id), dir:s.dir})) : autoSort).filter(s=>s.fd);
+    const sorts=(Q.sort.length? Q.sort.map(s=>({fd:qFieldById(s.id), dir:s.dir})) : autoSort)
+      .filter(s=>s.fd).slice(0,4);
     rows=[...rows].sort((a,b)=>{
       for(const s of sorts){
         let c;
-        if(s.fd.kind==='dim') c=String(a.d[s.fd.key]||'').localeCompare(String(b.d[s.fd.key]||''));
+        if(s.fd.kind==='dim'){ const av=String(a.d[s.fd.key]||''), bv=String(b.d[s.fd.key]||'');
+          c=av<bv?-1:av>bv?1:0; }
         else { const av=a.v[s.fd.col]??-Infinity, bv=b.v[s.fd.col]??-Infinity; c=av<bv?-1:av>bv?1:0; }
         if(c) return s.dir==='desc'?-c:c;
       }
@@ -7399,8 +7409,6 @@ function runQuery(){
   }
   const outIds=Q.out.length? Q.out : qFieldDefs().filter(f=>f.kind==='dim').map(f=>f.id);
   const flds=outIds.map(qFieldById).filter(Boolean);
-  const aoa=[flds.map(f=>f.label)];
-  for(const r of rows) aoa.push(flds.map(f=>f.kind==='dim'? r.d[f.key] : r.v[f.col]));
   qLastResult={rows, count:rows.length, flds, zeroHidden};
   qPager.page=1;
   renderQueryResults();
@@ -7427,9 +7435,8 @@ function renderQueryResults(){
       ?{label:`Months Σ (${f.cols.length})`, kind:'per', get:sumGetter(f.cols)}
       :{label:f.label, kind:f.kind, fid:f.id, get:r=>f.kind==='dim'?r.d[f.key]:r.v[f.col]});
   }
-  const aoa=[vflds.map(f=>f.label)];
-  for(const r of rows) aoa.push(vflds.map(f=>f.get(r)));
-  qLastResult.viewAoa=aoa;
+  qLastResult.viewAoa=null;   // built on demand when the export asks
+  qLastResult.vflds=vflds;
   $('qResults').hidden=false;
   const zh=qLastResult.zeroHidden||0;
   $('qResSub').textContent=`${count.toLocaleString()} rows match the query`+
@@ -7441,9 +7448,10 @@ function renderQueryResults(){
   let html='<table class="grid review"><thead><tr>'+vflds.map(f=>
     `<th${f.kind==='dim'?' style="text-align:left"':''}${f.fid?` class="qhf" data-fid="${esc(f.fid)}" title="Filter on ${esc(f.label)}"`:''}>${esc(f.label)}${
       f.fid&&Q.filters.some(x=>x.id===f.fid)?' <span class="qhfon">⏷</span>':(f.fid?' <span class="qhfhint">⏷</span>':'')}</th>`).join('')+'</tr></thead><tbody>';
-  aoa.slice(1+start, 1+start+shown).forEach(r=>{
-    html+='<tr>'+r.map((v,ci)=>vflds[ci].kind==='per'?`<td>${fmtCell(v)}</td>`
-      :`<td class="namecell" style="text-align:left">${esc(v==null?'':v)}</td>`).join('')+'</tr>';
+  rows.slice(start, start+shown).forEach(r=>{
+    html+='<tr>'+vflds.map(f=>{ const v=f.get(r);
+      return f.kind==='per'?`<td>${fmtCell(v)}</td>`
+      :`<td class="namecell" style="text-align:left">${esc(v==null?'':v)}</td>`; }).join('')+'</tr>';
   });
   $('qResTable').innerHTML=html+'</tbody></table>';
   $('qResTable').scrollTop=0;
@@ -11462,11 +11470,10 @@ function ingestArrayBuffer(buf, name, fromCache){
         // a name is not proof \u2014 'Total Direct Cost' is an ordinary P&L
         // line. The flag needs the figures: the total member weighing the
         // same as all the other members together
+        if(!model._mass){ model._mass=model.rows.map(r=>{ let m2=0;
+          for(const v of r.v) if(typeof v==='number') m2+=Math.abs(v); return m2; }); }
         let mT=0, mO=0;
-        for(const r of model.rows){
-          let m2=0; for(const v of r.v) if(typeof v==='number') m2+=Math.abs(v);
-          if(String(r.d[k]||'')===tot) mT+=m2; else mO+=m2;
-        }
+        model.rows.forEach((r,ri)=>{ if(String(r.d[k]||'')===tot) mT+=model._mass[ri]; else mO+=model._mass[ri]; });
         if(mT&&mO&&Math.abs(mT-mO)/Math.max(mT,mO)<0.05)
           model.totMix.push({dim:k, tot, others:vals.length-1});
       }
@@ -11516,7 +11523,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 10:04</td></tr>
+      <tr><td>Build</td><td>2026-08-16 10:14</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11597,7 +11604,14 @@ function init(){
   $('btnQClear').addEventListener('click',()=>{ Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
     qLastResult=null; renderQuery(); });
   $('btnQExport').addEventListener('click',()=>{
-    if(qLastResult&&qLastResult.viewAoa) exportWB([{name:'Query results', aoa:qLastResult.viewAoa, money:false}],brandSlug()+'_query');
+    if(!qLastResult) return;
+    if(!qLastResult.viewAoa){
+      const vf=qLastResult.vflds||[];
+      const aoa=[vf.map(f=>f.label)];
+      for(const r of qLastResult.rows) aoa.push(vf.map(f=>f.get(r)));
+      qLastResult.viewAoa=aoa;
+    }
+    exportWB([{name:'Query results', aoa:qLastResult.viewAoa, money:false}],brandSlug()+'_query');
   });
   $('btnQZero').addEventListener('click',()=>{ Q.showZero=!Q.showZero; runQuery(); });
   $('btnQMonths').addEventListener('click',()=>{ qExpandMonths=!qExpandMonths; renderQueryResults(); });
