@@ -319,9 +319,15 @@ aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var
 .qwell.dropover{border-color:var(--hsbc-red);background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
 .qwell .empty{color:var(--text-muted);font-size:11px;text-align:center;padding:12px 6px}
 .qitem{border:1px solid var(--border);border-radius:6px;background:var(--surface-2);padding:6px 8px;margin:5px 0;font-size:12px}
-#qOut,#qSort{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+#qOut,#qSort,#qFilters{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
 #qOut .qitem,#qSort .qitem{flex:0 0 auto;margin:0;padding:4px 8px}
-#qOut .empty,#qSort .empty{flex-basis:100%}
+#qOut .empty,#qSort .empty,#qFilters .empty{flex-basis:100%}
+.qitem.qflt{flex:0 1 auto;display:flex;align-items:center;gap:6px;margin:0;padding:4px 8px;max-width:100%}
+.qitem.qflt .nm{font-weight:600;white-space:nowrap}
+.qitem.qflt select{width:auto;margin-top:0}
+.qitem.qflt input[type=text]{width:120px;min-width:80px;margin-top:0}
+.qitem.qflt button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:0 2px}
+.qitem.qflt button:hover{color:var(--hsbc-red)}
 .qitem .qhead{display:flex;align-items:center;gap:6px}
 .qitem .qhead .nm{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qitem .qhead button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:0 3px}
@@ -927,9 +933,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:06)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:08)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:06)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:08)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -996,7 +1002,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 09:06</div>
+<div id="buildTag">build 2026-08-16 09:08</div>
 </aside>
 <main>
 
@@ -7260,11 +7266,12 @@ function renderQuery(){
     const fd=qFieldById(f.id); if(!fd) return '';
     const ops=fd.kind==='dim'?Q_DIM_OPS:Q_PER_OPS;
     const needsVal=!['blank','nblank','nz'].includes(f.op);
-    return `<div class="qitem" data-i="${i}">
-      <div class="qhead"><span class="nm">${esc(fd.label)}</span><button data-del="${i}" aria-label="Remove filter">✕</button></div>
+    return `<div class="qitem qflt" data-i="${i}">
+      <span class="nm">${esc(fd.label)}</span>
       <select data-op="${i}">${ops.map(([v,l])=>`<option value="${v}"${f.op===v?' selected':''}>${l}</option>`).join('')}</select>
       ${needsVal?`<input type="text" data-val="${i}" value="${esc(f.val||'')}" placeholder="${fd.kind==='dim'?'Value…':'Number…'}"
         ${fd.kind==='dim'?`list="dl_${f.id.replace(':','_')}"`:''}>`:''}
+      <button data-del="${i}" aria-label="Remove filter">✕</button>
     </div>`;
   }).join(''):'<div class="empty">Drop fields here \u2014 pick an operator and value</div>';
   fw.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ Q.filters.splice(+b.dataset.del,1); renderQuery(); }));
@@ -11433,7 +11440,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 09:06</td></tr>
+      <tr><td>Build</td><td>2026-08-16 09:08</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
