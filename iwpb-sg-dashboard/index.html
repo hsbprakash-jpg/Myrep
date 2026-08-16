@@ -975,9 +975,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 17:36)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 17:45)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 17:36)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 17:45)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1044,7 +1044,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 17:36</div>
+<div id="buildTag">build 2026-08-16 17:45</div>
 </aside>
 <main>
 
@@ -5071,16 +5071,21 @@ async function exportSummaryPPT(){
   const pctAbs=v=>{ if(v==null) return '\u2013'; const av=Math.abs(v)*100;
     return (av>=100? av.toFixed(0) : av.toFixed(1))+'%'; };
   // font sizes step down with content length so nothing overflows its box
-  const nameFs=n=>{ const l=String(n).length;
+  // Each tile used to size its own text, so a short name printed larger than
+  // a long one and the grid read as a jumble. The size is settled once, off
+  // the longest string in the set, and every tile then shares it.
+  const nameFs1=n=>{ const l=String(n).length;
     return l<=22?11 : l<=30?10 : l<=42?9 : l<=58?8 : 7; };
   const nameTxt=n=>String(n).length>76? String(n).slice(0,75)+'\u2026' : String(n);
-  const valFs=t2=>{ const l=String(t2).length; return l>10?9.5 : l>7?11.5 : 13; };
-  const cellFs=t2=>String(t2).length>8? 8.2 : 9;
+  const valFs1=t2=>{ const l=String(t2).length; return l>10?9.5 : l>7?11.5 : 13; };
+  const cellFs1=t2=>String(t2).length>8? 8.2 : 9;
+  const fitAll=(fn,vals)=>{ const xs=vals.filter(v=>v!=null&&v!=='');
+    return xs.length? Math.min(...xs.map(fn)) : fn(''); };
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const slide=p.addSlide(); slide.background={color:'FFFFFF'};
   pptCriteria(slide);
   slide.addText(`${cfgS('landing_title')} \u2014 ${MON_LBL[S.ytdM]} ${m.yearCY}`,
-    {x:0.4,y:0.18,w:12.5,h:0.38,fontSize:20,bold:true,color:'DB0011',fontFace:'Segoe UI',valign:'top'});
+    {x:0.4,y:0.18,w:12.5,h:0.38,fontSize:PPT_FS.title,bold:true,color:'DB0011',fontFace:'Segoe UI',valign:'top'});
   const COLS=4, TW=3.04, TH=1.26, GX=0.11, GY=0.11, X0=0.42, Y0=1.12;
   const heroTxt=($('commentary')&&$('commentary').textContent.trim())||'';
   const visEl=el=>!!(el&&el.offsetParent!==null);
@@ -5091,10 +5096,27 @@ async function exportSummaryPPT(){
   const onePage= tiles.length<=8 && trajSvg && tilesBottom<=4.2;
   // header: subtitle, then the narrative on its own line beneath it
   slide.addText(`${cmpLabels(m).period} \u00b7 figures in ${cfgUnit()} as reported`,
-    {x:0.4,y:0.58,w:12.5,h:0.26,fontSize:11,color:'52514E',fontFace:'Segoe UI'});
+    {x:0.4,y:0.58,w:12.5,h:0.26,fontSize:PPT_FS.subtitle,color:'52514E',fontFace:'Segoe UI'});
   if(onePage&&heroTxt)
-    slide.addText(heroTxt,{x:0.4,y:0.85,w:12.5,h:0.24,fontSize:9.5,italic:true,color:'52514E',
+    slide.addText(heroTxt,{x:0.4,y:0.85,w:12.5,h:0.24,fontSize:PPT_FS.lede,italic:true,color:'52514E',
       fontFace:'Segoe UI',fit:'shrink',wrap:false});
+  // settle the three tile sizes across the whole set before drawing any of it
+  const tileTxt=t=>{
+    const tu=((t.k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit())
+      +(t.k.isBS? '' : '  \u00b7  '+MON_LBL[tileYtdM()]+' YTD');
+    const tkY=(!t.k.isBS&&t.rows)? tileYtdK(t.k,t.rows,m) : t.k;
+    const tv=t.k.isBS? t.k.cmpMain : (tkY.cy!=null? tkY.cy : t.k.cmpMain);
+    return {nm:nameTxt(t.name)+'  \u00b7  '+tu,
+            vTxt:(t.k.isBS&&bsUnit())? fmtBS(tv) : fmt(tv)};
+  };
+  const tTxts=tiles.map(tileTxt);
+  const NAME_FS=fitAll(nameFs1, tTxts.map(x=>x.nm));
+  const VAL_FS =fitAll(valFs1,  tTxts.map(x=>x.vTxt));
+  const CELL_FS=fitAll(cellFs1, tiles.flatMap(t=>t.hide?[]:tileRows(t.k,m).slice(0,3).flatMap(r=>{
+    const up=movUp(t.k,r.v,r.p), tri=up?'\u25B2':'\u25BC';
+    return [r.v==null?'\u2013':tri+((t.k.isBS&&bsUnit())? fmtBS(Math.abs(r.v)) : fmt(Math.abs(r.v))),
+            r.p==null?'':tri+pctAbs(r.p)];
+  })));
   tiles.forEach((t,i)=>{
     const tx=X0+(i%COLS)*(TW+GX), ty=Y0+Math.floor(i/COLS)*(TH+GY);
     slide.addShape('rect',{x:tx,y:ty,w:TW,h:TH,fill:{color:'FFFFFF'},line:{color:'C8C7C3',width:1}});
@@ -5104,25 +5126,25 @@ async function exportSummaryPPT(){
     const tkY=(!t.k.isBS&&t.rows)? tileYtdK(t.k,t.rows,m) : t.k;
     const tv=t.k.isBS? t.k.cmpMain : (tkY.cy!=null? tkY.cy : t.k.cmpMain);
     const nm=nameTxt(t.name)+'  ·  '+tu, vTxt=(t.k.isBS&&bsUnit())? fmtBS(tv) : fmt(tv);
-    slide.addText(nm,{x:tx+0.1,y:ty+0.05,w:TW-1.18,h:0.42,fontSize:nameFs(nm),bold:true,
-      color:'1A1A19',fontFace:'Segoe UI',wrap:true,fit:'shrink',valign:'top',lineSpacing:nameFs(nm)+1});
+    slide.addText(nm,{x:tx+0.1,y:ty+0.05,w:TW-1.18,h:0.42,fontSize:NAME_FS,bold:true,
+      color:'1A1A19',fontFace:'Segoe UI',wrap:true,fit:'shrink',valign:'top',lineSpacing:NAME_FS+1});
     slide.addText(vTxt,{x:tx+TW-1.12,y:ty+0.05,w:1.02,h:0.28,align:'right',bold:true,valign:'top',
-      fontSize:valFs(vTxt),color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
+      fontSize:VAL_FS,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
     slide.addShape('rect',{x:tx+0.1,y:ty+0.46,w:TW-0.2,h:0.014,fill:{color:'1A1A19'},line:{type:'none'}});
     const trs=t.hide?[]:tileRows(t.k,m).slice(0,3);
     if(!trs.length)
       slide.addText(`${cmpLabels(m).main} actuals`,{x:tx+0.1,y:ty+0.51,w:TW-0.2,h:0.22,
-        fontSize:9,color:'8A8880',fontFace:'Segoe UI'});
+        fontSize:PPT_FS.note,color:'8A8880',fontFace:'Segoe UI'});
     trs.forEach((r,ri)=>{
       const fav=movFav(t.k,r.v,r.p), up=movUp(t.k,r.v,r.p);
       const col=fav?'0B7A0B':'C21A1A', tri=up?'\u25B2':'\u25BC';
       const ry=ty+0.5+ri*0.245;
       const aTxt=r.v==null?'\u2013':tri+((t.k.isBS&&bsUnit())? fmtBS(Math.abs(r.v)) : fmt(Math.abs(r.v)));
       const pTxt=r.p==null?'':tri+pctAbs(r.p);
-      slide.addText(r.lbl,{x:tx+0.1,y:ry,w:0.78,h:0.22,fontSize:9,color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
-      slide.addText(aTxt,{x:tx+0.88,y:ry,w:1.0,h:0.22,fontSize:cellFs(aTxt),bold:true,color:col,
+      slide.addText(r.lbl,{x:tx+0.1,y:ry,w:0.78,h:0.22,fontSize:PPT_FS.note,color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
+      slide.addText(aTxt,{x:tx+0.88,y:ry,w:1.0,h:0.22,fontSize:CELL_FS,bold:true,color:col,
         align:'right',fontFace:'Segoe UI',fit:'shrink'});
-      slide.addText(pTxt,{x:tx+1.92,y:ry,w:TW-2.04,h:0.22,fontSize:cellFs(pTxt),bold:true,color:col,
+      slide.addText(pTxt,{x:tx+1.92,y:ry,w:TW-2.04,h:0.22,fontSize:CELL_FS,bold:true,color:col,
         align:'right',fontFace:'Segoe UI',fit:'shrink'});
     });
   });
@@ -5135,7 +5157,7 @@ async function exportSummaryPPT(){
   if(onePage){
     const bandY=tilesBottom+0.14, bandH=6.95-bandY;
     const half=async(x0,w0,title,svg,aoa,note)=>{
-      slide.addText(title,{x:x0,y:bandY,w:w0,h:0.26,fontSize:10.5,bold:true,color:'1A1A19',
+      slide.addText(title,{x:x0,y:bandY,w:w0,h:0.26,fontSize:PPT_FS.head,bold:true,color:'1A1A19',
         fontFace:'Segoe UI',fit:'shrink'});
       const imgMaxH=bandH-0.26-0.72;
       let drawn=false;
@@ -5146,9 +5168,9 @@ async function exportSummaryPPT(){
       if(!drawn&&aoa){ const rows2=aoa.filter(r=>r&&r.filter(x2=>x2!=null&&x2!=='').length>=2).slice(0,8)
           .map((r,i2)=>r.map(v=>({text:v==null?'':(typeof v==='number'?fmtFull(v):String(v)),
             options:i2===0?{bold:true,color:'FFFFFF',fill:{color:'DB0011'}}:{}})));
-        if(rows2.length) slide.addTable(rows2,{x:x0,y:bandY+0.3,w:w0,fontSize:8,fontFace:'Segoe UI',
+        if(rows2.length) slide.addTable(rows2,{x:x0,y:bandY+0.3,w:w0,fontSize:PPT_FS.cell,fontFace:'Segoe UI',
           border:{pt:0.5,color:'DDDCD8'},autoPage:false}); }
-      if(note) slide.addText(note,{x:x0,y:bandY+bandH-0.68,w:w0,h:0.68,fontSize:8.5,italic:true,
+      if(note) slide.addText(note,{x:x0,y:bandY+bandH-0.68,w:w0,h:0.68,fontSize:PPT_FS.note,italic:true,
         color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
     };
     if(trajOn) await half(0.42,6.05,trajTitle,trajSvg,null,comText('trajCom'));
@@ -5156,7 +5178,7 @@ async function exportSummaryPPT(){
       // the words take the right half of the band; what cannot fit flows
       // to a (cont.) slide, and the mix keeps a slide of its own
       slide.addText('Management commentary \u2014 '+cmpLabels(m).period,
-        {x:6.87,y:bandY,w:6.05,h:0.24,fontSize:10.5,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
+        {x:6.87,y:bandY,w:6.05,h:0.24,fontSize:PPT_FS.head,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
       slide.addShape('rect',{x:6.87,y:bandY+0.27,w:1.4,h:0.03,fill:{color:'DB0011'},line:{type:'none'}});
       const top2=bandY+0.4, capLines=Math.floor((7.16-top2)/0.16);
       const first=[]; let used2=0;
@@ -5168,7 +5190,7 @@ async function exportSummaryPPT(){
       }
       if(first.length){
         slide.addText(first.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:4}})),
-          {x:6.87,y:top2,w:6.05,h:7.16-top2,fontSize:9.5,color:'1A1A19',fontFace:'Segoe UI',
+          {x:6.87,y:top2,w:6.05,h:7.16-top2,fontSize:PPT_FS.body,color:'1A1A19',fontFace:'Segoe UI',
            valign:'top',wrap:true,fit:'shrink'});
         paraOnPage1=true;
       }
@@ -5180,7 +5202,7 @@ async function exportSummaryPPT(){
     // the rest flowing to its own slide
     let cy2=Math.min(tilesBottom+0.12, 6.6);
     if(heroTxt){
-      slide.addText(heroTxt,{x:0.42,y:cy2,w:12.5,h:0.4,fontSize:10,italic:true,
+      slide.addText(heroTxt,{x:0.42,y:cy2,w:12.5,h:0.4,fontSize:PPT_FS.lede,italic:true,
         color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
       cy2+=0.44;
     }
@@ -5196,10 +5218,10 @@ async function exportSummaryPPT(){
       // the heading only lands where words follow it
       if(first.length){
         slide.addText('Management commentary \u2014 '+cmpLabels(m).period,
-          {x:0.42,y:cy2,w:12.5,h:0.24,fontSize:11.5,bold:true,color:'1A1A19',fontFace:'Segoe UI'});
+          {x:0.42,y:cy2,w:12.5,h:0.24,fontSize:PPT_FS.head,bold:true,color:'1A1A19',fontFace:'Segoe UI'});
         slide.addShape('rect',{x:0.42,y:cy2+0.27,w:1.6,h:0.03,fill:{color:'DB0011'},line:{type:'none'}});
         slide.addText(first.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:4}})),
-          {x:0.42,y:top2,w:12.5,h:7.16-top2,fontSize:10,color:'1A1A19',fontFace:'Segoe UI',
+          {x:0.42,y:top2,w:12.5,h:7.16-top2,fontSize:PPT_FS.body,color:'1A1A19',fontFace:'Segoe UI',
            valign:'top',wrap:true,fit:'shrink'});
         paraOnPage1=true;
       }
@@ -5218,14 +5240,14 @@ async function exportSummaryPPT(){
       const sl=p.addSlide(); sl.background={color:'FFFFFF'};
       pptCriteria(sl);
       sl.addText('Management commentary \u2014 '+cmpLabels(m).period+(part>1?' (cont.)':''),
-        {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true});
+        {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:PPT_FS.title,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true});
       sl.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
       sl.addText(chunk.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:6}})),
-        {x:0.42,y:1.05,w:12.5,h:5.95,fontSize:12,color:'1A1A19',fontFace:'Segoe UI',valign:'top',wrap:true});
+        {x:0.42,y:1.05,w:12.5,h:5.95,fontSize:PPT_FS.body,color:'1A1A19',fontFace:'Segoe UI',valign:'top',wrap:true});
       chunk=[]; used=0;
     };
     for(const para of paras){
-      const cost=Math.ceil(para.length/105)+1;   // rough lines at 12pt across the slide
+      const cost=Math.ceil(para.length/126)+1;   // rough lines at the body size across the slide
       if(chunk.length&&used+cost>24) flush();
       chunk.push(para); used+=cost;
     }
@@ -5237,7 +5259,7 @@ async function exportSummaryPPT(){
    Global Business scope, other filters, YTD basis — at its top right */
 function pptCriteria(sl){
   sl.addText(filterNote(), {x:5.9, y:0.08, w:7.05, h:0.26, align:'right',
-    fontSize:8, italic:true, color:'8A8A88', fontFace:'Segoe UI'});
+    fontSize:PPT_FS.cell, italic:true, color:'8A8A88', fontFace:'Segoe UI'});
 }
 async function exportPPT(items, name){
   const p=new PptxGenJS();
@@ -5245,11 +5267,17 @@ async function exportPPT(items, name){
   for(const it of items) await pptChartSlide(p, it);
   await p.writeFile({fileName:name+'_'+new Date().toISOString().slice(0,10)+'.pptx'});
 }
+/* One type scale for every deck the page exports. A slide title is the same
+   size whether it opens the deck or continues it, and a heading, a paragraph
+   or a note reads the same on every slide. Sizes that fit content to a box
+   (the tile grid) settle themselves, once, across the whole set. */
+const PPT_FS={ title:18, subtitle:11, lede:9.5, head:10.5, body:10, note:9, cell:8, legend:9,
+  tileName:11, tileVal:13, tileCell:9 };
 async function pptChartSlide(p, it){
     const slide=p.addSlide();
     pptCriteria(slide);
     slide.background={color:'FFFFFF'};
-    slide.addText(it.title,{x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',
+    slide.addText(it.title,{x:0.4,y:0.2,w:12.5,h:0.6,fontSize:PPT_FS.title,bold:true,color:'1A1A19',
       fontFace:'Segoe UI',fit:'shrink',wrap:true});
     slide.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
     const svg=it.el? it.el.querySelector('svg') : null;
@@ -5265,19 +5293,19 @@ async function pptChartSlide(p, it){
       const leg=it.el?it.el.querySelector('.legend'):null;
       if(leg&&leg.textContent.trim()){
         slide.addText(leg.textContent.trim().replace(/\s+/g,'  '),
-          {x:0.42, y:contentBottom+0.08, w:12.4, h:0.32, fontSize:10, color:'52514E', fontFace:'Segoe UI'});
+          {x:0.42, y:contentBottom+0.08, w:12.4, h:0.32, fontSize:PPT_FS.legend, color:'52514E', fontFace:'Segoe UI'});
         contentBottom+=0.4;
       }
     } else if(it.aoa){
       const rows=it.aoa.filter(r=>r&&r.filter(x=>x!=null&&x!=='').length>=2).slice(0,16)
         .map((r,i)=>r.map(v=>({text:v==null?'':(typeof v==='number'?fmtFull(v):String(v)),
           options:i===0?{bold:true,color:'FFFFFF',fill:{color:'DB0011'}}:{}})));
-      if(rows.length){ slide.addTable(rows,{x:0.42,y:1.05,w:12.4,fontSize:11,fontFace:'Segoe UI',
+      if(rows.length){ slide.addTable(rows,{x:0.42,y:1.05,w:12.4,fontSize:PPT_FS.cell,fontFace:'Segoe UI',
         border:{pt:0.5,color:'DDDCD8'},autoPage:false});
         contentBottom=1.05+rows.length*0.31; }
     }
     if(it.note){ const nh=Math.min(1.4, 0.1+Math.ceil(String(it.note).length/180)*0.2);
-      slide.addText(it.note,{x:0.42,y:Math.min(contentBottom+0.14,6.9-nh),w:12.5,h:nh,fontSize:10.5,italic:true,
+      slide.addText(it.note,{x:0.42,y:Math.min(contentBottom+0.14,6.9-nh),w:12.5,h:nh,fontSize:PPT_FS.note,italic:true,
         color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
     }
 }
@@ -8816,8 +8844,8 @@ async function fsumPptx(){
   const sl=p.addSlide(); sl.background={color:'FFFFFF'};
   pptCriteria(sl);
   sl.addText(`${fsumTitleS()} \u2014 ${MON_LBL[S.ytdM]}'${P.yy} Actuals`,
-    {x:0.3,y:0.16,w:12.7,h:0.36,fontSize:18,bold:true,color:RED,fontFace:'Segoe UI'});
-  sl.addText(filterNote(true),{x:0.3,y:0.52,w:12.7,h:0.2,fontSize:8.5,italic:true,color:GRY,fontFace:'Segoe UI'});
+    {x:0.3,y:0.16,w:12.7,h:0.36,fontSize:PPT_FS.title,bold:true,color:RED,fontFace:'Segoe UI'});
+  sl.addText(filterNote(true),{x:0.3,y:0.52,w:12.7,h:0.2,fontSize:PPT_FS.lede,italic:true,color:GRY,fontFace:'Segoe UI'});
 
   // rows first, so the font and row height can be chosen to fit
   const secs=fsumSections(rows);
@@ -8891,7 +8919,7 @@ async function fsumPptx(){
     border:{pt:0.4,color:BRD}, margin:0.012, valign:'middle', autoPage:false});
   if(comRuns.length){
     const comY=tblY+tblH+0.14;
-    sl.addText(comRuns,{x:0.3, y:comY, w:12.73, h:7.42-comY, fontSize:9,
+    sl.addText(comRuns,{x:0.3, y:comY, w:12.73, h:7.42-comY, fontSize:PPT_FS.body,
       fontFace:'Segoe UI', valign:'top', wrap:true, fit:'shrink'});
   }
   await p.writeFile({fileName:`${brandSlug()}_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
@@ -11637,7 +11665,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 17:36</td></tr>
+      <tr><td>Build</td><td>2026-08-16 17:45</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11963,27 +11991,27 @@ function init(){
         if(!slide||col<0){ newGrid(); col=0; }
         cells[col]=cells[col+2]=true;
         let w2=CW, h2=hAt; if(h2>COLH-noteH){ h2=COLH-noteH; w2=h2*it.png.w/it.png.h; }
-        slide.addText(it.title,{x:X[col],y:Y[0]-0.34,w:CW,h:0.3,fontSize:11,bold:true,
+        slide.addText(it.title,{x:X[col],y:Y[0]-0.34,w:CW,h:0.3,fontSize:PPT_FS.head,bold:true,
           color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
         slide.addImage({data:it.png.data,x:X[col],y:Y[0],w:w2,h:h2});
-        if(it.note) slide.addText(it.note,{x:X[col],y:Y[0]+h2+0.02,w:CW,h:noteH,fontSize:10,italic:true,
+        if(it.note) slide.addText(it.note,{x:X[col],y:Y[0]+h2+0.02,w:CW,h:noteH,fontSize:PPT_FS.note,italic:true,
           color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
       } else {
         let q=cells? cells.findIndex(c=>!c) : -1;
         if(!slide||q<0){ newGrid(); q=0; }
         cells[q]=true;
         let w2=CW, h2=hAt; if(h2>CH-noteH){ h2=CH-noteH; w2=h2*it.png.w/it.png.h; }
-        slide.addText(it.title,{x:X[q%2],y:Y[Math.floor(q/2)]-0.34,w:CW,h:0.3,fontSize:11,bold:true,
+        slide.addText(it.title,{x:X[q%2],y:Y[Math.floor(q/2)]-0.34,w:CW,h:0.3,fontSize:PPT_FS.head,bold:true,
           color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
         slide.addImage({data:it.png.data,x:X[q%2],y:Y[Math.floor(q/2)],w:w2,h:h2});
-        if(it.note) slide.addText(it.note,{x:X[q%2],y:Y[Math.floor(q/2)]+h2+0.02,w:CW,h:noteH,fontSize:10,italic:true,
+        if(it.note) slide.addText(it.note,{x:X[q%2],y:Y[Math.floor(q/2)]+h2+0.02,w:CW,h:noteH,fontSize:PPT_FS.note,italic:true,
           color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
       }
     };
     const addTableSlide=it=>{
       const ts=p.addSlide(); ts.background={color:'FFFFFF'};
       pptCriteria(ts);
-      ts.addText(it.title,{x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',
+      ts.addText(it.title,{x:0.4,y:0.2,w:12.5,h:0.6,fontSize:PPT_FS.title,bold:true,color:'1A1A19',
         fontFace:'Segoe UI',fit:'shrink',wrap:true});
       ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
       let tBottom=1.05;
@@ -11991,12 +12019,12 @@ function init(){
         const rows2=it.aoa.filter(r=>r&&r.filter(x=>x!=null&&x!=='').length>=2).slice(0,16)
           .map((r,i)=>r.map(v=>({text:v==null?'':(typeof v==='number'?fmtFull(v):String(v)),
             options:i===0?{bold:true,color:'FFFFFF',fill:{color:'DB0011'}}:{}})));
-        if(rows2.length){ ts.addTable(rows2,{x:0.42,y:1.05,w:12.4,fontSize:11,fontFace:'Segoe UI',
+        if(rows2.length){ ts.addTable(rows2,{x:0.42,y:1.05,w:12.4,fontSize:PPT_FS.cell,fontFace:'Segoe UI',
           border:{pt:0.5,color:'DDDCD8'},autoPage:false});
           tBottom=1.05+rows2.length*0.31; }
       }
       if(it.note){ const nh=Math.min(1.4, 0.1+Math.ceil(String(it.note).length/180)*0.2);
-        ts.addText(it.note,{x:0.42,y:Math.min(tBottom+0.14,6.9-nh),w:12.5,h:nh,fontSize:10.5,italic:true,
+        ts.addText(it.note,{x:0.42,y:Math.min(tBottom+0.14,6.9-nh),w:12.5,h:nh,fontSize:PPT_FS.note,italic:true,
           color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true,valign:'top'});
       }
     };
@@ -12014,7 +12042,7 @@ function init(){
         const ts=p.addSlide(); ts.background={color:'FFFFFF'};
         pptCriteria(ts);
         ts.addText((it.scTitle||'KPI scorecard')+(nSlides>1?` \u00b7 ${Math.floor(s0/chunk)+1}/${nSlides}`:''),
-          {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:16,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true,line:{color:'FFFFFF',transparency:100,width:0.25}});
+          {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:PPT_FS.title,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true,line:{color:'FFFFFF',transparency:100,width:0.25}});
         ts.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{color:'FFFFFF',transparency:100,width:0.25}});
         // internal grid, shared by every box: label | amount | % — the two
         // number columns are fixed-width and right-aligned to the same edge
@@ -12027,12 +12055,12 @@ function init(){
             fill:{color:'FFFFFF'},line:{color:'C8C7C2',pt:1}});
           const hValW=1.35, hNameW=bw-pad*2-hValW-colGap;
           ts.addText([
-            {text:x.name+' ', options:{bold:true,fontSize:11,color:'0B0B0B'}},
-            {text:'('+x.unit+')', options:{fontSize:8,color:'79776F'}},
+            {text:x.name+' ', options:{bold:true,fontSize:PPT_FS.tileName,color:'0B0B0B'}},
+            {text:'('+x.unit+')', options:{fontSize:PPT_FS.cell,color:'79776F'}},
           ],{x:bx+pad,y:by,w:hNameW,h:headH,fontFace:'Segoe UI',valign:'middle',fit:'shrink',
              wrap:true, inset:0, margin:0, line:{color:'FFFFFF',transparency:100,width:0.25}});
           ts.addText((x.k.isBS&&bsUnit())? fmtBS(x.k.cmpMain) : fmt(x.k.cmpMain),
-            {x:bx+bw-pad-hValW,y:by,w:hValW,h:headH,fontSize:14,bold:true,align:'right',valign:'middle',
+            {x:bx+bw-pad-hValW,y:by,w:hValW,h:headH,fontSize:PPT_FS.tileVal,bold:true,align:'right',valign:'middle',
              color:(x.k.cmpMain||0)<0?'D03B3B':'0B0B0B',fontFace:'Segoe UI',fit:'shrink',
              inset:0, margin:0, line:{color:'FFFFFF',transparency:100,width:0.25}});
           ts.addShape('line',{x:bx+pad,y:by+headH,w:bw-pad*2,h:0,line:{color:'E2E1DD',pt:0.75}});
@@ -12041,18 +12069,18 @@ function init(){
             const fav=movFav(x.k,r.v,r.p), up=movUp(x.k,r.v,r.p);
             const cc=fav?'0CA30C':'D03B3B', tri=up?'\u25B2':'\u25BC';
             const ry=by+headH+0.05+ri*rowH;
-            ts.addText(r.lbl,{x:bx+pad,y:ry,w:lblW,h:rowH,fontSize:9.5,color:'52514E',
+            ts.addText(r.lbl,{x:bx+pad,y:ry,w:lblW,h:rowH,fontSize:PPT_FS.tileCell,color:'52514E',
               fontFace:'Segoe UI',fit:'shrink',valign:'middle',inset:0,margin:0,line:{color:'FFFFFF',transparency:100,width:0.25}});
             ts.addText(r.v==null?'\u2013':tri+fmtK(x.k,Math.abs(r.v)),{x:xAmt,y:ry,w:amtW,h:rowH,
-              fontSize:9.5,bold:true,align:'right',valign:'middle',color:cc,
+              fontSize:PPT_FS.tileCell,bold:true,align:'right',valign:'middle',color:cc,
               fontFace:'Segoe UI',fit:'shrink',inset:0,margin:0,line:{color:'FFFFFF',transparency:100,width:0.25}});
             ts.addText(r.p==null?'':tri+pctAbs(r.p),{x:xPct,y:ry,w:pctW,h:rowH,
-              fontSize:9.5,bold:true,align:'right',valign:'middle',color:cc,
+              fontSize:PPT_FS.tileCell,bold:true,align:'right',valign:'middle',color:cc,
               fontFace:'Segoe UI',fit:'shrink',inset:0,margin:0,line:{color:'FFFFFF',transparency:100,width:0.25}});
           });
           if(!trs.length)
             ts.addText('actuals only',{x:bx+pad,y:by+headH+0.05,w:bw-pad*2,h:rowH,
-              fontSize:9,italic:true,color:'79776F',fontFace:'Segoe UI',valign:'middle',inset:0,margin:0,line:{color:'FFFFFF',transparency:100,width:0.25}});
+              fontSize:PPT_FS.note,italic:true,color:'79776F',fontFace:'Segoe UI',valign:'middle',inset:0,margin:0,line:{color:'FFFFFF',transparency:100,width:0.25}});
         });
       }
     };

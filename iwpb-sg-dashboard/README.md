@@ -1617,3 +1617,12 @@ page)** takes just the widgets on the page you're viewing, and **⤓ PPT
 all pages** takes every widget across all pages — charts as
 high-resolution images, KPI cards and breakdowns as styled tables — with
 titles, the red accent rule and the filter context in the footer.
+
+**One type scale across every deck.** A slide title is the same size whether
+it opens a deck or continues it, and headings, paragraphs, notes, legends and
+table cells match from one export to the next — the sizes live in a single
+`PPT_FS` scale rather than being chosen per slide. The KPI tiles settle their
+own three sizes once across the whole grid, off the longest name, value and
+comparison in the set, so a short line no longer prints larger than a long one
+beside it. The Financial Summary's dense table is the deliberate exception: it
+still fits itself to its column count, always smaller than the body size.
