@@ -976,9 +976,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 18:25)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 18:29)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 18:25)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 18:29)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1045,7 +1045,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 18:25</div>
+<div id="buildTag">build 2026-08-16 18:29</div>
 </aside>
 <main>
 
@@ -5181,7 +5181,7 @@ async function exportSummaryPPT(){
       slide.addText('Management commentary \u2014 '+cmpLabels(m).period,
         {x:6.87,y:bandY,w:6.05,h:0.24,fontSize:PPT_FS.head,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
       slide.addShape('rect',{x:6.87,y:bandY+0.27,w:1.4,h:0.03,fill:{color:'DB0011'},line:{type:'none'}});
-      const top2=bandY+0.4, capLines=Math.floor((7.16-top2)/0.16);
+      const top2=bandY+0.4, capLines=Math.floor((7.16-top2)/0.19);
       const first=[]; let used2=0;
       while(paras.length){
         const cost=Math.ceil(paras[0].length/56)+0.5;
@@ -5191,8 +5191,8 @@ async function exportSummaryPPT(){
       }
       if(first.length){
         slide.addText(first.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:4}})),
-          {x:6.87,y:top2,w:6.05,h:7.16-top2,fontSize:PPT_FS.body,color:'1A1A19',fontFace:'Segoe UI',
-           valign:'top',wrap:true,fit:'shrink'});
+          {x:6.87,y:top2,w:6.05,h:7.16-top2,fontSize:PPT_FS.body,color:PPT_SOFT,fontFace:'Segoe UI',
+           valign:'top',wrap:true,fit:'shrink',lineSpacingMultiple:PPT_LSP});
         paraOnPage1=true;
       }
       if(mixOn) await pptChartSlide(p,{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')});
@@ -5208,7 +5208,7 @@ async function exportSummaryPPT(){
       cy2+=0.44;
     }
     if(paras.length&&cy2<6.55){
-      const top2=cy2+0.4, capLines=Math.floor((7.16-top2)/0.17);
+      const top2=cy2+0.4, capLines=Math.floor((7.16-top2)/0.19);
       const first=[]; let used2=0;
       while(paras.length){
         const cost=Math.ceil(paras[0].length/112)+0.5;
@@ -5222,8 +5222,8 @@ async function exportSummaryPPT(){
           {x:0.42,y:cy2,w:12.5,h:0.24,fontSize:PPT_FS.head,bold:true,color:'1A1A19',fontFace:'Segoe UI'});
         slide.addShape('rect',{x:0.42,y:cy2+0.27,w:1.6,h:0.03,fill:{color:'DB0011'},line:{type:'none'}});
         slide.addText(first.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:4}})),
-          {x:0.42,y:top2,w:12.5,h:7.16-top2,fontSize:PPT_FS.body,color:'1A1A19',fontFace:'Segoe UI',
-           valign:'top',wrap:true,fit:'shrink'});
+          {x:0.42,y:top2,w:12.5,h:7.16-top2,fontSize:PPT_FS.body,color:PPT_SOFT,fontFace:'Segoe UI',
+           valign:'top',wrap:true,fit:'shrink',lineSpacingMultiple:PPT_LSP});
         paraOnPage1=true;
       }
     }
@@ -5244,7 +5244,8 @@ async function exportSummaryPPT(){
         {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:PPT_FS.title,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true});
       sl.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
       sl.addText(chunk.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:6}})),
-        {x:0.42,y:1.05,w:12.5,h:5.95,fontSize:PPT_FS.body,color:'1A1A19',fontFace:'Segoe UI',valign:'top',wrap:true});
+        {x:0.42,y:1.05,w:12.5,h:5.95,fontSize:PPT_FS.body,color:PPT_SOFT,fontFace:'Segoe UI',valign:'top',wrap:true,
+         lineSpacingMultiple:PPT_LSP});
       chunk=[]; used=0;
     };
     for(const para of paras){
@@ -5274,6 +5275,8 @@ async function exportPPT(items, name){
    (the tile grid) settle themselves, once, across the whole set. */
 const PPT_FS={ title:18, subtitle:11, lede:9.5, head:10.5, body:10, note:9, cell:8, legend:9,
   tileName:11, tileVal:13, tileCell:9 };
+const PPT_INK='1A1A19', PPT_SOFT='52514E';   // headings, and running words
+const PPT_LSP=1.35;                          // the airier line the screen sets
 async function pptChartSlide(p, it){
     const slide=p.addSlide();
     pptCriteria(slide);
@@ -8839,7 +8842,7 @@ async function fsumPptx(){
   const m=S.model, rows=filteredRows(), P=fsumPlan(m,S.ytdM), u=cfgUnit();
   const H=fsumHeadRows(P,m);
   const nMon=P.monCols.length, nNum=nMon+4+4+5+7;
-  const RED='DB0011', INK='1A1A19', GRY='52514E', BRD='DDDCD8';
+  const RED='DB0011', INK=PPT_INK, GRY=PPT_SOFT, BRD='DDDCD8';
   const GOOD='0B7A0B', BAD='C21A1A';
   const p=new PptxGenJS(); p.layout='LAYOUT_WIDE';
   const sl=p.addSlide(); sl.background={color:'FFFFFF'};
@@ -8897,7 +8900,7 @@ async function fsumPptx(){
   blocks.forEach((b2,bi)=>{
     if(b2.style==='LI') comRuns.push({text:'\u2022 ', options:{color:GRY}});
     b2.runs.forEach((r2,ri)=>comRuns.push({text:r2.t.replace(/\n/g,' '),
-      options:{bold:!!r2.b, italic:!!r2.i, color:r2.c||INK,
+      options:{bold:!!r2.b, italic:!!r2.i, color:r2.c||GRY,
         breakLine:(bi<blocks.length-1&&ri===b2.runs.length-1)||undefined}}));
   });
   const comLines=Math.max(2, Math.ceil(comRuns.reduce((a,r2)=>a+r2.text.length,0)/170)+blocks.length-1);
@@ -8921,7 +8924,7 @@ async function fsumPptx(){
   if(comRuns.length){
     const comY=tblY+tblH+0.14;
     sl.addText(comRuns,{x:0.3, y:comY, w:12.73, h:7.42-comY, fontSize:PPT_FS.body,
-      fontFace:'Segoe UI', valign:'top', wrap:true, fit:'shrink'});
+      fontFace:'Segoe UI', valign:'top', wrap:true, fit:'shrink', lineSpacingMultiple:PPT_LSP});
   }
   await p.writeFile({fileName:`${brandSlug()}_financial_summary_${new Date().toISOString().slice(0,10)}.pptx`});
 }
@@ -11666,7 +11669,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 18:25</td></tr>
+      <tr><td>Build</td><td>2026-08-16 18:29</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
