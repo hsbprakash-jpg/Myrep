@@ -1299,6 +1299,17 @@ sample lives under `sample/`.)
 
 What each section governs:
 
+- **Labels** — every heading, section title and control label the page shows,
+  one `Key | Text` row each. The whole left rail is worded here: the section
+  headings (`sect_dashboards`, `sect_config`, `sect_period`, `sect_comtpl`),
+  every navigation entry (`nav_*`), the ingest button and page
+  (`btn_newfile`, `ingest_title`, `ingest_drop`) and the period controls
+  (`lbl_year`, `lbl_ytd`, `lbl_varper`, `lbl_units`). Change a row and the
+  pane follows on the next config load — nothing in the rail is hard-coded.
+  The three packs carry the complete set, and **Download template CSV** lists
+  every key with its default, so the full surface is discoverable without
+  reading the page source.
+
 - **Settings** — app title/subtitle/eyebrow (`app_title` also drives the
   browser-tab title, the upload-page wording, the greeting, the export
   headers, the red logo badge and the Financial Summary page title, so the

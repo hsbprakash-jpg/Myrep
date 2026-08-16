@@ -977,9 +977,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 19:06)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 19:13)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 19:06)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 19:13)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1046,7 +1046,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 19:06</div>
+<div id="buildTag">build 2026-08-16 19:13</div>
 </aside>
 <main>
 
@@ -1654,19 +1654,16 @@ const CFG_DEFAULT={
   views:{summary:'Y',fsum:'Y',comall:'Y',custom:'Y',builder:'Y',query:'Y',table:'Y',assist:'Y',sim:'Y'},
   labels:{
     nav_summary:'KPI summary', nav_custom:'My dashboard', nav_builder:'Drag & drop charts',
-    nav_query:'Query builder', nav_table:'Data drill down', nav_assist:'MI Assistant',
+    nav_query:'Query builder', nav_assist:'MI Assistant',
     nav_sim:'Simulation Assistant', nav_fsum:'Financial Summary',
     nav_comall:'All commentaries', nav_bizperf:'Business performance',
-    sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
-    sect_config:'Configuration', sect_period:'Period',
-    sect_filters:'Filters — all columns', sect_output:'Output fields',
+    sect_dashboards:'KPI Dashboards', sect_config:'Configuration',
+    sect_period:'Period', sect_comtpl:'Commentary templates',
     btn_newfile:'Ingest TM1 Data Extract',
     ingest_title:'Ingest TM1 Data Extract', ingest_drop:'Drop the TM1 data extract here',
     btn_regen:'Regenerate', btn_retrieve:'Retrieve',
-    lbl_ytd:'YTD through',
-    lbl_varper:'Variance period', lbl_units:'Units',
-    sect_comtpl:'Commentary templates', lbl_tplpick:'Active style', lbl_tplscope:'Applies to',
-    kpi_hint:'Click a KPI to see its trajectory and commentary · drag one onto My dashboard to add a card',
+    lbl_year:'Year', lbl_ytd:'YTD through', lbl_varper:'Variance period',
+    lbl_units:'Units', lbl_scope:'Scope', lbl_tplpick:'Active style',
     dec_eyebrow:'Decisions required', dec_title:'Executive decisions'
   }
 };
@@ -11700,7 +11697,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 19:06</td></tr>
+      <tr><td>Build</td><td>2026-08-16 19:13</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
