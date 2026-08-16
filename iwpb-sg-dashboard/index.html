@@ -437,9 +437,15 @@ main{flex:1;min-width:0;padding:14px 20px}
 /* the ingest button sits in the left pane as a quiet grey block, so it reads
    as a utility beside the navigation rather than competing with it */
 #btnNewFile{background:color-mix(in srgb, var(--text-primary) 7%, transparent);
-  border-color:transparent;color:var(--text-secondary);font-weight:600}
-#btnNewFile:hover{background:color-mix(in srgb, var(--text-primary) 12%, transparent);
-  border-color:var(--border-strong);color:var(--text-primary)}
+  border-color:transparent;color:var(--hsbc-red);font-weight:700}
+#btnNewFile:hover{background:color-mix(in srgb, var(--hsbc-red) 10%, transparent);
+  border-color:var(--hsbc-red);color:var(--hsbc-red)}
+/* the brand red is tuned for light backgrounds; on dark the sidebar uses the
+   lighter red the rest of the dark theme reads with */
+@media (prefers-color-scheme: dark){
+  #btnNewFile{color:var(--fold-red)}
+  #btnNewFile:hover{border-color:var(--fold-red);color:var(--fold-red)}
+}
 .cachedcard{margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;
   background:var(--surface-2);font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
@@ -969,9 +975,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 13:26)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 13:35)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 13:26)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 13:35)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1038,7 +1044,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 13:26</div>
+<div id="buildTag">build 2026-08-16 13:35</div>
 </aside>
 <main>
 
@@ -11608,7 +11614,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 13:26</td></tr>
+      <tr><td>Build</td><td>2026-08-16 13:35</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
