@@ -977,9 +977,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 19:03)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 19:06)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 19:03)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 19:06)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1046,7 +1046,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 19:03</div>
+<div id="buildTag">build 2026-08-16 19:06</div>
 </aside>
 <main>
 
@@ -1479,6 +1479,7 @@ const CFG_DEFAULT={
     dashboard_page_size:'6',
     font_greeting:'', font_commentary:'', font_eyebrow:'',
     sim_value_width:'50',
+    summary_lede:'N',
     tile_height:'150', tile_min_width:'252',
     month_case:'upper',
     unit_label:'US$m',
@@ -3763,7 +3764,9 @@ function renderSummary(){
     if(best&&worst&&best!==worst)
       cm+=` <b>${esc(best.l2)}</b> leads at ${movPct(best.k,best.k.cmpVarPct)}; <b>${esc(worst.l2)}</b> is the weakest line at ${movPct(worst.k,worst.k.cmpVarPct)}.`;
   } else cm+='; this file carries no comparison baseline.';
-  $('commentary').innerHTML=cm;
+  const heroOn=cfgYes('summary_lede');
+  $('commentary').innerHTML=heroOn? cm : '';
+  $('commentary').style.display=heroOn?'':'none';
 
   $('landingTitle').textContent=`${cfgS('landing_title')} — ${MON_LBL[S.ytdM]} ${m.yearCY}`;
   renderScopeChips();
@@ -11697,7 +11700,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 19:03</td></tr>
+      <tr><td>Build</td><td>2026-08-16 19:06</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

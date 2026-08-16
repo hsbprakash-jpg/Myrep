@@ -1328,6 +1328,11 @@ What each section governs:
   `mth_tgt` remain understood); entries a file cannot serve are hidden
   automatically.
 
+  The **opening line** that used to stand above the page title — the one
+  sentence naming the lead line, its movement and the outlook against target
+  — is off by default (`summary_lede`). Set it to `Y` to bring it back; the
+  PowerPoint export follows the page either way.
+
   **Tile size** is configurable too: `tile_height` (default `150`) is the
   height in pixels every tile shares, and `tile_min_width` (default `252`)
   is the narrowest a tile may become before the grid drops a column — so
