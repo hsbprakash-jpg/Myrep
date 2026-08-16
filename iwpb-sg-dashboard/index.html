@@ -977,9 +977,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 18:52)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 19:03)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 18:52)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 19:03)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1046,7 +1046,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 18:52</div>
+<div id="buildTag">build 2026-08-16 19:03</div>
 </aside>
 <main>
 
@@ -4124,7 +4124,7 @@ function slideCommentaryHtml(){
   const headCfg=cfgS('commentary_headline');
   const head=(headCfg&&/^fy/i.test(String(L.main||'')))? headCfg : (L.main||headCfg);
   const nt=note? ` (${esc(note)})` : '';
-  let h=`<p><u>(${esc(mon)}) ${esc(head)} Vs ${esc(L.base)}${nt}:</u></p>`;
+  let h=`<p><u><b>(${esc(mon)}) ${esc(head)} Vs ${esc(L.base)}${nt}:</b></u></p>`;
 
   const tops=slGroups(rows, LV[0]);
   const pl=tops.filter(g=>!isBSLine(g.name)), bs=tops.filter(g=>isBSLine(g.name));
@@ -4427,7 +4427,7 @@ function tplCommentaryHtml(style){
     .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0)||atF(a.rs)-atF(b.rs));
   if(!groups.length) return '';
   const c=vpCtx(m,S.ytdM);
-  let h=`<p><u>(${esc(MON_LBL[S.ytdM])}) ${esc(L.main)} Vs ${esc(L.base)}${cfgS('commentary_note')?` (${esc(cfgS('commentary_note'))})`:''}:</u></p>`;
+  let h=`<p><u><b>(${esc(MON_LBL[S.ytdM])}) ${esc(L.main)} Vs ${esc(L.base)}${cfgS('commentary_note')?` (${esc(cfgS('commentary_note'))})`:''}:</b></u></p>`;
   h+='<ul class="actlist">'+groups.map(g=>
     `<li>${comTplLineHtml(pat,g,m,L,dimKey,N,c)}${comTail(g.name)}</li>`).join('')+'</ul>';
   return h;
@@ -5153,8 +5153,7 @@ async function exportSummaryPPT(){
   const trajT=document.querySelector('#trajPanel h4');
   const trajTitle= trajT? trajT.textContent.trim().replace(/\s+/g,' ') : 'Performance trajectory';
   const hEl=$('houseCom')&&$('houseCom').querySelector('.aicom-t');
-  const hTxt=hEl? hEl.innerText.replace(/\n{3,}/g,'\n\n').trim() : '';
-  const paras=hTxt? hTxt.split(/\n+/).map(t2=>t2.trim()).filter(Boolean) : [];
+  const paras=comParaList(hEl);
   let paraOnPage1=false;
   if(onePage){
     const bandY=tilesBottom+0.14, bandH=6.95-bandY;
@@ -5182,16 +5181,18 @@ async function exportSummaryPPT(){
       slide.addText('Management commentary \u2014 '+cmpLabels(m).period,
         {x:6.87,y:bandY,w:6.05,h:0.24,fontSize:PPT_FS.head,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink'});
       slide.addShape('rect',{x:6.87,y:bandY+0.27,w:1.4,h:0.03,fill:{color:'DB0011'},line:{type:'none'}});
-      const top2=bandY+0.4, capLines=Math.floor((7.16-top2)/0.19);
+      const top2=bandY+0.4, capLines=Math.floor((7.16-top2)/0.18);
       const first=[]; let used2=0;
       while(paras.length){
-        const cost=Math.ceil(paras[0].length/56)+0.5;
+        const cost=Math.ceil(paras[0].text.length/56)+0.5;
         if(first.length&&used2+cost>capLines) break;
         if(!first.length&&cost>capLines+4) break;
         used2+=cost; first.push(paras.shift());
       }
+      // a heading leads the lines under it, so it travels with them
+      while(first.length&&first[first.length-1].kind==='head') paras.unshift(first.pop());
       if(first.length){
-        slide.addText(first.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:4}})),
+        slide.addText(comRuns2(first,4),
           {x:6.87,y:top2,w:6.05,h:7.16-top2,fontSize:PPT_FS.body,color:PPT_SOFT,fontFace:'Segoe UI',
            valign:'top',wrap:true,fit:'shrink',lineSpacingMultiple:PPT_LSP});
         paraOnPage1=true;
@@ -5209,20 +5210,22 @@ async function exportSummaryPPT(){
       cy2+=0.44;
     }
     if(paras.length&&cy2<6.55){
-      const top2=cy2+0.4, capLines=Math.floor((7.16-top2)/0.19);
+      const top2=cy2+0.4, capLines=Math.floor((7.16-top2)/0.18);
       const first=[]; let used2=0;
       while(paras.length){
-        const cost=Math.ceil(paras[0].length/112)+0.5;
+        const cost=Math.ceil(paras[0].text.length/112)+0.5;
         if(first.length&&used2+cost>capLines) break;
         if(!first.length&&cost>capLines+4) break;   // the opener may shrink to fit
         used2+=cost; first.push(paras.shift());
       }
+      // a heading leads the lines under it, so it travels with them
+      while(first.length&&first[first.length-1].kind==='head') paras.unshift(first.pop());
       // the heading only lands where words follow it
       if(first.length){
         slide.addText('Management commentary \u2014 '+cmpLabels(m).period,
           {x:0.42,y:cy2,w:12.5,h:0.24,fontSize:PPT_FS.head,bold:true,color:'1A1A19',fontFace:'Segoe UI'});
         slide.addShape('rect',{x:0.42,y:cy2+0.27,w:1.6,h:0.03,fill:{color:'DB0011'},line:{type:'none'}});
-        slide.addText(first.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:4}})),
+        slide.addText(comRuns2(first,4),
           {x:0.42,y:top2,w:12.5,h:7.16-top2,fontSize:PPT_FS.body,color:PPT_SOFT,fontFace:'Segoe UI',
            valign:'top',wrap:true,fit:'shrink',lineSpacingMultiple:PPT_LSP});
         paraOnPage1=true;
@@ -5238,19 +5241,22 @@ async function exportSummaryPPT(){
     let chunk=[], used=0, part=paraOnPage1? 1 : 0;
     const flush=()=>{
       if(!chunk.length) return;
+      const carry=[];
+      while(chunk.length&&chunk[chunk.length-1].kind==='head') carry.unshift(chunk.pop());
+      if(!chunk.length){ chunk=carry; return; }   // headings alone wait for their lines
       part++;
       const sl=p.addSlide(); sl.background={color:'FFFFFF'};
       pptCriteria(sl);
       sl.addText('Management commentary \u2014 '+cmpLabels(m).period+(part>1?' (cont.)':''),
         {x:0.4,y:0.2,w:12.5,h:0.6,fontSize:PPT_FS.title,bold:true,color:'1A1A19',fontFace:'Segoe UI',fit:'shrink',wrap:true});
       sl.addShape('rect',{x:0.42,y:0.86,w:2.2,h:0.035,fill:{color:'DB0011'},line:{type:'none'}});
-      sl.addText(chunk.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:6}})),
+      sl.addText(comRuns2(chunk,6),
         {x:0.42,y:1.05,w:12.5,h:5.95,fontSize:PPT_FS.body,color:PPT_SOFT,fontFace:'Segoe UI',valign:'top',wrap:true,
          lineSpacingMultiple:PPT_LSP});
-      chunk=[]; used=0;
+      chunk=carry; used=carry.reduce((a,p2)=>a+Math.ceil(p2.text.length/133)+1,0);
     };
     for(const para of paras){
-      const cost=Math.ceil(para.length/126)+1;   // rough lines at the body size across the slide
+      const cost=Math.ceil(para.text.length/133)+1;   // rough lines at the body size across the slide
       if(chunk.length&&used+cost>24) flush();
       chunk.push(para); used+=cost;
     }
@@ -5274,10 +5280,31 @@ async function exportPPT(items, name){
    size whether it opens the deck or continues it, and a heading, a paragraph
    or a note reads the same on every slide. Sizes that fit content to a box
    (the tile grid) settle themselves, once, across the whole set. */
-const PPT_FS={ title:18, subtitle:11, lede:9.5, head:10.5, body:10, note:9, cell:8, legend:9,
+const PPT_FS={ title:18, subtitle:11, lede:9.5, head:10.5, body:9.5, note:9, cell:8, legend:9,
   tileName:11, tileVal:13, tileCell:9 };
 const PPT_INK='1A1A19', PPT_SOFT='52514E';   // headings, and running words
 const PPT_LSP=1.35;                          // the airier line the screen sets
+/* A commentary is an opening, headings and bullets — not one run of text.
+   The deck is given the same shape the page shows, so a bullet stays a
+   bullet and a heading still leads the lines under it. */
+function comParaList(el){
+  if(!el) return [];
+  const out=[];
+  const add=(t,kind)=>{ const s2=String(t||'').replace(/\s+/g,' ').trim(); if(s2) out.push({text:s2, kind}); };
+  for(const node of el.children){
+    if(node.tagName==='UL'||node.tagName==='OL'){ for(const li of node.children) add(li.textContent,'li'); }
+    else if(node.querySelector&&node.querySelector('u')) add(node.textContent,'head');
+    else add(node.textContent,'p');
+  }
+  if(!out.length) add(el.innerText,'p');
+  return out;
+}
+function comRuns2(list, after){
+  return list.map(p2=>({text:p2.text, options:{breakLine:true, paraSpaceAfter:after,
+    bold:p2.kind==='head'||undefined,
+    bullet:p2.kind==='li'? {indent:14} : false,
+    indentLevel:p2.kind==='li'? 1 : 0}}));
+}
 async function pptChartSlide(p, it){
     const slide=p.addSlide();
     pptCriteria(slide);
@@ -11670,7 +11697,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 18:52</td></tr>
+      <tr><td>Build</td><td>2026-08-16 19:03</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
