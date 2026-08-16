@@ -918,9 +918,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-15 22:21)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:13)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-15 22:21)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:13)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -974,7 +974,7 @@ setTimeout(function(){
   </div>
   <div class="sect sect-fold" id="sectPeriodRow" title="Collapse / expand" style="display:flex;align-items:center;gap:6px;cursor:pointer"><span data-lbl="sect_period">Period</span><span id="periodCaret" style="margin-left:auto;font-size:10px;color:inherit">▾</span></div>
   <div id="sideFilters">
-    <label><span data-lbl="lbl_year">Year</span> <span id="fYearNote" class="yearpill"></span></label>
+    <label><span data-lbl="lbl_year">Year</span> <select id="fYear"></select></label>
     <label><span data-lbl="lbl_ytd">YTD through</span> <select id="fMonth"></select></label>
     <label><span data-lbl="lbl_varper">Variance period</span> <select id="fVarPer"></select></label>
   </div>
@@ -987,7 +987,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-15 22:21</div>
+<div id="buildTag">build 2026-08-16 08:13</div>
 </aside>
 <main>
 
@@ -2681,6 +2681,25 @@ function filteredRows(opts){
 }
 /* the variance-period selector — options and labels are rebuilt from the
    selected YTD-through month, so they re-date as the actuals month moves */
+/* Reading the file as its prior year: the PY months become the actual
+   months (a full year where the file carries one), the PY YTD columns
+   serve the YTD, and there is no earlier year, forecast or target to
+   compare against \u2014 the comparisons say so rather than pretend.
+   The rows, dimensions and consolidation are untouched. */
+function deriveYearModel(m0, yr){
+  if(!m0||yr!=='py'||!(m0.pyMonths&&m0.pyMonths.length)) return m0;
+  const m={...m0};
+  m.cyMonths=m0.pyMonths.map(p2=>({...p2, fc:false}));
+  m.pyMonths=[]; m.quarterCols=[];
+  m.targetCols=[]; m.fyFcCols=[]; m.fyPriorCols=[]; m.fyPriorLabel='';
+  m.ytdAsOfCols=(m0.pyYtdAsOfCols||[]).slice();
+  m.ytdFcAsOfCols=[]; m.pyYtdAsOfCols=[]; m.ytdTgtAsOfCols=[];
+  m.fcProfile=m.cyMonths.map(p2=>({m:p2.m, w:m0.rows.reduce((s2,r)=>s2+Math.abs(r.v[p2.col]||0),0)}));
+  m.yearCY=m0.yearPY;
+  m.yearPY=/^\d{4}$/.test(String(m0.yearPY))? String(+m0.yearPY-1) : m0.yearPY;
+  m._yr='py';
+  return m;
+}
 function fillUnits(){
   const sel=$('fUnits'); if(!sel) return;
   const opts=unitOptions(), cur=unitSel();
@@ -2726,10 +2745,16 @@ function fillFilters(){
   for(const p of (m.ytdAsOfCols||[])) if(p.ytdM<=lastData) mset.add(p.ytdM);
   const opts=[...mset].sort((a,b)=>a-b).map(mm=>`<option value="${mm}">${MON_LBL[mm]} ${esc(String(m.yearCY))}</option>`);
   mSel.innerHTML=opts.join('');
-  // the year is the file's, not a choice \u2014 said plainly so nobody has
-  // to guess which year the months belong to
-  const yn=$('fYearNote');
-  if(yn) yn.textContent=`${m.yearCY} \u00b7 vs ${m.yearPY} PY`;
+  // the years on offer are the ones the driller actually carries \u2014 the
+  // current year, and the prior year where its months are in the file
+  const y0=S.model0||m;
+  const ySel=$('fYear');
+  if(ySel){
+    const years=[{v:'cy', t:String(y0.yearCY)}]
+      .concat((y0.pyMonths&&y0.pyMonths.length)? [{v:'py', t:String(y0.yearPY)}] : []);
+    ySel.innerHTML=years.map(o=>`<option value="${o.v}"${(S.reportYear||'cy')===o.v?' selected':''}>${esc(o.t)}</option>`).join('');
+    ySel.disabled=years.length<2;
+  }
   S.ytdM=lastData; mSel.value=String(lastData);
   S.varPeriod=cfgS('calc_variance_period').trim()||'auto';
   S.units=cfgS('display_units').trim().toLowerCase()||'as';
@@ -11286,7 +11311,7 @@ function ingestArrayBuffer(buf, name, fromCache){
           model.totMix.push({dim:k, tot, others:vals.length-1});
       }
     }
-    S.model=model; S.fileName=name;
+    S.model=model; S.model0=model; S.reportYear='cy'; S.fileName=name;
     COM_DOC_CACHE=null;      // the commentary is matched again against this file
     COM_TPL_DERIVED=new Map();   // and the write-up templates re-derive on its names
     S.widgets=loadWidgets()||defaultWidgets(); saveWidgets();
@@ -11331,7 +11356,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-15 22:21</td></tr>
+      <tr><td>Build</td><td>2026-08-16 08:13</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11362,6 +11387,11 @@ function init(){
     $('dashView').hidden=true; $('btnNewFile').hidden=true; $('sideNav').hidden=true;
     $('uploadView').hidden=false; $('ingestReport').innerHTML=''; fi.value='';
     refreshCachedInfo();
+  });
+  $('fYear').addEventListener('change',e=>{
+    S.reportYear=e.target.value;
+    S.model=deriveYearModel(S.model0||S.model, S.reportYear);
+    fillFilters(); render();
   });
   $('fMonth').addEventListener('change',e=>{
     const v=e.target.value;
