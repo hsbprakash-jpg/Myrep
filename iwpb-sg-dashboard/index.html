@@ -918,9 +918,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:19)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 08:48)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:19)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 08:48)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -987,7 +987,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 08:19</div>
+<div id="buildTag">build 2026-08-16 08:48</div>
 </aside>
 <main>
 
@@ -2589,19 +2589,38 @@ function lineChart(el, cySeries, pySeries, yearCY, yearPY, area, annots){
   const lc=lastOf(cySeries), lp=lastOf(pySeries);
   // keep the two end labels from overlapping when the series converge
   let lcY=lc? y(lc.val)+4 : null, lpY=lp? y(lp.val)+4 : null;
-  if(lcY!=null&&lpY!=null&&Math.abs(lcY-lpY)<13){
-    if(lcY<=lpY){ lcY-=(13-Math.abs(lcY-lpY))/2; lpY=lcY+13; }
-    else{ lpY-=(13-Math.abs(lpY-lcY))/2; lcY=lpY+13; }
+  if(lcY!=null&&lpY!=null&&Math.abs(lcY-lpY)<15){
+    if(lcY<=lpY){ lcY-=(15-Math.abs(lcY-lpY))/2; lpY=lcY+15; }
+    else{ lpY-=(15-Math.abs(lpY-lcY))/2; lcY=lpY+15; }
   }
   let direct='';
+  // callout boxes take the first clear spot: preferred side of their point,
+  // stepping outward, then the other side \u2014 never over the year labels
+  // at the line ends, never over each other
+  const placed=[];
+  if(lc&&lcY!=null) placed.push({x:x(lc.m)+6, y:lcY-12, w:42, h:15});
+  if(lp&&lpY!=null) placed.push({x:x(lp.m)+6, y:lpY-12, w:42, h:15});
+  const rHit=(r1,r2)=>!(r1.x+r1.w<r2.x||r2.x+r2.w<r1.x||r1.y+r1.h<r2.y||r2.y+r2.h<r1.y);
   for(const a of (annots||[])){
     if(a.val==null) continue;
     const px=x(a.m), py2=y(a.val);
     const lines2=String(a.text).split('\n');
     const bw=Math.max(...lines2.map(t2=>t2.length))*6.6+16, bh=lines2.length*13.5+9;
-    const above=py2>T+(H-T-B)*0.45;
+    const prefUp=py2>T+(H-T-B)*0.45;
     const bx=Math.min(W-bw-4, Math.max(L+2, px-bw/2));
-    const by=above? Math.max(2, py2-bh-20) : Math.min(H-B-bh-2, py2+18);
+    let box=null, above=prefUp;
+    outer:
+    for(const side of [prefUp,!prefUp])
+      for(let st=0; st<9; st++){
+        const yy= side? py2-bh-20-st*12 : py2+18+st*12;
+        if(yy<2||yy+bh>H-B-2) continue;
+        const cand={x:bx, y:yy, w:bw, h:bh};
+        if(!placed.some(p2=>rHit(cand,p2))){ box=cand; above=side; break outer; }
+      }
+    if(!box){ above=prefUp;
+      box={x:bx, y: prefUp? Math.max(2, py2-bh-20) : Math.min(H-B-bh-2, py2+18), w:bw, h:bh}; }
+    placed.push(box);
+    const by=box.y;
     const tipY=above? py2-5 : py2+5;
     const boxEdgeY=above? by+bh : by;
     direct+=`<line x1="${px.toFixed(1)}" y1="${boxEdgeY.toFixed(1)}" x2="${px.toFixed(1)}" y2="${tipY.toFixed(1)}" stroke="${a.color}" stroke-width="1.4"/>`+
@@ -5027,6 +5046,10 @@ async function exportSummaryPPT(){
   });
   const trajT=document.querySelector('#trajPanel h4');
   const trajTitle= trajT? trajT.textContent.trim().replace(/\s+/g,' ') : 'Performance trajectory';
+  const hEl=$('houseCom')&&$('houseCom').querySelector('.aicom-t');
+  const hTxt=hEl? hEl.innerText.replace(/\n{3,}/g,'\n\n').trim() : '';
+  const paras=hTxt? hTxt.split(/\n+/).map(t2=>t2.trim()).filter(Boolean) : [];
+  let paraOnPage1=false;
   if(onePage){
     const bandY=tilesBottom+0.14, bandH=6.95-bandY;
     const half=async(x0,w0,title,svg,aoa,note)=>{
@@ -5049,19 +5072,43 @@ async function exportSummaryPPT(){
     if(trajOn) await half(0.42,6.05,trajTitle,trajSvg,null,comText('trajCom'));
     if(mixOn) await half(6.87,6.05,chartTitle(MX),mixSvg,chartAOA({...MX}),comText('mixCom'));
   } else {
-    if(heroTxt) slide.addText(heroTxt,{x:0.42,y:6.52,w:12.5,h:0.5,fontSize:10.5,italic:true,
-      color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
+    // the room the tiles leave on page one belongs to the words: the
+    // narrative line, then as much of the Management commentary as fits,
+    // the rest flowing to its own slide
+    let cy2=Math.min(tilesBottom+0.12, 6.6);
+    if(heroTxt){
+      slide.addText(heroTxt,{x:0.42,y:cy2,w:12.5,h:0.4,fontSize:10,italic:true,
+        color:'52514E',fontFace:'Segoe UI',fit:'shrink',wrap:true});
+      cy2+=0.44;
+    }
+    if(paras.length&&cy2<6.55){
+      const top2=cy2+0.4, capLines=Math.floor((7.16-top2)/0.17);
+      const first=[]; let used2=0;
+      while(paras.length){
+        const cost=Math.ceil(paras[0].length/112)+0.5;
+        if(first.length&&used2+cost>capLines) break;
+        if(!first.length&&cost>capLines+4) break;   // the opener may shrink to fit
+        used2+=cost; first.push(paras.shift());
+      }
+      // the heading only lands where words follow it
+      if(first.length){
+        slide.addText('Management commentary \u2014 '+cmpLabels(m).period,
+          {x:0.42,y:cy2,w:12.5,h:0.24,fontSize:11.5,bold:true,color:'1A1A19',fontFace:'Segoe UI'});
+        slide.addShape('rect',{x:0.42,y:cy2+0.27,w:1.6,h:0.03,fill:{color:'DB0011'},line:{type:'none'}});
+        slide.addText(first.map(t2=>({text:t2, options:{breakLine:true, paraSpaceAfter:4}})),
+          {x:0.42,y:top2,w:12.5,h:7.16-top2,fontSize:10,color:'1A1A19',fontFace:'Segoe UI',
+           valign:'top',wrap:true,fit:'shrink'});
+        paraOnPage1=true;
+      }
+    }
     if(trajOn) await pptChartSlide(p,{title:trajTitle, el:$('trajPanel'), aoa:null, note:comText('trajCom')});
     if(mixOn) await pptChartSlide(p,{title:chartTitle(MX), el:$('mixChart'), aoa:chartAOA({...MX}), note:comText('mixCom')});
   }
   /* the Management Commentary rides with the dashboard: the page's own words
      \u2014 the reader's edits included \u2014 on their own slide, flowing onto
      further slides rather than shrinking into an unreadable block */
-  const hEl=$('houseCom')&&$('houseCom').querySelector('.aicom-t');
-  const hTxt=hEl? hEl.innerText.replace(/\n{3,}/g,'\n\n').trim() : '';
-  if(hTxt){
-    const paras=hTxt.split(/\n+/).map(t2=>t2.trim()).filter(Boolean);
-    let chunk=[], used=0, part=0;
+  if(paras.length){
+    let chunk=[], used=0, part=paraOnPage1? 1 : 0;
     const flush=()=>{
       if(!chunk.length) return;
       part++;
@@ -11359,7 +11406,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 08:19</td></tr>
+      <tr><td>Build</td><td>2026-08-16 08:48</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
