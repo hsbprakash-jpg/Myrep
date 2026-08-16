@@ -334,6 +334,11 @@ aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var
 .qitem.qflt button:hover{color:var(--hsbc-red)}
 .qwell.qfrow{flex:1;min-width:260px;min-height:40px;padding:4px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
 .qwell.qfrow .empty{flex-basis:100%;padding:6px}
+/* many columns never squeeze: the results table takes its natural width,
+   each cell on one line, and the wrapper scrolls sideways */
+#qResTable{overflow-x:auto}
+#qResTable table{width:max-content;min-width:100%}
+#qResTable th,#qResTable td{white-space:nowrap}
 th.qhf{cursor:pointer}
 th.qhf:hover{background:color-mix(in srgb, var(--hsbc-red) 12%, transparent)}
 th.qhf .qhfhint{opacity:.35;font-size:9px}
@@ -927,8 +932,8 @@ table.review td{border-bottom:1px solid var(--grid)}
   background:var(--surface-2);color:var(--text-primary);font-size:12.5px;min-width:220px}
 /* query results fit the panel width — text cells wrap rather than force sideways scrolling */
 #qResTable table{width:100%}
-#qResTable th{white-space:normal;overflow-wrap:anywhere}
-#qResTable td.namecell{white-space:normal;max-width:none;overflow:visible;overflow-wrap:anywhere}
+#qResTable th{white-space:nowrap}
+#qResTable td.namecell{white-space:nowrap;max-width:none;overflow:visible}
 .pager{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;
   color:var(--text-secondary);flex-wrap:wrap}
 .pager button{padding:4px 10px;font-size:12px}
@@ -951,9 +956,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:42)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:53)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:42)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:53)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1020,7 +1025,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 09:42</div>
+<div id="buildTag">build 2026-08-16 09:53</div>
 </aside>
 <main>
 
@@ -11492,7 +11497,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 09:42</td></tr>
+      <tr><td>Build</td><td>2026-08-16 09:53</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
