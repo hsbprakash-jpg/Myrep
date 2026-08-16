@@ -211,6 +211,11 @@ left-pane strip and the Filters pane.
   and a panel the screen hides never becomes a slide — followed by the
   page's own commentary: the hero line, the trajectory and Mix notes where
   those panels are visible, and the Management Commentary on its own slides.
+  The trajectory's note is written under the chart on the page itself — the
+  selected line's movement against its baseline, its strongest actual month
+  and the outlook against target — so what the deck prints is what the screen
+  already shows, and it can be edited and kept like any other commentary
+  block before exporting.
 - **One way of writing a movement, in every view.** The KPI tiles and their
   trajectory strip, the KPI scorecard, the auto-written commentary, the
   executive decisions, the attention chips, the management commentary, every
