@@ -1197,10 +1197,12 @@ left-pane strip and the Filters pane.
   config loads and never overwrites a scenario the user already saved
   under the same name; a seeded rule whose scope matches nothing in the
   loaded driller shows the usual "no rows match" note rather than
-  silently doing nothing. The Group pack ships six Middle East crisis
-  scenarios built this way (Gulf rate cuts, EGP devaluation, deposit
-  flight, Gulf inflows upside, trade disruption, and an oil-spike
-  counter-case).
+  silently doing nothing. The Group pack ships eleven scenarios built
+  this way: six Middle East crisis cases (Gulf rate cuts, EGP
+  devaluation, deposit flight, Gulf inflows upside, trade disruption,
+  and an oil-spike counter-case) and five broader macroeconomic cases
+  (global rate cuts, China hard landing, US/Europe recession, a
+  markets-rally upside, and stagflation).
 - **Data** — the filtered source rows, paginated with search. Every text
   column header carries a **filter button**: it opens a value picker
   (searchable, Select all / Clear, tick the values to keep) that combines
