@@ -976,9 +976,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 18:41)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 18:50)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 18:41)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 18:50)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -991,7 +991,7 @@ setTimeout(function(){
       <div class="sub">Management reporting · KPI insights</div>
     </div>
   </div>
-  <button class="btn-quiet" id="btnNewFile" hidden style="margin:10px 18px 0;width:calc(100% - 36px)" data-lbl="btn_newfile">Ingest TM1 Extract</button>
+  <button class="btn-quiet" id="btnNewFile" hidden style="margin:10px 18px 0;width:calc(100% - 36px)" data-lbl="btn_newfile">Ingest TM1 Data Extract</button>
   <div class="sect" data-lbl="sect_dashboards">KPI Dashboards</div>
   <nav>
     <button id="navSummary" class="active">
@@ -1045,7 +1045,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 18:41</div>
+<div id="buildTag">build 2026-08-16 18:50</div>
 </aside>
 <main>
 
@@ -1053,7 +1053,7 @@ setTimeout(function(){
   <div style="max-width:640px;margin:34px auto 0">
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2 data-lbl="ingest_title">Ingest TM1 Extract</h2>
+      <h2 data-lbl="ingest_title">Ingest TM1 Data Extract</h2>
       <p class="lede2">Upload the monthly extract to power the KPI dashboards.</p>
     </div></div>
   </div>
@@ -1061,7 +1061,7 @@ setTimeout(function(){
     <p class="lede">Upload the <span class="brandTxt">IWPB Singapore</span> TM1 extract (.xlsx or .csv). The file is processed
       entirely in your browser — nothing is sent to any server.</p>
     <div id="dropZone" tabindex="0" role="button" aria-label="Upload TM1 extract">
-      <div class="big" data-lbl="ingest_drop">Drop the TM1 extract here</div>
+      <div class="big" data-lbl="ingest_drop">Drop the TM1 data extract here</div>
       <div class="hint">or click to browse &nbsp;·&nbsp; expects MICA / Product / Segment / Function levels + monthly actuals</div>
     </div>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsb,.csv" hidden>
@@ -1658,8 +1658,8 @@ const CFG_DEFAULT={
     sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
     sect_config:'Configuration', sect_period:'Period',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
-    btn_newfile:'Ingest TM1 Extract',
-    ingest_title:'Ingest TM1 Extract', ingest_drop:'Drop the TM1 extract here',
+    btn_newfile:'Ingest TM1 Data Extract',
+    ingest_title:'Ingest TM1 Data Extract', ingest_drop:'Drop the TM1 data extract here',
     btn_regen:'Regenerate', btn_retrieve:'Retrieve',
     lbl_ytd:'YTD through',
     lbl_varper:'Variance period', lbl_units:'Units',
@@ -11669,7 +11669,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 18:41</td></tr>
+      <tr><td>Build</td><td>2026-08-16 18:50</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
