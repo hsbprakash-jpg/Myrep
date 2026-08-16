@@ -233,7 +233,7 @@ left-pane strip and the Filters pane.
   its narrative's F/A wording and on its PowerPoint slide alike. The
   favourability test itself lives in one place
   (`movFav` / `movUp`), which every one of those surfaces calls, so they
-  cannot drift apart again; a chart category or a scenario line, which has
+  cannot drift apart again; a chart category or a simulation line, which has
   rows but no KPI record, derives the same flags from its own rows.
 - **The result line is opened up** — on a driller whose only P&L rollup is a
   single Level 1 line (a PBT beside Deposits and Loans), the tile grid would
@@ -1161,7 +1161,7 @@ left-pane strip and the Filters pane.
   without changing the page scope. Free-text questions are matched to
   the governed set; anything outside it is declined. Nothing leaves the
   page.
-- **Simulation Assistant** — what-if scenarios on the forecast months. Build
+- **Simulation Assistant** — what-if simulations on the forecast months. Build
   any number of ordered rules, each scoped to any dimension value (or all
   rows) with three adjustment types: % change, add amount (spread over the
   chosen months, pro-rata across matching rows), or set the monthly total.
@@ -1173,20 +1173,23 @@ left-pane strip and the Filters pane.
   straddles both statements. The prior forecast stays untouched; the page
   shows prior vs simulated FY outlook, the delta, both against the FY
   target, a monthly chart (actuals, prior forecast, simulated forecast)
-  and an impact table listing only the lines the scenario actually moves,
-  with Excel export. A scenario whose scope is entirely balance-sheet rows
+  and an impact table listing only the lines the simulation actually moves,
+  with Excel export. A simulation whose scope is entirely balance-sheet rows
   reports on the closing-balance basis in `US$bn` — the last forecast
   month's closing position, never a sum of monthly balances — and mixed
   scopes total the P&L side only, with balances stated separately.
-  Scenarios save by name (localStorage) for reload; the work-in-progress
-  scenario survives refreshes.
+  Simulations save by name (localStorage) for reload; the work-in-progress
+  simulation survives refreshes.
 
-  **Pre-loaded scenarios from the config pack** — an optional `Scenarios`
-  sheet in the configuration workbook ships ready-made scenarios to every
-  user who opens the dashboard, instead of each living in one person's
-  browser. Columns: `Scenario | Dim | Value | Dim2 | Value2 | Statement |
-  Type | Change | From | To`. Rows sharing a Scenario name become one
-  multi-rule scenario. `Dim`/`Value` is the main scope (e.g.
+  **Pre-loaded simulations from the config pack** — an optional
+  `Simulations` sheet in the configuration workbook ships ready-made
+  simulations to every user who opens the dashboard, instead of each
+  living in one person's browser. Columns: `Simulation | Dim | Value |
+  Dim2 | Value2 | Statement | Type | Change | From | To`. Rows sharing a
+  Simulation name become one multi-rule simulation. (A sheet still named
+  `Scenarios`, the tab's earlier name, is read exactly the same way, so
+  packs already in circulation keep working.) `Dim`/`Value` is the main
+  scope (e.g.
   `MICA Level 3` = `NII - Net Interest Income`); `Dim2`/`Value2` is an
   optional second condition — a line *within* a geography — shown on the
   rule as "· within Region = MENAT" (dims accepted: Country, Region,
@@ -1194,15 +1197,17 @@ left-pane strip and the Filters pane.
   or `all`; `Type` is `pct` (% change), `pctfy` (% of full year), `amt`
   (add amount) or `setm` (set monthly total); `Change` is the number;
   `From`/`To` are month names (`AUG`…`DEC`). Seeding happens when the
-  config loads and never overwrites a scenario the user already saved
+  config loads and never overwrites a simulation the user already saved
   under the same name; a seeded rule whose scope matches nothing in the
   loaded driller shows the usual "no rows match" note rather than
-  silently doing nothing. The Group pack ships eleven scenarios built
+  silently doing nothing. The Group pack ships sixteen simulations built
   this way: six Middle East crisis cases (Gulf rate cuts, EGP
   devaluation, deposit flight, Gulf inflows upside, trade disruption,
-  and an oil-spike counter-case) and five broader macroeconomic cases
-  (global rate cuts, China hard landing, US/Europe recession, a
-  markets-rally upside, and stagflation).
+  and an oil-spike counter-case), five macroeconomic cases (global rate
+  cuts, China hard landing, US/Europe recession, a markets-rally upside,
+  and stagflation), and five cost cases (pay review, variable pay
+  true-up, savings programme, indirect cost inflation, and an offshoring
+  footprint shift that lowers UK direct costs while raising Asia's).
 - **Data** — the filtered source rows, paginated with search. Every text
   column header carries a **filter button**: it opens a value picker
   (searchable, Select all / Clear, tick the values to keep) that combines
@@ -1353,7 +1358,7 @@ What each section governs:
   appears in the left-pane filters (`Extra1` = Y/N) and whether it is
   offered as a simulation rule scope (`Extra2` = Y/N — every dimension
   defaults to Y, and the derived hierarchy levels are always offered, so a
-  scenario can scope on any non-numeric field in the file; a blank cell
+  simulation can scope on any non-numeric field in the file; a blank cell
   inherits the default, an explicit N excludes). A row whose key is
   **not** one of the built-ins declares a **new dimension**: `Extra3`
   holds the text to match against the driller's column headers (falling

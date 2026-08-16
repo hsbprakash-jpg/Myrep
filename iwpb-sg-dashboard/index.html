@@ -960,9 +960,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 11:48)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 12:46)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 11:48)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 12:46)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1029,7 +1029,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 11:48</div>
+<div id="buildTag">build 2026-08-16 12:46</div>
 </aside>
 <main>
 
@@ -1260,20 +1260,20 @@ setTimeout(function(){
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
       <h2>Simulation Assistant <span class="unitsfx" data-unitsfx></span></h2>
-      <p class="lede2">Build what-if scenarios on the forecast months — the prior forecast stays untouched, the simulated path is recomputed live under the current filters, and scenarios can be saved for reuse.</p>
+      <p class="lede2">Build what-if simulations on the forecast months — the prior forecast stays untouched, the simulated path is recomputed live under the current filters, and simulations can be saved for reuse.</p>
     </div></div>
     <div class="panel">
       <div id="simBar">
-        <input id="simName" type="text" placeholder="Scenario name (e.g. Rate cut -50bps on NII)" aria-label="Scenario name">
-        <button class="btn-solid" id="btnSimSave">Save scenario</button>
+        <input id="simName" type="text" placeholder="Simulation name (e.g. Rate cut -50bps on NII)" aria-label="Simulation name">
+        <button class="btn-solid" id="btnSimSave">Save simulation</button>
         <button class="btn-quiet" id="btnSimNew">New</button>
-        <button class="btn-quiet" id="btnSimClear" title="Clear the rules, results and comparison from the screen — saved scenarios are kept">Clear screen</button>
+        <button class="btn-quiet" id="btnSimClear" title="Clear the rules, results and comparison from the screen — saved simulations are kept">Clear screen</button>
         <button class="btn-quiet" id="btnSimExport">⤓ Excel</button>
       </div>
       <div id="simSaved"></div>
     </div>
     <div class="panel">
-      <h4 style="margin:0 0 10px">Scenario rules — applied to forecast months only, in order</h4>
+      <h4 style="margin:0 0 10px">Simulation rules — applied to forecast months only, in order</h4>
       <div id="simRules"></div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn-quiet" id="btnSimAddRule">+ Add rule</button>
@@ -1283,8 +1283,8 @@ setTimeout(function(){
     <div class="panel" id="simResults"></div>
     <div class="panel" id="simComparePanel">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-        <div><h4 style="margin:0 0 4px">Compare scenarios <span class="unitsfx" data-unitsfx></span></h4>
-        <p class="subtitle">Tick the saved scenarios to run side by side against the prior forecast.</p></div>
+        <div><h4 style="margin:0 0 4px">Compare simulations <span class="unitsfx" data-unitsfx></span></h4>
+        <p class="subtitle">Tick the saved simulations to run side by side against the prior forecast.</p></div>
         <div style="display:flex;gap:8px">
           <button class="btn-solid" id="btnSimCmpRun">▶ Run comparison</button>
           <button class="btn-quiet" id="btnSimCmpXls">⤓ Excel</button></div>
@@ -9187,7 +9187,7 @@ function simFcMonths(){ return S.model? S.model.cyMonths.filter(p=>p.fc) : []; }
 function simMatchRows(rows, ru){
   let match=ru.dim? rows.filter(r=>String(r.d[ru.dim]||'')===String(ru.val2)) : rows;
   // a second condition \u2014 a line AND a geography \u2014 comes from the
-  // configuration's Scenarios sheet; the editor leaves it untouched
+  // configuration's Simulations sheet; the editor leaves it untouched
   if(ru.dim2&&ru.val22)
     match=match.filter(r=>String(r.d[ru.dim2]||'')===String(ru.val22));
   if(ru.stmt==='pl') match=match.filter(r=>!isBSRow(r));
@@ -9243,7 +9243,7 @@ function simNewRule(){
   return {dim, val2:first, stmt:'all', type:'pct', val:10,
     from:fc.length?fc[0].m:0, to:fc.length?fc[fc.length-1].m:11};
 }
-/* apply the scenario rules to the forecast months; returns per-row simulated values */
+/* apply the simulation rules to the forecast months; returns per-row simulated values */
 let SIM_LAST=null;   // snapshot of the rules at the moment Run was pressed
 function computeSim(rules){
   const m=S.model, rows=filteredRows(), fcMonths=simFcMonths();
@@ -9318,7 +9318,7 @@ function simAgg(rules){
   const bsFocus=!!(mArr.length&&bsUnit()&&mArr.every(r=>isBSRow(r)));
   const mixed=mixedScope(rows);
   const tRows=bsFocus? mArr : (mixed? rows.filter(r=>!isBSRow(r)) : rows);
-  const total=gRow(bsFocus? 'Scenario scope' : cfgS('total_label'), tRows);
+  const total=gRow(bsFocus? 'Simulation scope' : cfgS('total_label'), tRows);
   const dv=bsFocus? bsUnitDiv() : 1;
   const actSeries=actMonths.filter(p=>p.m<=S.ytdM||true).map(p=>({m:p.m,val:sumCols(tRows,[p.col])/dv}));
   const baseSeries=fcMonths.map(p=>({m:p.m,val:sumBase(tRows,[p])/dv}));
@@ -9364,8 +9364,8 @@ function simCmpRun(names){
 }
 function simCmpAOA(){
   const res=SIM_CMP.last||[];
-  const aoa=[['Simulation — scenario comparison'],[filterNote(true)],[],
-    ['Scenario','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast']];
+  const aoa=[['Simulation comparison'],[filterNote(true)],[],
+    ['Simulation','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast']];
   for(const r of res)
     aoa.push([r.name, r.total.baseOut, r.total.simOut, r.total.delta]);
   return aoa;
@@ -9389,7 +9389,7 @@ function simCmpChart(el, act, base, series){
   series.forEach((s2,i)=>{
     svg+=`<path d="${path(s2.pts)}" fill="none" stroke="${CAT_COLORS[i%CAT_COLORS.length]}" stroke-width="2" stroke-dasharray="2 2"/>`;
   });
-  el.innerHTML=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Scenario comparison">${svg}</svg></div>`;
+  el.innerHTML=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Simulation comparison">${svg}</svg></div>`;
 }
 function simAOA(){
   const rules=SIM_LAST||[];
@@ -9397,7 +9397,7 @@ function simAOA(){
   const ruleTxt=rules.map((r,i)=>`Rule ${i+1}: ${r.dim?(ALL_DIM_LABELS[r.dim]||r.dim)+' = '+r.val2:'All rows'} · ${
     r.type==='pct'?r.val+'% change on forecast months':r.type==='pctfy'?r.val+'% change on FY, spread over the months':
     r.type==='amt'?'add '+r.val+' over period':'set monthly total to '+r.val} · ${MON_LBL[+r.from]}–${MON_LBL[+r.to]}`).join(' | ');
-  const aoa=[[`Simulation — ${SIM.name||'unsaved scenario'}`],[filterNote(true)],[ruleTxt||'No rules'],[],
+  const aoa=[[`Simulation — ${SIM.name||'unsaved simulation'}`],[filterNote(true)],[ruleTxt||'No rules'],[],
     [ALL_DIM_LABELS[SIM.by]||'Line','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast']];
   for(const g of [...a.groups, a.total])
     aoa.push([g.name,g.baseOut,g.simOut,g.delta]);
@@ -9407,16 +9407,16 @@ function renderSim(){
   const m=S.model; if(!m) return;
   const fc=simFcMonths();
   $('simName').value=SIM.name||'';
-  // saved scenarios
+  // saved simulations
   const store=simStore();
   const names=Object.keys(store).sort();
   $('simSaved').innerHTML=names.length?
-    `<label>Saved scenarios
+    `<label>Saved simulations
       <select id="simSel">${names.map(n=>`<option${SIM.name===n?' selected':''}>${esc(n)}</option>`).join('')}</select>
     </label>
     <button class="btn-quiet" id="btnSimLoad">Load</button>
     <button class="btn-quiet" id="btnSimDel">Delete</button>`
-    : '<span class="note">No saved scenarios yet.</span>';
+    : '<span class="note">No saved simulations yet.</span>';
   const selEl=$('simSel');
   if(selEl){
     $('btnSimLoad').addEventListener('click',()=>{
@@ -9429,7 +9429,7 @@ function renderSim(){
     });
     $('btnSimDel').addEventListener('click',()=>{
       const n=selEl.value;
-      if(!confirm(`Delete saved scenario "${n}"?`)) return;
+      if(!confirm(`Delete saved simulation "${n}"?`)) return;
       const st=simStore(); delete st[n]; simStoreSet(st); renderSim();
     });
   }
@@ -9459,7 +9459,7 @@ function renderSim(){
         <option value="setm"${r.type==='setm'?' selected':''}>Set monthly total (${esc(cfgUnit())})</option>
       </select>
       <input class="rv" type="number" step="any" value="${simValIn(r)}" title="${(r.type==='pct'||r.type==='pctfy')?'Percentage change':'Amount in '+esc(cfgUnit())+' — the same units as the figures in the file'}">
-      ${r.dim2&&r.val22? `<span class="rlbl" title="Set in the configuration's Scenarios sheet">\u00b7 within ${esc(FIELD_LABELS[r.dim2]||r.dim2)} = ${esc(r.val22)}</span>`:''}
+      ${r.dim2&&r.val22? `<span class="rlbl" title="Set in the configuration's Simulations sheet">\u00b7 within ${esc(FIELD_LABELS[r.dim2]||r.dim2)} = ${esc(r.val22)}</span>`:''}
       <span class="rlbl">from</span><select class="rfrom">${mOpt(r.from)}</select>
       <span class="rlbl">to</span><select class="rto">${mOpt(r.to)}</select>
       <button class="rx" title="Remove rule" aria-label="Remove rule">✕</button>
@@ -9493,7 +9493,7 @@ function renderSim(){
     ${stale?`<p class="note" style="color:#9a6a00;background:color-mix(in srgb, var(--status-warning) 12%, transparent);border:1px solid var(--status-warning);border-radius:6px;padding:8px 12px">Rules have changed since the last run — click <b>▶ Run simulation</b> to refresh these results.</p>`:''}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
       <div><h4 style="margin:0 0 4px">Impact — prior vs simulated forecast</h4>
-      <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters · ${esc(cfgUnit())}${a.bsFocus?` · the scenario targets balances — headline, chart and rows on the closing-balance basis in ${esc(bsUnitLabel())}`:a.mixed?` · totals and chart cover the P&L side — balances read per line in ${esc(bsUnitLabel())}`:''}.</p></div>
+      <p class="subtitle">Simulated forecast applies the rules to the forecast months (${MON_LBL[fc[0].m]}–${MON_LBL[fc[fc.length-1].m]}) under the current filters · ${esc(cfgUnit())}${a.bsFocus?` · the simulation targets balances — headline, chart and rows on the closing-balance basis in ${esc(bsUnitLabel())}`:a.mixed?` · totals and chart cover the P&L side — balances read per line in ${esc(bsUnitLabel())}`:''}.</p></div>
       <label style="font-size:12px;color:var(--text-muted)">View impact by
         <select id="simBy" style="margin-left:6px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:var(--surface-1);color:var(--text-primary)">${
           Object.keys(ALL_DIM_LABELS).filter(k2=>k2 in m.dimCols).map(k2=>
@@ -9518,14 +9518,14 @@ function renderSim(){
       <td class="num">${Math.abs(g.delta||0)<0.0005? c(0) : movVal(dk,g.delta,dp)}</td></tr>`;}).join('')}</tbody></table></div>
     ${(()=>{ const n2=a.groups.filter(g=>Math.abs(g.delta||0)<=0.0005).length;
       const any=a.groups.length-n2;
-      return (any&&n2)? `<p class="note">${n2} unaffected line${n2>1?'s':''} hidden — the table lists only the lines this scenario moves.</p>` : ''; })()}`;
+      return (any&&n2)? `<p class="note">${n2} unaffected line${n2>1?'s':''} hidden — the table lists only the lines this simulation moves.</p>` : ''; })()}`;
   $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
   aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote(true)+'|'+(SIM.by||''), {noButtons:true, ctx:filterNote(true)}, ()=>{
     const mv=[...a.groups].sort((x,y)=>Math.abs(y.delta)-Math.abs(x.delta))[0];
     const upl=t.baseOut? t.delta/Math.abs(t.baseOut) : null;
     const nfT=v=>t.bs? fmtBS(v)+bsUnit() : fmt(v);
-    let h2=`The scenario moves the ${t.bs? MON_LBL[a.lastM]+' closing balance' : 'FY outlook'} from <b>${nfT(t.baseOut)}</b> to <b>${nfT(t.simOut)}</b> (${movVal({...(t.k||{}), isBS:t.bs},t.delta,upl)}${upl!=null?`, ${movPct({...(t.k||{}), isBS:t.bs},upl)} on the prior forecast path`:''})`;
+    let h2=`The simulation moves the ${t.bs? MON_LBL[a.lastM]+' closing balance' : 'FY outlook'} from <b>${nfT(t.baseOut)}</b> to <b>${nfT(t.simOut)}</b> (${movVal({...(t.k||{}), isBS:t.bs},t.delta,upl)}${upl!=null?`, ${movPct({...(t.k||{}), isBS:t.bs},upl)} on the prior forecast path`:''})`;
     if(mv&&Math.abs(mv.delta)>0.001){
       const shr=t.delta? Math.abs(mv.delta/t.delta)*100 : null;
       h2+=`, with the largest impact in <b>${esc(mv.name)}</b> (<b>${mv.delta>=0?'+':''}${mv.bs? fmtBS(mv.delta)+bsUnit() : fmt(mv.delta)}</b>${shr!=null&&isFinite(shr)?`, ${shr.toFixed(0)}% of the move`:''})`;
@@ -9553,7 +9553,7 @@ function renderSimCompare(){
   $('simCmpPick').innerHTML= names.length?
     `<div class="cmppick">${names.map(n=>`<label class="chk"><input type="checkbox" data-cmp="${esc(n)}"${
       SIM_CMP.sel.includes(n)?' checked':''}> ${esc(n)}</label>`).join('')}</div>`
-    : '<p class="note">Save two or more scenarios above, then tick them here to compare.</p>';
+    : '<p class="note">Save two or more simulations above, then tick them here to compare.</p>';
   $('simCmpPick').querySelectorAll('[data-cmp]').forEach(cb=>cb.addEventListener('change',()=>{
     const n=cb.dataset.cmp;
     if(cb.checked){ if(!SIM_CMP.sel.includes(n)) SIM_CMP.sel.push(n); }
@@ -9561,7 +9561,7 @@ function renderSimCompare(){
   }));
   const res=SIM_CMP.last;
   const out=$('simCmpOut');
-  if(!res||!res.length){ out.innerHTML= names.length? '<p class="note">Tick scenarios and click <b>▶ Run comparison</b>.</p>':''; return; }
+  if(!res||!res.length){ out.innerHTML= names.length? '<p class="note">Tick simulations and click <b>▶ Run comparison</b>.</p>':''; return; }
   const a0=simAgg([]);            // prior forecast path, no rules
   const best=[...res].sort((x,y)=>(y.total.delta||0)-(x.total.delta||0))[0];
   out.innerHTML=`
@@ -9569,7 +9569,7 @@ function renderSimCompare(){
       <span><span class="swl" style="border-top:3px dashed var(--series-2)"></span>Prior forecast</span>
       ${res.map((r,i)=>`<span><span class="swl" style="border-top:3px dotted ${CAT_COLORS[i%CAT_COLORS.length]}"></span>${esc(r.name)}</span>`).join('')}</div>
     <div class="chart-wrap" id="simCmpChart"></div>
-    <div class="scroll-x"><table class="ctable"><thead><tr><th>Scenario</th>
+    <div class="scroll-x"><table class="ctable"><thead><tr><th>Simulation</th>
       <th class="num">FY outlook (${esc(cfgUnit())})</th><th class="num">Δ vs prior forecast</th></tr></thead><tbody>
       <tr><td>Prior forecast</td><td class="num">${fmtCell(a0.total.baseOut)}</td><td class="num">—</td></tr>
       ${res.map(r=>`<tr><td>${esc(r.name)}</td><td class="num">${fmtCell(r.total.simOut)}</td>
@@ -9578,7 +9578,7 @@ function renderSimCompare(){
     <div id="simCmpCom"></div>`;
   simCmpChart($('simCmpChart'), a0.actSeries, a0.baseSeries, res.map(r=>({name:r.name, pts:r.simSeries})));
   aiComment($('simCmpCom'), 'simcmp|'+res.map(r=>r.name).join(',')+'|'+filterNote(true), {noButtons:true, ctx:filterNote(true)}, ()=>{
-    let h=`Comparing <b>${res.length}</b> scenarios against a prior FY outlook of <b>${fmt(a0.total.baseOut)}</b>: `+
+    let h=`Comparing <b>${res.length}</b> simulations against a prior FY outlook of <b>${fmt(a0.total.baseOut)}</b>: `+
       res.map(r=>`<b>${esc(r.name)}</b> lands <b>${fmt(r.total.simOut)}</b> (${r.total.delta>=0?'+':''}${fmt(r.total.delta)})`).join('; ')+'.';
     if(best) h+=` <b>${esc(best.name)}</b> lifts the outlook most, at <b>${best.total.delta>=0?'+':''}${fmt(best.total.delta)}</b>.`;
     return h;
@@ -11170,9 +11170,9 @@ function cfgFromWorkbook(wb){
         if(/^calculation/i.test(String(a))) continue;
         if(a&&c) cfg.calcdefs.push({calc:a, biz:b2||'', line:c, sign:d||'+', level:e2||'', tile:f2||''});
       }
-      else if(sec==='scenarios'){
-        // Scenario | Dim | Value | Dim2 | Value2 | Statement | Type | Change | From | To
-        if(/^scenario$/i.test(String(a))) continue;
+      else if(sec==='scenarios'||sec==='simulations'){
+        // Simulation | Dim | Value | Dim2 | Value2 | Statement | Type | Change | From | To
+        if(/^(scenario|simulation)$/i.test(String(a))) continue;
         const dimKey=x=>{ x=String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
           const MAP={country:'country', region:'region', business:'business', businessline:'business',
             micalevel1:'micaL1', mical1:'micaL1', micalevel2:'micaL2', mical2:'micaL2',
@@ -11580,7 +11580,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 11:48</td></tr>
+      <tr><td>Build</td><td>2026-08-16 12:46</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11759,7 +11759,7 @@ function init(){
   $('simName').addEventListener('change',e=>{ SIM.name=e.target.value; saveSimCur(); });
   $('btnSimSave').addEventListener('click',()=>{
     SIM.name=$('simName').value.trim();
-    if(!SIM.name){ alert('Give the scenario a name first.'); return; }
+    if(!SIM.name){ alert('Give the simulation a name first.'); return; }
     const st=simStore(); st[SIM.name]={rules:SIM.rules, by:SIM.by}; simStoreSet(st); saveSimCur(); renderSim();
   });
   $('btnSimNew').addEventListener('click',()=>{ SIM={name:'',rules:[],by:'micaL1'}; SIM_LAST=null; saveSimCur(); renderSim(); });
@@ -11771,12 +11771,12 @@ function init(){
   });
   $('btnSimRun').addEventListener('click',()=>{ SIM_LAST=JSON.parse(JSON.stringify(SIM.rules)); renderSim(); });
   $('btnSimCmpRun').addEventListener('click',()=>{
-    if(!SIM_CMP.sel.length){ alert('Tick at least one saved scenario to compare.'); return; }
+    if(!SIM_CMP.sel.length){ alert('Tick at least one saved simulation to compare.'); return; }
     SIM_CMP.last=simCmpRun(SIM_CMP.sel); renderSim();
   });
   $('btnSimCmpXls').addEventListener('click',()=>{
     if(!SIM_CMP.last||!SIM_CMP.last.length){ alert('Run the comparison first.'); return; }
-    exportWB([{name:'Scenario comparison', aoa:simCmpAOA()}],brandSlug()+'_scenario_comparison');
+    exportWB([{name:'Simulation comparison', aoa:simCmpAOA()}],brandSlug()+'_simulation_comparison');
   });
   $('btnSimExport').addEventListener('click',()=>{
     if(!SIM_LAST){ alert('Run the simulation first.'); return; }
