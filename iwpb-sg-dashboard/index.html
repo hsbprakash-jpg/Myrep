@@ -315,6 +315,10 @@ aside.side input[type=checkbox],#queryView input[type=checkbox]{accent-color:var
 .qfield .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qfield button{background:none;border:none;color:var(--series-1);font-size:10px;font-weight:800;cursor:pointer;padding:0 2px}
 .qfield button:hover{text-decoration:underline}
+.qfield label{display:flex;align-items:center;gap:5px;cursor:pointer;min-width:0}
+.qfield input[type=checkbox]{accent-color:var(--hsbc-red);margin:0}
+.qfield.qon{border-color:var(--hsbc-red);background:color-mix(in srgb, var(--hsbc-red) 5%, transparent)}
+#qbFiltersBand{min-height:0;margin-bottom:14px;padding:10px 14px}
 .qwell{border:2px dashed var(--border-strong);border-radius:6px;min-height:58px;padding:6px}
 .qwell.dropover{border-color:var(--hsbc-red);background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
 .qwell .empty{color:var(--text-muted);font-size:11px;text-align:center;padding:12px 6px}
@@ -933,9 +937,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:13)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 09:18)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:13)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 09:18)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1002,7 +1006,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 09:13</div>
+<div id="buildTag">build 2026-08-16 09:18</div>
 </aside>
 <main>
 
@@ -1190,7 +1194,7 @@ setTimeout(function(){
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
       <h2>Query Builder <span class="unitsfx" data-unitsfx></span></h2>
-      <p class="lede2">Drag fields into Filters, Output Columns or Sort By — or use the +F / +O / +S shortcuts — then run the query. Output sequence controls the result column order.</p>
+      <p class="lede2">Tick a field to add it to the output — ticking order sets the column order — and use +F to filter. Then run the query.</p>
     </div>
     <div id="qbActions">
       <input type="text" id="qName" placeholder="Saved query name">
@@ -1204,24 +1208,14 @@ setTimeout(function(){
     <div class="qcol" id="qbFieldsBand">
       <div class="qfhead">
         <h6 style="margin:0">Available fields</h6>
-        <p class="qsub" style="margin:0"><span id="qFieldCount"></span> fields · drag, or +F filter / +O output / +S sort</p>
+        <p class="qsub" style="margin:0"><span id="qFieldCount"></span> fields · tick = output column · +F = filter</p>
         <input id="qFieldSearch" placeholder="Search all available fields" aria-label="Search fields">
       </div>
       <div id="qFieldList"></div>
     </div>
-    <div id="qbGrid">
-      <div class="qcol">
-        <h6>Filters</h6>
-        <div class="qwell" data-qwell="filters" id="qFilters"></div>
-      </div>
-      <div class="qcol">
-        <h6>Output columns</h6>
-        <div class="qwell" data-qwell="out" id="qOut"></div>
-      </div>
-      <div class="qcol">
-        <h6>Sort by</h6>
-        <div class="qwell" data-qwell="sort" id="qSort"></div>
-      </div>
+    <div class="qcol" id="qbFiltersBand">
+      <h6>Filters <span class="qsub" style="text-transform:none;letter-spacing:0;font-weight:400">— the results sort by the output columns, in ticking order</span></h6>
+      <div class="qwell" data-qwell="filters" id="qFilters"></div>
     </div>
     <div class="panel" id="qResults" style="margin-top:14px" hidden>
       <div class="panel-head">
@@ -7258,16 +7252,22 @@ function renderQuery(){
   }
   $('qFieldList').innerHTML=[...byGroup.entries()].map(([g,fs])=>
     `<div class="qgroup">${esc(g)}</div>`+fs.map(f=>
-      `<div class="qfield" draggable="true" data-id="${f.id}">
-        <span class="nm" title="${esc(f.label)}">${esc(f.label)}</span>
+      `<div class="qfield${Q.out.includes(f.id)?' qon':''}" data-id="${f.id}">
+        <label title="Tick to add this field to the output \u2014 ticking order sets the column order">
+          <input type="checkbox" data-chk="${f.id}"${Q.out.includes(f.id)?' checked':''}>
+          <span class="nm" title="${esc(f.label)}">${esc(f.label)}</span></label>
         <button data-w="filters" title="Add to Filters">+F</button>
-        <button data-w="out" title="Add to Output columns">+O</button>
-        <button data-w="sort" title="Add to Sort by">+S</button>
       </div>`).join('')).join('')||'<p class="note">No fields match.</p>';
   $('qFieldList').querySelectorAll('.qfield').forEach(el=>{
-    el.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/x-qf',el.dataset.id); e.dataTransfer.effectAllowed='copy'; });
     el.querySelectorAll('button').forEach(b=>
       b.addEventListener('click',()=>qAdd(b.dataset.w, el.dataset.id)));
+    const cb=el.querySelector('[data-chk]');
+    if(cb) cb.addEventListener('change',()=>{
+      const id=cb.dataset.chk;
+      if(cb.checked){ if(!Q.out.includes(id)) Q.out.push(id); }
+      else { const i=Q.out.indexOf(id); if(i>=0) Q.out.splice(i,1); }
+      renderQuery();
+    });
   });
   // wells
   const fw=$('qFilters');
@@ -7287,39 +7287,7 @@ function renderQuery(){
   fw.querySelectorAll('[data-op]').forEach(s=>s.addEventListener('change',()=>{ Q.filters[+s.dataset.op].op=s.value; renderQuery(); }));
   fw.querySelectorAll('[data-val]').forEach(inp=>inp.addEventListener('input',()=>{ Q.filters[+inp.dataset.val].val=inp.value; }));
 
-  const ow=$('qOut');
-  ow.innerHTML=Q.out.length? Q.out.map((id,i)=>{
-    const fd=qFieldById(id); if(!fd) return '';
-    return `<div class="qitem" draggable="true" data-oi="${i}">
-      <div class="qhead"><span class="grip" style="cursor:grab;color:var(--text-muted)">⠿</span>
-      <span class="nm">${i+1}. ${esc(fd.label)}</span><button data-odel="${i}" aria-label="Remove column">✕</button></div></div>`;
-  }).join(''):'<div class="empty">Drop output fields here<br><span style="font-size:10.5px">(empty = all dimension columns)</span></div>';
-  ow.querySelectorAll('[data-odel]').forEach(b=>b.addEventListener('click',()=>{ Q.out.splice(+b.dataset.odel,1); renderQuery(); }));
-  ow.querySelectorAll('.qitem').forEach(el=>{
-    el.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/x-qout',el.dataset.oi); e.stopPropagation(); });
-    el.addEventListener('dragover',e=>{ e.preventDefault(); el.classList.add('dropover'); });
-    el.addEventListener('dragleave',()=>el.classList.remove('dropover'));
-    el.addEventListener('drop',e=>{
-      e.preventDefault(); e.stopPropagation(); el.classList.remove('dropover');
-      const from=e.dataTransfer.getData('text/x-qout');
-      const idx=+el.dataset.oi;
-      if(from!==''){ const [mv]=Q.out.splice(+from,1); Q.out.splice(+from<idx?idx:idx,0,mv); renderQuery(); return; }
-      const nf=e.dataTransfer.getData('text/x-qf');
-      if(nf&&!Q.out.includes(nf)){ Q.out.splice(idx,0,nf); renderQuery(); }
-    });
-  });
-
-  const sw=$('qSort');
-  sw.innerHTML=Q.sort.length? Q.sort.map((s,i)=>{
-    const fd=qFieldById(s.id); if(!fd) return '';
-    return `<div class="qitem"><div class="qhead"><span class="nm">${esc(fd.label)}</span>
-      <button class="dir" data-dir="${i}">${s.dir==='asc'?'Asc ▲':'Desc ▼'}</button>
-      <button data-sdel="${i}" aria-label="Remove sort">✕</button></div></div>`;
-  }).join(''):'<div class="empty">Drop sort fields here \u2014 click to toggle direction</div>';
-  sw.querySelectorAll('[data-sdel]').forEach(b=>b.addEventListener('click',()=>{ Q.sort.splice(+b.dataset.sdel,1); renderQuery(); }));
-  sw.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>{
-    const s=Q.sort[+b.dataset.dir]; s.dir=s.dir==='asc'?'desc':'asc'; renderQuery(); }));
-
+  Q.sort=[];   // sorting rides the output column order now
   // well-level drop targets
   document.querySelectorAll('#queryView .qwell').forEach(w=>{
     w.ondragover=e=>{ e.preventDefault(); w.classList.add('dropover'); };
@@ -7364,8 +7332,12 @@ function runQuery(){
       }
     }
   }
-  if(Q.sort.length){
-    const sorts=Q.sort.map(s=>({fd:qFieldById(s.id), dir:s.dir})).filter(s=>s.fd);
+  // no sort selection any more: the results order by the output columns,
+  // in ticking order \u2014 dimensions A\u2013Z, figures descending
+  const autoSort=Q.out.map(id=>({fd:qFieldById(id), dir: (qFieldById(id)||{}).kind==='dim'?'asc':'desc'}))
+    .filter(s=>s.fd);
+  if(Q.sort.length||autoSort.length){
+    const sorts=(Q.sort.length? Q.sort.map(s=>({fd:qFieldById(s.id), dir:s.dir})) : autoSort).filter(s=>s.fd);
     rows=[...rows].sort((a,b)=>{
       for(const s of sorts){
         let c;
@@ -11449,7 +11421,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 09:13</td></tr>
+      <tr><td>Build</td><td>2026-08-16 09:18</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
