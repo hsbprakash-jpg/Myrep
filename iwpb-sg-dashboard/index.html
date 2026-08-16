@@ -963,9 +963,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 13:04)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 13:09)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 13:04)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 13:09)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -978,7 +978,7 @@ setTimeout(function(){
       <div class="sub">Management reporting · KPI insights</div>
     </div>
   </div>
-  <button class="btn-quiet" id="btnNewFile" hidden style="margin:10px 18px 0;width:calc(100% - 36px)" data-lbl="btn_newfile">Load new Driller</button>
+  <button class="btn-quiet" id="btnNewFile" hidden style="margin:10px 18px 0;width:calc(100% - 36px)" data-lbl="btn_newfile">Ingest TM1 Extract</button>
   <div class="sect" data-lbl="sect_dashboards">KPI Dashboards</div>
   <nav>
     <button id="navSummary" class="active">
@@ -1032,7 +1032,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 13:04</div>
+<div id="buildTag">build 2026-08-16 13:09</div>
 </aside>
 <main>
 
@@ -1040,15 +1040,15 @@ setTimeout(function(){
   <div style="max-width:640px;margin:34px auto 0">
     <div class="pagehead"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
-      <h2>Ingest Driller File</h2>
+      <h2 data-lbl="ingest_title">Ingest TM1 Extract</h2>
       <p class="lede2">Upload the monthly extract to power the KPI dashboards.</p>
     </div></div>
   </div>
   <div class="panel" style="max-width:640px;margin:0 auto;padding:32px">
-    <p class="lede">Upload the <span class="brandTxt">IWPB Singapore</span> driller extract (.xlsx or .csv). The file is processed
+    <p class="lede">Upload the <span class="brandTxt">IWPB Singapore</span> TM1 extract (.xlsx or .csv). The file is processed
       entirely in your browser — nothing is sent to any server.</p>
-    <div id="dropZone" tabindex="0" role="button" aria-label="Upload driller file">
-      <div class="big">Drop the driller file here</div>
+    <div id="dropZone" tabindex="0" role="button" aria-label="Upload TM1 extract">
+      <div class="big" data-lbl="ingest_drop">Drop the TM1 extract here</div>
       <div class="hint">or click to browse &nbsp;·&nbsp; expects MICA / Product / Segment / Function levels + monthly actuals</div>
     </div>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsb,.csv" hidden>
@@ -1079,7 +1079,7 @@ setTimeout(function(){
       <p class="lede2" id="summaryLede"></p>
     </div>
     <div><button class="btn-quiet" id="btnExportAll">⤓ Export to Excel</button>
-      <button class="btn-quiet" id="btnPptSummary" title="One-slide financial dashboard in the driller tile format">⤓ PPT</button>
+      <button class="btn-quiet" id="btnPptSummary" title="One-slide financial dashboard in the dashboard tile format">⤓ PPT</button>
       <button class="btn-quiet" id="btnTileOrder" hidden title="Put the tiles back in the order this file and its configuration declare">↺ Tile order</button></div></div>
     <div class="cards" id="cardGrid"></div>
     <div class="chiprow" id="chipRow"></div>
@@ -1310,7 +1310,7 @@ setTimeout(function(){
         <input id="aiInput" type="text" placeholder="Ask in your own words — e.g. why is Singapore behind forecast?" aria-label="Ask the MI assistant">
         <button id="btnAiAsk">Ask</button>
       </div>
-      <p class="note">Governed scope: questions are read in plain language and answered from the approved set of analyses (performance, movements and drivers, breakdowns, costs, ECL, targets, comparisons) — anything outside it is asked back, never guessed. Always on the variance period selected in the left pane, with figures taken as-is from the driller columns and the left-pane filters applied.</p>
+      <p class="note">Governed scope: questions are read in plain language and answered from the approved set of analyses (performance, movements and drivers, breakdowns, costs, ECL, targets, comparisons) — anything outside it is asked back, never guessed. Always on the variance period selected in the left pane, with figures taken as-is from the TM1 extract columns and the left-pane filters applied.</p>
     </div>
   </div>
 
@@ -1643,7 +1643,8 @@ const CFG_DEFAULT={
     sect_dashboards:'KPI Dashboards', sect_kpis:'KPIs · MICA Level 2',
     sect_config:'Configuration', sect_period:'Period',
     sect_filters:'Filters — all columns', sect_output:'Output fields',
-    btn_newfile:'Load new Driller',
+    btn_newfile:'Ingest TM1 Extract',
+    ingest_title:'Ingest TM1 Extract', ingest_drop:'Drop the TM1 extract here',
     btn_regen:'Regenerate', btn_retrieve:'Retrieve',
     lbl_ytd:'YTD through',
     lbl_varper:'Variance period', lbl_units:'Units',
@@ -2011,7 +2012,7 @@ function parseSheet(aoa){
     for(const spec of DIM_SPECS) if(row.some(cell=>spec.test(normH(cell)))) hits++;
     if(hits>=4){ hr=r; break; }
   }
-  if(hr<0) return {error:'Could not find the driller header row — no MICA / Product columns detected.'};
+  if(hr<0) return {error:'Could not find the TM1 extract header row — no MICA / Product columns detected.'};
   if(aoa.length<=hr+1) return {error:'File has no data rows.'};
   const header = aoa[hr];
   // band row above the header: Actuals / Forecast / Target labels, forward-filled across merges
@@ -2034,7 +2035,7 @@ function parseSheet(aoa){
     }
   }
   const missing = DIM_SPECS.filter(s=>!s.custom&&!s.opt&&!(s.key in dimCols)).map(s=>s.label);
-  if(!('micaL2' in dimCols)) return {error:'Could not find a MICA_Level_2 column — is this an IWPB driller file?', missing};
+  if(!('micaL2' in dimCols)) return {error:'Could not find a MICA_Level_2 column — is this an IWPB TM1 extract?', missing};
 
   // classify remaining columns as periods
   const monthCols=[], quarterCols=[], ytdCols=[];
@@ -8402,7 +8403,7 @@ function renderFsum(){
   const H=fsumHeadRows(P,m), u=cfgUnit();
   $('fsumTitle').textContent=`${fsumTitleS()} — ${MON_LBL[S.ytdM]}'${P.yy} Actuals`;
   $('fsumLede').textContent=`Month, quarter-to-date and year-to-date against forecast, target, `+
-    `prior period and prior year — pulled from the driller under the current filters · figures in ${u} as reported.`;
+    `prior period and prior year — pulled from the TM1 extract under the current filters · figures in ${u} as reported.`;
   const nMon=P.monCols.length;
   let head=`<thead><tr><th class="rowhead" rowspan="3"></th>`+
     `<th colspan="${nMon+4}" class="bandend">Month</th>`+
@@ -9611,7 +9612,7 @@ function aTable(headers, rows2){
     rows2.map(r=>`<tr>${r.map((c,i)=>`<td${i?' class="num"':''}>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 function gnote(){
-  return `<div class="anote">${esc(filterNote())} · governed answer, computed locally from the driller</div>`;
+  return `<div class="anote">${esc(filterNote())} · governed answer, computed locally from the TM1 extract</div>`;
 }
 function aKpi(rows){
   let k=kpi(rows,S.model,S.ytdM,S.includeFC);
@@ -9951,7 +9952,7 @@ function aScopeFromText(text){
 }
 let A_CTX={intent:null, ents:[]};
 function assistAnswer(text){
-  const m=S.model; if(!m) return 'Load a driller first and I can answer from it.';
+  const m=S.model; if(!m) return 'Ingest a TM1 extract first and I can answer from it.';
   const u=aUnderstand(text);
   const t=u.low;
   // an exact governed question always wins, whatever else the text contains
@@ -9999,7 +10000,7 @@ function assistAnswer(text){
                 {label:'How are costs tracking?',q:'How are costs tracking?'}];
     if('country' in m.dimCols) opts.push({label:'Compare countries', q:'How do the countries compare?'});
     if('business' in m.dimCols) opts.push({label:'Compare business lines', q:'How do the business lines compare?'});
-    return aAskBack(`I did not catch what you are after. I read the driller directly \u2014 ask in your own words about performance, movements and drivers, costs, ECL, targets, products, or any business line, region or country. For example:`, opts);
+    return aAskBack(`I did not catch what you are after. I read the TM1 extract directly \u2014 ask in your own words about performance, movements and drivers, costs, ECL, targets, products, or any business line, region or country. For example:`, opts);
   }
   // a basis the file cannot serve: say so and offer what it can
   if(!exact&&u.basis){
@@ -10044,7 +10045,7 @@ function aiAsk(text){
 }
 function renderAssist(){
   if(!A_LOG.length)
-    A_LOG.push({who:'bot', html:`Hello — I'm the governed MI assistant for this driller. I answer a fixed set of approved questions, computed directly from the sheet under your current Global Business scope and filters, on the standard comparison basis. Ask in your own words \u2014 I work out what you mean, and if a question is short of a detail or a name could mean two things, I ask before answering. Naming a business line, region or country answers for that slice without changing your page scope. The chips below are shortcuts, not the only way in.`});
+    A_LOG.push({who:'bot', html:`Hello — I'm the governed MI assistant for this TM1 extract. I answer a fixed set of approved questions, computed directly from the sheet under your current Global Business scope and filters, on the standard comparison basis. Ask in your own words \u2014 I work out what you mean, and if a question is short of a detail or a name could mean two things, I ask before answering. Naming a business line, region or country answers for that slice without changing your page scope. The chips below are shortcuts, not the only way in.`});
   const log=$('aiLog');
   log.innerHTML=A_LOG.map(x=>`<div class="amsg ${x.who}">${x.html}</div>`).join('');
   log.querySelectorAll('.aask').forEach(b=>b.addEventListener('click',()=>aiAsk(b.dataset.q)));
@@ -10065,8 +10066,8 @@ function renderAssist(){
    all of them) and which line, product or region it is about (blank = the view
    as a whole). */
 /* The configuration's unstructured paragraphs, matched against the names the
-   driller itself carries. The raw words are kept and the matching is done
-   fresh whenever they are read, so next month's driller re-matches the same
+   TM1 extract itself carries. The raw words are kept and the matching is done
+   fresh whenever they are read, so next month's extract re-matches the same
    paragraphs against next month's names without anyone tagging a thing. */
 let COM_DOC_CACHE=null, COM_DOC_M=null, COM_DOC_T=null;
 function comDocRead(){
@@ -11308,12 +11309,12 @@ function cfgTemplateCSV(){
     ...Object.entries(CFG_DEFAULT.settings).filter(([k])=>k.startsWith('calc_')).map(([k,v])=>['Calculations',k,v,'','']),
     ...CFG_DEFAULT.tilePriority.map((p2,i)=>['TilePriority',String(i+1),p2,'','']),
     ...Object.entries(CFG_DEFAULT.dimensions).map(([k,d])=>['Dimensions',k,ALL_DIM_LABELS[k]||k,d.filter,d.sim,'']),
-    ['Dimensions','<new key - e.g. channel>','<label - e.g. Channel>','Y','N','<driller column to match - e.g. channel>'],
+    ['Dimensions','<new key - e.g. channel>','<label - e.g. Channel>','Y','N','<TM1 extract column to match - e.g. channel>'],
     ...Object.entries(CFG_DEFAULT.views).map(([k,v])=>['Views',k,v,'','']),
     ...Object.entries(CFG_DEFAULT.labels).map(([k,v])=>['Labels',k,v,'','']),
     ['Commentary','<view - Summary / Financial Summary / Chart / Dashboard / blank = all>',
       '<line - e.g. Revenue; blank = the whole view>','<the words the business wrote>','',''],
-    ['Aliases','<what the commentary calls it - e.g. NII>','<the line in the driller - e.g. NII - Interest Income>','','',''],
+    ['Aliases','<what the commentary calls it - e.g. NII>','<the line in the TM1 extract - e.g. NII - Interest Income>','','',''],
     ...CFG_DEFAULT.comtpl.map(t=>['CommentaryTemplates',t.style,t.view,t.pattern,'']),
     ['CommentaryTemplates','<style name the reader picks>','<view - blank = all>',
       '<pattern - e.g. {line} {var} {vs}, led by {drivers}.>',''],
@@ -11514,7 +11515,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       return false;
     }
     if(!model){
-      rep.innerHTML=`<span class="err">${esc(lastErr||'No sheet in this workbook matches the driller layout.')}</span>`+
+      rep.innerHTML=`<span class="err">${esc(lastErr||'No sheet in this workbook matches the TM1 extract layout.')}</span>`+
         (lastMissing&&lastMissing.length?`<div class="note">Columns not found: ${esc(lastMissing.join(', '))}</div>`:'');
       if(fromCache) cacheClear();
       return false;
@@ -11601,7 +11602,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 13:04</td></tr>
+      <tr><td>Build</td><td>2026-08-16 13:09</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;

@@ -1,6 +1,6 @@
 # IWPB Singapore Driller — KPI Dashboard
 
-A self-contained, single-file web app that ingests the IWPB Singapore driller
+A self-contained, single-file web app that ingests the IWPB Singapore TM1 extract
 extract and shows a **RAG-rated KPI summary at MICA Level 2** with full
 drill-down. No server, no build step, no network calls — open `index.html` in
 any modern browser and everything (including XLSX parsing via an embedded copy
@@ -9,7 +9,7 @@ of SheetJS) runs locally.
 ## Using it
 
 1. Open `index.html` in a browser (double-click works).
-2. Drop the driller file (`.xlsx` or `.csv`) onto the upload zone. The ingest
+2. Drop the TM1 extract (`.xlsx` or `.csv`) onto the upload zone. The ingest
    report confirms the detected columns, KPI count and period coverage.
 3. The dashboard opens on the **KPI summary**.
 
@@ -22,7 +22,7 @@ A single header row with:
   `Function_Level_2/1`, `Entity code`. Header matching is tolerant of
   case/underscore/spacing differences; missing optional columns just disable
   the related filter. Beyond the built-in list, **any other column in the
-  driller can be declared as a dimension** through the config's Dimensions
+  TM1 extract can be declared as a dimension** through the config's Dimensions
   section (see below) and then behaves like the rest everywhere — filters,
   Financial Summary cascade, drag & drop charts, dashboards, commentary.
 - **Periods** — either of two layouts:
@@ -49,8 +49,8 @@ A single header row with:
   Values may be numbers, `1,234` text, `(1,234)` bracket negatives, `-`,
   or blank.
 
-**Multi-country workbooks** — a regional driller can carry **one country
-per tab**: every tab that parses as a driller becomes a country (named
+**Multi-country workbooks** — a regional TM1 extract can carry **one country
+per tab**: every tab that parses as a TM1 extract becomes a country (named
 after its tab), while Control/Mapping/notes tabs are skipped as before.
 The countries merge into one model with a `Country` dimension, aligned by
 column label so tabs may lay their columns out in any order; any tab
@@ -95,7 +95,7 @@ everything-option are named **Group** — choosing it reads the consolidation,
 so it says so, rather than whatever the CountryHierarchy calls its Level 1.
 The hierarchy never leaks the other way: an entry with no tab in the loaded
 file — a country or a whole region the CountryHierarchy knows but this
-month's driller does not carry — is not offered in any dropdown, strip row
+month's TM1 extract does not carry — is not offered in any dropdown, strip row
 or picker. The hierarchy places what is loaded; it never invents entries.
 
 **Group and Global are different words for different things.** The **Group**
@@ -197,7 +197,7 @@ left-pane strip and the Filters pane.
 
 ## Views
 
-- **KPI summary** — driller-style financial-dashboard tiles: one per MICA
+- **KPI summary** — financial-dashboard tiles: one per MICA
   Level 1 rollup (Revenue, Costs, ECL, …) plus a Total P&L tile (files
   with a single Level 1 value fall back to Level 2 tiles), each with the KPI name and headline YTD value,
   then compact comparison rows (`vs PY`, `vs Fcst`, `vs Target`) showing
@@ -235,7 +235,7 @@ left-pane strip and the Filters pane.
   (`movFav` / `movUp`), which every one of those surfaces calls, so they
   cannot drift apart again; a chart category or a simulation line, which has
   rows but no KPI record, derives the same flags from its own rows.
-- **The result line is opened up** — on a driller whose only P&L rollup is a
+- **The result line is opened up** — on a TM1 extract whose only P&L rollup is a
   single Level 1 line (a PBT beside Deposits and Loans), the tile grid would
   otherwise show that one result and the balance sheet, and nothing of what
   drove it. Its Level 2 lines lead the grid in statement order — revenue,
@@ -417,17 +417,17 @@ left-pane strip and the Filters pane.
   setting, independent of `TilePriority`, so re-ordering the tile
   priorities cannot switch totalling back on. Balance-sheet lines are also
   never hoisted by tile priority and always sort below the P&L, and a file
-  carrying them never collapses its tile grid. A driller carrying Deposits or Loans beside a result gets no
+  carrying them never collapses its tile grid. A TM1 extract carrying Deposits or Loans beside a result gets no
   total tile, no total row and no total in its commentary, because adding a
-  balance to a result is not a figure; a P&L-only driller keeps its bottom
+  balance to a result is not a figure; a P&L-only TM1 extract keeps its bottom
   line as before. `Y` or `N` force it either way (though `Y` can never force a
   total on a scope mixing balance-sheet and P&L lines — that guard is
   absolute), and naming the lines in
   `tile_lines` or declaring statements in `fsum_sections` also drops it.
   Lines the priority patterns do not recognise are ordered as they appear
-  in the driller rather than by size, so a balance-sheet line is not
+  in the TM1 extract rather than by size, so a balance-sheet line is not
   hoisted above the P&L. Lines *within* a statement — the Level 2 lines
-  under a rollup — always read in the driller's own sequence, so revenue
+  under a rollup — always read in the TM1 extract's own sequence, so revenue
   sits with the cost lines in statement order rather than being reshuffled
   by whichever moved most; the "driven by" openers still name the biggest
   movers first. With no total, the whole KPI summary follows the
@@ -454,12 +454,12 @@ left-pane strip and the Filters pane.
   of 11,489 US$m reads as 11.5 US$bn, or 11,489,000 US$k. Figures never carry their own `m`/`bn`
   suffix on top of the file's unit, which would scale the same number
   twice. Excel and PowerPoint exports follow the selection (percentages
-  and the raw driller-row export are never restated), and simulation
+  and the raw source-row export are never restated), and simulation
   amounts are typed in whatever unit is on screen. Configurable via
   `display_units` (the unit selected on load), `unit_options` (which are
   offered) and `unit_decimals` (blank = 0 as reported, 1 when restated).
 - **Financial Summary** — the management-reporting layout: three column
-  bands over the P&L cascade taken from the driller's own hierarchy.
+  bands over the P&L cascade taken from the TM1 extract's own hierarchy.
   *Month* (the three months ending at the selected one, then Variance vs
   Fcst / vs Target / vs PM / vs PY), *QTD* (the quarter to date, then vs
   Target / vs PQ / vs PY) and *YTD* (year to date, then Variance in
@@ -743,7 +743,7 @@ left-pane strip and the Filters pane.
   **Base Commentary** shows the generated text; **Updated Commentary** is the same
   text editable and kept, block by block, like every other commentary on the
   page. **Expand all** opens or closes every section, and the strip above says
-  what the commentary was written from — month-end, basis, scope, the driller
+  what the commentary was written from — month-end, basis, scope, the TM1 extract
   and how many written lines the file carries.
 
   **⤓ Word** writes the whole view — every basis the file supports, in the order
@@ -763,19 +763,19 @@ left-pane strip and the Filters pane.
   neither paraphrased nor summarised, with the computed figures following.
   One way in: the **`Commentary` section of the configuration** — a sheet in
   the config workbook, or `Commentary` rows in the single-sheet CSV. The
-  driller stays figures only; nothing is loaded separately; the words live in
+  TM1 extract stays figures only; nothing is loaded separately; the words live in
   the pack the business already owns. (A tab named `Commentary` inside a
-  driller is still never parsed as data — it is simply ignored.)
+  TM1 extract is still never parsed as data — it is simply ignored.)
 
   Rows that aim themselves — three columns `View | Line | Text`, or two
   `Line | Text` — are taken at their word. **Bare paragraphs are unstructured
-  commentary**: each is matched against the names the driller itself carries
+  commentary**: each is matched against the names the TM1 extract itself carries
   (see below), so the pack's narrative pastes straight into a column with no
   tagging of any kind. A paragraph covering several lines is split so each
   sentence keeps its own; a paragraph naming nothing belongs to the view.
 
   **The words are kept, not the answers.** The paragraphs are stored as
-  written and matched afresh every time they are read — next month's driller
+  written and matched afresh every time they are read — next month's TM1 extract
   re-matches the same paragraphs against next month's names with nobody
   tagging a thing, and the left pane's commentary note always says how many
   matched, how many were addressed by hand, and what the filters are holding back.
@@ -883,7 +883,7 @@ left-pane strip and the Filters pane.
   narrative, the house cascade, or any named template from the
   configuration's `CommentaryTemplates` tab (`Style | View | Pattern`).
   A pattern is a sentence with tokens the page fills per statement line
-  from the driller's own figures under the selected variance period —
+  from the TM1 extract's own figures under the selected variance period —
 
   ```
   Exec brief   | {line} {var} {vs}, led by {drivers}.
@@ -1052,7 +1052,7 @@ left-pane strip and the Filters pane.
   31-character version. The same pair of keys renames any other view:
   `landing_title` + `nav_summary` for the KPI summary, `nav_custom`,
   `nav_builder`, `nav_query`, `nav_table`, `nav_assist`, `nav_sim`.
-- **Keeping statements apart** — a driller carrying both a P&L and balance
+- **Keeping statements apart** — a TM1 extract carrying both a P&L and balance
   sheet must not add them together. `fsum_sections` assigns the lines of a
   column (`fsum_section_dim`, MICA Level 1 by default) to named blocks:
 
@@ -1138,7 +1138,7 @@ left-pane strip and the Filters pane.
   product, business line, region or country. Names are matched against the
   values actually in the loaded file, longest first, with the Global
   Business dimensions (business line, region, country) winning over the
-  same text in an ordinary driller column — so "iwpb" reads as the
+  same text in an ordinary TM1 extract column — so "iwpb" reads as the
   business line, not the CG Level 1 code. Case does not matter except for
   codes that are also ordinary words (`US`, `UK`, `IT`), which must be
   capitalised. Naming two values of one dimension ("Singapore vs
@@ -1203,7 +1203,7 @@ left-pane strip and the Filters pane.
   `From`/`To` are month names (`AUG`…`DEC`). Seeding happens when the
   config loads and never overwrites a simulation the user already saved
   under the same name; a seeded rule whose scope matches nothing in the
-  loaded driller shows the usual "no rows match" note rather than
+  loaded TM1 extract shows the usual "no rows match" note rather than
   silently doing nothing. The Group pack ships sixteen simulations built
   this way: six Middle East crisis cases (Gulf rate cuts, EGP
   devaluation, deposit flight, Gulf inflows upside, trade disruption,
@@ -1326,7 +1326,7 @@ What each section governs:
 - **AccountHierarchy** — the reporting pack's own line cascade:
   `ID | Level 1 … Level 5 | Match`, where Level 1 is the statement group
   (`PBT ex Notables`, `Balance Sheet`, `Key Metrics`) and `Match` lists the
-  driller line names that roll into the deepest level. Uploaded rows
+  TM1 extract line names that roll into the deepest level. Uploaded rows
   replace the defaults wholesale.
 - **Key metrics as memo lines** — `memo_patterns` marks lines that are
   neither P&L nor balance sheet (Premier Customers, CER %, FTE, NNM/NND/
@@ -1367,7 +1367,7 @@ What each section governs:
   simulation can scope on any non-numeric field in the file; a blank cell
   inherits the default, an explicit N excludes). A row whose key is
   **not** one of the built-ins declares a **new dimension**: `Extra3`
-  holds the text to match against the driller's column headers (falling
+  holds the text to match against the TM1 extract's column headers (falling
   back to the label, then the key — matching ignores case, spaces and
   underscores). E.g. `Dimensions,channel,Channel,Y,N,channel` turns a
   `Channel` column into a full dimension across every view.
@@ -1383,14 +1383,14 @@ What each section governs:
   product — IWPB → Retail/Wealth/Others down to Payroll or Saving
   Accounts). Revenue foots as Banking NII + Fees and Other Income,
   Operating Expenses as its four cost lines, and PBT as Revenue + ECLs +
-  Operating Expenses — the same arithmetic as the pack slide. The app binds them at load: each driller row's line names
+  Operating Expenses — the same arithmetic as the pack slide. The app binds them at load: each TM1 extract row's line names
   (matched against the columns in `account_hierarchy_from` /
   `product_hierarchy_from`, deepest match wins) place the row in each
   hierarchy, and every level becomes a derived dimension — `Acct Hier
   L1–L4`, `Prod Hier L1–L5` — usable in the drag & drop chart builder,
   dynamic dashboard widgets, Financial Summary cascade, commentary
-  Driven-by and Mix analysis exactly like a driller column. Beyond a
-  node's own name, `Extra5` **stitches the node to the driller's MICA
+  Driven-by and Mix analysis exactly like a TM1 extract column. Beyond a
+  node's own name, `Extra5` **stitches the node to the TM1 extract's MICA
   lines**: a `|`-separated list of line names that belong to it
   (`Banking NII` ← `NII - Interest Income`, `Loans and Advances` ←
   `Loans|Customer Loans`, `Direct Cost` ← `Total Direct Cost|Staff
@@ -1411,7 +1411,7 @@ What each section governs:
   Twelve ship by default: Revenue, Banking NII, Wealth Fees, PBT, Direct
   Cost ex VP CC GT, ECL, Deposits, Loans and Advances, Retail & Premier /
   PB Wealth Balances, NNM and FY ROTE (the last needs a ROTE line in the
-  driller). A metric a file cannot serve simply doesn't appear. Metrics
+  TM1 extract). A metric a file cannot serve simply doesn't appear. Metrics
   are first-class scopes everywhere — and by default they ARE the KPI
   cards: whenever at least two metrics resolve against the loaded file,
   the Financial Performance grid and the left-rail KPI list show the
@@ -1495,13 +1495,13 @@ bases and the **⤓ Word** download comes out complete. Regenerate with
 the IWPB config pack's `Commentary` sheet — eight untagged paragraphs,
 matched to their lines when read.
 `sample/IWPB_SG_Jun26_SixBasis_Commentary.docx` is what the ⤓ Word download
-produces from that driller and pack together — a worked example of the six
+produces from that TM1 extract and pack together — a worked example of the six
 bases as a document.
 
 ### Two worked reporting packs
 
 Two config workbooks in the repo root carry a real pack's structure end to
-end, each with a driller in `sample/` that ties to it line for line:
+end, each with a TM1 extract in `sample/` that ties to it line for line:
 
 - `IWPB_dashboard_config_pack.xlsx` — the IWPB pack: PBT ex Notables over
   Revenue (Banking NII / Fees and Other Income), the cost stack and the
@@ -1533,7 +1533,7 @@ end, each with a driller in `sample/` that ties to it line for line:
 
 Both are generated by scripts in `sample/` (`make_config_pack.py`,
 `make_cib_config.py`, `make_cib_driller.py`). The **Match** column in
-AccountHierarchy is an exact list of the names a driller uses for that line,
+AccountHierarchy is an exact list of the names a TM1 extract uses for that line,
 separated by `|` — extend it with your own file's vocabulary, and the ingest
 report's **Hierarchy check** names anything that did not land.
 
