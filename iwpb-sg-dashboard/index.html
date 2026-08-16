@@ -976,9 +976,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 17:53)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 18:25)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 17:53)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 18:25)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1045,7 +1045,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 17:53</div>
+<div id="buildTag">build 2026-08-16 18:25</div>
 </aside>
 <main>
 
@@ -5096,15 +5096,19 @@ async function exportSummaryPPT(){
   const tilesBottom=Y0+Math.ceil(tiles.length/COLS)*(TH+GY);
   const onePage= tiles.length<=8 && trajSvg && tilesBottom<=4.2;
   // header: subtitle, then the narrative on its own line beneath it
-  slide.addText(`${cmpLabels(m).period} \u00b7 figures in ${cfgUnit()} as reported`,
-    {x:0.4,y:0.58,w:12.5,h:0.26,fontSize:PPT_FS.subtitle,color:'52514E',fontFace:'Segoe UI'});
+  const anyPL=tiles.some(t=>!t.k.isBS), anyBSt=tiles.some(t=>t.k.isBS);
+  const basisTxt=[anyPL? `${MON_LBL[tileYtdM()]} ${m.yearCY} YTD` : '',
+                  anyBSt? `balances at ${MON_LBL[tileYtdM()]} closing` : ''].filter(Boolean).join(', ');
+  const unitTxt2=anyBSt? `P&L in ${cfgUnit()} \u00b7 balances in ${bsUnitLabel()}`
+                       : `figures in ${cfgUnit()} as reported`;
+  slide.addText(`${cmpLabels(m).period}${basisTxt?' \u00b7 '+basisTxt:''} \u00b7 ${unitTxt2}`,
+    {x:0.4,y:0.58,w:12.5,h:0.26,fontSize:PPT_FS.subtitle,color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
   if(onePage&&heroTxt)
     slide.addText(heroTxt,{x:0.4,y:0.85,w:12.5,h:0.24,fontSize:PPT_FS.lede,italic:true,color:'52514E',
       fontFace:'Segoe UI',fit:'shrink',wrap:false});
   // settle the three tile sizes across the whole set before drawing any of it
   const tileTxt=t=>{
-    const tu=((t.k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit())
-      +(t.k.isBS? '' : '  \u00b7  '+MON_LBL[tileYtdM()]+' YTD');
+    const tu=(t.k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
     const tkY=(!t.k.isBS&&t.rows)? tileYtdK(t.k,t.rows,m) : t.k;
     const tv=t.k.isBS? t.k.cmpMain : (tkY.cy!=null? tkY.cy : t.k.cmpMain);
     return {nm:nameTxt(t.name)+'  \u00b7  '+tu,
@@ -5121,12 +5125,8 @@ async function exportSummaryPPT(){
   tiles.forEach((t,i)=>{
     const tx=X0+(i%COLS)*(TW+GX), ty=Y0+Math.floor(i/COLS)*(TH+GY);
     slide.addShape('rect',{x:tx,y:ty,w:TW,h:TH,fill:{color:'FFFFFF'},line:{color:'C8C7C3',width:1}});
-    const tu=((t.k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit())
-      +(t.k.isBS? '' : '  ·  '+MON_LBL[tileYtdM()]+' YTD');
     // the slide leads with the same figure the page does: the year to date
-    const tkY=(!t.k.isBS&&t.rows)? tileYtdK(t.k,t.rows,m) : t.k;
-    const tv=t.k.isBS? t.k.cmpMain : (tkY.cy!=null? tkY.cy : t.k.cmpMain);
-    const nm=nameTxt(t.name)+'  ·  '+tu, vTxt=(t.k.isBS&&bsUnit())? fmtBS(tv) : fmt(tv);
+    const {nm, vTxt}=tTxts[i];
     slide.addText(nm,{x:tx+0.1,y:ty+0.05,w:TW-1.18,h:0.42,fontSize:NAME_FS,bold:true,
       color:'1A1A19',fontFace:'Segoe UI',wrap:true,fit:'shrink',valign:'top',lineSpacing:NAME_FS+1});
     slide.addText(vTxt,{x:tx+TW-1.12,y:ty+0.05,w:1.02,h:0.28,align:'right',bold:true,valign:'top',
@@ -11666,7 +11666,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 17:53</td></tr>
+      <tr><td>Build</td><td>2026-08-16 18:25</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
