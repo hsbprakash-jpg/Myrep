@@ -142,9 +142,9 @@ body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,san
   justify-content:center;font-weight:800;font-size:12.5px;border-radius:2px;flex:none;letter-spacing:.5px}
 .brand h1{font-size:13.5px;margin:0;font-weight:700;line-height:1.25}
 .brand .sub{font-size:10.5px;color:var(--text-muted)}
-.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:0 0 10px;flex-wrap:wrap}
+.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:0 0 7px;flex-wrap:wrap}
 .pagehead .eyebrow{color:var(--hsbc-red);font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase}
-.pagehead h2{margin:2px 0 2px;font-size:21px;font-weight:650;letter-spacing:.4px;text-transform:uppercase}
+.pagehead h2{margin:1px 0 1px;font-size:19px;font-weight:650;letter-spacing:.4px;text-transform:uppercase}
 .pagehead .lede2{color:var(--text-secondary);font-size:12.5px;margin:0;max-width:640px}
 #layout{display:flex;min-height:calc(100vh - 56px)}
 /* left pane — light, red accents, pink active highlight */
@@ -450,8 +450,8 @@ main{flex:1;min-width:0;padding:14px 20px}
   background:var(--surface-2);font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
 /* ---------- KPI summary ---------- */
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,292px));gap:14px;justify-content:flex-start}
-.cards .card{min-height:172px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:9px;justify-content:flex-start}
+.cards .card{min-height:124px}
 .greet{font-size:13px;color:var(--text-secondary);margin:0 0 6px}
 .greet b{color:var(--text-primary)}
 .commentary{background:var(--surface-1);border:1px solid var(--border);border-left:4px solid var(--hsbc-red);
@@ -465,8 +465,8 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
   background:color-mix(in srgb, var(--hsbc-red) 5%, transparent)}
 #scopeChips .schip .x{cursor:pointer;font-weight:400;font-size:12px;opacity:.65;border:none;background:none;color:inherit;padding:0}
 #scopeChips .schip .x:hover{opacity:1}
-.card .vd{margin-top:10px;border-top:1px solid var(--border);padding-top:8px;font-size:12px;
-  color:var(--hsbc-red);font-weight:700;text-align:right}
+.card .vd{margin-top:6px;border-top:1px solid var(--border);padding-top:5px;font-size:11px;
+  color:var(--hsbc-red);font-weight:700;text-align:right;line-height:1.2}
 .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px}
 .chip{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:4px 10px;
   font-size:11.5px;display:flex;gap:7px;align-items:center;color:var(--text-secondary)}
@@ -476,7 +476,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .chip b{color:var(--text-primary);font-variant-numeric:tabular-nums}
 .chip .cdot{width:9px;height:9px;border-radius:50%;flex:none}
 .twocol{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:12px;margin-bottom:12px;align-items:start}
-#sumPanels{margin-top:22px;align-items:stretch}
+#sumPanels{margin-top:11px;align-items:stretch}
 #sumPanels .panel{display:flex;flex-direction:column}
 #sumPanels #trajChart{flex:1;display:flex;flex-direction:column;justify-content:flex-start}
 .actlist{margin:6px 0 2px 16px;padding:0;display:grid;gap:9px}
@@ -486,7 +486,7 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
   font-size:12.5px;font-weight:800;padding:0 7px}
 .decbadge:empty{display:none}
 .deccard{border:1px solid var(--border);border-left-width:4px;border-radius:8px;
-  padding:9px 12px;margin-bottom:9px;font-size:12.5px;background:var(--surface-1)}
+  padding:6px 11px;margin-bottom:6px;font-size:12px;background:var(--surface-1)}
 .deccard.sev-r{border-left-color:var(--status-critical)}
 .deccard.sev-g{border-left-color:var(--status-success,#0b7a0b)}
 .dechead{display:flex;align-items:baseline;gap:8px}
@@ -496,12 +496,12 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .decimp{margin-left:auto;font-weight:800;white-space:nowrap}
 .decimp.neg{color:var(--status-critical)}
 .decimp.pos{color:var(--status-success,#0b7a0b)}
-.decbody{margin:6px 0 8px;color:var(--text-secondary);line-height:1.55}
+.decbody{margin:3px 0 4px;color:var(--text-secondary);line-height:1.4}
 .decbody b{color:var(--text-primary)}
 .decfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;
-  font-size:11.5px;color:var(--text-muted)}
+  font-size:11px;color:var(--text-muted);line-height:1.2}
 @media (max-width:1180px){.twocol{grid-template-columns:1fr}}
-.trio{display:flex;gap:20px;margin:6px 0 2px;flex-wrap:wrap}
+.trio{display:flex;gap:20px;margin:3px 0 1px;flex-wrap:wrap}
 .trio .t .tv{font-size:17px;font-weight:750;font-variant-numeric:tabular-nums}
 .trio .t .tl{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);margin-top:2px}
 .attn{display:flex;flex-direction:column;gap:10px}
@@ -565,14 +565,14 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 #simResults .atable td:first-child,#simResults .atable th:first-child{min-width:150px;overflow-wrap:anywhere;
   white-space:normal;padding-right:26px}
 #simResults .atable td.num,#simResults .atable th.num{text-align:right;white-space:nowrap}
-.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:17px 19px 15px;min-height:150px;
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:10px 14px 9px;min-height:112px;
   box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s;text-align:left;font:inherit;color:inherit;display:block;width:100%}
 .card:hover{border-color:var(--hsbc-red)}
 .card .l1tag{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)}
 .card h3{margin:2px 0 7px;font-size:14px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card .val{font-size:27px;font-weight:750;font-variant-numeric:tabular-nums}
 .card.morecard{display:flex;align-items:center;justify-content:center;color:var(--series-1);
-  font-weight:700;font-size:12.5px;min-height:150px;border-style:dashed}
+  font-weight:700;font-size:12.5px;min-height:0;align-self:start;padding:9px 12px;border-style:dashed}
 .card.morecard:hover{background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
 .card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
 .card .tval.negnum,.trio .tv.negnum,#kpiNav .v,.widget .val.negnum{color:var(--text-primary)}
@@ -793,12 +793,12 @@ svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 .bp-table td.num.negnum{color:#c21a1a}
 .bp-table tr.bp-sub td.num.negnum,.bp-table tr.tot td.num.negnum{color:#c21a1a}
 .card .thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
-  border-bottom:2px solid var(--text-primary);padding-bottom:6px;margin-bottom:7px}
-.card .tname{font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.card .tval{font-size:19px;font-weight:750;font-variant-numeric:tabular-nums;flex:none;text-align:right}
-.card .tval .tvlbl{display:block;font-size:9px;font-weight:600;letter-spacing:.3px;
-  color:var(--text-muted);line-height:1.1;margin-bottom:1px}
-.krow{display:flex;align-items:baseline;margin-top:4px;font-size:12.5px}
+  border-bottom:2px solid var(--text-primary);padding-bottom:4px;margin-bottom:4px}
+.card .tname{font-size:12.5px;font-weight:750;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .tval{font-size:16.5px;font-weight:750;line-height:1.15;font-variant-numeric:tabular-nums;flex:none;text-align:right}
+.card .tval .tvlbl{display:block;font-size:8.5px;font-weight:600;letter-spacing:.3px;
+  color:var(--text-muted);line-height:1;margin-bottom:0}
+.krow{display:flex;align-items:baseline;margin-top:1px;font-size:11.8px;line-height:1.35}
 .krow .kl{color:var(--text-secondary);flex:1}
 .krow .kv{font-weight:700;font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
 .krow .kv.fav{color:var(--status-good)}
@@ -808,7 +808,7 @@ svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 .mv.unfav{color:var(--status-critical)}
 .krow.actonly .kl{color:var(--text-muted)}
 .delta{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
-.card .drill-hint{font-size:11.5px;color:var(--text-muted);margin-top:10px;border-top:1px solid var(--border);padding-top:7px}
+.card .drill-hint{font-size:11.5px;color:var(--text-muted);margin-top:6px;border-top:1px solid var(--border);padding-top:5px}
 
 /* RAG pill: icon + label, never colour alone */
 .rag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;
@@ -819,11 +819,11 @@ svg g.annote-plain{filter:drop-shadow(0 0 2px var(--surface-1))}
 .rag.n{color:var(--text-muted);background:color-mix(in srgb, var(--text-muted) 12%, transparent)}
 
 .panel{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;
-  box-shadow:var(--shadow);padding:12px 14px;margin-bottom:12px}
+  box-shadow:var(--shadow);padding:10px 14px;margin-bottom:9px}
 .panel h4{margin:0 0 3px;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
   color:var(--text-primary);display:flex;align-items:center;gap:8px}
 .rag{text-transform:none;letter-spacing:normal}
-.panel .subtitle{font-size:11.5px;color:var(--text-secondary);margin:0 0 12px}
+.panel .subtitle{font-size:11.5px;color:var(--text-secondary);margin:0 0 7px}
 .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .chart-wrap{position:relative;overflow-x:auto}
 .legend{display:flex;gap:16px;font-size:11.5px;color:var(--text-secondary);margin:4px 0 2px}
@@ -975,9 +975,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 13:35)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-16 13:46)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 13:35)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-16 13:46)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1044,7 +1044,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-16 13:35</div>
+<div id="buildTag">build 2026-08-16 13:46</div>
 </aside>
 <main>
 
@@ -1084,7 +1084,7 @@ setTimeout(function(){
   <div id="summaryView">
     <p class="greet" id="greetLine"></p>
     <div class="commentary" id="commentary"></div>
-    <div class="pagehead" style="margin-top:16px"><div>
+    <div class="pagehead" style="margin-top:8px"><div>
       <div class="eyebrow">HSBC Management Reporting : IWPB Singapore Driller</div>
       <h2 class="landingTitle" id="landingTitle">Financial Performance</h2>
       <div id="scopeChips" hidden></div>
@@ -3811,8 +3811,8 @@ function renderSummary(){
     return `
     <button class="card${(opt&&opt.parked)?' parked':''}" ${l2attr} title="View this line in the trajectory and commentary">
       ${(opt&&opt.ctl)||''}
-      <div class="thead"><span class="tname" title="${esc((l=>l? name+' \u2014 '+l : name)(metricLineageTxt(name)))}">${esc(name)}</span><span class="tunit">${esc(tu)}</span>
-        <span class="tval${(hv||0)<0?' negnum':''}"><span class="tvlbl">${esc(hLbl)}</span>${
+      <div class="thead"><span class="tname" title="${esc((l=>l? name+' \u2014 '+l : name)(metricLineageTxt(name)))}">${esc(name)}</span>
+        <span class="tval${(hv||0)<0?' negnum':''}"><span class="tvlbl">${esc(hLbl)} · ${esc(tu)}</span>${
           (k.isBS&&bsUnit())? fmtBS(hv) : fmt(hv)}</span></div>
       ${netSub}
       ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
@@ -3973,7 +3973,7 @@ function renderSummary(){
     annots.push({m:endPt.m, val:endPt.val, color:favT?'#0b7a0b':'#c21a1a',
       text:`${movTxt(kJ,kJ.varTgt,kJ.varTgtPct)}\nvs Target`});
   }
-  $('trajChart').dataset.h='205';
+  $('trajChart').dataset.h='170';
   trendChart($('trajChart'), cumAct, cmpCum, m.yearCY, cmpName, 'line', annots);
   aiComment($('trajCom'), 'traj|'+filterNote()+'|'+S.ytdM+'|'+L.vp+'|'+L.mode+'|'+(subj?subj.key:''), ()=>{
     const act=kJ.cySeries.filter(p2=>!p2.fc&&p2.val!=null&&p2.m<=S.ytdM);
@@ -11614,7 +11614,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-16 13:35</td></tr>
+      <tr><td>Build</td><td>2026-08-16 13:46</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
