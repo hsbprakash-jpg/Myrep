@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:45)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:54)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:45)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:54)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 19:45</div>
+<div id="buildTag">build 2026-08-17 19:54</div>
 </aside>
 <main>
 
@@ -1487,6 +1487,7 @@ const CFG_DEFAULT={
     ratio_display:'as reported',
     ratio_recompute:'N',
     grain_reported:'Y',
+    grain_declared:'Y',
     tile_height:'150', tile_min_width:'252',
     month_case:'upper',
     unit_label:'US$m',
@@ -1928,11 +1929,28 @@ function rowIsCoarse(r){
   return GRAIN_COARSE.test(String(r.d.country||'').trim())
       || GRAIN_COARSE.test(String(r.d.region||'').trim());
 }
+/* the line a row actually is: its deepest named MICA level. Two rows are the
+   same line when their leaves match — which is how a Group row is known to
+   cover a country row, and how a Group row that covers nothing leaves the
+   countries to roll up as they always did. */
+function rowLeaf(r){
+  for(const L of ['micaL4','micaL3','micaL2','micaL1']){
+    const nm=String(r.d[L]||'').trim(); if(nm) return L+'|'+nm.toLowerCase();
+  }
+  return '';
+}
+function leafSet(rows){
+  const s2=new Set();
+  for(const r of (rows||[])){ const k=rowLeaf(r); if(k) s2.add(k); }
+  return s2;
+}
 function buildGrainDup(m){
   const dup={}, lines=[];
   if(!m||!m.rows||!m.rows.length) return {grainDup:dup, grainDupLines:lines};
   const anyGeo=m.rows.some(r=>String(r.d.country||'').trim()||String(r.d.region||'').trim());
   if(!anyGeo) return {grainDup:dup, grainDupLines:lines};
+  const cl=leafSet(m.rows.filter(rowIsCoarse)), fl=leafSet(m.rows.filter(r=>!rowIsCoarse(r)));
+  const bothLeaves=new Set([...cl].filter(x=>fl.has(x)));
   for(const L of ['micaL1','micaL2','micaL3','micaL4']){
     const c=new Set(), f=new Set(), asWritten=new Map();
     for(const r of m.rows){
@@ -1945,24 +1963,77 @@ function buildGrainDup(m){
     if(both.length){ dup[L]=new Set(both);
       for(const x of both) lines.push({level:L, line:asWritten.get(x)||x}); }
   }
-  return {grainDup:dup, grainDupLines:lines};
+  return {grainDup:dup, grainDupLines:lines, coarseLeaves:bothLeaves};
+}
+/* What the Rollup sheet says about carrying a line up, read cheaply enough to
+   ask of every row: rebuilt only when the declarations themselves change. */
+let GRAIN_DECL=null, GRAIN_DECL_SIG='';
+function grainDeclMap(){
+  const sig=JSON.stringify(rollupList().map(d=>[d.level,d.line,d.rule,d.match]));
+  if(GRAIN_DECL_SIG===sig&&GRAIN_DECL) return GRAIN_DECL;
+  const map={};
+  for(const d of rollupList()){
+    if(!d.rule) continue;
+    const m2=map[d.level]=map[d.level]||new Map();
+    for(const nm of rollupNames(d)) m2.set(nm, d.rule);
+  }
+  GRAIN_DECL=map; GRAIN_DECL_SIG=sig;
+  return map;
+}
+/* A line the pack says is taken as reported, or is never additive, is not
+   built by adding the rows beneath it. Where the extract carries a row at the
+   level being read, that row is the figure; where it does not, there is no
+   figure at that level and the line simply is not shown there. This is how a
+   metric calculated somewhere else — CER, ROTE — behaves: it arrives as its
+   own row, and nothing invents it from the parts. */
+function grainDeclRule(r){
+  const map=grainDeclMap();
+  for(const L of ['micaL4','micaL3','micaL2','micaL1']){
+    const nm=String(r.d[L]||'').trim().toLowerCase(); if(!nm) continue;
+    const m2=map[L]; if(!m2) continue;
+    const rule=m2.get(nm);
+    if(rule) return rule;
+  }
+  return '';
+}
+/* Whether the file distinguishes a group row from country rows at all: in a
+   file with no geography the level being read IS the level reported. */
+function fileHasGeo(m){
+  m=m||S.model;
+  return !!(m&&m.rows&&m.rows.some(r=>String(r.d.country||'').trim()||String(r.d.region||'').trim()));
+}
+/* A line the pack takes as reported, or never adds, has a figure at this level
+   only if the file reports one here. CER and ROTE are calculated elsewhere and
+   arrive as their own rows: where such a row exists it is the figure, and
+   where it does not there is none — nothing invents it from the parts. Its
+   rows still belong to their parent, which rolls up as it always did. */
+function lineNotAtGrain(name, rows){
+  if(!cfgYes('grain_declared')||!rollupList().length) return false;
+  if(grainViewMode()!=='coarse'||!fileHasGeo()) return false;
+  if(!rows||!rows.length) return false;
+  let rule='';
+  for(const L of ['micaL4','micaL3','micaL2','micaL1']){
+    const d=rollupFind(L, name);
+    if(d&&d.rule){ rule=d.rule; break; }
+  }
+  if(rule!=='asis'&&rule!=='never') return false;
+  return !rows.some(rowIsCoarse);
 }
 /* the rows that speak for a scope: where a line is reported at both grains,
    the group view reads the reported group row and drops the finer rows
    beneath it. Asking for geography (a chart by country) asks for the finer
    rows, so nothing is dropped there. */
 function grainPick(rows, m, mode){
-  if(mode==='filtered'||!m||!m.grainDup||!Object.keys(m.grainDup).length) return rows;
-  if(!cfgYes('grain_reported')) return rows;
+  if(mode==='filtered'||!m) return rows;
+  const dupOn=cfgYes('grain_reported')&&m.coarseLeaves&&m.coarseLeaves.size>0;
+  if(!dupOn) return rows;
   // asked for a breakdown by geography: the finer rows ARE the breakdown, and
   // the reported group row would stand beside them as a phantom country
   const wantCoarse=(mode!=='breakdown');
   return rows.filter(r=>{
-    for(const L of ['micaL4','micaL3','micaL2','micaL1']){
-      const nm=String(r.d[L]||'').trim().toLowerCase(); if(!nm) continue;
-      const dup=m.grainDup[L];
-      if(dup&&dup.has(nm)) return rowIsCoarse(r)===wantCoarse;
-    }
+    // a line reported at the coarse grain is taken from that row; a line the
+    // coarse rows do not carry rolls up from beneath exactly as before
+    if(dupOn&&m.coarseLeaves.has(rowLeaf(r))) return rowIsCoarse(r)===wantCoarse;
     return true;
   });
 }
@@ -3080,7 +3151,15 @@ function filteredRows(opts){
   // anything else is the group view and reads the reported group row
   const mode=active.some(([k])=>GEO_DIMS.has(k))? 'filtered'
     : (opts&&opts.geo)? 'breakdown' : 'group';
-  const rows=grainPick(useGroup? m.groupRows : m.rows, m, mode);
+  /* A Group tab speaks for the Group on the lines it carries. One that carries
+     only a metric or two — CER and ROTE arrive that way, calculated elsewhere —
+     leaves every other line to roll up from the countries as it always did. */
+  let base=m? m.rows : [];
+  if(useGroup){
+    const gl=m.groupLeaves||leafSet(m.groupRows);
+    base=gl.size? m.groupRows.concat(m.rows.filter(r=>!gl.has(rowLeaf(r)))) : m.groupRows;
+  }
+  const rows=grainPick(base, m, mode);
   if(!active.length) return rows;
   return rows.filter(r=>{
     for(const [k,set] of active){
@@ -4183,7 +4262,8 @@ function renderSummary(){
     // own: a headcount and a money line added together read as money and are
     // not. The tile says what it is made of instead.
     const mixU=!!(opt&&opt.rows)&&mixedUnits(opt.rows);
-    const tu=mixU? noSumLabel(opt.rows) : kpiUnitLabel(k);
+    const notHere=!mixU&&!!(opt&&opt.rows)&&lineNotAtGrain(name, opt.rows);
+    const tu=mixU? noSumLabel(opt.rows) : notHere? kpiUnitLabel(k) : kpiUnitLabel(k);
     const hLbl=MON_LBL[tileYtdM()]+(k.isBS? ' closing' : ' YTD');
     const netOf=(opt&&opt.netOf)||[];
     const netSub=netOf.length
@@ -4195,10 +4275,11 @@ function renderSummary(){
     <button class="card${(opt&&opt.parked)?' parked':''}" ${l2attr} title="View this line in the trajectory and commentary">
       ${(opt&&opt.ctl)||''}
       <div class="thead"><span class="tname" title="${esc((l=>l? name+' \u2014 '+l : name)(metricLineageTxt(name)))}">${esc(name)}</span>
-        <span class="tval${(!mixU&&(hv||0)<0)?' negnum':''}"><span class="tvlbl">${esc(hLbl)} · ${esc(tu)}</span>${
-          mixU? '–' : fmtKu(k,hv)}</span></div>
+        <span class="tval${(!mixU&&!notHere&&(hv||0)<0)?' negnum':''}"><span class="tvlbl">${esc(hLbl)} · ${esc(tu)}</span>${
+          (mixU||notHere)? '–' : fmtKu(k,hv)}</span></div>
       ${netSub}
-      ${mixU? `<div class="krow actonly"><span class="kl">no total — ${esc(noSumWhy(opt.rows))}</span></div>`
+      ${notHere? `<div class="krow actonly"><span class="kl">reported below this level only — never carried up</span></div>`
+        : mixU? `<div class="krow actonly"><span class="kl">no total — ${esc(noSumWhy(opt.rows))}</span></div>`
         : trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
         :`<div class="krow actonly"><span class="kl">${esc(L.main)} actuals</span></div>`}
       <div class="vd">View detail →</div>
@@ -8710,6 +8791,11 @@ function fsumFigs(rows, m, P, ytdM, name){
       fVsTgt:rk.varTgt, fVsPY:(rk.outlook!=null&&rk.fyPrior!=null)? rk.outlook-rk.fyPrior : null,
       fVsPrFP:null, fVsTgtP:rk.varTgtPct, fVsPYP:null};
   }
+  if(lineNotAtGrain(name, rows))
+    return fsumMixGate({k, bs, ratio, bsFmt,
+      plan:{mixed:true, declared:true, restates:true, div:1, dec:0, kind:'notHere',
+        label:'not reported here', suffix:'', why:'reported below this level only — never carried up'},
+      mon:P.monCols.map(()=>null)});
   return fsumMixGate({k, bs, ratio, bsFmt,
     // the unit this line is stated in: its own declaration where the pack
     // makes one, else the P&L / balance convention
@@ -12773,6 +12859,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     }
     model.sheetName=sheetName;
     Object.assign(model, buildGrainDup(model));
+    model.groupLeaves=leafSet(model.groupRows);
     Object.assign(model, buildLineUnits(model));
     applyHierarchies(model);
     applyCountryRegions(model);
@@ -12905,7 +12992,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 19:45</td></tr>
+      <tr><td>Build</td><td>2026-08-17 19:54</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

@@ -1665,6 +1665,23 @@ What each section governs:
   | a breakdown by geography (a chart or table by country) | the **country rows**; the group row is set aside, so it never stands beside them as a phantom country |
   | scoped to a country or region | that scope's own rows |
 
+  **A reported row always wins; otherwise the `Roll up` column decides.** A
+  line the sheet declares `Sum` is built up from the countries at Group — that
+  is what rolling up means. A line declared `As reported` or `Never` is not:
+  it has a figure at a level only where the file reports one there, and where
+  it does not, the tile shows a dash and says *"reported below this level only
+  — never carried up"* rather than inventing one from the parts. This is how a
+  metric calculated somewhere else behaves — **CER and ROTE** come from their
+  own source and arrive as their own rows, so where such a row exists it is
+  the figure and where it does not there is none.
+
+  Its rows still belong to their parent: a fee line taken as reported is still
+  inside Revenue when Revenue rolls up, so casting is unaffected. And coverage
+  is **per line, not per file** — a Group tab carrying only CER and a fee
+  metric speaks for the Group on those two lines and leaves everything else to
+  roll up from the countries exactly as before. `grain_declared: N` switches
+  the declaration side off.
+
   The two are never added together and nothing is ever apportioned downwards.
 
   **The unit follows the grain**, on the same `mn` / `bn` / `Absolute` logic as
