@@ -977,9 +977,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 07:04)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 07:07)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 07:04)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 07:07)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1046,7 +1046,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 07:04</div>
+<div id="buildTag">build 2026-08-17 07:07</div>
 </aside>
 <main>
 
@@ -7927,11 +7927,31 @@ function caSectionHtml(sec){
   // the loaded commentary rides on the same sentences here as everywhere else:
   // once per section, on the highest line it belongs to
   comSaidReset();
-  let h=`<p class="ca-head"><b>${esc(res.name)}</b> is ${caAmt(resQ.f, resQ.va, false)} ${
-    faWord(resQ.f.k, resQ.val)==='higher'? 'up' : 'down'} vs ${esc(sec.base)}`;
-  if(on.length) h+=` driven by ${on.map(one).join(' and ')}`;
-  if(off.length) h+=`${on.length?', ':' '}offset by ${off.map(one).join(' and ')}`;
-  h+=comTail(res.name,'comall')+'</p>';
+  const topPat=comTplActivePat();
+  let h;
+  if(topPat){
+    // the opener speaks in the chosen style; the movers it would have named
+    // itself are handed over as the drivers, so nothing is lost in the swap
+    const drvTxt=[on.length? on.map(one).join(' and ') : '',
+                  off.length? 'offset by '+off.map(one).join(' and ') : ''].filter(Boolean).join(', ');
+    const cvp0=vpCtx(m,S.ytdM);
+    h='<p class="ca-head">'+comTplFill(topPat,{
+      line:`<b>${esc(res.name)}</b>`,
+      main:caAmt(resQ.f, resQ.val, false),
+      base:caAmt(resQ.f, (resQ.val!=null&&resQ.va!=null)? resQ.val-resQ.va : null, false),
+      'var':caVar(resQ), varamt:caAmt(resQ.f, resQ.va, true, resQ.pct), varpct:pctAbs(resQ.pct),
+      vs:'vs '+esc(sec.base), basename:esc(sec.base), period:esc(sec.per),
+      drivers:drvTxt||'no single mover', scope:esc(comScopeLabel()),
+      month:esc(MON_LBL[S.ytdM]), quarter:'Q'+cvp0.q,
+      fy:esc(String(m.yearCY||'')), ytd:esc(MON_LBL[S.ytdM]+' YTD'),
+    })+comTail(res.name,'comall')+'</p>';
+  } else {
+    h=`<p class="ca-head"><b>${esc(res.name)}</b> is ${caAmt(resQ.f, resQ.va, false)} ${
+      faWord(resQ.f.k, resQ.val)==='higher'? 'up' : 'down'} vs ${esc(sec.base)}`;
+    if(on.length) h+=` driven by ${on.map(one).join(' and ')}`;
+    if(off.length) h+=`${on.length?', ':' '}offset by ${off.map(one).join(' and ')}`;
+    h+=comTail(res.name,'comall')+'</p>';
+  }
   // what the business wrote about the period as a whole stands under it
   // a line each, as the document has them
   for(const w of comWritten('comall', [])) h+=`<p class="ca-said">${esc(w)}</p>`;
@@ -7950,7 +7970,7 @@ function caSectionHtml(sec){
           `<b>${esc(String(k2.r.name).replace(/^o\/w\s+/i,''))}</b> ${caVar(k2.q)}`).join(', ')
       : '';
     const said=comTail(x.r.name,'comall');
-    const pat=depth? '' : comTplActivePat();
+    const pat=comTplActivePat();
     let lead=`<b>${esc(x.r.name)}</b> of ${val} are ${va}`;
     let drv=listed? '' : (inlined||caDriverTxt(x.r.rows, sec, x.r.name, x.q.va, depth? 3 : 4));
     if(pat){
@@ -7973,7 +7993,7 @@ function caSectionHtml(sec){
     }
     const tail=drv+said+(listed? ':' : '');
     let t=depth
-      ? `<li><b>${esc(x.r.name)}</b> ${va}${tail}`
+      ? `<li>${pat? lead : `<b>${esc(x.r.name)}</b> ${va}`}${tail}`
       : `<p class="ca-sub">${lead}${tail}</p>`;
     if(listed) t+='<ul class="houselist">'+kids.map(k2=>lineHtml(k2, depth+1)).join('')+'</ul>';
     if(depth) t+='</li>';
@@ -11701,7 +11721,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 07:04</td></tr>
+      <tr><td>Build</td><td>2026-08-17 07:07</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
