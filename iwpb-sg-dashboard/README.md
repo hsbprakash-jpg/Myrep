@@ -1199,6 +1199,13 @@ left-pane strip and the Filters pane.
   table setting out how it was applied, one row per rule with its scope, its
   second condition, the statement it touches, the adjustment, the change and
   the months — and then the figures.
+  **Compare simulations** runs any number of saved simulations side by side
+  against the prior forecast — the picker groups them by their Category — with
+  a chart, an FY outlook table and a **Comparison by month** table: the prior
+  forecast path with each simulation in its own column, footing to the sum of
+  the forecast months. Its **⤓ Excel** carries the FY comparison on one sheet
+  and the month-by-month on another, each opening with the scope, units and a
+  rule table naming how every simulation in the comparison is applied.
   Simulations save by name (localStorage) for reload; the work-in-progress
   simulation survives refreshes.
 

@@ -977,9 +977,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 10:09)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 10:40)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 10:09)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 10:40)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1046,7 +1046,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 10:09</div>
+<div id="buildTag">build 2026-08-17 10:40</div>
 </aside>
 <main>
 
@@ -9501,16 +9501,49 @@ function simCmpRun(names){
     const v=simStore()[n];
     const rules=Array.isArray(v)? v : ((v&&v.rules)||[]);
     let a; try{ a=simAgg(rules); }catch(e){ continue; }
-    out.push({name:n, rules, total:a.total, simSeries:a.simSeries});
+    out.push({name:n, rules, total:a.total, simSeries:a.simSeries,
+      simSeriesRaw:a.simSeriesRaw, bs:!!a.total.bs, cat:((v&&v.cat)||'')});
   }
   return out;
 }
+/* the comparison read month by month: the prior forecast path, then each
+   simulation beside it. A P&L foots to the sum of the forecast months; a
+   balance-based simulation is left out of the foot, never added across months. */
+function simCmpMonthRows(res, a0){
+  const fc=a0.fcMonths||[];
+  const rows=fc.map((p,i)=>({m:p.m, lbl:MON_LBL[p.m],
+    base:(a0.baseSeriesRaw[i]||{}).val,
+    sims:res.map(r=>(r.simSeriesRaw&&r.simSeriesRaw[i]? r.simSeriesRaw[i].val : null))}));
+  const sum=xs=>xs.reduce((x,v)=>x+(v||0),0);
+  const foot={lbl:'Forecast months', base:sum(rows.map(r=>r.base)),
+    sims:res.map((r,j)=>r.bs? null : sum(rows.map(x=>x.sims[j])))};
+  return {rows, foot, anyBS:res.some(r=>r.bs)};
+}
+function simCmpMonthAOA(){
+  const res=SIM_CMP.last||[]; if(!res.length) return [['No comparison run']];
+  const a0=simAgg([]), mm=simCmpMonthRows(res, a0);
+  const aoa=[['Simulation comparison \u2014 by month'],['Scope', filterNote(true)],
+    ['Units', cfgUnit()],['Forecast months', (a0.fcMonths||[]).map(p=>MON_LBL[p.m]).join(', ')],
+    ['Source file', S.fileName||''],[],
+    ['How each simulation is applied'],
+    ['Simulation','Category','#','Scope dimension','Scope value','Within','Within value',
+     'Applies to','Adjustment','Change','From','To']];
+  for(const r of res){
+    const rr=simRuleAoaRows(r.rules).slice(1);
+    rr.forEach((row,i)=>aoa.push([i?'':r.name, i?'':(r.cat||'\u2014'), ...row]));
+  }
+  aoa.push([], ['Month','Prior forecast',...res.map(r=>r.name)]);
+  for(const r of mm.rows) aoa.push([r.lbl, r.base, ...r.sims]);
+  aoa.push([mm.foot.lbl, mm.foot.base, ...mm.foot.sims]);
+  return aoa;
+}
 function simCmpAOA(){
   const res=SIM_CMP.last||[];
-  const aoa=[['Simulation comparison'],[filterNote(true)],[],
-    ['Simulation','FY outlook (prior fcst)','FY outlook (simulated)','Δ forecast']];
+  const aoa=[['Simulation comparison'],['Scope', filterNote(true)],['Units', cfgUnit()],
+    ['Source file', S.fileName||''],[],
+    ['Simulation','Category','FY outlook (prior fcst)','FY outlook (simulated)','\u0394 forecast']];
   for(const r of res)
-    aoa.push([r.name, r.total.baseOut, r.total.simOut, r.total.delta]);
+    aoa.push([r.name, r.cat||'\u2014', r.total.baseOut, r.total.simOut, r.total.delta]);
   return aoa;
 }
 function simCmpChart(el, act, base, series){
@@ -9794,12 +9827,24 @@ function renderSimCompare(){
       ${res.map(r=>`<tr><td>${esc(r.name)}</td><td class="num">${fmtCell(r.total.simOut)}</td>
         <td class="num">${fmtCell(r.total.delta)}</td></tr>`).join('')}
       </tbody></table></div>
+    ${(()=>{ const mm=simCmpMonthRows(res, a0); if(!mm.rows.length) return '';
+      const cel=v=>v==null? '\u2013' : fmtCell(v);
+      return `<h4 style="margin:16px 0 2px">Comparison by month</h4>
+      <p class="subtitle">The prior forecast path with each simulation beside it \u00b7 ${esc(cfgUnit())}${
+        mm.anyBS? ' \u2014 a balance-based simulation shows its months but is left out of the footing, since balances are never added up' : ''}.</p>
+      <div class="scroll-x"><table class="ctable"><thead><tr><th>Month</th>
+        <th class="num">Prior fcst</th>${res.map(r=>`<th class="num">${esc(r.name)}</th>`).join('')}</tr></thead>
+      <tbody>${mm.rows.map(r=>`<tr><td>${esc(r.lbl)}</td><td class="num">${cel(r.base)}</td>${
+        r.sims.map(v=>`<td class="num">${cel(v)}</td>`).join('')}</tr>`).join('')}
+        <tr style="font-weight:700"><td>${esc(mm.foot.lbl)}</td><td class="num">${cel(mm.foot.base)}</td>${
+        mm.foot.sims.map(v=>`<td class="num">${cel(v)}</td>`).join('')}</tr></tbody></table></div>`; })()}
     <div id="simCmpCom"></div>`;
   simCmpChart($('simCmpChart'), a0.actSeries, a0.baseSeries, res.map(r=>({name:r.name, pts:r.simSeries})));
   aiComment($('simCmpCom'), 'simcmp|'+res.map(r=>r.name).join(',')+'|'+filterNote(true), {noButtons:true, ctx:filterNote(true)}, ()=>{
+    const dTxt=v=>v>=0? '+'+fmt(v) : fmt(v);
     let h=`Comparing <b>${res.length}</b> simulations against a prior FY outlook of <b>${fmt(a0.total.baseOut)}</b>: `+
-      res.map(r=>`<b>${esc(r.name)}</b> lands <b>${fmt(r.total.simOut)}</b> (${r.total.delta>=0?'+':''}${fmt(r.total.delta)})`).join('; ')+'.';
-    if(best) h+=` <b>${esc(best.name)}</b> lifts the outlook most, at <b>${best.total.delta>=0?'+':''}${fmt(best.total.delta)}</b>.`;
+      res.map(r=>`<b>${esc(r.name)}</b> lands <b>${fmt(r.total.simOut)}</b>, ${dTxt(r.total.delta)} on the prior path`).join('; ')+'.';
+    if(best) h+=` <b>${esc(best.name)}</b> lifts the outlook most, at <b>${dTxt(best.total.delta)}</b>.`;
     return h;
   });
 }
@@ -11806,7 +11851,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 10:09</td></tr>
+      <tr><td>Build</td><td>2026-08-17 10:40</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -12005,7 +12050,8 @@ function init(){
   });
   $('btnSimCmpXls').addEventListener('click',()=>{
     if(!SIM_CMP.last||!SIM_CMP.last.length){ alert('Run the comparison first.'); return; }
-    exportWB([{name:'Simulation comparison', aoa:simCmpAOA()}],brandSlug()+'_simulation_comparison');
+    exportWB([{name:'Simulation comparison', aoa:simCmpAOA()},
+      {name:'Comparison by month', aoa:simCmpMonthAOA()}],brandSlug()+'_simulation_comparison');
   });
   $('btnSimExport').addEventListener('click',()=>{
     if(!SIM_LAST){ alert('Run the simulation first.'); return; }
