@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 16:49)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 17:41)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 16:49)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 17:41)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 16:49</div>
+<div id="buildTag">build 2026-08-17 17:41</div>
 </aside>
 <main>
 
@@ -1823,18 +1823,130 @@ function bsRecast(k){
     varFcPct:(L.mode==='fc'? pct : (k.fyFc? (bal-k.fyFc)/Math.abs(k.fyFc) : null)),
     varTgt:vT, varTgtPct:(vT!=null&&k.target)? vT/Math.abs(k.target) : null};
 }
+/* ---- the unit a line is reported in ------------------------------------
+   The pack's convention is one unit for the P&L and another for balances. A
+   line that is reported in its own unit says so on the Rollup sheet's Unit
+   column — millions, billions, thousands, or as the file carries it — and that
+   declaration governs the line wherever it is printed, exactly as bs_unit
+   governs a balance: it is the pack's policy, not the reader's preference.
+
+   Nothing here changes which figure is read. The figure is still the actuals
+   YTD column for the month in hand (a balance still its closing month); the
+   declaration decides only the unit it is stated in. */
+function unitDeclLevels(lvl){
+  if(!lvl) return null;
+  // the most specific declaration wins: a Level 3 line may be stated in a
+  // different unit from the Level 2 line it sits under
+  for(const L of ['micaL4','micaL3','micaL2','micaL1']){
+    const nm=lvl[L]; if(!nm) continue;
+    const d=rollupFind(L, nm);
+    if(d&&d.unit) return {...d, at:L, name:nm};
+  }
+  return null;
+}
+function unitDeclFor(name, level){
+  for(const L of (level? [level] : ['micaL1','micaL2','micaL3','micaL4'])){
+    const d=rollupFind(L, name);
+    if(d&&d.unit) return {...d, at:L, name};
+  }
+  return null;
+}
+function unitDivFor(u){
+  if(!u||u==='as') return 1;
+  const e=UNIT_EXP[u]; if(e==null) return 1;
+  return Math.pow(10, e-unitNative().exp);
+}
+/* one answer for a figure: which unit, what to divide by, what to call it */
+function unitPlanOf(decl, isBS){
+  // what would apply with nothing declared: the pack's balance unit for a
+  // balance, otherwise the unit the page is set to
+  const base=(isBS&&bsUnit())
+    ? {u:bsUnit(), div:bsUnitDiv(), label:bsUnitLabel(), suffix:bsUnit(), dec:1,
+       why:'bs_unit \u2014 balances in '+bsUnitLabel()}
+    : {u:unitSel(), div:unitDiv(), label:cfgUnit(), suffix:'', dec:unitDec(),
+       why:'the selected unit'};
+  if(decl&&decl.unit){
+    const div=unitDivFor(decl.unit);
+    return {u:decl.unit, div, label:unitLabelFor(decl.unit), suffix:decl.unit==='as'?'':decl.unit,
+      dec:div>1?1:0, declared:true,
+      // a declaration only restates the figure where it differs from the
+      // convention: declaring the unit the file already carries changes the
+      // label and nothing else, and declaring 'as reported' on a balance is
+      // what takes it back out of billions
+      restates:div!==base.div,
+      why:`declared on the Rollup sheet (${decl.line} \u00b7 ${decl.unit})`};
+  }
+  return {...base, declared:false, restates:false};
+}
+/* true only when the declaration actually restates the figure; a line declared
+   in the unit the file already carries reads exactly as it did before */
+function planRestates(p2){ return !!(p2&&p2.declared&&p2.restates); }
+/* a KPI's line, worked out on first use and remembered on it */
+function kLvl(k){
+  if(!k||!rollupList().length) return null;
+  if(!k.lvl&&k._rows) k.lvl=lvlOf(k._rows);
+  return k.lvl||null;
+}
+function unitPlan(k){
+  if(!k||!rollupList().length) return unitPlanOf(null,!!(k&&k.isBS));
+  // a tile named for a metric (Banking NII) is that metric, not the Level 2
+  // line its rows happen to sit under, so its own name is asked first
+  const byName=k.lineName? unitDeclFor(k.lineName) : null;
+  return unitPlanOf(byName||unitDeclLevels(kLvl(k)), !!k.isBS);
+}
+/* a KPI told which line it stands for */
+function kpiNamed(k, name){ if(k&&name&&!k.lineName) k.lineName=String(name); return k; }
+function unitPlanName(name, isBS){ return unitPlanOf(unitDeclFor(name), !!isBS); }
+/* a figure printed on its own plan: divided once, never twice */
+function fmtPlan(plan, v){
+  if(v==null) return '\u2013';
+  const x=plan.div===1? v : v/plan.div;
+  let d=plan.dec;
+  if(d===0&&Math.abs(x)<50&&Math.abs(x%1)>=0.05) d=1;
+  const st=Math.abs(x).toLocaleString(undefined,{maximumFractionDigits:d, minimumFractionDigits:d});
+  return x<0? '('+st+')' : st;
+}
+/* the unit a card is printed in, and its label — used wherever a figure is
+   shown beside the name of the line it belongs to */
+function kpiUnitLabel(k){ return unitPlan(k).label; }
 function bsScope(rows){
   if(!rows||!rows.length||!bsUnit()) return false;
   if(rows.some(r=>isMemoLine(String(r.d.micaL1||'')))) return false;
   return rows.every(r=>isBSRow(r));
 }
-function scopeUnit(rows){ return bsScope(rows)? bsUnitLabel() : cfgUnit(); }
+function scopeUnit(rows){
+  // a scope that is one declared line is stated in that line's own unit
+  const d=scopeDecl(rows);
+  if(d) return unitLabelFor(d.unit);
+  return bsScope(rows)? bsUnitLabel() : cfgUnit();
+}
+/* the declaration covering every row in a scope, if one line covers them all */
+function scopeDecl(rows){
+  if(!rows||!rows.length||!rollupList().length) return null;
+  for(const L of ['micaL4','micaL3','micaL2','micaL1']){
+    const s2=new Set(rows.map(r=>String(r.d[L]||'').trim()).filter(Boolean));
+    if(s2.size!==1) continue;
+    const d=rollupFind(L, [...s2][0]);
+    if(d&&d.unit) return {...d, at:L};
+  }
+  return null;
+}
 function bsBaseLbl(mode){
   return mode==='tgt'? 'Target balance' : mode==='py'? 'PY closing' : 'Closing forecast';
 }
 function fmtK(k, v){
   const x=v!==undefined? v : k.cmpMain;
+  const p2=unitPlan(k);
+  if(planRestates(p2)) return fmtPlan(p2,x)+(p2.suffix||'');
   return (k&&k.isBS&&bsUnit())? fmtBS(x)+bsUnit() : fmt(x);
+}
+/* the same figure without the unit tacked on, for a column already headed
+   with its unit */
+function fmtKu(k, v){
+  const x=v!==undefined? v : (k? k.cmpMain : null);
+  const p2=unitPlan(k);
+  if(planRestates(p2)) return fmtPlan(p2,x);
+  return (k&&k.isBS&&bsUnit())? fmtBS(x) : fmt(x);
 }
 function fmtBS(v){
   if(v==null) return '–';
@@ -2307,7 +2419,25 @@ function kpi(rows, model, ytdM, includeFC){
     fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct, cmpMain, favVarPct,
     ytdTgt, varYT, varYTPct, mth, mthPrev, mthPy, mthTgt, mthFc, fyMain, fyBase,
     qtd, qtdPy, fyPrFc:fyFcCol,
-    vp:vpId, dirFlip:flip, costLike, ytdFcIsCol, cyIsCol};
+    vp:vpId, dirFlip:flip, costLike, ytdFcIsCol, cyIsCol,
+    // which line this is, worked out only if something asks — with no unit or
+    // roll-up declaration nothing ever does, and a page builds many KPIs
+    lvl:null, _rows:rows};
+}
+/* the line a set of rows is: one name per MICA level where the rows agree on
+   it, which is what a unit declaration is looked up by */
+function lvlOf(rows){
+  const out={};
+  if(!rows||!rows.length||!rollupList().length) return out;
+  for(const L of ['micaL1','micaL2','micaL3','micaL4']){
+    let v=null, one=true;
+    for(const r of rows){
+      const x=String(r.d[L]||'').trim(); if(!x) continue;
+      if(v==null) v=x; else if(v!==x){ one=false; break; }
+    }
+    if(one&&v) out[L]=v;
+  }
+  return out;
 }
 /* cost and ECL lines stay actuals-only on landing widgets in target-only files;
    with a forecast basis the YTD actuals vs YTD forecast comparison applies to
@@ -2351,7 +2481,7 @@ function movPct(k, p){
 }
 function movVal(k, v, p){
   if(v==null) return '<span class="mv">\u2013</span>';
-  const val=(k&&k.isBS&&bsUnit())? fmtBS(Math.abs(v))+bsUnit() : fmtK(k,Math.abs(v));
+  const val=fmtK(k,Math.abs(v));
   return `<span class="mv ${movFav(k,v,p)?'fav':'unfav'}">${movUp(k,v,p)?'\u25B2':'\u25BC'}${val}</span>`;
 }
 /* the same movement as plain text, for chart annotations and slides */
@@ -3075,7 +3205,7 @@ function chartCommentaryHtml(cfg){
   const m2=S.model, L2=cmpLabels(m2);
   if(L2.mode!=='none'&&cats[0]&&cats[0].rows){
     const perf=cats.filter(c=>c.name!=='Other'&&c.rows&&c.rows.length)
-      .map(c=>({name:c.name, k:kpi(c.rows,m2,S.ytdM,S.includeFC)}))
+      .map(c=>({name:c.name, k:kpiNamed(kpi(c.rows,m2,S.ytdM,S.includeFC),c.name)}))
       .filter(x2=>x2.k.cmpVarPct!=null);
     if(perf.length>1){
       const best=perf.reduce((a,b)=>(b.k.favVarPct??-1e9)>(a.k.favVarPct??-1e9)?b:a);
@@ -3502,7 +3632,10 @@ function bizPerfData(){
   // the headline the KPI summary would print there, by the same code
   const cardsAt=defRows.map(rows=>rows&&rows.length? tileBuildCards(rows).cards : null);
   const castCol=col=>{
-    const d=(col.bs&&bsUnit())? 1 : unitDec();
+    // the column's own unit: what the line is declared in, else the convention
+    const cp=unitPlanName(col.name, col.bs);
+    const restate=planRestates(cp);
+    const d=restate? cp.dec : ((col.bs&&bsUnit())? 1 : unitDec());
     const sc=Math.pow(10,d);
     const raws=defs.map((rd,i2)=>{
       if(rd.elim) return null;
@@ -3531,7 +3664,7 @@ function bizPerfData(){
         }
       }
       if(v==null) return null;
-      return ((col.bs&&bsUnit())? v/bsUnitDiv() : uval(v))*sc;
+      return (restate? v/cp.div : (col.bs&&bsUnit())? v/bsUnitDiv() : uval(v))*sc;
     });
     const vals=raws.map(x=>x==null? null : (x<0?-1:1)*Math.round(Math.abs(x)));
     const adj=new Set();
@@ -3596,8 +3729,9 @@ function renderBizPerfView(){
   // every header says its unit \u2014 US$m for the P&L, US$bn closing for a
   // balance \u2014 so no figure needs the lede to be read right
   const th=c=>`<th class="num">${esc(c.name)}<div class="bp-hunit">${
-    c.bs? `${esc(bsUnit()? bsUnitLabel():cfgUnit())} \u00b7 closing`
-    : `${esc(cfgUnit())}${c.memo? ' \u00b7 within '+esc(c.memo) : c.res? ' \u00b7 the result line':''}`}</div></th>`;
+    c.bs? `${esc(planRestates(unitPlanName(c.name,true))? unitPlanName(c.name,true).label : (bsUnit()? bsUnitLabel():cfgUnit()))} \u00b7 closing`
+    : `${esc(planRestates(unitPlanName(c.name,false))? unitPlanName(c.name,false).label : cfgUnit())}${
+        c.memo? ' \u00b7 within '+esc(c.memo) : c.res? ' \u00b7 the result line':''}`}</div></th>`;
   const lbl=rd=> rd.cls==='tot'||rd.cls==='bp-sub'
     ? `<b>${esc(rd.txt)}</b>${rd.txt==='Unallocated'? ' <span class="bp-ind">(rows with no business mapping)</span>':''}`
     : `<span class="${rd.tier===2?'bp-ind2':'bp-ind'}">${esc(rd.txt)}</span>`;
@@ -3627,7 +3761,9 @@ function bizPerfAoa(){
   const D=bizPerfData();
   if(!D) return null;
   const head=['Business / Region / Country',...D.cols.map(c=>
-    c.name+(c.bs? ` (${bsUnit()? bsUnitLabel():cfgUnit()} closing)` : c.memo? ` (within ${c.memo})` : ` (${cfgUnit()})`))];
+    c.name+(c.bs? ` (${planRestates(unitPlanName(c.name,true))? unitPlanName(c.name,true).label : (bsUnit()? bsUnitLabel():cfgUnit())} closing)`
+      : c.memo? ` (within ${c.memo})`
+      : ` (${planRestates(unitPlanName(c.name,false))? unitPlanName(c.name,false).label : cfgUnit()})`))];
   const body=D.defs.map((rd,i2)=>[rd.txt,
     ...D.cols.map((c,ci)=>{ const cv=D.colVals[ci], x=cv.vals[i2];
       return x==null? '' : x/cv.sc; })]);
@@ -3652,7 +3788,7 @@ function tileBuildCards(rows){
       if(!f){ missingLines.push(nm); return null; }
       let k=kpi(f.rows,m,S.ytdM,S.includeFC);
       if(isBSRow(f.rows[0])) k=bsRecast(k);
-      return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:f.scope||('d:'+f.key+':'+f.name), k};
+      return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:f.scope||('d:'+f.key+':'+f.name), k:kpiNamed(k,f.name)};
     }).filter(Boolean);
     scPfx='';
   } else {
@@ -3660,7 +3796,7 @@ function tileBuildCards(rows){
       let k=kpi(g.rs,m,S.ytdM,S.includeFC);
       if(isBSRow(g.rs[0])) k=bsRecast(k);
       return {l2:g.nm, l1:g.lv===1? g.nm : g.rs[0].d[TD[0]], rows:g.rs,
-        scope:g.lv===1? 'l1:'+g.nm : undefined, k};
+        scope:g.lv===1? 'l1:'+g.nm : undefined, k:kpiNamed(k,g.nm)};
     });
     const anyPrio=cards.some(c=>PRIO_RES.some(rx=>rx.test(c.l2)));
     const firstAt=c=>{ let i=Infinity; for(const r of c.rows){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
@@ -3677,7 +3813,7 @@ function tileBuildCards(rows){
         const kids=[...groupBy(pl[0].rows,TD[1]).entries()]
           .filter(([n])=>n&&n!=='(blank)'&&n!==pl[0].l2)
           .map(([nm,rs])=>({l2:nm, l1:pl[0].l2, rows:rs, scope:'d:'+TD[1]+':'+nm,
-            k:kpi(rs,m,S.ytdM,S.includeFC)}));
+            k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),nm)}));
         if(kids.length>1){
           kids.sort((a,b)=>firstAt(a)-firstAt(b));
           cards=[...kids, {...pl[0], scope:'l1:'+pl[0].l2}, ...cards.filter(c=>isBSLine(c.l2))];
@@ -3691,7 +3827,7 @@ function tileBuildCards(rows){
     let k=kpi(f.rows,m,S.ytdM,S.includeFC);
     if(isBSRow(f.rows[0])) k=bsRecast(k);
     cards.push({l2:f.name, l1:f.rows[0].d[TD[0]], rows:f.rows, added:true,
-      scope:f.scope||(f.key?'d:'+f.key+':'+f.name:undefined), k});
+      scope:f.scope||(f.key?'d:'+f.key+':'+f.name:undefined), k:kpiNamed(k,f.name)});
   }
   cards=tileNetApply(tileDedupe(cards), rows, m);
   return {cards, missingLines, named, tileL1, byL1g, TD, scPfx, fixedOrder};
@@ -3751,7 +3887,7 @@ function renderSummary(){
   const rankKey=(subj&&subj.key.startsWith('l1:'))? TD[1] : (tileL1?TD[0]:TD[1]);
   const rankSet=(subj&&rankKey===TD[1])
     ? [...groupBy(rankRows,TD[1]).entries()].filter(([n])=>n&&n!=='(blank)')
-        .map(([nm,rs])=>({l2:nm, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+        .map(([nm,rs])=>({l2:nm, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),nm)}))
     : cards;
   const withVar=rankSet.filter(c=>c.k.favVarPct!=null && !cmpHidden(c.l2));
   const best=withVar.length?withVar.reduce((a,b)=>a.k.favVarPct>=b.k.favVarPct?a:b):null;
@@ -3809,7 +3945,7 @@ function renderSummary(){
     // year, and where it does, its own figure stands under the headline
     const kY=(!k.isBS&&opt&&opt.rows)? tileYtdK(k,opt.rows,m) : k;
     const hv=k.isBS? k.cmpMain : (kY.cy!=null? kY.cy : k.cmpMain);
-    const tu=(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
+    const tu=kpiUnitLabel(k);
     const hLbl=MON_LBL[tileYtdM()]+(k.isBS? ' closing' : ' YTD');
     const netOf=(opt&&opt.netOf)||[];
     const netSub=netOf.length
@@ -3822,7 +3958,7 @@ function renderSummary(){
       ${(opt&&opt.ctl)||''}
       <div class="thead"><span class="tname" title="${esc((l=>l? name+' \u2014 '+l : name)(metricLineageTxt(name)))}">${esc(name)}</span>
         <span class="tval${(hv||0)<0?' negnum':''}"><span class="tvlbl">${esc(hLbl)} · ${esc(tu)}</span>${
-          (k.isBS&&bsUnit())? fmtBS(hv) : fmt(hv)}</span></div>
+          fmtKu(k,hv)}</span></div>
       ${netSub}
       ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
         :`<div class="krow actonly"><span class="kl">${esc(L.main)} actuals</span></div>`}
@@ -4113,7 +4249,7 @@ function slGroups(rows, key){
   const m=S.model;
   const atF=fileOrder(m);
   return [...groupBy(rows,key).entries()].filter(([n])=>n&&n!=='(blank)')
-    .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .map(([name,rs])=>({name, rs, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
     .sort((a,b)=>atF(a.rs)-atF(b.rs));
 }
 function slideCommentaryHtml(){
@@ -4179,7 +4315,7 @@ function slideCommentaryHtml(){
   for(const g of bs){
     const kk=bsCmp(g.rs);
     const ds=[...groupBy(g.rs,dimKey).entries()]
-      .map(([nm,rs])=>({name:nm||'(blank)', k:bsCmp(rs)}))
+      .map(([nm,rs])=>({name:nm||'(blank)', k:kpiNamed(bsCmp(rs),nm)}))
       .filter(d2=>d2.k.cmpVar!=null&&Math.abs(d2.k.cmpVar)>0)
       .sort((a2,b2)=>Math.abs(b2.k.cmpVar)-Math.abs(a2.k.cmpVar)).slice(0,N);
     const drv=ds.length? ' driven by '+ds.map(d2=>`${esc(d2.name)} (${slVar(d2.k,true)})`).join(', ') : '';
@@ -4250,7 +4386,7 @@ function drvTrim(items, valOf, total, n, zero){
 function houseDrivers(rows, dimKey, n){
   const m=S.model;
   const gs=[...groupBy(rows,dimKey).entries()]
-    .map(([name,rs])=>({name:name||'(blank)', k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .map(([name,rs])=>({name:name||'(blank)', k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
     .filter(g=>g.k.cmpVar!=null&&Math.abs(g.k.cmpVar)>0)
     .sort((a,b)=>Math.abs(b.k.cmpVar)-Math.abs(a.k.cmpVar));
   const tot=gs.reduce((x,g)=>x+g.k.cmpVar,0);
@@ -4428,7 +4564,7 @@ function tplCommentaryHtml(style){
   const LV=houseLevels(); if(!LV.length) return '';
   const atF=fileOrder(m);
   const groups=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
-    .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .map(([name,rs])=>({name, rs, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
     .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0)||atF(a.rs)-atF(b.rs));
   if(!groups.length) return '';
   const c=vpCtx(m,S.ytdM);
@@ -4655,7 +4791,7 @@ function houseBlock(rows, secName){
     return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}${comTail(name)}</li>`;
   };
   const l1=[...groupBy(rows,LV[0]).entries()]
-    .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .map(([name,rs])=>({name, rs, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
     .filter(g=>g.name)
     .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0) || atF(a.rs)-atF(b.rs));
   // the headline still names the biggest movers first
@@ -4679,7 +4815,7 @@ function houseBlock(rows, secName){
     if(!single) h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${fmt(mainOf(g.k))}</b> is ${faTxt(g.k)}${comTail(g.name)}</p>`;
     h+=`<ul class="houselist">`;
     const kids=(LV.length>1? [...groupBy(g.rs,LV[1]).entries()] : [])
-      .map(([name,rs])=>({name, rs, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+      .map(([name,rs])=>({name, rs, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
       .filter(x=>x.name)
       .sort((a,b)=>atF(a.rs)-atF(b.rs));
     if(kids.length>1) for(const c of kids) h+=per(c.name,c.rs,2);
@@ -5117,18 +5253,18 @@ async function exportSummaryPPT(){
       fontFace:'Segoe UI',fit:'shrink',wrap:false});
   // settle the three tile sizes across the whole set before drawing any of it
   const tileTxt=t=>{
-    const tu=(t.k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
+    const tu=kpiUnitLabel(t.k);
     const tkY=(!t.k.isBS&&t.rows)? tileYtdK(t.k,t.rows,m) : t.k;
     const tv=t.k.isBS? t.k.cmpMain : (tkY.cy!=null? tkY.cy : t.k.cmpMain);
     return {nm:nameTxt(t.name)+'  \u00b7  '+tu,
-            vTxt:(t.k.isBS&&bsUnit())? fmtBS(tv) : fmt(tv)};
+            vTxt:fmtKu(t.k,tv)};
   };
   const tTxts=tiles.map(tileTxt);
   const NAME_FS=fitAll(nameFs1, tTxts.map(x=>x.nm));
   const VAL_FS =fitAll(valFs1,  tTxts.map(x=>x.vTxt));
   const CELL_FS=fitAll(cellFs1, tiles.flatMap(t=>t.hide?[]:tileRows(t.k,m).slice(0,3).flatMap(r=>{
     const up=movUp(t.k,r.v,r.p), tri=up?'\u25B2':'\u25BC';
-    return [r.v==null?'\u2013':tri+((t.k.isBS&&bsUnit())? fmtBS(Math.abs(r.v)) : fmt(Math.abs(r.v))),
+    return [r.v==null?'\u2013':tri+fmtKu(t.k,Math.abs(r.v)),
             r.p==null?'':tri+pctAbs(r.p)];
   })));
   tiles.forEach((t,i)=>{
@@ -5149,7 +5285,7 @@ async function exportSummaryPPT(){
       const fav=movFav(t.k,r.v,r.p), up=movUp(t.k,r.v,r.p);
       const col=fav?'0B7A0B':'C21A1A', tri=up?'\u25B2':'\u25BC';
       const ry=ty+0.5+ri*0.245;
-      const aTxt=r.v==null?'\u2013':tri+((t.k.isBS&&bsUnit())? fmtBS(Math.abs(r.v)) : fmt(Math.abs(r.v)));
+      const aTxt=r.v==null?'\u2013':tri+fmtKu(t.k,Math.abs(r.v));
       const pTxt=r.p==null?'':tri+pctAbs(r.p);
       slide.addText(r.lbl,{x:tx+0.1,y:ry,w:0.78,h:0.22,fontSize:PPT_FS.note,color:'52514E',fontFace:'Segoe UI',fit:'shrink'});
       slide.addText(aTxt,{x:tx+0.88,y:ry,w:1.0,h:0.22,fontSize:CELL_FS,bold:true,color:col,
@@ -5372,7 +5508,7 @@ function kpiSummaryAOA(){
   const aoa=[[`${cfgS('app_title')} — KPI summary`],[filterNote()],[L.period],[],
     ['KPI (MICA Level 2)','MICA Level 1',L.main,L.base,'Variance','Variance %','RAG']];
   const byL2=[...groupBy(rows,'micaL2').entries()]
-    .map(([l2,rs])=>({l2, l1:rs[0].d.micaL1, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .map(([l2,rs])=>({l2, l1:rs[0].d.micaL1, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),l2)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const row=(name,l1,k)=>{
     const hide=cmpHidden(name);
@@ -5402,7 +5538,7 @@ function trendAOA(rows, label){
 function breakdownAOA(rows, key, label){
   const m=S.model;
   const gs=[...groupBy(rows,key).entries()]
-    .map(([name,rs])=>({name, k:kpi(rs,m,S.ytdM,S.includeFC)}))
+    .map(([name,rs])=>({name, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
     .sort((a,b)=>Math.abs(b.k.cy||0)-Math.abs(a.k.cy||0));
   const L=cmpLabels(m);
   const mainOf=k=>k.cmpMain;
@@ -5475,7 +5611,7 @@ function scorecardData(m){
     const map={};
     for(const r of trs){ const b=bucket(r.lbl); if(!(b in map)){ map[b]=r; if(!cols.includes(b)) cols.push(b); } }
     items.push({name:p.l2, k, map, scope:f.scope||f.name,
-      unit:(k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit()});
+      unit:kpiUnitLabel(k)});
   }
   const parked=items.filter(it=>scHidden(it.name));
   return {items:items.filter(it=>!scHidden(it.name)), parked, cols};
@@ -5522,7 +5658,7 @@ function scorecardPack(m){
     return `<div class="scbox${parked?' parked':''}" draggable="true" data-sc="${esc(it.scope)}" data-nm="${esc(it.name)}" title="Open ${esc(it.name)} on the KPI summary · drag onto the grid to add as a card">`+
       scHideCtl(it.name, parked)+
       `<div class="schead"><span class="scname">${esc(it.name)} <span class="scu">(${esc(it.unit)})</span></span>`+
-      `<span class="scval${(it.k.cmpMain||0)<0?' negnum':''}">${(it.k.isBS&&bsUnit())? fmtBS(it.k.cmpMain) : fmt(it.k.cmpMain)}</span></div>`+
+      `<span class="scval${(it.k.cmpMain||0)<0?' negnum':''}">${fmtKu(it.k,it.k.cmpMain)}</span></div>`+
       (trs.length? trs.map(r=>rowH(it.k,r)).join('') : '<div class="scrow"><span class="scl">actuals only</span></div>')+
       `</div>`;
   };
@@ -5547,7 +5683,7 @@ function scorecardTable(m){
       const rg=cmpHidden(it.name)? {cls:'n'} : rag(it.k.favVarPct);
       return `<tr class="${parked?'parked':''}" data-sc="${esc(it.scope)}" title="Open ${esc(it.name)} on the KPI summary">`+
         `<td class="nm"><span class="dot ${rg.cls}"></span>${esc(it.name)}${scHideCtl(it.name, parked)}</td>`+
-        `<td class="val${(it.k.cmpMain||0)<0?' negnum':''}">${(it.k.isBS&&bsUnit())? fmtBS(it.k.cmpMain) : fmt(it.k.cmpMain)}</td>`+
+        `<td class="val${(it.k.cmpMain||0)<0?' negnum':''}">${fmtKu(it.k,it.k.cmpMain)}</td>`+
         `<td class="un">${esc(it.unit)}</td>${sc.cols.map(c=>cell(it.k,it.map[c])).join('')}</tr>`;
     }).join('')}</tbody></table>`+
     (sc.parked.length? `<div class="scpark">${scParkBtn(sc.parked.length)}</div>` : '');
@@ -7796,6 +7932,7 @@ function caHeadline(sec){
     if(q.va==null) return null;
     const f=q.f;
     const amt=v=>v==null? 'n/a' : f.ratio? fsumRatioTxt(Math.abs(v))
+      : planRestates(f.plan)? '$'+fmtPlan(f.plan,Math.abs(v))+(f.plan.suffix||'m')
       : f.bsFmt? '$'+fmtBS(Math.abs(v))+(bsUnit()||'bn') : '$'+fmtFull(Math.round(Math.abs(v)))+'m';
     const fav=movFav(f.k, q.va, q.pct==null? undefined : q.pct);
     const up=movUp(f.k, q.va, q.pct==null? undefined : q.pct);
@@ -7815,7 +7952,9 @@ function caFig(rows, sec, name){
 function caAmt(f, v, withFA, pct){
   if(v==null) return 'n/a';
   const a=Math.abs(v);
-  const txt=f.ratio? fsumRatioTxt(a) : f.bsFmt? '$'+fmtBS(a)+(bsUnit()||'bn') : '$'+fmtFull(Math.round(a))+'m';
+  const txt=f.ratio? fsumRatioTxt(a)
+    : planRestates(f.plan)? '$'+fmtPlan(f.plan,a)+(f.plan.suffix||'m')
+    : f.bsFmt? '$'+fmtBS(a)+(bsUnit()||'bn') : '$'+fmtFull(Math.round(a))+'m';
   if(!withFA) return txt;
   const fav=movFav(f.k, v, pct==null? undefined : pct);
   return `<b${faCls(fav)}>${txt}${fav?'F':'A'}</b>`;
@@ -8190,7 +8329,11 @@ function fsumFigs(rows, m, P, ytdM, name){
     : (m.pyMonths.length? (bs? sumCols(rows,[m.pyMonths[m.pyMonths.length-1].col])
                              : sumCols(rows,m.pyMonths.map(p=>p.col))) : null);
   const mFc=bs? k.fyFc : k.mthFc;
-  return {k, bs, ratio, bsFmt, mon:P.monCols.map(p=>sumCols(rows,[p.col])),
+  return {k, bs, ratio, bsFmt,
+    // the unit this line is stated in: its own declaration where the pack
+    // makes one, else the P&L / balance convention
+    plan:unitPlanOf(ratio? null : (unitDeclFor(name||'')||unitDeclLevels(lvlOf(rows))), bsFmt),
+    mon:P.monCols.map(p=>sumCols(rows,[p.col])),
     mVsFc:d(k.mth,mFc), mVsTgt:d(k.mth,mTgt), mVsPM:d(k.mth,k.mthPrev), mVsPY:d(k.mth,k.mthPy),
     qtd:qtdB, qVsTgt:d(qtdB,qTgt), qVsPQ:d(qtdB,pqB), qVsPY:d(qtdB,pyQ),
     ytd, yVsTgt:d(ytd,yTgt), yVsPY:d(ytd,yPY),
@@ -8440,6 +8583,18 @@ function fsumSections(rows){
   const m=S.model, u=cfgUnit();
   const lvl1='micaL1';
   const blockU=rs=>{ const names=[...new Set(rs.map(r=>r.d[lvl1]).filter(Boolean))];
+    // Where the block's lines are declared in one unit, the block is headed
+    // with that unit rather than with the convention's. The declaration may sit
+    // at either level \u2014 a block headed "Balance Sheet" is made of the
+    // Level 2 lines that are declared.
+    const dus=new Set();
+    for(const L of ['micaL1','micaL2']){
+      for(const nm of new Set(rs.map(r=>String(r.d[L]||'').trim()).filter(Boolean))){
+        const d2=rollupFind(L, nm);
+        if(d2&&d2.unit) dus.add(d2.unit);
+      }
+    }
+    if(dus.size===1) return unitLabelFor([...dus][0]);
     return (names.length&&names.every(isBSLine))? bsUnitLabel() : u; };
   const defs=fsumSectionDefs();
   const noTot=fsumNoTotal();
@@ -8455,7 +8610,7 @@ function fsumSections(rows){
       const mlb=cfgS('fsum_memo_label')||'Key Metrics';
       const out=[{label:`${cfgS('fsum_section_label')} (${u})`, name:cfgS('fsum_section_label'), rows:pl,
                   noTotal:noTot.has(String(cfgS('fsum_section_label')).toLowerCase())}];
-      if(bsr.length) out.push({label:`${lb} (${bsUnitLabel()})`, name:lb, rows:bsr, noTotal:true});
+      if(bsr.length) out.push({label:`${lb} (${blockU(bsr)})`, name:lb, rows:bsr, noTotal:true});
       if(mem.length) out.push({label:mlb, name:mlb, rows:mem, noTotal:true});
       return out;
     }
@@ -8495,18 +8650,20 @@ function fsumRatioTxt(v){
   const t=a>=100? Math.round(a).toLocaleString() : a>=10? a.toFixed(1) : a.toFixed(2);
   return v<0? '('+t+')' : t;
 }
-function fsumNum(v, bs, ratio){
+function fsumNum(v, bs, ratio, plan){
   if(v==null) return '<span class="mut">–</span>';
   if(ratio) return fsumRatioTxt(v);
+  if(planRestates(plan)) return fmtPlan(plan,v);
   return bs? fmtBS(v) : fmtFull(Math.round(v));
 }
-function fsumNumF(f, v){ return fsumNum(v, f.bsFmt, f.ratio); }
-function fsumVarF(f, v){ return fsumVar(f.k, v, f.bsFmt, f.ratio); }
-function fsumVar(k, v, bs, ratio){
+function fsumNumF(f, v){ return fsumNum(v, f.bsFmt, f.ratio, f.plan); }
+function fsumVarF(f, v){ return fsumVar(f.k, v, f.bsFmt, f.ratio, f.plan); }
+function fsumVar(k, v, bs, ratio, plan){
   if(v==null) return '<span class="mut">–</span>';
   if(ratio) return `<span class="${Math.abs(v)<0.005?'':(faOK(k,v)?'up':'dn')}">${fsumRatioTxt(v)}</span>`;
   const r=Math.round(v);
-  return `<span class="${r===0?'':(faOK(k,v)?'up':'dn')}">${bs? fmtBS(v) : fmtFull(r)}</span>`;
+  const txt=planRestates(plan)? fmtPlan(plan,v) : (bs? fmtBS(v) : fmtFull(r));
+  return `<span class="${r===0?'':(faOK(k,v)?'up':'dn')}">${txt}</span>`;
 }
 function fsumPctTxt(v){
   if(v==null) return '–';
@@ -8674,8 +8831,10 @@ function faPctTxt(k, v){
 }
 function fsumBlockText(name, rows, m, P, sub){
   const f=fsumFigs(rows,m,P,S.ytdM,name), k=f.k;
-  const nf=v=>f.ratio? fsumRatioTxt(v==null?0:v) : f.bsFmt? fmtBS(v) : fmtFull(Math.round(v==null?0:v));
-  const un=f.bsFmt&&bsUnit()? ` ${bsUnitLabel()}` : '';
+  const nf=v=>f.ratio? fsumRatioTxt(v==null?0:v)
+    : planRestates(f.plan)? fmtPlan(f.plan,v==null?0:v)
+    : f.bsFmt? fmtBS(v) : fmtFull(Math.round(v==null?0:v));
+  const un=(f.plan&&f.plan.declared)? ` ${f.plan.label}` : (f.bsFmt&&bsUnit()? ` ${bsUnitLabel()}` : '');
   const mon=MON_LBL[S.ytdM]+"'"+P.yy;
   let h=`<b>${esc(name)}</b> for <b>${mon}</b> is <b>${nf(f.k.mth)}${un}</b>`;
   if(f.mVsFc!=null) h+=`, ${faAmt(k,f.mVsFc,f)} vs forecast`;
@@ -8695,7 +8854,7 @@ function fsumBlockText(name, rows, m, P, sub){
   }
   if(sub&&sub.length) h+=` Movement against forecast is led by `+
     sub.map(x=>`<b>${esc(x.name)}</b> (${faAmt(x.f.k,x.f.mVsFc,x.f)}${
-      x.f.bsFmt&&bsUnit()? ' '+bsUnitLabel() : ''})`).join(', ')+'.';
+      (x.f.plan&&x.f.plan.declared)? ' '+x.f.plan.label : (x.f.bsFmt&&bsUnit()? ' '+bsUnitLabel() : '')})`).join(', ')+'.';
   const tail=comTail(name,'fsum');
   if(tail) h+=tail+'.';
   return h;
@@ -8787,7 +8946,9 @@ function fsumNoteText(name, rs, m, P){
   const own=comForLine(name,'line')[0];
   if(own&&comStyle()==='verbatim') return {html:esc(own), own:true};
   const f=fsumFigs(rs, m, P, S.ytdM, name), k=f.k;
-  const nf=v=>f.ratio? fsumRatioTxt(v) : f.bsFmt? fmtBS(v)+bsUnit() : fmtFull(Math.round(v==null?0:v));
+  const nf=v=>f.ratio? fsumRatioTxt(v)
+    : planRestates(f.plan)? fmtPlan(f.plan,v)+(f.plan.suffix||'')
+    : f.bsFmt? fmtBS(v)+bsUnit() : fmtFull(Math.round(v==null?0:v));
   // the line's own unit and the page's movement convention, so the note and
   // the row beside it can never read differently
   const va=(v,pc)=>{
@@ -8890,7 +9051,7 @@ function fsumAoaRow(r,m,P){
   {
     const f=fsumFigs(r.rows,m,P,S.ytdM,r.name);
     const rnd=v=>v==null?null:Math.round(v);
-    const dv=f.bsFmt? bsUnitDiv() : 1;
+    const dv=(f.plan&&f.plan.declared)? f.plan.div : (f.bsFmt? bsUnitDiv() : 1);
     const rnd2=v=>v==null?null:(f.ratio? +v.toFixed(2) : dv!==1? +(v/dv).toFixed(1) : Math.round(v));
     return [('\u00a0\u00a0\u00a0'.repeat(r.lvl))+r.name, ...f.mon.map(rnd2),
       rnd2(f.mVsFc), rnd2(f.mVsTgt), rnd2(f.mVsPM), rnd2(f.mVsPY),
@@ -8932,9 +9093,12 @@ async function fsumPptx(){
     hd('YTD',1),hd('vs Tgt',1),hd('vs PY',1),hd('Tgt %',1),hd('PY %',1),
     hd(`FY Fcst`,1),hd('vs PrF',1),hd('vs Tgt',1),hd('vs PY',1),
     hd('PrF %',1),hd('Tgt %',1),hd('PY %',1)];
-  const num=(v,bs,ratio)=>({text:v==null?'\u2013':(ratio? fsumRatioTxt(v) : bs? fmtBS(v):fmtFull(Math.round(v))),
-    options:{align:'right',color:INK}});
-  const fav=(k,v,bs,ratio)=>({text:v==null?'\u2013':(ratio? fsumRatioTxt(v) : bs? fmtBS(v):fmtFull(Math.round(v))),
+  const numTxt=(v,bs,ratio,plan)=>v==null? '\u2013'
+    : ratio? fsumRatioTxt(v)
+    : planRestates(plan)? fmtPlan(plan,v)
+    : bs? fmtBS(v) : fmtFull(Math.round(v));
+  const num=(v,bs,ratio,plan)=>({text:numTxt(v,bs,ratio,plan), options:{align:'right',color:INK}});
+  const fav=(k,v,bs,ratio,plan)=>({text:numTxt(v,bs,ratio,plan),
     options:{align:'right',color:v==null?GRY:(faOK(k,v)?GOOD:BAD)}});
   const favP=(k,v)=>({text:v==null?'\u2013':fsumPctTxt(v),
     options:{align:'right',color:v==null?GRY:(faOK(k,v)?GOOD:BAD)}});
@@ -8950,11 +9114,11 @@ async function fsumPptx(){
       const bold=!!(r.tot||r.sub);
       const nm={text:('  '.repeat(r.lvl))+r.name, options:{align:'left',bold,color:INK}};
       tblRows.push([nm,
-        ...f.mon.map(v=>num(v,f.bsFmt,f.ratio)),
-        fav(k,f.mVsFc,f.bsFmt,f.ratio),fav(k,f.mVsTgt,f.bsFmt,f.ratio),fav(k,f.mVsPM,f.bsFmt,f.ratio),fav(k,f.mVsPY,f.bsFmt,f.ratio),
-        num(f.qtd,f.bsFmt,f.ratio),fav(k,f.qVsTgt,f.bsFmt,f.ratio),fav(k,f.qVsPQ,f.bsFmt,f.ratio),fav(k,f.qVsPY,f.bsFmt,f.ratio),
-        num(f.ytd,f.bsFmt,f.ratio),fav(k,f.yVsTgt,f.bsFmt,f.ratio),fav(k,f.yVsPY,f.bsFmt,f.ratio),favP(k,f.yVsTgtP),favP(k,f.yVsPYP),
-        num(f.fy,f.bsFmt,f.ratio),fav(k,f.fVsPrF,f.bsFmt,f.ratio),fav(k,f.fVsTgt,f.bsFmt,f.ratio),fav(k,f.fVsPY,f.bsFmt,f.ratio),
+        ...f.mon.map(v=>num(v,f.bsFmt,f.ratio,f.plan)),
+        fav(k,f.mVsFc,f.bsFmt,f.ratio,f.plan),fav(k,f.mVsTgt,f.bsFmt,f.ratio,f.plan),fav(k,f.mVsPM,f.bsFmt,f.ratio,f.plan),fav(k,f.mVsPY,f.bsFmt,f.ratio,f.plan),
+        num(f.qtd,f.bsFmt,f.ratio,f.plan),fav(k,f.qVsTgt,f.bsFmt,f.ratio,f.plan),fav(k,f.qVsPQ,f.bsFmt,f.ratio,f.plan),fav(k,f.qVsPY,f.bsFmt,f.ratio,f.plan),
+        num(f.ytd,f.bsFmt,f.ratio,f.plan),fav(k,f.yVsTgt,f.bsFmt,f.ratio,f.plan),fav(k,f.yVsPY,f.bsFmt,f.ratio,f.plan),favP(k,f.yVsTgtP),favP(k,f.yVsPYP),
+        num(f.fy,f.bsFmt,f.ratio,f.plan),fav(k,f.fVsPrF,f.bsFmt,f.ratio,f.plan),fav(k,f.fVsTgt,f.bsFmt,f.ratio,f.plan),fav(k,f.fVsPY,f.bsFmt,f.ratio,f.plan),
         favP(k,f.fVsPrFP),favP(k,f.fVsTgtP),favP(k,f.fVsPYP)
       ].map(c=>{ if(bold&&c.options) c.options.bold=true; return c; }));
     }
@@ -9868,7 +10032,7 @@ function aKpi(rows){
 }
 function aCell(k,v){
   if(v==null) return fmtCell(v);
-  return (k&&k.isBS&&bsUnit())? `<span${v<0?' class="negnum"':''}>${fmtBS(v)}${bsUnit()}</span>` : fmtCell(v);
+  return `<span${v!=null&&v<0?' class="negnum"':''}>${fmtK(k,v)}</span>`;
 }
 function aPerf(){
   const m=S.model, rows=filteredRows(), L=cmpLabels(m);
@@ -11005,7 +11169,7 @@ function renderCustom(){
     const rows=widgetRows(w.l2);
     let k=kpi(rows,m,S.ytdM,S.includeFC);
     if(rows.length&&isBSRow(rows[0])) k=bsRecast(k);
-    const wu=w.type==='scorecard'? (bsUnit()? cfgUnit()+' / '+bsUnitLabel() : cfgUnit()) : (k.isBS&&bsUnit())? bsUnitLabel() : cfgUnit();
+    const wu=w.type==='scorecard'? (bsUnit()? cfgUnit()+' / '+bsUnitLabel() : cfgUnit()) : kpiUnitLabel(k);
     const rg=rag(k.favVarPct);
     const typeSel=w.type==='chart'?`<select class="wdim" aria-label="View by">${
       Object.keys(FIELD_LABELS).filter(k=>k in m.dimCols).map(k=>
@@ -11039,7 +11203,7 @@ function renderCustom(){
         : (w.ctype||'hbar')==='table'? miniMonthTable(k.cySeries)
         : miniHBar(k.cySeries);
       body=`<div class="row" style="display:flex;justify-content:space-between;align-items:center">
-          <div class="val${(k.cmpMain||0)<0?' negnum':''}">${(k.isBS&&bsUnit())? fmtBS(k.cmpMain) : fmt(k.cmpMain)}</div>
+          <div class="val${(k.cmpMain||0)<0?' negnum':''}">${fmtKu(k,k.cmpMain)}</div>
           ${hidew?'':ragPill(rgw)}</div>
         ${trsw.length? trsw.map(r=>kpiRowHtml(k,r)).join('')
           : `<div class="krow actonly"><span class="kl">${esc(Lw.main)} actuals</span></div>`}
@@ -11352,8 +11516,9 @@ function rollupRule(level, name){
   const d=rollupFind(level, name);
   // 1. arithmetic invariants — the sheet cannot vote these away
   if(isRatioLine(name)) return {rule:'never', basis:'ratio', why:'ratio — never additive', decl:d};
-  // 2. what the configuration declares
-  if(d) return {rule:d.rule, basis:d.basis, why:'declared on the Rollup sheet', decl:d};
+  // 2. what the configuration declares — a row with a blank Roll up column is
+  //    there for the unit or the grain, and does not speak for the arithmetic
+  if(d&&d.rule) return {rule:d.rule, basis:d.basis, why:'declared on the Rollup sheet', decl:d};
   // 3. the pattern settings the app already reads
   if(isBSLine(name)) return {rule:'sum', basis:'bs', why:'balance — summed within a closing column', decl:null};
   // 4. a calculated metric is a view of other rows
@@ -11388,7 +11553,7 @@ function rollupReconcile(m, opt){
   const rows=(opt&&opt.rows)||m.rows||[];
   const months=(m.ytdAsOfCols||[]).map(p=>p.ytdM).filter(x=>x!=null).sort((a,b)=>a-b);
   const monthList=months.length? months : [S.ytdM];
-  const out={tol, lines:[], decls:[], calc:[], grain:[], ytdSource:{}, mixedParents:[],
+  const out={tol, lines:[], decls:[], calc:[], grain:[], units:[], ytdSource:{}, mixedParents:[],
     ytdGap:[], grainMix:[]};
   // the P&L YTD column for the month in hand, used by the grain comparison
   const asOf0=(m.ytdAsOfCols||[]).find(p=>p.ytdM===S.ytdM);
@@ -11506,6 +11671,17 @@ function rollupReconcile(m, opt){
           note:'the file reports this line and the pack also computes it — check they agree'});
     }
   }
+  // the unit each declared line is stated in, and whether that restates the
+  // figure the file carries or only names it
+  for(const d of rollupList()){
+    if(!d.unit) continue;
+    const div=unitDivFor(d.unit);
+    const seen=(d.level in m.dimCols) && [...new Set(rows.map(r=>String(r.d[d.level]||'').trim().toLowerCase()))]
+      .some(nm=>rollupNames(d).includes(nm));
+    out.units.push({level:d.level, line:d.line, unit:unitLabelFor(d.unit), div, inFile:seen,
+      note:div===1? 'the unit the file already carries \u2014 the label, not the arithmetic'
+        : `figures divided by ${div.toLocaleString()} from ${unitNative().raw||'the file unit'}`});
+  }
   // grain declarations, stated so a reader can see what is available where
   for(const d of rollupList()){
     if(d.grain&&!d.grain.includes('all'))
@@ -11520,7 +11696,7 @@ function rollupSummary(rec){
   const exp=rec.lines.filter(x=>x.verdict==='asis-expected');
   const derived=Object.entries(rec.ytdSource).filter(([,k])=>k==='built from months').map(([ym])=>+ym);
   return {checked:rec.lines.length, bad, exp, derived, mixed:rec.mixedParents,
-    ytdGap:rec.ytdGap, grainMix:rec.grainMix,
+    ytdGap:rec.ytdGap, grainMix:rec.grainMix, units:rec.units||[],
     decls:rec.decls, calc:rec.calc, grain:rec.grain, tol:rec.tol};
 }
 function rollupAOA(){
@@ -11554,6 +11730,11 @@ function rollupAOA(){
   aoa.push([], ['Calculated metrics'], ['Metric','Applies to','Component','Level','Note']);
   for(const c of rec.calc) aoa.push([c.metric, c.applies, c.comp, c.level, c.note]);
   if(!rec.calc.length) aoa.push(['\u2014','none','','','']);
+  aoa.push([], ['Unit — what each line is reported in'],
+    ['Level','Line','Unit','Divide by','In this file?','Note']);
+  for(const x of (rec.units||[])) aoa.push([ALL_DIM_LABELS[x.level]||x.level, x.line, x.unit,
+    x.div, x.inFile? 'yes':'no', x.note]);
+  if(!(rec.units||[]).length) aoa.push(['—','none — every line follows the P&L / balance convention','','','','']);
   aoa.push([], ['Grain — where a line may be read'], ['Level','Line','Grain','Note']);
   for(const g of rec.grain) aoa.push([ALL_DIM_LABELS[g.level]||g.level, g.line, g.grain, g.note]);
   if(!rec.grain.length) aoa.push(['\u2014','none','','']);
@@ -11630,11 +11811,14 @@ function cfgFromWorkbook(wb){
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
   const low=x=>deMoji(String(x==null?'':x).trim()).trim();
   const tp=[], hb={}; let mz=false, cz=false, tz=false, chCols=null;
+  // the Rollup sheet's columns are read by their headings, so a column may be
+  // added or moved without breaking a pack already in circulation
+  let RUCOL={level:0, line:1, rule:2, basis:3, grain:4, match:5, note:6, unit:7};
   const handle=(section,rows)=>{
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
     for(const r of rows){
       if(!r||r.every(c=>c==null||c==='')) continue;
-      const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]), e2=low(r[4]), f2=low(r[5]), g2=low(r[6]);
+      const a=low(r[0]), b2=low(r[1]), c=low(r[2]), d=low(r[3]), e2=low(r[4]), f2=low(r[5]), g2=low(r[6]), h2=low(r[7]);
       const isCH=(sec==='countryhierarchy'||sec==='countrymap');
       if(a.startsWith('<')) continue;
       if(/^(key|order|view|dimension|id)$/i.test(a)&&!isCH) continue;
@@ -11679,28 +11863,55 @@ function cfgFromWorkbook(wb){
         if(a&&c) cfg.calcdefs.push({calc:a, biz:b2||'', line:c, sign:d||'+', level:e2||'', tile:f2||''});
       }
       else if(sec==='rollup'||sec==='rollups'){
-        // Level | Line | Roll up | Basis | Grain | Match | Notes
-        if(/^level$/i.test(String(a))) continue;
+        // Level | Line | Roll up | Basis | Unit | Grain | Match | Notes, in
+        // whatever order the sheet writes them
+        const cells=[a,b2,c,d,e2,f2,g2,h2];
+        if(/^level$/i.test(String(a))){
+          const seen={};
+          cells.forEach((hd,i)=>{ const k=String(hd||'').toLowerCase().replace(/[^a-z]/g,'');
+            if(/^(rollup|roll|rule)$/.test(k)) seen.rule=i;
+            else if(k==='level') seen.level=i;
+            else if(k==='line'||k==='kpi') seen.line=i;
+            else if(k==='basis'||k==='statement') seen.basis=i;
+            else if(/^(unit|units|reportin|reportedin|reportingunit|scale)$/.test(k)) seen.unit=i;
+            else if(k==='grain') seen.grain=i;
+            else if(k==='match') seen.match=i;
+            else if(k==='note'||k==='notes') seen.note=i; });
+          if(seen.line!=null) RUCOL={...RUCOL, ...seen};
+          continue;
+        }
+        const cell=i=>(i==null||i>=cells.length)? '' : (cells[i]||'');
         const lvl=(x=>{ const t=String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
           if(/l?1$/.test(t)||/level1/.test(t)) return 'micaL1';
           if(/l?2$/.test(t)||/level2/.test(t)) return 'micaL2';
           if(/l?3$/.test(t)||/level3/.test(t)) return 'micaL3';
           if(/l?4$/.test(t)||/level4/.test(t)) return 'micaL4';
-          return 'micaL2'; })(a);
-        const rule=(x=>{ const t=String(x||'').toLowerCase();
+          return 'micaL2'; })(cell(RUCOL.level));
+        // a blank Roll up column means this row is here to declare the unit or
+        // the grain, and says nothing about how the line aggregates
+        const ruleRaw=String(cell(RUCOL.rule)||'').trim();
+        const rule=!ruleRaw? '' : (x=>{ const t=x.toLowerCase();
           if(/^n(ever)?$|non.?add|ratio/.test(t)) return 'never';
           if(/memo|o\/w|of which/.test(t)) return 'memo';
           if(/as.?report|as.?is|reported/.test(t)) return 'asis';
-          return 'sum'; })(c);
+          return 'sum'; })(ruleRaw);
         const basis=(x=>{ const t=String(x||'').toLowerCase();
           if(/bal|bs|closing/.test(t)) return 'bs';
           if(/ratio|%|bps/.test(t)) return 'ratio';
-          return 'pl'; })(d);
-        const grain=String(e2||'').split(/[,;|]/).map(x=>x.trim().toLowerCase())
+          return 'pl'; })(cell(RUCOL.basis));
+        const unit=(x=>{ const t=String(x||'').toLowerCase().replace(/[^a-z0-9$%]/g,'');
+          if(!t) return '';
+          if(/^(m|mn|mm|mio|million|millions|us\$m|\$m|usdm)$/.test(t)) return 'm';
+          if(/^(bn|b|billion|billions|us\$bn|\$bn|usdbn)$/.test(t)) return 'bn';
+          if(/^(k|th|thousand|thousands|000s)$/.test(t)) return 'k';
+          if(/^(abs|absolute|asis|asreported|as|actual|actuals|native|none|reported)$/.test(t)) return 'as';
+          return ''; })(cell(RUCOL.unit));
+        const grain=String(cell(RUCOL.grain)||'').split(/[,;|]/).map(x=>x.trim().toLowerCase())
           .filter(Boolean).map(x=>/^all$/.test(x)? 'all' : x);
-        const match=String(f2||'').split('|').map(x=>x.trim()).filter(Boolean);
-        if(b2) cfg.rollup.push({level:lvl, line:b2, rule, basis,
-          grain:grain.length? grain : ['all'], match, note:g2||''});
+        const match=String(cell(RUCOL.match)||'').split('|').map(x=>x.trim()).filter(Boolean);
+        const line=String(cell(RUCOL.line)||'').trim();
+        if(line) cfg.rollup.push({level:lvl, line, rule, basis, unit,
+          grain:grain.length? grain : ['all'], match, note:cell(RUCOL.note)||''});
       }
       else if(sec==='scenarios'||sec==='simulations'){
         // Simulation | Dim | Value | Dim2 | Value2 | Statement | Type | Change | From | To
@@ -12175,6 +12386,9 @@ function ingestArrayBuffer(buf, name, fromCache){
         if(s3.decls.length) bits.push(`<b>${s3.decls.length} declaration(s) match no line here</b> \u2014 ${
           esc(s3.decls.slice(0,3).map(d=>d.line).join(', '))}`);
         if(s3.mixed.length) bits.push(`${s3.mixed.length} parent(s) carry children of both statements \u2014 the other statement is left out of the footing`);
+        if(s3.units&&s3.units.length){ const rst=s3.units.filter(x=>x.div!==1);
+          bits.push(`${s3.units.length} line(s) declare their reporting unit${rst.length?
+            ` \u2014 ${rst.length} restate${rst.length>1?'':'s'} the figure (${esc(rst.slice(0,3).map(x=>x.line+' in '+x.unit).join(', '))})` : ''}`); }
         if(s3.calc.length) bits.push(`${s3.calc.length} note(s) on calculated metrics`);
         return `<tr><td>Roll-up</td><td>${bits.join('<br>')}<br>
           <button class="linklike" id="btnRollupXl">\u2913 Roll-up reconciliation (Excel)</button></td></tr>`;
@@ -12193,7 +12407,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 16:49</td></tr>
+      <tr><td>Build</td><td>2026-08-17 17:41</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
@@ -12599,7 +12813,7 @@ function init(){
             {text:'('+x.unit+')', options:{fontSize:PPT_FS.cell,color:'79776F'}},
           ],{x:bx+pad,y:by,w:hNameW,h:headH,fontFace:'Segoe UI',valign:'middle',fit:'shrink',
              wrap:true, inset:0, margin:0, line:{color:'FFFFFF',transparency:100,width:0.25}});
-          ts.addText((x.k.isBS&&bsUnit())? fmtBS(x.k.cmpMain) : fmt(x.k.cmpMain),
+          ts.addText(fmtKu(x.k,x.k.cmpMain),
             {x:bx+bw-pad-hValW,y:by,w:hValW,h:headH,fontSize:PPT_FS.tileVal,bold:true,align:'right',valign:'middle',
              color:(x.k.cmpMain||0)<0?'D03B3B':'0B0B0B',fontFace:'Segoe UI',fit:'shrink',
              inset:0, margin:0, line:{color:'FFFFFF',transparency:100,width:0.25}});

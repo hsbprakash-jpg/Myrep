@@ -1536,7 +1536,9 @@ What each section governs:
   built-in list wholesale.
 - **Rollup** — which lines foot to their children and which are taken as
   the file reports them, declared at MICA Level 1 and 2 (Level 3/4 accepted
-  too). Columns: `Level | Line | Roll up | Basis | Grain | Match | Notes`.
+  too). Columns: `Level | Line | Roll up | Basis | Unit | Grain | Match |
+  Notes`, **read by their headings**, so a column may be moved or a new one
+  added without breaking a pack already in circulation.
   `Roll up` is `Sum` (the parent equals its components), `As reported` (the
   row is authoritative and its children are information — a fee metric
   reported at country, region, global *and* group belongs here), `Never`
@@ -1550,6 +1552,30 @@ What each section governs:
   the **Definitions** tab builds from other rows (Banking NII, for
   instance) is a view of those rows, so it is a `Memo` — it is shown on its
   tile and never added beside its own components.
+
+  **`Unit` — what the line is reported in.** `US$m` (also `mn`, `millions`),
+  `US$bn` (`bn`, `billions`), `US$k` (`000s`, `thousands`) or `As reported`
+  (`abs`, `as is` — the unit the file itself carries), declared per line at
+  MICA Level 1 and 2. This is the pack's policy, not the reader's preference:
+  a declared unit governs that line wherever it is printed, exactly as
+  `bs_unit` governs a balance, and the unit picker at the top of the page
+  does not override it. Two rules keep it honest. **It restates the unit,
+  never the figure** — a P&L line is still the actuals YTD column for the
+  month in hand, a balance still its closing month, taken exactly as the
+  roll-up rules above describe. And **a declaration only changes what it has
+  to**: naming the unit the file already carries (`US$m` on a file stated in
+  US$m) sets the label and leaves every figure formatted as before, while
+  `As reported` on a balance is what takes that line back out of billions.
+  A row may carry a `Unit` with the `Roll up` column left blank — it then
+  declares the unit and says nothing about how the line aggregates.
+
+  This governs the KPI tiles and the KPI summary (including the scorecard and
+  dashboard widgets), **Business performance** — each column is cast and
+  headed in its own line's unit — and the **Financial Summary** on screen, in
+  its Excel export, in its PowerPoint table and in the words it writes, with
+  each block headed in the unit its lines are declared in. The simulation
+  pages, the drag & drop charts and the mix analysis still follow the
+  P&L / balance convention (`unit_label` and `bs_unit`).
 
   Two things the sheet cannot vote away. A ratio is never additive, whatever
   it is declared as. And **a sum is taken on the file's own actuals YTD
@@ -1572,7 +1598,9 @@ What each section governs:
   children, month by month; parents whose children span both statements;
   declarations that match nothing in this file (a typo, not a policy);
   notes on calculated metrics, including a component the file does not
-  carry, which contributes zero rather than a gap; and the grain
+  carry, which contributes zero rather than a gap; the unit each line is
+  declared in with what it divides by, so a declaration that restates a
+  figure is distinguishable from one that only names it; and the grain
   declarations themselves. `rollup_tolerance` (default `0.5`, in the file's
   own units) sets how close a footing must be to count as tied. With no
   `Rollup` sheet the report says so and every line aggregates exactly as it
