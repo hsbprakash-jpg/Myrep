@@ -281,8 +281,16 @@ left-pane strip and the Filters pane.
   `tile_hidden` (a `;`- or `,`-separated list of tile names) to have a build
   open with those tiles parked out of the box; the reader's own first hide or
   restore takes over from then on. The plain-language form is the **Tiles**
-  tab of the configuration workbook: one row per tile, `Y` to show, `N` to
-  hide (a tab of only-`Y` rows shows just those), and `+` to **add** a line
+  tab of the configuration workbook, which puts each tile in one of **three
+  states**:
+
+  | `Show` cell | What happens |
+  |---|---|
+  | `Y` (also `Yes`, `Show`, or blank) | the tile is on the grid |
+  | `N` (also `No`, `Hide`, `Park`) | **parked** — off the grid, but the page offers *"N hidden tiles — show"* and the reader can bring it back |
+  | `X` (also `Never`, `Off`, `Exclude`, `Remove`, `None`) | **not on the page at all** — off the grid, out of the parked list, out of the left-rail KPI list, out of the PowerPoint deck and out of the Business performance columns, and no reader setting can bring it back |
+
+  A tab of only-`Y` rows shows just those. `+` **adds** a line
   the default grid does not carry — resolved from the `Metrics` sheet or any
   MICA level, so `Banking NII | +` puts Banking NII on the grid, always
   visible, without touching the rest. An optional **Nets with** column names

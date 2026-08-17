@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:03)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:10)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:03)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:10)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 19:03</div>
+<div id="buildTag">build 2026-08-17 19:10</div>
 </aside>
 <main>
 
@@ -3415,18 +3415,39 @@ function tileShowExSet(a){ try{ localStorage.setItem('iwpbsg_tileshow',JSON.stri
    show-list exists and does not \u2014 with the reader's own restore
    overriding either, so the configuration decides the default and the
    reader keeps the last word on their own screen. */
+/* The three states a Tiles row can put a tile in:
+     show   \u2014 it appears on the grid
+     park   \u2014 it is hidden, and the reader can bring it back
+     never  \u2014 it is not on the page at all, and cannot be brought back    */
+function tileShowState(v){
+  const t=String(v==null?'':v).trim().toLowerCase();
+  if(!t) return 'show';
+  if(/^(x|never|off|exclude|remove|drop|none|not)/.test(t)) return 'never';
+  if(/^(n|no|hide|park)/.test(t)) return 'park';
+  return 'show';                      // Y, Yes, Show, "+" rows that add a tile
+}
+function tileStateOf(name){
+  const n=String(name||'').trim().toLowerCase();
+  const hit=((CFG&&CFG.tiles)||[]).find(t2=>tileNameMatch(t2.name,n));
+  return hit? tileShowState(hit.show) : null;
+}
+/* a tile the configuration says is not to be shown at all: it never reaches
+   the grid, the parked list, the rail, the slides or the columns of Business
+   performance, and no reader setting can bring it back */
+function tileDropped(name){ return tileStateOf(name)==='never'; }
 function tileHidden(name){
   const n=String(name).trim().toLowerCase();
+  if(tileDropped(n)) return true;
   if(tileShowExGet().some(x=>String(x).trim().toLowerCase()===n)) return false;
   // the Tiles tab is the plain-language rule and speaks first: a named row
   // decides its tile, and a tab of only-Y rows shows just those
   const tl=(CFG&&CFG.tiles)||[];
   if(tl.length){
     const hit=tl.find(t2=>tileNameMatch(t2.name,n));
-    if(hit) return String(hit.show).trim().toUpperCase().startsWith('N');
+    if(hit) return tileShowState(hit.show)!=='show';
     // "+" rows add tiles; only plain Y rows turn the tab into a show-list
     const dec=tl.filter(t2=>!/^\s*(\+|add\b)/i.test(String(t2.show||'')));
-    if(dec.length&&!dec.some(t2=>String(t2.show).trim().toUpperCase().startsWith('N'))) return true;
+    if(dec.length&&!dec.some(t2=>tileShowState(t2.show)!=='show')) return true;
   }
   if(tileHideGet().some(x=>tileNameMatch(x,n))) return true;
   const vis=cfgNameList('tile_visible');
@@ -3951,7 +3972,11 @@ function tileBuildCards(rows){
       scope:f.scope||(f.key?'d:'+f.key+':'+f.name:undefined), k:kpiNamed(k,f.name)});
   }
   cards=tileNetApply(tileDedupe(cards), rows, m);
-  return {cards, missingLines, named, tileL1, byL1g, TD, scPfx, fixedOrder};
+  // a tile the configuration keeps off the page leaves here, before anything
+  // downstream can park it, list it or count it
+  const dropped=cards.filter(c=>tileDropped(c.l2)).map(c=>c.l2);
+  if(dropped.length) cards=cards.filter(c=>!tileDropped(c.l2));
+  return {cards, missingLines, named, tileL1, byL1g, TD, scPfx, fixedOrder, dropped};
 }
 /* the headline exactly as the tile prints it: closing for a balance,
    otherwise the year to date through the last actual month */
@@ -12175,12 +12200,15 @@ function cfgFromWorkbook(wb){
         else if(a) cfg.comFree.push(a);
       }
       else if(sec==='tiles'||sec==='tilecontrol'){
-        // Tile | Show — the plain-language form of tile control: N parks the
-        // tile, Y shows it, and a tab of only-Y rows shows just those
+        // Tile | Show — the plain-language form of tile control, in three
+        // states: Y shows the tile, N parks it where the reader can bring it
+        // back, and X (or Never) keeps it off the page altogether. A tab of
+        // only-Y rows shows just those.
         if(/^tiles?$/i.test(String(a))) continue;
         // the tab's own note is prose, not a line: a sentence never parks a tile
         if(String(a).length>60||/[.:]\s/.test(String(a))) continue;
-        if(b2&&!/^([YN]|\+|add\b)/i.test(String(b2).trim())) continue;
+        if(b2&&!/^([YNX]|\+|add\b|yes|no|show|hide|park|never|off|exclude|remove|drop|none)/i
+             .test(String(b2).trim())) continue;
         if(a) cfg.tiles.push({name:a, show:(b2||'Y'), net:(c||'')});
       }
       else if(sec==='commentarytemplates'||sec==='commentarystyles'){
@@ -12754,7 +12782,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 19:03</td></tr>
+      <tr><td>Build</td><td>2026-08-17 19:10</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
