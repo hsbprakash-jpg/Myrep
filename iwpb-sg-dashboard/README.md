@@ -1553,10 +1553,21 @@ What each section governs:
   instance) is a view of those rows, so it is a `Memo` — it is shown on its
   tile and never added beside its own components.
 
-  **`Unit` — what the line is reported in.** `US$m` (also `mn`, `millions`),
-  `US$bn` (`bn`, `billions`), `US$k` (`000s`, `thousands`) or `As reported`
-  (`abs`, `as is` — the unit the file itself carries), declared per line at
-  MICA Level 1 and 2. This is the pack's policy, not the reader's preference:
+  **`Unit` — what the line is reported in.** A unit is two things and one cell
+  states both: the **scale** (millions, billions, thousands) and the **kind**
+  of thing being counted. **The currency symbol is what separates them** —
+  `$mn` is money in millions, `mn` on its own is a number in millions, and the
+  two are never added together however alike their scales look.
+
+  | Written as | Kind | Reads as |
+  |---|---|---|
+  | `$mn`, `US$m`, `$bn`, `US$k` | money | US$m, US$bn, US$k |
+  | `mn`, `bn`, `000s` (no currency) | number | m, bn, k |
+  | `Absolute`, `Number`, `Count`, `FTE`, `Nos` | number | a plain number |
+  | `%`, `pct`, `bps`, `ratio` | ratio | a ratio — never additive |
+  | `$ as is`, `as reported` | money | the unit the file itself carries |
+
+  Declared per line at MICA Level 1 and 2. This is the pack's policy, not the reader's preference:
   a declared unit governs that line wherever it is printed, exactly as
   `bs_unit` governs a balance, and the unit picker at the top of the page
   does not override it. Two rules keep it honest. **It restates the unit,
@@ -1576,6 +1587,30 @@ What each section governs:
   each block headed in the unit its lines are declared in. The simulation
   pages, the drag & drop charts and the mix analysis still follow the
   P&L / balance convention (`unit_label` and `bs_unit`).
+
+  **The extract may state its own units.** Where the TM1 extract carries a
+  `Unit` column beside the hierarchy (also `Units`, `UOM`, `Reported in`,
+  `Scale`) — one value per line, exactly as a reporting pack writes it — the
+  app reads it and resolves each line's unit from it. It is not offered as a
+  dimension to slice by; it is what the figures beside it mean. Precedence:
+  **the pack's declaration first** (that is policy, and it is how a typo or an
+  inconsistency in the extract gets overruled), **then the file's own column**,
+  **then the P&L / balance convention.** A line whose rows disagree on their
+  unit is taken from neither, a token the app cannot read (`$mb`) is named in
+  the ingest report rather than guessed at, and the report lists the money,
+  number and ratio units it found.
+
+  **Nothing is totalled across kinds.** Money, a count and a ratio share a
+  column in the extract and mean three different things, so a scope carrying
+  more than one kind draws no total — on the tiles, in the drill-down, in the
+  Financial Summary and in every export — and the page names the kinds it
+  found. A parent line over mixed kinds shows no figure at all, **including
+  the percentages worked out from it**, which would be the same false sum
+  wearing a percent sign. Two more that look additive and are not: counts of
+  different things (staff and customers), and a ratio over more than one row —
+  an average of ratios is not the ratio of the whole. Scales are different:
+  money in millions and money in billions are one kind, held in the file's own
+  unit and divided only when printed, so they still add.
 
   Two things the sheet cannot vote away. A ratio is never additive, whatever
   it is declared as. And **a sum is taken on the file's own actuals YTD
@@ -1633,6 +1668,12 @@ matched to their lines when read.
 `sample/IWPB_SG_Jun26_SixBasis_Commentary.docx` is what the ⤓ Word download
 produces from that TM1 extract and pack together — a worked example of the six
 bases as a document.
+
+`sample/IWPB_UnitColumn_Driller.xlsx` is a reporting extract that states each
+line's unit in a `Unit` column — `$mn`, `$Bn`, `mn`, `Absolute`, `%` — with a
+`Key Metrics` block that mixes all of them, and one deliberate typo (`$mb`).
+Load it to see each line printed in its own unit, the typo named in the ingest
+report, and the mixed parent refusing to draw a total.
 
 `sample/IWPB_GrainMix_Driller.xlsx` is the extract to load when checking the
 **Rollup** declarations: it carries a `Global` tab reporting the same MICA

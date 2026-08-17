@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 18:07)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 18:19)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 18:07)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 18:19)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 18:07</div>
+<div id="buildTag">build 2026-08-17 18:19</div>
 </aside>
 <main>
 
@@ -1484,6 +1484,7 @@ const CFG_DEFAULT={
     sim_value_width:'50',
     summary_lede:'N',
     rollup_tolerance:'0.5',
+    ratio_display:'as reported',
     tile_height:'150', tile_min_width:'252',
     month_case:'upper',
     unit_label:'US$m',
@@ -1863,18 +1864,35 @@ function unitDeclFor(name, level){
   }
   return null;
 }
-/* What a file's own unit cell says. Packs write these many ways \u2014 $Bn, bn,
-   US$mn, Absolute \u2014 and a typo is reported rather than guessed at. */
+/* What a file's own unit cell says. A unit is two things, and a pack states
+   both in one cell: the scale (millions, billions) and the KIND of thing being
+   counted. The currency symbol is what separates them \u2014 "$mn" is money in
+   millions, "mn" on its own is a number in millions, and the two are never
+   added together however close their scales look.
+
+   Tokens: 'm' | 'bn' | 'k' | 'as' are money; the same prefixed with '#' are
+   plain numbers; '%' is a ratio. A cell the app cannot read is reported rather
+   than guessed at. */
+const UNIT_MONEY=/^(us\$|usd|\$|gbp|eur|hkd|£|€)/;
 function unitFromText(t){
   const raw=String(t==null?'':t).trim();
   if(!raw) return '';
-  const x=raw.toLowerCase().replace(/[^a-z0-9%]/g,'');
-  if(/^(us)?\$?(bn|b|billions?)$/.test(x)) return 'bn';
-  if(/^(us)?\$?(mn|m|mm|mio|millions?)$/.test(x)) return 'm';
-  if(/^(us)?\$?(k|th|000s|thousands?)$/.test(x)) return 'k';
-  if(/^(absolute|abs|asis|asreported|actuals?|native|units?|number|count|nos?|headcount|fte|%|pct|percent|ratio|bps)$/.test(x)) return 'as';
+  const low=raw.toLowerCase().replace(/\s+/g,'');
+  const money=UNIT_MONEY.test(low);
+  const x=low.replace(/[^a-z0-9%]/g,'').replace(/^(us|usd|gbp|eur|hkd)/,'');
+  const scale=/^(bn|b|billions?)$/.test(x)? 'bn'
+    : /^(mn|m|mm|mio|millions?)$/.test(x)? 'm'
+    : /^(k|th|000s|thousands?)$/.test(x)? 'k' : null;
+  if(scale) return (money? '' : '#')+scale;
+  if(/^(%|pct|percent|percentage|ratio|bps)$/.test(x)) return '%';
+  if(/^(absolute|abs|asis|asreported|actuals?|native|units?|number|numbers|count|nos?|headcount|fte|volume)$/.test(x))
+    return money? 'as' : '#as';
   return '';
 }
+/* the three questions asked of a unit */
+function unitKind(u){ return u==='%'? 'ratio' : (String(u||'')[0]==='#'? 'number' : 'money'); }
+function unitScale(u){ const x=String(u||'').replace(/^#/,''); return x==='%'? 'as' : (x||'as'); }
+function unitIsRatio(u){ return u==='%'; }
 /* the unit the file states for a line, where its rows agree on one */
 function unitFromFile(level, name){
   const m=S.model; if(!m||!m.lineUnits) return '';
@@ -1906,9 +1924,21 @@ function buildLineUnits(m){
   return {lineUnits:out, unitUnread:unread, unitClash:clash};
 }
 function unitDivFor(u){
-  if(!u||u==='as') return 1;
-  const e=UNIT_EXP[u]; if(e==null) return 1;
+  // a number or a ratio is already in the unit it is stated in: only money is
+  // restated against the file's own currency scale
+  if(!u||unitKind(u)!=='money') return 1;
+  const sc=unitScale(u);
+  if(sc==='as') return 1;
+  const e=UNIT_EXP[sc]; if(e==null) return 1;
   return Math.pow(10, e-unitNative().exp);
+}
+/* what a figure in this unit is called: money carries the currency, a number
+   carries only its scale, a ratio carries neither */
+function unitTokLabel(u){
+  const k=unitKind(u), sc=unitScale(u);
+  if(k==='ratio') return '%';
+  if(k==='number') return sc==='as'? 'number' : sc;
+  return unitLabelFor(sc);
 }
 /* one answer for a figure: which unit, what to divide by, what to call it */
 function unitPlanOf(decl, isBS){
@@ -1921,16 +1951,20 @@ function unitPlanOf(decl, isBS){
        why:'the selected unit'};
   if(decl&&decl.unit){
     const div=unitDivFor(decl.unit);
-    return {u:decl.unit, div, label:unitLabelFor(decl.unit), suffix:decl.unit==='as'?'':decl.unit,
+    const kind=unitKind(decl.unit), sc=unitScale(decl.unit);
+    return {u:decl.unit, div, kind, scale:sc, label:unitTokLabel(decl.unit),
+      suffix:(kind==='ratio')? '' : (kind==='number')? (sc==='as'?'':sc) : (sc==='as'?'':sc),
       dec:div>1?1:0, declared:true,
-      // a declaration only restates the figure where it differs from the
+      // A declaration restates the figure where it differs from the
       // convention: declaring the unit the file already carries changes the
       // label and nothing else, and declaring 'as reported' on a balance is
-      // what takes it back out of billions
-      restates:div!==base.div,
+      // what takes it back out of billions. A number or a ratio always takes
+      // over, or the reader's money picker would divide a headcount by a
+      // thousand.
+      restates:(kind!=='money')? true : div!==base.div,
       why:`declared on the Rollup sheet (${decl.line} \u00b7 ${decl.unit})`};
   }
-  return {...base, declared:false, restates:false};
+  return {...base, kind:'money', scale:unitScale(base.u), declared:false, restates:false};
 }
 /* true only when the declaration actually restates the figure; a line declared
    in the unit the file already carries reads exactly as it did before */
@@ -1953,7 +1987,14 @@ function kpiNamed(k, name){ if(k&&name&&!k.lineName) k.lineName=String(name); re
 function unitPlanName(name, isBS){ return unitPlanOf(unitDeclFor(name), !!isBS); }
 /* a figure printed on its own plan: divided once, never twice */
 function fmtPlan(plan, v){
+  if(plan&&plan.mixed) return '\u2013';     // a sum across units is not a figure
   if(v==null) return '\u2013';
+  // a ratio is a ratio: shown as the file states it, or as a percentage where
+  // the pack says its ratios are fractions of one
+  if(plan.kind==='ratio'){
+    const pct=/^(pct|percent|%)$/i.test(cfgS('ratio_display').trim());
+    return pct? ((v*100).toFixed(1)+'%') : fsumRatioTxt(v);
+  }
   const x=plan.div===1? v : v/plan.div;
   let d=plan.dec;
   if(d===0&&Math.abs(x)<50&&Math.abs(x%1)>=0.05) d=1;
@@ -1971,7 +2012,7 @@ function bsScope(rows){
 function scopeUnit(rows){
   // a scope that is one declared line is stated in that line's own unit
   const d=scopeDecl(rows);
-  if(d) return unitLabelFor(d.unit);
+  if(d) return unitTokLabel(d.unit);
   return bsScope(rows)? bsUnitLabel() : cfgUnit();
 }
 /* the declaration covering every row in a scope, if one line covers them all */
@@ -4016,7 +4057,11 @@ function renderSummary(){
     // year, and where it does, its own figure stands under the headline
     const kY=(!k.isBS&&opt&&opt.rows)? tileYtdK(k,opt.rows,m) : k;
     const hv=k.isBS? k.cmpMain : (kY.cy!=null? kY.cy : k.cmpMain);
-    const tu=kpiUnitLabel(k);
+    // A parent whose lines are stated in different units has no figure of its
+    // own: a headcount and a money line added together read as money and are
+    // not. The tile says what it is made of instead.
+    const mixU=!!(opt&&opt.rows)&&mixedUnits(opt.rows);
+    const tu=mixU? 'mixed units' : kpiUnitLabel(k);
     const hLbl=MON_LBL[tileYtdM()]+(k.isBS? ' closing' : ' YTD');
     const netOf=(opt&&opt.netOf)||[];
     const netSub=netOf.length
@@ -4028,10 +4073,11 @@ function renderSummary(){
     <button class="card${(opt&&opt.parked)?' parked':''}" ${l2attr} title="View this line in the trajectory and commentary">
       ${(opt&&opt.ctl)||''}
       <div class="thead"><span class="tname" title="${esc((l=>l? name+' \u2014 '+l : name)(metricLineageTxt(name)))}">${esc(name)}</span>
-        <span class="tval${(hv||0)<0?' negnum':''}"><span class="tvlbl">${esc(hLbl)} · ${esc(tu)}</span>${
-          fmtKu(k,hv)}</span></div>
+        <span class="tval${(!mixU&&(hv||0)<0)?' negnum':''}"><span class="tvlbl">${esc(hLbl)} · ${esc(tu)}</span>${
+          mixU? '–' : fmtKu(k,hv)}</span></div>
       ${netSub}
-      ${trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
+      ${mixU? `<div class="krow actonly"><span class="kl">no total — ${esc(unitsNote(opt.rows))} are never added together</span></div>`
+        : trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
         :`<div class="krow actonly"><span class="kl">${esc(L.main)} actuals</span></div>`}
       <div class="vd">View detail →</div>
     </button>`;
@@ -8404,17 +8450,31 @@ function fsumFigs(rows, m, P, ytdM, name){
     : (m.pyMonths.length? (bs? sumCols(rows,[m.pyMonths[m.pyMonths.length-1].col])
                              : sumCols(rows,m.pyMonths.map(p=>p.col))) : null);
   const mFc=bs? k.fyFc : k.mthFc;
-  return {k, bs, ratio, bsFmt,
+  return fsumMixGate({k, bs, ratio, bsFmt,
     // the unit this line is stated in: its own declaration where the pack
     // makes one, else the P&L / balance convention
-    plan:unitPlanOf(ratio? null : (unitDeclFor(name||'')||unitDeclLevels(lvlOf(rows))), bsFmt),
+    plan:mixedUnits(rows)? {mixed:true, declared:true, restates:true, div:1, dec:0,
+        label:unitsNote(rows), suffix:'', kind:'mixed', why:'lines stated in different units'}
+      : unitPlanOf(ratio? null : (unitDeclFor(name||'')||unitDeclLevels(lvlOf(rows))), bsFmt),
     mon:P.monCols.map(p=>sumCols(rows,[p.col])),
     mVsFc:d(k.mth,mFc), mVsTgt:d(k.mth,mTgt), mVsPM:d(k.mth,k.mthPrev), mVsPY:d(k.mth,k.mthPy),
     qtd:qtdB, qVsTgt:d(qtdB,qTgt), qVsPQ:d(qtdB,pqB), qVsPY:d(qtdB,pyQ),
     ytd, yVsTgt:d(ytd,yTgt), yVsPY:d(ytd,yPY),
     yVsTgtP:pc(d(ytd,yTgt),yTgt), yVsPYP:pc(d(ytd,yPY),yPY),
     fy, fVsPrF:d(fy,fyPrFc), fVsTgt:d(fy,k.target), fVsPY:d(fy,fyPY),
-    fVsPrFP:pc(d(fy,fyPrFc),fyPrFc), fVsTgtP:pc(d(fy,k.target),k.target), fVsPYP:pc(d(fy,fyPY),fyPY)};
+    fVsPrFP:pc(d(fy,fyPrFc),fyPrFc), fVsTgtP:pc(d(fy,k.target),k.target), fVsPYP:pc(d(fy,fyPY),fyPY)});
+}
+/* A row over lines stated in different units has no figures at all — not the
+   amounts, and not the percentages worked out from them, which would be the
+   same false sum wearing a percent sign. */
+function fsumMixGate(f){
+  if(!f.plan||!f.plan.mixed) return f;
+  for(const key of Object.keys(f)){
+    if(key==='k'||key==='plan') continue;
+    if(Array.isArray(f[key])) f[key]=f[key].map(()=>null);
+    else if(typeof f[key]==='number') f[key]=null;
+  }
+  return f;
 }
 /* the row cascade: children of each top level, then the level as a subtotal,
    in the same materiality order the KPI tiles use */
@@ -8652,9 +8712,27 @@ function scopeUnits(rows){
   }
   return out;
 }
-function mixedUnits(rows){ return scopeUnits(rows).size>1; }
+/* What may be added is decided by kind, not by scale. Money in millions and
+   money in billions are the same thing at two scales: the figures are held in
+   the file's own unit and only divided when printed, so they add. Money, a
+   count and a ratio are three different things and never do.
+
+   Two more that look additive and are not: counts of different things (staff
+   and customers), and a ratio over more than one row — an average of ratios is
+   not the ratio of the whole, which has to be recomputed from its components. */
+function mixedUnits(rows){
+  if(!rows||!rows.length||!unitsInPlay()) return false;
+  const toks=scopeUnits(rows);
+  const kinds=new Set([...toks].map(x=>x==='\u2014'? 'money' : unitKind(x)));
+  if(kinds.size>1) return true;
+  const only=[...kinds][0];
+  if(only==='ratio') return rows.length>1;
+  if(only==='number')
+    return new Set(rows.map(r=>String(r.d.micaL3||r.d.micaL2||r.d.micaL1||'').trim())).size>1;
+  return false;
+}
 function unitsNote(rows){
-  const u=[...scopeUnits(rows)].map(x=>x==='\u2014'? 'the file\u2019s own unit' : unitLabelFor(x));
+  const u=[...scopeUnits(rows)].map(x=>x==='\u2014'? 'the file\u2019s own unit' : unitTokLabel(x));
   return u.join(', ');
 }
 function mixedScope(rows){
@@ -8690,7 +8768,7 @@ function fsumSections(rows){
         if(d2&&d2.unit) dus.add(d2.unit);
       }
     }
-    if(dus.size===1) return unitLabelFor([...dus][0]);
+    if(dus.size===1) return unitTokLabel([...dus][0]);
     return (names.length&&names.every(isBSLine))? bsUnitLabel() : u; };
   const defs=fsumSectionDefs();
   const noTot=fsumNoTotal();
@@ -11612,6 +11690,9 @@ function rollupRule(level, name){
   const d=rollupFind(level, name);
   // 1. arithmetic invariants — the sheet cannot vote these away
   if(isRatioLine(name)) return {rule:'never', basis:'ratio', why:'ratio — never additive', decl:d};
+  if(d&&unitIsRatio(d.unit)) return {rule:'never', basis:'ratio', why:'stated as a ratio — never additive', decl:d};
+  { const fu=unitFromFile('micaL1',name)||unitFromFile('micaL2',name)||unitFromFile('micaL3',name);
+    if(unitIsRatio(fu)) return {rule:'never', basis:'ratio', why:'the file states this line as a ratio', decl:d}; }
   // 2. what the configuration declares — a row with a blank Roll up column is
   //    there for the unit or the grain, and does not speak for the arithmetic
   if(d&&d.rule) return {rule:d.rule, basis:d.basis, why:'declared on the Rollup sheet', decl:d};
@@ -11774,7 +11855,7 @@ function rollupReconcile(m, opt){
     const div=unitDivFor(d.unit);
     const seen=(d.level in m.dimCols) && [...new Set(rows.map(r=>String(r.d[d.level]||'').trim().toLowerCase()))]
       .some(nm=>rollupNames(d).includes(nm));
-    out.units.push({level:d.level, line:d.line, unit:unitLabelFor(d.unit), div, inFile:seen,
+    out.units.push({level:d.level, line:d.line, unit:unitTokLabel(d.unit), kind:unitKind(d.unit), div, inFile:seen,
       note:div===1? 'the unit the file already carries \u2014 the label, not the arithmetic'
         : `figures divided by ${div.toLocaleString()} from ${unitNative().raw||'the file unit'}`});
   }
@@ -11827,10 +11908,10 @@ function rollupAOA(){
   for(const c of rec.calc) aoa.push([c.metric, c.applies, c.comp, c.level, c.note]);
   if(!rec.calc.length) aoa.push(['\u2014','none','','','']);
   aoa.push([], ['Unit — what each line is reported in'],
-    ['Level','Line','Unit','Divide by','In this file?','Note']);
+    ['Level','Line','Unit','Kind','Divide by','In this file?','Note']);
   for(const x of (rec.units||[])) aoa.push([ALL_DIM_LABELS[x.level]||x.level, x.line, x.unit,
-    x.div, x.inFile? 'yes':'no', x.note]);
-  if(!(rec.units||[]).length) aoa.push(['—','none — every line follows the P&L / balance convention','','','','']);
+    x.kind, x.div, x.inFile? 'yes':'no', x.note]);
+  if(!(rec.units||[]).length) aoa.push(['—','none — every line follows the P&L / balance convention','','','','','']);
   aoa.push([], ['Grain — where a line may be read'], ['Level','Line','Grain','Note']);
   for(const g of rec.grain) aoa.push([ALL_DIM_LABELS[g.level]||g.level, g.line, g.grain, g.note]);
   if(!rec.grain.length) aoa.push(['\u2014','none','','']);
@@ -11995,13 +12076,9 @@ function cfgFromWorkbook(wb){
           if(/bal|bs|closing/.test(t)) return 'bs';
           if(/ratio|%|bps/.test(t)) return 'ratio';
           return 'pl'; })(cell(RUCOL.basis));
-        const unit=(x=>{ const t=String(x||'').toLowerCase().replace(/[^a-z0-9$%]/g,'');
-          if(!t) return '';
-          if(/^(m|mn|mm|mio|million|millions|us\$m|\$m|usdm)$/.test(t)) return 'm';
-          if(/^(bn|b|billion|billions|us\$bn|\$bn|usdbn)$/.test(t)) return 'bn';
-          if(/^(k|th|thousand|thousands|000s)$/.test(t)) return 'k';
-          if(/^(abs|absolute|asis|asreported|as|actual|actuals|native|none|reported)$/.test(t)) return 'as';
-          return ''; })(cell(RUCOL.unit));
+        // the same reading as the extract's own Unit column: "$mn" is money,
+        // "mn" is a number, "%" is a ratio
+        const unit=unitFromText(cell(RUCOL.unit));
         const grain=String(cell(RUCOL.grain)||'').split(/[,;|]/).map(x=>x.trim().toLowerCase())
           .filter(Boolean).map(x=>/^all$/.test(x)? 'all' : x);
         const match=String(cell(RUCOL.match)||'').split('|').map(x=>x.trim()).filter(Boolean);
@@ -12467,6 +12544,20 @@ function ingestArrayBuffer(buf, name, fromCache){
         for(const r of hc.resid) bits.push(`<b>${esc(r.line)}</b> keeps ${r.rows} row(s) of its own while it also has children, so its children do not add to it (${esc(r.path)})`);
         return `<tr><td>Hierarchy check</td><td>${bits.length? bits.join('<br>') : '\u2713 every row lands on a line, and every parent equals its children'}</td></tr>`;
       })()}
+      ${(()=>{ if(!(model.unitCol>=0)) return '';
+        const kinds={}; const lu=model.lineUnits||{};
+        for(const L of Object.keys(lu)) for(const k2 of Object.keys(lu[L]||{})){
+          const t=lu[L][k2]; (kinds[unitKind(t)]=kinds[unitKind(t)]||new Set()).add(unitTokLabel(t)); }
+        const bits=[`the file states each line's unit in its <b>${esc(model.unitHead)}</b> column`];
+        for(const k2 of ['money','number','ratio']) if(kinds[k2])
+          bits.push(`${k2==='money'?'Money':k2==='number'?'Numbers':'Ratios'}: ${esc([...kinds[k2]].join(', '))}`);
+        if((model.unitUnread||[]).length) bits.push(`<b>${model.unitUnread.length} unit(s) could not be read</b> \u2014 ${
+          esc(model.unitUnread.map(x=>`\u201c${x.text}\u201d on ${x.line}`).join('; '))} \u2014 those lines fall back to the P&L / balance convention`);
+        if((model.unitClash||[]).length) bits.push(`<b>${model.unitClash.length} line(s) carry more than one unit</b> \u2014 ${
+          esc(model.unitClash.slice(0,3).map(c=>`${c.line} (${c.units.map(unitTokLabel).join(' and ')})`).join('; '))
+          } \u2014 neither is taken, and no total is drawn across them`);
+        return `<tr><td>Units</td><td>${bits.join('<br>')}</td></tr>`;
+      })()}
       ${(()=>{ let s3=null; try{ s3=rollupSummary(rollupReconcile(model)); }catch(e){ return ''; }
         if(!s3) return '';
         const bits=[];
@@ -12504,7 +12595,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 18:07</td></tr>
+      <tr><td>Build</td><td>2026-08-17 18:19</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
