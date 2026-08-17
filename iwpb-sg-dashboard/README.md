@@ -1654,6 +1654,25 @@ What each section governs:
   mode is in force. With `ratio_recompute` off — the shipped setting — none of
   this runs: the ratio is the file's figure, and it is still never summed.
 
+  **A metric reported at Group is read at Group.** Where the extract carries a
+  line at `Global` or `Group` **as well as** by country — the shape a
+  reporting pack uses when a metric is owned centrally — adding both counts it
+  twice. Which row to read follows from what is being asked:
+
+  | The view | Reads |
+  |---|---|
+  | the group view (nothing scoped) | the **reported Global / Group row**; the country rows are set aside |
+  | a breakdown by geography (a chart or table by country) | the **country rows**; the group row is set aside, so it never stands beside them as a phantom country |
+  | scoped to a country or region | that scope's own rows |
+
+  The two are never added together and nothing is ever apportioned downwards.
+  The ingest report names the lines this affects and says which row each view
+  takes; `grain_reported: N` switches it off, and then both grains sit in
+  scope together exactly as they did before. This is the acting-on of what the
+  roll-up reconciliation's grain section reports, and it is separate from
+  `group_consolidation`, which handles a Group **tab** rather than a group row
+  inside a tab.
+
   **Nothing is totalled across kinds.** Money, a count and a ratio share a
   column in the extract and mean three different things, so a scope carrying
   more than one kind draws no total — on the tiles, in the drill-down, in the

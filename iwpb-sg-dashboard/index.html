@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:19)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:40)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:19)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:40)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 19:19</div>
+<div id="buildTag">build 2026-08-17 19:40</div>
 </aside>
 <main>
 
@@ -1486,6 +1486,7 @@ const CFG_DEFAULT={
     rollup_tolerance:'0.5',
     ratio_display:'as reported',
     ratio_recompute:'N',
+    grain_reported:'Y',
     tile_height:'150', tile_min_width:'252',
     month_case:'upper',
     unit_label:'US$m',
@@ -1900,6 +1901,55 @@ function unitFromFile(level, name){
   const byL=m.lineUnits[level];
   if(!byL) return '';
   return byL[String(name||'').trim().toLowerCase()]||'';
+}
+/* ---- a line reported at Group as well as by country ---------------------
+   A pack often reports a metric at Global or Group in its own right, beside
+   the countries that make it up. Adding both counts it twice. Which one to
+   read follows from what is being asked: the group view takes the reported
+   group row, and a country view takes that country's rows. Nothing is ever
+   apportioned, and nothing is ever added across the two.                    */
+const GRAIN_COARSE=/^(global|group|total|all|consolidated|worldwide)$/i;
+function rowIsCoarse(r){
+  return GRAIN_COARSE.test(String(r.d.country||'').trim())
+      || GRAIN_COARSE.test(String(r.d.region||'').trim());
+}
+function buildGrainDup(m){
+  const dup={}, lines=[];
+  if(!m||!m.rows||!m.rows.length) return {grainDup:dup, grainDupLines:lines};
+  const anyGeo=m.rows.some(r=>String(r.d.country||'').trim()||String(r.d.region||'').trim());
+  if(!anyGeo) return {grainDup:dup, grainDupLines:lines};
+  for(const L of ['micaL1','micaL2','micaL3','micaL4']){
+    const c=new Set(), f=new Set(), asWritten=new Map();
+    for(const r of m.rows){
+      const raw=String(r.d[L]||'').trim(); if(!raw) continue;
+      const nm=raw.toLowerCase();
+      if(!asWritten.has(nm)) asWritten.set(nm, raw);
+      (rowIsCoarse(r)? c : f).add(nm);
+    }
+    const both=[...c].filter(x=>f.has(x));
+    if(both.length){ dup[L]=new Set(both);
+      for(const x of both) lines.push({level:L, line:asWritten.get(x)||x}); }
+  }
+  return {grainDup:dup, grainDupLines:lines};
+}
+/* the rows that speak for a scope: where a line is reported at both grains,
+   the group view reads the reported group row and drops the finer rows
+   beneath it. Asking for geography (a chart by country) asks for the finer
+   rows, so nothing is dropped there. */
+function grainPick(rows, m, mode){
+  if(mode==='filtered'||!m||!m.grainDup||!Object.keys(m.grainDup).length) return rows;
+  if(!cfgYes('grain_reported')) return rows;
+  // asked for a breakdown by geography: the finer rows ARE the breakdown, and
+  // the reported group row would stand beside them as a phantom country
+  const wantCoarse=(mode!=='breakdown');
+  return rows.filter(r=>{
+    for(const L of ['micaL4','micaL3','micaL2','micaL1']){
+      const nm=String(r.d[L]||'').trim().toLowerCase(); if(!nm) continue;
+      const dup=m.grainDup[L];
+      if(dup&&dup.has(nm)) return rowIsCoarse(r)===wantCoarse;
+    }
+    return true;
+  });
 }
 /* every line's unit as the file states it, read once per model */
 function buildLineUnits(m){
@@ -2992,7 +3042,11 @@ function filteredRows(opts){
   const useGroup=m&&m.groupRows&&m.groupRows.length
     &&!(opts&&opts.geo)
     &&!active.some(([k])=>GEO_DIMS.has(k));
-  const rows=useGroup? m.groupRows : m.rows;
+  // a geography filter decides for itself; a breakdown wants the finer rows;
+  // anything else is the group view and reads the reported group row
+  const mode=active.some(([k])=>GEO_DIMS.has(k))? 'filtered'
+    : (opts&&opts.geo)? 'breakdown' : 'group';
+  const rows=grainPick(useGroup? m.groupRows : m.rows, m, mode);
   if(!active.length) return rows;
   return rows.filter(r=>{
     for(const [k,set] of active){
@@ -12685,6 +12739,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     }
     model.sheetName=sheetName;
     Object.assign(model, buildLineUnits(model));
+    Object.assign(model, buildGrainDup(model));
     applyHierarchies(model);
     applyCountryRegions(model);
     /* A driller carries each dimension combination on exactly one row.
@@ -12752,6 +12807,14 @@ function ingestArrayBuffer(buf, name, fromCache){
         for(const r of hc.resid) bits.push(`<b>${esc(r.line)}</b> keeps ${r.rows} row(s) of its own while it also has children, so its children do not add to it (${esc(r.path)})`);
         return `<tr><td>Hierarchy check</td><td>${bits.length? bits.join('<br>') : '\u2713 every row lands on a line, and every parent equals its children'}</td></tr>`;
       })()}
+      ${(()=>{ const gl=model.grainDupLines||[]; if(!gl.length) return '';
+        const on=cfgYes('grain_reported');
+        const names=[...new Set(gl.map(x=>x.line))];
+        return `<tr><td>Group metrics</td><td>${names.length} line(s) are reported at Global or Group
+          <b>as well as</b> by country \u2014 ${esc(names.slice(0,5).join(', '))}${names.length>5?', \u2026':''}.
+          ${on? 'The group view reads the reported group row and sets the country rows aside; a breakdown by geography reads the country rows and sets the group row aside. Neither is ever added to the other.'
+              : '<b>grain_reported is off</b>, so both are in scope together \u2014 an unscoped total counts them twice.'}</td></tr>`;
+      })()}
       ${(()=>{ if(!(model.unitCol>=0)) return '';
         const kinds={}; const lu=model.lineUnits||{};
         for(const L of Object.keys(lu)) for(const k2 of Object.keys(lu[L]||{})){
@@ -12803,7 +12866,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 19:19</td></tr>
+      <tr><td>Build</td><td>2026-08-17 19:40</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
