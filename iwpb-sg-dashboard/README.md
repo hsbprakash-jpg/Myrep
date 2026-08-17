@@ -1191,8 +1191,14 @@ left-pane strip and the Filters pane.
   month with its prior forecast, its simulated figure and the movement
   between them. A P&L foots to the sum of those months; a balance never
   does — each month is a closing position and the foot is the closing month,
-  so the months are never added up. **⤓ Excel** carries both tables, the
-  impact on one sheet and the month-by-month on another.
+  so the months are never added up. **⤓ Excel** sits on the result itself and
+  carries both tables, the impact on one sheet and the month-by-month on
+  another. Each sheet opens with what was run and over what: the simulation's
+  name and category, the scope in force (business, region, country, month),
+  the basis and units, the forecast months and the source file — then a rule
+  table setting out how it was applied, one row per rule with its scope, its
+  second condition, the statement it touches, the adjustment, the change and
+  the months — and then the figures.
   Simulations save by name (localStorage) for reload; the work-in-progress
   simulation survives refreshes.
 
