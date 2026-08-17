@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 17:41)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 18:07)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 17:41)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 18:07)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 17:41</div>
+<div id="buildTag">build 2026-08-17 18:07</div>
 </aside>
 <main>
 
@@ -1842,14 +1842,68 @@ function unitDeclLevels(lvl){
     const d=rollupFind(L, nm);
     if(d&&d.unit) return {...d, at:L, name:nm};
   }
+  // then what the file itself states, again most specific first
+  for(const L of ['micaL4','micaL3','micaL2','micaL1']){
+    const nm=lvl[L]; if(!nm) continue;
+    const u2=unitFromFile(L, nm);
+    if(u2) return {level:L, at:L, line:nm, name:nm, unit:u2, fromFile:true};
+  }
   return null;
 }
 function unitDeclFor(name, level){
+  const nm=String(name||'').trim();
   for(const L of (level? [level] : ['micaL1','micaL2','micaL3','micaL4'])){
-    const d=rollupFind(L, name);
-    if(d&&d.unit) return {...d, at:L, name};
+    const d=rollupFind(L, nm);
+    if(d&&d.unit) return {...d, at:L, name:nm};
+  }
+  // nothing declared in the pack: the file's own Unit column speaks for the line
+  for(const L of (level? [level] : ['micaL4','micaL3','micaL2','micaL1'])){
+    const u2=unitFromFile(L, nm);
+    if(u2) return {level:L, at:L, line:nm, name:nm, unit:u2, fromFile:true};
   }
   return null;
+}
+/* What a file's own unit cell says. Packs write these many ways \u2014 $Bn, bn,
+   US$mn, Absolute \u2014 and a typo is reported rather than guessed at. */
+function unitFromText(t){
+  const raw=String(t==null?'':t).trim();
+  if(!raw) return '';
+  const x=raw.toLowerCase().replace(/[^a-z0-9%]/g,'');
+  if(/^(us)?\$?(bn|b|billions?)$/.test(x)) return 'bn';
+  if(/^(us)?\$?(mn|m|mm|mio|millions?)$/.test(x)) return 'm';
+  if(/^(us)?\$?(k|th|000s|thousands?)$/.test(x)) return 'k';
+  if(/^(absolute|abs|asis|asreported|actuals?|native|units?|number|count|nos?|headcount|fte|%|pct|percent|ratio|bps)$/.test(x)) return 'as';
+  return '';
+}
+/* the unit the file states for a line, where its rows agree on one */
+function unitFromFile(level, name){
+  const m=S.model; if(!m||!m.lineUnits) return '';
+  const byL=m.lineUnits[level];
+  if(!byL) return '';
+  return byL[String(name||'').trim().toLowerCase()]||'';
+}
+/* every line's unit as the file states it, read once per model */
+function buildLineUnits(m){
+  const out={}, unread=[], clash=[];
+  if(!m||!m.rows||!m.rows.some(r=>r.u)) return {lineUnits:out, unitUnread:unread, unitClash:clash};
+  const seenBad=new Set();
+  for(const L of ['micaL1','micaL2','micaL3','micaL4']){
+    if(!(L in m.dimCols)) continue;
+    const map={};
+    for(const r of m.rows){
+      const nm=String(r.d[L]||'').trim().toLowerCase(); if(!nm||!r.u) continue;
+      const tok=unitFromText(r.u);
+      if(!tok){ if(!seenBad.has(r.u)){ seenBad.add(r.u); unread.push({text:r.u, line:String(r.d[L]||'').trim(), level:L}); } continue; }
+      if(map[nm]===undefined) map[nm]=tok;
+      else if(map[nm]!==tok&&map[nm]!=='\u2716'){
+        clash.push({level:L, line:String(r.d[L]||'').trim(), units:[map[nm],tok]});
+        map[nm]='\u2716';                      // two units under one name: neither is taken
+      }
+    }
+    for(const k of Object.keys(map)) if(map[k]==='\u2716') delete map[k];
+    out[L]=map;
+  }
+  return {lineUnits:out, unitUnread:unread, unitClash:clash};
 }
 function unitDivFor(u){
   if(!u||u==='as') return 1;
@@ -1883,12 +1937,12 @@ function unitPlanOf(decl, isBS){
 function planRestates(p2){ return !!(p2&&p2.declared&&p2.restates); }
 /* a KPI's line, worked out on first use and remembered on it */
 function kLvl(k){
-  if(!k||!rollupList().length) return null;
+  if(!k||(!rollupList().length&&!unitsInPlay())) return null;
   if(!k.lvl&&k._rows) k.lvl=lvlOf(k._rows);
   return k.lvl||null;
 }
 function unitPlan(k){
-  if(!k||!rollupList().length) return unitPlanOf(null,!!(k&&k.isBS));
+  if(!k||(!rollupList().length&&!unitsInPlay())) return unitPlanOf(null,!!(k&&k.isBS));
   // a tile named for a metric (Banking NII) is that metric, not the Level 2
   // line its rows happen to sit under, so its own name is asked first
   const byName=k.lineName? unitDeclFor(k.lineName) : null;
@@ -2165,6 +2219,17 @@ function parseSheet(aoa){
       if(spec.test(normH(header[c]))){ dimCols[spec.key]=c; claimed.add(c); break; }
     }
   }
+  /* A reporting extract often states, line by line, what that line is in:
+     $Bn, $mn, Absolute. It is not a dimension to slice by \u2014 it is what the
+     figures beside it mean \u2014 so it is read as its own column and carried on
+     the row. */
+  let unitCol=-1;
+  for(let c=0;c<header.length;c++){
+    if(claimed.has(c)) continue;
+    const h2=normH(header[c]);
+    if(h2==='unit'||h2==='units'||h2==='uom'||h2==='reportingunit'||h2==='reportedin'
+       ||h2==='unitofmeasure'||h2==='measureunit'||h2==='scale'){ unitCol=c; claimed.add(c); break; }
+  }
   const missing = DIM_SPECS.filter(s=>!s.custom&&!s.opt&&!(s.key in dimCols)).map(s=>s.label);
   if(!('micaL2' in dimCols)) return {error:'Could not find a MICA_Level_2 column — is this an IWPB TM1 extract?', missing};
 
@@ -2239,7 +2304,9 @@ function parseSheet(aoa){
     for(const p of monthCols) v[p.col]=num(raw[p.col]);
     for(const p of quarterCols) v[p.col]=num(raw[p.col]);
     for(const p of ytdCols) v[p.col]=num(raw[p.col]);
-    rows.push({d, v});
+    const rw={d, v};
+    if(unitCol>=0){ const uv=raw[unitCol]; const ut=uv==null?'':String(uv).trim(); if(ut) rw.u=ut; }
+    rows.push(rw);
   }
   if(!('micaL1' in dimCols)){
     for(const r of rows) r.d.micaL1=r.d.micaL2||r.d.micaL3||r.d.micaL4||'';
@@ -2297,6 +2364,7 @@ function parseSheet(aoa){
   }
   if(!/^\d{4}$/.test(String(yearPY))) yearPY=String(+yearCY-1);
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
+    unitCol, unitHead:unitCol>=0? String(header[unitCol]||'').trim() : '',
     fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, pyYtdAsOfCols, ytdTgtAsOfCols, fcProfile, yearPY, yearCY};
 }
 
@@ -2426,9 +2494,12 @@ function kpi(rows, model, ytdM, includeFC){
 }
 /* the line a set of rows is: one name per MICA level where the rows agree on
    it, which is what a unit declaration is looked up by */
+function unitsInPlay(){
+  return !!(rollupList().some(d=>d.unit) || (S.model&&S.model.unitCol>=0));
+}
 function lvlOf(rows){
   const out={};
-  if(!rows||!rows.length||!rollupList().length) return out;
+  if(!rows||!rows.length||(!rollupList().length&&!unitsInPlay())) return out;
   for(const L of ['micaL1','micaL2','micaL3','micaL4']){
     let v=null, one=true;
     for(const r of rows){
@@ -5546,6 +5617,7 @@ function breakdownAOA(rows, key, label){
     ['Line',L.main,L.base,'Variance','Variance %','RAG']];
   for(const g of gs) aoa.push([g.name,mainOf(g.k),g.k.cmpBase,g.k.cmpVar,pct(g.k.cmpVarPct),rag(g.k.favVarPct).label]);
   if(mixedScope(rows)) aoa.push(['No total \u2014 P&L and balance-sheet lines are never added together']);
+  else if(mixedUnits(rows)) aoa.push([`No total \u2014 these lines are stated in different units (${unitsNote(rows)})`]);
   else{
     const kT=kpi(rows,m,S.ytdM,S.includeFC);
     aoa.push(['Total',mainOf(kT),kT.cmpBase,kT.cmpVar,pct(kT.cmpVarPct),rag(kT.favVarPct).label]);
@@ -5763,13 +5835,16 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
   const tot={name:'Total', k:totK};
   // P&L and balances are never added together — a breakdown that spans both
   // shows its lines and says why it carries no total
-  const noTotal=mixedScope(totRows);
+  const noTotal=mixedScope(totRows)||mixedUnits(totRows);
+  const noTotalWhy=mixedScope(totRows)
+    ? 'this selection mixes P&L and balance-sheet lines, which are never added together'
+    : `this selection carries lines stated in different units (${unitsNote(totRows)}), which are never added together`;
   el.innerHTML=(title?`<h4>${esc(title)}</h4>`:'')+(subtitle?`<p class="subtitle">${esc(subtitle)}</p>`:'')+
     `<div class="rvwwrap slim"><table class="grid review">
     <thead><tr><th>Line</th><th></th><th>${esc(gBS? MON_LBL[S.ytdM]+' closing':L.main)} (${esc(gBS? bsUnitLabel():cfgUnit())})</th><th>${esc(gBS? bsBaseLbl(L.mode):L.base)}</th>
     <th>Δ</th><th>Δ%</th><th style="text-align:left">RAG</th></tr></thead>
     <tbody>${body}${noTotal?'':rowHtml(tot,'total','')}</tbody></table></div>`+
-    (noTotal?`<p class="note">No total \u2014 this selection mixes P&L and balance-sheet lines, which are never added together.</p>`:'');
+    (noTotal?`<p class="note">No total \u2014 ${esc(noTotalWhy)}.</p>`:'');
 }
 
 
@@ -6074,7 +6149,7 @@ function summaryLineOptions(rows){
 function summaryNoTotal(named){
   if(named&&named.length>0) return true;
   if(fsumSectionDefs().length>0) return true;
-  if(mixedScope(filteredRows())) return true;   // absolute, whatever total_tile says
+  if(mixedScope(filteredRows())||mixedUnits(filteredRows())) return true;   // absolute, whatever total_tile says
   const v=cfgS('total_tile').trim().toLowerCase();
   if(v==='y'||v==='yes'||v==='true') return false;
   if(v==='n'||v==='no'||v==='false') return true;
@@ -8561,6 +8636,27 @@ function isBSRow(r){
 }
 /* a scope that carries balance-sheet lines beside P&L lines — adding the two
    is never a figure, whatever the configuration says */
+/* Lines stated in different units are no more addable than a balance and a
+   P&L: headcount, a customer count, a ratio and a money line share a column in
+   the extract and mean four different things. Where a scope carries more than
+   one unit, no total is drawn and the page says which units it found. */
+function scopeUnits(rows){
+  const out=new Set();
+  if(!rows||!rows.length||!unitsInPlay()) return out;
+  for(const r of rows){
+    const lv={micaL1:String(r.d.micaL1||'').trim(), micaL2:String(r.d.micaL2||'').trim(),
+      micaL3:String(r.d.micaL3||'').trim(), micaL4:String(r.d.micaL4||'').trim()};
+    const d=unitDeclLevels(lv);
+    out.add(d&&d.unit? d.unit : (isBSRow(r)&&bsUnit()? bsUnit() : '\u2014'));
+    if(out.size>3) break;
+  }
+  return out;
+}
+function mixedUnits(rows){ return scopeUnits(rows).size>1; }
+function unitsNote(rows){
+  const u=[...scopeUnits(rows)].map(x=>x==='\u2014'? 'the file\u2019s own unit' : unitLabelFor(x));
+  return u.join(', ');
+}
 function mixedScope(rows){
   let bs=false, pl=false;
   for(const r of rows){ if(isBSRow(r)) bs=true; else pl=true;
@@ -8568,7 +8664,7 @@ function mixedScope(rows){
   return false;
 }
 function fsumTotalOK(rows){
-  if(mixedScope(rows)) return false;   // absolute — Y cannot force a cross-statement total
+  if(mixedScope(rows)||mixedUnits(rows)) return false;   // absolute — Y cannot force a total across statements or units
   const v=cfgS('fsum_total').trim().toLowerCase();
   if(v==='y'||v==='yes'||v==='true') return true;
   if(v==='n'||v==='no'||v==='false') return false;
@@ -12303,6 +12399,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       return false;
     }
     model.sheetName=sheetName;
+    Object.assign(model, buildLineUnits(model));
     applyHierarchies(model);
     applyCountryRegions(model);
     /* A driller carries each dimension combination on exactly one row.
@@ -12407,7 +12504,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 17:41</td></tr>
+      <tr><td>Build</td><td>2026-08-17 18:07</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
