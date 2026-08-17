@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:40)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:45)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:40)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:45)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 19:40</div>
+<div id="buildTag">build 2026-08-17 19:45</div>
 </aside>
 <main>
 
@@ -1895,12 +1895,27 @@ function unitFromText(t){
 function unitKind(u){ return u==='%'? 'ratio' : (String(u||'')[0]==='#'? 'number' : 'money'); }
 function unitScale(u){ const x=String(u||'').replace(/^#/,''); return x==='%'? 'as' : (x||'as'); }
 function unitIsRatio(u){ return u==='%'; }
-/* the unit the file states for a line, where its rows agree on one */
-function unitFromFile(level, name){
+/* Which grain the page is reading: with no geography filter it is the group
+   view, which reads the reported group row; with one it reads that scope's
+   own rows. The unit follows the row \u2014 a pack may report the group in
+   billions and the countries in millions, and each view is stated in its own
+   unit rather than one being labelled with the other's. */
+function grainViewMode(){
+  const f=(S&&S.filters)||{};
+  for(const k of GEO_DIMS) if(f[k]&&f[k].size) return 'fine';
+  return 'coarse';
+}
+/* the unit the file states for a line, at the grain being read */
+function unitFromFile(level, name, grain){
   const m=S.model; if(!m||!m.lineUnits) return '';
+  const key=String(name||'').trim().toLowerCase(); if(!key) return '';
+  const want=grain||grainViewMode();
+  if(want==='coarse'&&m.lineUnitsCoarse&&m.lineUnitsCoarse[level]){
+    const u=m.lineUnitsCoarse[level][key];
+    if(u) return u;
+  }
   const byL=m.lineUnits[level];
-  if(!byL) return '';
-  return byL[String(name||'').trim().toLowerCase()]||'';
+  return (byL&&byL[key])||'';
 }
 /* ---- a line reported at Group as well as by country ---------------------
    A pack often reports a metric at Global or Group in its own right, beside
@@ -1953,26 +1968,45 @@ function grainPick(rows, m, mode){
 }
 /* every line's unit as the file states it, read once per model */
 function buildLineUnits(m){
-  const out={}, unread=[], clash=[];
-  if(!m||!m.rows||!m.rows.some(r=>r.u)) return {lineUnits:out, unitUnread:unread, unitClash:clash};
+  const out={}, coarse={}, unread=[], clash=[], perGrain=[];
+  if(!m||!m.rows||!m.rows.some(r=>r.u))
+    return {lineUnits:out, lineUnitsCoarse:coarse, unitUnread:unread, unitClash:clash, unitPerGrain:perGrain};
   const seenBad=new Set();
-  for(const L of ['micaL1','micaL2','micaL3','micaL4']){
-    if(!(L in m.dimCols)) continue;
-    const map={};
-    for(const r of m.rows){
-      const nm=String(r.d[L]||'').trim().toLowerCase(); if(!nm||!r.u) continue;
-      const tok=unitFromText(r.u);
-      if(!tok){ if(!seenBad.has(r.u)){ seenBad.add(r.u); unread.push({text:r.u, line:String(r.d[L]||'').trim(), level:L}); } continue; }
-      if(map[nm]===undefined) map[nm]=tok;
-      else if(map[nm]!==tok&&map[nm]!=='\u2716'){
-        clash.push({level:L, line:String(r.d[L]||'').trim(), units:[map[nm],tok]});
-        map[nm]='\u2716';                      // two units under one name: neither is taken
+  /* Units are read once per grain. A pack that reports the group in billions
+     and its countries in millions is not inconsistent \u2014 it is two
+     statements, each true of its own rows \u2014 so neither is discarded and
+     neither is labelled with the other's unit. Two units under one name at the
+     SAME grain is a genuine disagreement, and then neither is taken. */
+  const read=(rows, dest)=>{
+    for(const L of ['micaL1','micaL2','micaL3','micaL4']){
+      if(!(L in m.dimCols)) continue;
+      const map={};
+      for(const r of rows){
+        const nm=String(r.d[L]||'').trim().toLowerCase(); if(!nm||!r.u) continue;
+        const tok=unitFromText(r.u);
+        if(!tok){ if(!seenBad.has(r.u)){ seenBad.add(r.u);
+          unread.push({text:r.u, line:String(r.d[L]||'').trim(), level:L}); } continue; }
+        if(map[nm]===undefined) map[nm]=tok;
+        else if(map[nm]!==tok&&map[nm]!=='\u2716'){
+          clash.push({level:L, line:String(r.d[L]||'').trim(), units:[map[nm],tok]});
+          map[nm]='\u2716';
+        }
       }
+      for(const k of Object.keys(map)) if(map[k]==='\u2716') delete map[k];
+      dest[L]=map;
     }
-    for(const k of Object.keys(map)) if(map[k]==='\u2716') delete map[k];
-    out[L]=map;
-  }
-  return {lineUnits:out, unitUnread:unread, unitClash:clash};
+  };
+  const cRows=m.rows.filter(rowIsCoarse), fRows=m.rows.filter(r=>!rowIsCoarse(r));
+  read(fRows.length? fRows : m.rows, out);
+  if(cRows.length&&fRows.length){
+    read(cRows, coarse);
+    for(const L of Object.keys(coarse))
+      for(const [k,v] of Object.entries(coarse[L]||{})){
+        const f=(out[L]||{})[k];
+        if(f&&f!==v) perGrain.push({level:L, line:k, group:v, country:f});
+      }
+  } else if(cRows.length) read(cRows, out);
+  return {lineUnits:out, lineUnitsCoarse:coarse, unitUnread:unread, unitClash:clash, unitPerGrain:perGrain};
 }
 function unitDivFor(u){
   if(!u) return 1;
@@ -12738,8 +12772,8 @@ function ingestArrayBuffer(buf, name, fromCache){
       return false;
     }
     model.sheetName=sheetName;
-    Object.assign(model, buildLineUnits(model));
     Object.assign(model, buildGrainDup(model));
+    Object.assign(model, buildLineUnits(model));
     applyHierarchies(model);
     applyCountryRegions(model);
     /* A driller carries each dimension combination on exactly one row.
@@ -12807,6 +12841,11 @@ function ingestArrayBuffer(buf, name, fromCache){
         for(const r of hc.resid) bits.push(`<b>${esc(r.line)}</b> keeps ${r.rows} row(s) of its own while it also has children, so its children do not add to it (${esc(r.path)})`);
         return `<tr><td>Hierarchy check</td><td>${bits.length? bits.join('<br>') : '\u2713 every row lands on a line, and every parent equals its children'}</td></tr>`;
       })()}
+      ${(()=>{ const pg=model.unitPerGrain||[]; if(!pg.length) return '';
+        return `<tr><td>Units by grain</td><td>${pg.length} line(s) are reported in one unit at Group and another by country \u2014 ${
+          esc(pg.slice(0,4).map(x=>`${x.line} (${unitTokLabel(x.group)} at Group, ${unitTokLabel(x.country)} by country)`).join('; '))
+          }. Each view is stated in the unit of the rows it reads; neither is labelled with the other's.</td></tr>`;
+      })()}
       ${(()=>{ const gl=model.grainDupLines||[]; if(!gl.length) return '';
         const on=cfgYes('grain_reported');
         const names=[...new Set(gl.map(x=>x.line))];
@@ -12866,7 +12905,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 19:40</td></tr>
+      <tr><td>Build</td><td>2026-08-17 19:45</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

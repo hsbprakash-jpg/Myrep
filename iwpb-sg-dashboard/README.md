@@ -1666,6 +1666,14 @@ What each section governs:
   | scoped to a country or region | that scope's own rows |
 
   The two are never added together and nothing is ever apportioned downwards.
+
+  **The unit follows the grain**, on the same `mn` / `bn` / `Absolute` logic as
+  everywhere else. A pack may report a line in `$Bn` at Group and `$mn` by
+  country — that is two statements, each true of its own rows, not a
+  disagreement — so each view is stated in the unit of the rows it reads and
+  neither is labelled with the other's. The group view of such a line reads
+  `US$bn 3.6` where Singapore reads `US$m 1,401`. Two units under one name at
+  the **same** grain is a genuine disagreement, and there neither is taken.
   The ingest report names the lines this affects and says which row each view
   takes; `grain_reported: N` switches it off, and then both grains sit in
   scope together exactly as they did before. This is the acting-on of what the
@@ -1741,6 +1749,11 @@ matched to their lines when read.
 `sample/IWPB_SG_Jun26_SixBasis_Commentary.docx` is what the ⤓ Word download
 produces from that TM1 extract and pack together — a worked example of the six
 bases as a document.
+
+`sample/IWPB_GrainUnits_Driller.xlsx` is the grain-mix extract with a `Unit`
+column that reports the Global rows in `$Bn` and the country rows in `$mn` —
+load it to see the same line read `US$bn 3.6` at Group and `US$m 1,401` for
+Singapore.
 
 `sample/IWPB_CER_ThreeCountries.xlsx` is the same extract split across
 Singapore, Malaysia and Vietnam, each reporting its own CER%. Load it to see
