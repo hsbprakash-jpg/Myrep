@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:10)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:19)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:10)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:19)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 19:10</div>
+<div id="buildTag">build 2026-08-17 19:19</div>
 </aside>
 <main>
 
@@ -4095,7 +4095,7 @@ function renderSummary(){
     // own: a headcount and a money line added together read as money and are
     // not. The tile says what it is made of instead.
     const mixU=!!(opt&&opt.rows)&&mixedUnits(opt.rows);
-    const tu=mixU? 'mixed units' : kpiUnitLabel(k);
+    const tu=mixU? noSumLabel(opt.rows) : kpiUnitLabel(k);
     const hLbl=MON_LBL[tileYtdM()]+(k.isBS? ' closing' : ' YTD');
     const netOf=(opt&&opt.netOf)||[];
     const netSub=netOf.length
@@ -4110,7 +4110,7 @@ function renderSummary(){
         <span class="tval${(!mixU&&(hv||0)<0)?' negnum':''}"><span class="tvlbl">${esc(hLbl)} · ${esc(tu)}</span>${
           mixU? '–' : fmtKu(k,hv)}</span></div>
       ${netSub}
-      ${mixU? `<div class="krow actonly"><span class="kl">no total — ${esc(unitsNote(opt.rows))} are never added together</span></div>`
+      ${mixU? `<div class="krow actonly"><span class="kl">no total — ${esc(noSumWhy(opt.rows))}</span></div>`
         : trs.length?trs.map(r=>tileRowHtml(k,r)).join('')
         :`<div class="krow actonly"><span class="kl">${esc(L.main)} actuals</span></div>`}
       <div class="vd">View detail →</div>
@@ -5918,7 +5918,7 @@ function breakdownTable(el, title, subtitle, groups, clickAttr){
   const noTotal=mixedScope(totRows)||mixedUnits(totRows);
   const noTotalWhy=mixedScope(totRows)
     ? 'this selection mixes P&L and balance-sheet lines, which are never added together'
-    : `this selection carries lines stated in different units (${unitsNote(totRows)}), which are never added together`;
+    : noSumWhy(totRows);
   el.innerHTML=(title?`<h4>${esc(title)}</h4>`:'')+(subtitle?`<p class="subtitle">${esc(subtitle)}</p>`:'')+
     `<div class="rvwwrap slim"><table class="grid review">
     <thead><tr><th>Line</th><th></th><th>${esc(gBS? MON_LBL[S.ytdM]+' closing':L.main)} (${esc(gBS? bsUnitLabel():cfgUnit())})</th><th>${esc(gBS? bsBaseLbl(L.mode):L.base)}</th>
@@ -8626,7 +8626,7 @@ function fsumFigs(rows, m, P, ytdM, name){
     // the unit this line is stated in: its own declaration where the pack
     // makes one, else the P&L / balance convention
     plan:mixedUnits(rows)? {mixed:true, declared:true, restates:true, div:1, dec:0,
-        label:unitsNote(rows), suffix:'', kind:'mixed', why:'lines stated in different units'}
+        label:noSumLabel(rows), suffix:'', kind:'mixed', why:noSumWhy(rows)}
       : unitPlanOf(ratio? null : (unitDeclFor(name||'')||unitDeclLevels(lvlOf(rows))), bsFmt),
     mon:P.monCols.map(p=>sumCols(rows,[p.col])),
     mVsFc:d(k.mth,mFc), mVsTgt:d(k.mth,mTgt), mVsPM:d(k.mth,k.mthPrev), mVsPY:d(k.mth,k.mthPy),
@@ -8906,6 +8906,23 @@ function mixedUnits(rows){
 function unitsNote(rows){
   const u=[...scopeUnits(rows)].map(x=>x==='\u2014'? 'the file\u2019s own unit' : unitTokLabel(x));
   return u.join(', ');
+}
+/* why a scope carries no total, in the words that fit the case */
+function noSumWhy(rows){
+  const toks=scopeUnits(rows);
+  const kinds=new Set([...toks].map(x=>x==='\u2014'? 'money' : unitKind(x)));
+  if(kinds.size===1&&[...kinds][0]==='ratio')
+    return 'a ratio is read at the level it is reported, never added';
+  if(kinds.size===1&&[...kinds][0]==='number')
+    return 'counts of different things are never added together';
+  return `${unitsNote(rows)} are never added together`;
+}
+/* and what to call a scope that carries no single unit */
+function noSumLabel(rows){
+  const toks=scopeUnits(rows);
+  const kinds=new Set([...toks].map(x=>x==='\u2014'? 'money' : unitKind(x)));
+  if(kinds.size===1&&[...kinds][0]==='ratio') return '%';
+  return 'mixed units';
 }
 function mixedScope(rows){
   let bs=false, pl=false;
@@ -12577,8 +12594,12 @@ function mergeCountryModels(tabs){
       const v=[];
       for(const mp of map) if(mp.from!=null&&r.v[mp.from]!=null) v[mp.to]=r.v[mp.from];
       const res=chResolveTab(sn);
-      merged.rows.push({d:{...r.d, country:res? res.country : sn,
-        business:(res&&res.business)||''}, v});
+      // the row's own unit travels with it: a tab merge must not lose what
+      // the file said each line is stated in
+      const nr={d:{...r.d, country:res? res.country : sn,
+        business:(res&&res.business)||''}, v};
+      if(r.u) nr.u=r.u;
+      merged.rows.push(nr);
     }
     merged.countries.push(sn);
   }
@@ -12782,7 +12803,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 19:10</td></tr>
+      <tr><td>Build</td><td>2026-08-17 19:19</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

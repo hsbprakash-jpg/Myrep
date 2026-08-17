@@ -1723,6 +1723,11 @@ matched to their lines when read.
 produces from that TM1 extract and pack together — a worked example of the six
 bases as a document.
 
+`sample/IWPB_CER_ThreeCountries.xlsx` is the same extract split across
+Singapore, Malaysia and Vietnam, each reporting its own CER%. Load it to see
+a ratio refuse to roll up: the three read 0.4526, 0.5470 and 0.5583, and the
+Group tile shows no figure at all rather than the 1.5579 they would sum to.
+
 `sample/IWPB_UnitColumn_Driller.xlsx` is a reporting extract that states each
 line's unit in a `Unit` column — `$mn`, `$Bn`, `mn`, `Absolute`, `%` — with a
 `Key Metrics` block that mixes all of them, and one deliberate typo (`$mb`).
