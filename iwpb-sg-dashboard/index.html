@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 18:19)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 18:51)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 18:19)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 18:51)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 18:19</div>
+<div id="buildTag">build 2026-08-17 18:51</div>
 </aside>
 <main>
 
@@ -1485,6 +1485,7 @@ const CFG_DEFAULT={
     summary_lede:'N',
     rollup_tolerance:'0.5',
     ratio_display:'as reported',
+    ratio_recompute:'N',
     tile_height:'150', tile_min_width:'252',
     month_case:'upper',
     unit_label:'US$m',
@@ -3898,15 +3899,15 @@ function tileBuildCards(rows){
     cards=named.map(nm=>{
       const f=tileFindLine(rows,nm);
       if(!f){ missingLines.push(nm); return null; }
-      let k=kpi(f.rows,m,S.ytdM,S.includeFC);
-      if(isBSRow(f.rows[0])) k=bsRecast(k);
+      let k=ratioKpi(rows,f.name,m,S.ytdM,S.includeFC)||kpi(f.rows,m,S.ytdM,S.includeFC);
+      if(!k.isRatio&&isBSRow(f.rows[0])) k=bsRecast(k);
       return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:f.scope||('d:'+f.key+':'+f.name), k:kpiNamed(k,f.name)};
     }).filter(Boolean);
     scPfx='';
   } else {
     cards=tileGroups(rows).map(g=>{
-      let k=kpi(g.rs,m,S.ytdM,S.includeFC);
-      if(isBSRow(g.rs[0])) k=bsRecast(k);
+      let k=ratioKpi(rows,g.nm,m,S.ytdM,S.includeFC)||kpi(g.rs,m,S.ytdM,S.includeFC);
+      if(!k.isRatio&&isBSRow(g.rs[0])) k=bsRecast(k);
       return {l2:g.nm, l1:g.lv===1? g.nm : g.rs[0].d[TD[0]], rows:g.rs,
         scope:g.lv===1? 'l1:'+g.nm : undefined, k:kpiNamed(k,g.nm)};
     });
@@ -6014,10 +6015,132 @@ function cfgMetricList(){
       d={sel:'', applies:ap, comps:[]};
       e.defs.unshift(d);
     }
+    const sg=String(cd.sign||'+').trim();
     d.comps.push({line:String(cd.line).trim(), level:String(cd.level||'').trim(),
-      minus:/^\s*(-|\u2212|less\b|minus\b)/i.test(String(cd.sign||'+'))});
+      minus:/^\s*(-|\u2212|less\b|minus\b)/i.test(sg),
+      // a component marked "/" is the denominator: that is what makes the
+      // calculation a ratio rather than a signed sum
+      den:/^\s*(\/|\u00f7|den|denom|over|per\b)/i.test(sg)});
   }
   return [...by.values()];
+}
+/* ---- ratios are recomputed, never added ---------------------------------
+   An average of ratios is not the ratio of the whole: Group CER is the Group's
+   cost over the Group's revenue, not the mean of the countries' CERs. So a
+   ratio is never carried up — it is worked out again at whatever level is
+   asked for, from the lines the Definitions tab says it is made of.
+
+   The lineage form states it: components are the numerator, and a component
+   whose Include cell reads "/" is the denominator.
+
+       CER | | Total Direct Cost      | + | L2
+       CER | | Total Indirect Costs   | + | L2
+       CER | | Revenue                | / | L2                                 */
+function ratioDefFor(name){
+  // Off unless a pack asks for it: a ratio is shown as the file reports it,
+  // at the level it reports it, and is never added up. Turning
+  // ratio_recompute on rebuilds it from the Definitions lineage instead.
+  if(!cfgYes('ratio_recompute')) return null;
+  const d=metricDef(name)||ratioDefAlias(name); if(!d) return null;
+  for(const def of (d.defs||[])){
+    const comps=def.comps||[];
+    if(!comps.some(c=>c.den)) continue;
+    const num=comps.filter(c=>!c.den), den=comps.filter(c=>c.den);
+    if(!num.length||!den.length) continue;
+    return {name:d.name, num, den, applies:def.applies||''};
+  }
+  return null;
+}
+/* A pack writes the same ratio two ways: the definition says CER, the extract
+   calls the line CER%. Punctuation and a trailing per-cent sign are not a
+   different metric, and the Rollup sheet's Match column names the rest. */
+function ratioNorm(x){ return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function ratioDefAlias(name){
+  const n=ratioNorm(name); if(!n) return null;
+  const list=cfgMetricList();
+  let hit=list.find(x=>ratioNorm(x.name)===n);
+  if(hit) return hit;
+  for(const dcl of rollupList()){
+    if(!rollupNames(dcl).some(x=>ratioNorm(x)===n)) continue;
+    hit=list.find(x=>rollupNames(dcl).some(y=>ratioNorm(y)===ratioNorm(x.name)));
+    if(hit) return hit;
+  }
+  return null;
+}
+/* is this line a ratio the pack can rebuild? */
+function ratioIsDefined(name){ return !!ratioDefFor(name); }
+/* the rows a lineage component selects, out of the scope in hand */
+function ratioCompRows(rows, c){
+  const lv=/^l?1$/i.test(c.level)?'micaL1':/^l?2$/i.test(c.level)?'micaL2'
+    :/^l?3$/i.test(c.level)?'micaL3':/^l?4$/i.test(c.level)?'micaL4':null;
+  const want=String(c.line||'').trim().toLowerCase();
+  if(!want) return [];
+  const hit=r=>{
+    if(lv) return String(r.d[lv]||'').trim().toLowerCase()===want;
+    return ['micaL1','micaL2','micaL3','micaL4'].some(L=>String(r.d[L]||'').trim().toLowerCase()===want);
+  };
+  return rows.filter(hit);
+}
+/* one side of the ratio, as a set of rows with the minus components carved
+   out by sign rather than by dropping them */
+function ratioSideK(rows, comps, m, ytdM, includeFC){
+  const plus=[], minus=[];
+  for(const c of comps){
+    const rs=ratioCompRows(rows, c);
+    (c.minus? minus : plus).push(...rs);
+  }
+  if(!plus.length&&!minus.length) return null;
+  const kp=kpi(plus, m, ytdM, includeFC);
+  if(!minus.length) return kp;
+  const km=kpi(minus, m, ytdM, includeFC);
+  const d=(a,b)=>(a==null&&b==null)? null : ((a||0)-(b||0));
+  const out={...kp};
+  for(const f of RATIO_LEVELS) out[f]=d(kp[f], km[f]);
+  out.cySeries=(kp.cySeries||[]).map((p2,i)=>({...p2, val:d(p2.val,(km.cySeries||[])[i]&&km.cySeries[i].val)}));
+  out.pySeries=(kp.pySeries||[]).map((p2,i)=>({...p2, val:d(p2.val,(km.pySeries||[])[i]&&km.pySeries[i].val)}));
+  return out;
+}
+/* every basis a KPI carries, each recomputed as numerator over denominator */
+const RATIO_LEVELS=['cy','py','outlook','target','fyPrior','fyFc','ytdFc','ytdTgt','mth','mthPrev',
+  'mthPy','mthTgt','mthFc','qtd','qtdPy','fyMain','fyBase','fyPrFc'];
+function ratioKpi(rows, name, m, ytdM, includeFC){
+  const def=ratioDefFor(name); if(!def) return null;
+  const kn=ratioSideK(rows, def.num, m, ytdM, includeFC);
+  const kd=ratioSideK(rows, def.den, m, ytdM, includeFC);
+  if(!kn||!kd) return null;
+  /* Files carry costs as negatives, so a cost-over-income ratio comes out
+     negative against a positive income. The pack prints it positive \u2014 a CER
+     of 50%, not (50%) \u2014 so where the two sides are carried with opposite
+     signs the ratio is taken on their magnitudes. Same-signed components are
+     left exactly as they are. */
+  const flipSign=(kn.cy!=null&&kd.cy!=null&&kn.cy!==0&&kd.cy!==0&&((kn.cy<0)!==(kd.cy<0)));
+  const q=(a,b)=>(a!=null&&b!=null&&b!==0)? (flipSign? Math.abs(a)/Math.abs(b) : a/b) : null;
+  const k={...kn, isRatio:true, ratioOf:def.name, ratioAbs:flipSign, costLike:false, dirFlip:false};
+  for(const f of RATIO_LEVELS) k[f]=q(kn[f], kd[f]);
+  k.cySeries=(kn.cySeries||[]).map((p2,i)=>({...p2, val:q(p2.val,(kd.cySeries||[])[i]&&kd.cySeries[i].val)}));
+  k.pySeries=(kn.pySeries||[]).map((p2,i)=>({...p2, val:q(p2.val,(kd.pySeries||[])[i]&&kd.pySeries[i].val)}));
+  // the comparisons follow from the recomputed levels: a ratio moves in
+  // ratio points, and the per-cent change is against the base ratio
+  const d=(a,b)=>(a!=null&&b!=null)? a-b : null;
+  const pc=(v,b)=>(v!=null&&b!=null&&b!==0)? v/Math.abs(b) : null;
+  k.varAbs=d(k.cy,k.py);        k.varPct=pc(k.varAbs,k.py);
+  k.varFc=d(k.cy,k.ytdFc);      k.varFcPct=pc(k.varFc,k.ytdFc);
+  k.varTgt=d(k.outlook,k.target); k.varTgtPct=pc(k.varTgt,k.target);
+  k.varYT=d(k.cy,k.ytdTgt);     k.varYTPct=pc(k.varYT,k.ytdTgt);
+  // the headline comparison keeps whichever basis the page is set to
+  const mode=kn.cmpMode;
+  k.cmpMode=mode;
+  k.cmpMain=(mode==='tgt')? k.outlook : k.cy;
+  k.cmpBase=(mode==='py')? k.py : (mode==='fc')? k.ytdFc : (mode==='tgt')? k.target : null;
+  k.cmpVar=d(k.cmpMain,k.cmpBase); k.cmpVarPct=pc(k.cmpVar,k.cmpBase);
+  // a rising CER is unfavourable because its numerator is cost; a rising ROTE
+  // is not — the numerator's own lines decide, exactly as they do for a KPI
+  const costNum=def.num.length>0&&def.num.every(c=>RE_COST.test(String(c.line||'')));
+  k.costLike=costNum;
+  k.favVarPct=k.cmpVarPct==null? null
+    : ((costNum&&cfgYes('calc_rag_direction'))? -k.cmpVarPct : k.cmpVarPct);
+  k.lvl=null; k._rows=rows; k.lineName=def.name;
+  return k;
 }
 function metricDef(name){
   const n=String(name||'').trim().toLowerCase();
@@ -8450,6 +8573,22 @@ function fsumFigs(rows, m, P, ytdM, name){
     : (m.pyMonths.length? (bs? sumCols(rows,[m.pyMonths[m.pyMonths.length-1].col])
                              : sumCols(rows,m.pyMonths.map(p=>p.col))) : null);
   const mFc=bs? k.fyFc : k.mthFc;
+  const rk=ratioIsDefined(name)? ratioKpi(filteredRows(), name, m, ytdM, S.includeFC) : null;
+  if(rk){
+    // a ratio is not a sum of anything: every basis is the numerator over the
+    // denominator, worked out again at this scope
+    return {k:rk, bs:false, ratio:true, bsFmt:false,
+      plan:unitPlanOf({unit:'%', line:name}, false),
+      mon:P.monCols.map(()=>null), rebuilt:true,
+      mVsFc:null, mVsTgt:null, mVsPM:null, mVsPY:null,
+      qtd:rk.qtd, qVsTgt:null, qVsPQ:null, qVsPY:null,
+      ytd:rk.cy, yVsTgt:(rk.cy!=null&&rk.ytdTgt!=null)? rk.cy-rk.ytdTgt : null,
+      yVsPY:(rk.cy!=null&&rk.py!=null)? rk.cy-rk.py : null,
+      yVsTgtP:rk.varYTPct, yVsPYP:rk.varPct,
+      fy:rk.outlook, fVsPrF:(rk.outlook!=null&&rk.fyPrFc!=null)? rk.outlook-rk.fyPrFc : null,
+      fVsTgt:rk.varTgt, fVsPY:(rk.outlook!=null&&rk.fyPrior!=null)? rk.outlook-rk.fyPrior : null,
+      fVsPrFP:null, fVsTgtP:rk.varTgtPct, fVsPYP:null};
+  }
   return fsumMixGate({k, bs, ratio, bsFmt,
     // the unit this line is stated in: its own declaration where the pack
     // makes one, else the P&L / balance convention
@@ -11688,11 +11827,22 @@ function rollupIsCalc(name){
 }
 function rollupRule(level, name){
   const d=rollupFind(level, name);
-  // 1. arithmetic invariants — the sheet cannot vote these away
-  if(isRatioLine(name)) return {rule:'never', basis:'ratio', why:'ratio — never additive', decl:d};
-  if(d&&unitIsRatio(d.unit)) return {rule:'never', basis:'ratio', why:'stated as a ratio — never additive', decl:d};
-  { const fu=unitFromFile('micaL1',name)||unitFromFile('micaL2',name)||unitFromFile('micaL3',name);
-    if(unitIsRatio(fu)) return {rule:'never', basis:'ratio', why:'the file states this line as a ratio', decl:d}; }
+  /* 1. arithmetic invariants — the sheet cannot vote these away.
+     What the line IS comes first: where the pack or the file states a unit,
+     that statement beats the name patterns. FTE is caught by the ratio
+     patterns and is not a ratio; a file that says "Absolute" has settled it. */
+  const stated=(d&&d.unit)||unitFromFile('micaL1',name)||unitFromFile('micaL2',name)
+    ||unitFromFile('micaL3',name)||'';
+  if(unitIsRatio(stated))
+    return {rule:'never', basis:'ratio',
+      why:(d&&d.unit)? 'declared as a ratio — never additive' : 'the file states this line as a ratio', decl:d};
+  if(!stated&&isRatioLine(name)) return {rule:'never', basis:'ratio', why:'ratio — never additive', decl:d};
+  if(unitKind(stated)==='number'&&stated){
+    // a count: it adds across geographies where the pack says so, and never
+    // into money — the unit gate is what stops that, not the roll-up rule
+    if(d&&d.rule) return {rule:d.rule, basis:'number', why:'declared on the Rollup sheet', decl:d};
+    return {rule:'sum', basis:'number', why:'a count — added only with counts of the same thing', decl:d};
+  }
   // 2. what the configuration declares — a row with a blank Roll up column is
   //    there for the unit or the grain, and does not speak for the arithmetic
   if(d&&d.rule) return {rule:d.rule, basis:d.basis, why:'declared on the Rollup sheet', decl:d};
@@ -11842,7 +11992,8 @@ function rollupReconcile(m, opt){
     // the file may also carry a reported row for a metric the pack computes
     for(const lv of ['micaL1','micaL2','micaL3']){
       if(!(lv in m.dimCols)) continue;
-      const hit=rows.some(r=>String(r.d[lv]||'').trim().toLowerCase()===String(md.name).trim().toLowerCase());
+      // CER and CER% are one metric written two ways
+      const hit=rows.some(r=>ratioNorm(r.d[lv])===ratioNorm(md.name));
       if(hit&&(md.defs||[]).some(d=>d.comps&&d.comps.length))
         out.calc.push({metric:md.name, applies:'—', comp:md.name, level:lv,
           note:'the file reports this line and the pack also computes it — check they agree'});
@@ -12595,7 +12746,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 18:19</td></tr>
+      <tr><td>Build</td><td>2026-08-17 18:51</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

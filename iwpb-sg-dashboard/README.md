@@ -1600,6 +1600,44 @@ What each section governs:
   the ingest report rather than guessed at, and the report lists the money,
   number and ratio units it found.
 
+  **A ratio is never carried up.** By default it is shown exactly as the file
+  reports it, at the level the file reports it, and is never added, averaged
+  or rolled into anything — Group CER is not the mean of the countries' CERs,
+  so the page does not offer one.
+
+  **`ratio_recompute` (off by default)** turns on the alternative: rebuilding
+  the ratio at whatever level is asked for, from its components. The
+  **Definitions** tab states it in the lineage form already used for
+  calculated metrics, with one addition — a component whose `Include` cell
+  reads **`/`** (or `÷`, `den`, `over`) is the **denominator**, and the
+  `+` / `−` components are the numerator.
+
+  | Calculation | Business | Line | Include | MICA level |
+  |---|---|---|---|---|
+  | CER | | Total Direct Cost | + | L2 |
+  | CER | | Total Indirect Costs | + | L2 |
+  | CER | | Revenue | / | L2 |
+
+  With it on, wherever that line appears, at whatever scope, it is worked out
+  again from the lines in that scope — the KPI tile, the drill-down, each
+  Business performance cell, each Financial Summary row — and **every basis
+  with it**:
+  the prior year ratio is PY cost over PY revenue, the target ratio is target
+  over target, and the monthly path is a ratio month by month rather than a
+  running sum. Three details the pack does not have to state: a file carrying
+  costs as negatives still prints a positive ratio (opposite-signed sides are
+  taken on their magnitudes); direction follows the numerator, so a rising CER
+  rates unfavourable while a rising ROTE does not; and a line the extract calls
+  `CER%` resolves to a definition written as `CER` — punctuation and a trailing
+  per-cent sign are not a different metric, and the `Match` column names the
+  rest. Where the file *also* reports the line, the reconciliation says so, so
+  the two can be compared rather than one quietly winning — on the sample
+  extract the reported CER% reads 0.52 against 0.5096 rebuilt from its own
+  cost and revenue lines. `ratio_display` (`as reported` by default, or
+  `percent`) decides whether `0.51` prints as `0.51` or `51.0%`, whichever
+  mode is in force. With `ratio_recompute` off — the shipped setting — none of
+  this runs: the ratio is the file's figure, and it is still never summed.
+
   **Nothing is totalled across kinds.** Money, a count and a ratio share a
   column in the extract and mean three different things, so a scope carrying
   more than one kind draws no total — on the tiles, in the drill-down, in the
