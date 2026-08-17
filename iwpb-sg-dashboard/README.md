@@ -1616,6 +1616,18 @@ What each section governs:
   the ingest report rather than guessed at, and the report lists the money,
   number and ratio units it found.
 
+  **A ratio is never printed on a money basis.** Three things can say a line is
+  a ratio, and any one is enough: the file states its unit as `%`, the pack
+  declares its `Basis` as `Ratio`, or the name itself says so (`ratio_patterns`
+  — CER, ROTE, bps, %). Such a line is shown as the ratio it is — no currency,
+  no restatement into billions because its rows happen to sit beside the
+  balance sheet, and read year to date rather than as a closing balance, since
+  a ratio is not a stock. Its movements are in ratio points (`▼0.01`) with the
+  percentage change beside them. The same precedence applies here as
+  everywhere: what the pack declares, then what the file states, and only then
+  the name patterns — so a line the file calls `Absolute` is a count even if
+  the patterns would have caught its name.
+
   **A ratio is never carried up.** By default it is shown exactly as the file
   reports it, at the level the file reports it, and is never added, averaged
   or rolled into anything — Group CER is not the mean of the countries' CERs,

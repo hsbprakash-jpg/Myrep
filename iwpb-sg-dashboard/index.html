@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:54)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 20:20)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:54)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 20:20)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 19:54</div>
+<div id="buildTag">build 2026-08-17 20:20</div>
 </aside>
 <main>
 
@@ -2135,16 +2135,53 @@ function kLvl(k){
   if(!k.lvl&&k._rows) k.lvl=lvlOf(k._rows);
   return k.lvl||null;
 }
+/* Is this line a ratio? Three ways of knowing, and any one is enough: the
+   file states the unit as %, the pack declares the basis Ratio, or the name
+   itself says so (ratio_patterns — CER, ROTE, bps, %). A ratio is never
+   printed on a money basis: not in the file's currency, and not in billions
+   because its rows happen to sit beside the balance sheet. */
+function ratioLineNames(k){
+  const out=[];
+  if(k&&k.lineName) out.push(k.lineName);
+  const lv=k? kLvl(k) : null;
+  if(lv) for(const L of ['micaL4','micaL3','micaL2','micaL1']) if(lv[L]) out.push(lv[L]);
+  return out;
+}
+function isRatioAnyway(name){
+  const nm=String(name||'').trim(); if(!nm) return false;
+  /* the same precedence as everywhere else: what the pack declares, then what
+     the file states, and only then the name patterns. FTE is caught by those
+     patterns and is not a ratio — a file that calls it Absolute has settled
+     the question, and the regex does not get to reopen it. */
+  for(const L of ['micaL4','micaL3','micaL2','micaL1']){
+    const d=rollupFind(L, nm);
+    if(d&&d.unit) return unitIsRatio(d.unit);
+    if(d&&d.basis) return d.basis==='ratio';
+    const fu=unitFromFile(L, nm);
+    if(fu) return unitIsRatio(fu);
+  }
+  return isRatioLine(nm);
+}
+function ratioPlan(){
+  return {u:'%', div:1, kind:'ratio', scale:'as', label:'%', suffix:'', dec:2,
+    declared:true, restates:true, why:'a ratio \u2014 read as reported, never restated'};
+}
 function unitPlan(k){
-  if(!k||(!rollupList().length&&!unitsInPlay())) return unitPlanOf(null,!!(k&&k.isBS));
+  if(!k) return unitPlanOf(null,false);
+  if(k.isRatio||ratioLineNames(k).some(isRatioAnyway)) return ratioPlan();
+  if(!rollupList().length&&!unitsInPlay()) return unitPlanOf(null,!!k.isBS);
   // a tile named for a metric (Banking NII) is that metric, not the Level 2
   // line its rows happen to sit under, so its own name is asked first
+  if(k.isRatio||ratioLineNames(k).some(isRatioAnyway)) return ratioPlan();
   const byName=k.lineName? unitDeclFor(k.lineName) : null;
   return unitPlanOf(byName||unitDeclLevels(kLvl(k)), !!k.isBS);
 }
 /* a KPI told which line it stands for */
 function kpiNamed(k, name){ if(k&&name&&!k.lineName) k.lineName=String(name); return k; }
-function unitPlanName(name, isBS){ return unitPlanOf(unitDeclFor(name), !!isBS); }
+function unitPlanName(name, isBS){
+  if(isRatioAnyway(name)) return ratioPlan();
+  return unitPlanOf(unitDeclFor(name), !!isBS);
+}
 /* a figure printed on its own plan: divided once, never twice */
 function fmtPlan(plan, v){
   if(plan&&plan.mixed) return '\u2013';     // a sum across units is not a figure
@@ -4096,14 +4133,14 @@ function tileBuildCards(rows){
       const f=tileFindLine(rows,nm);
       if(!f){ missingLines.push(nm); return null; }
       let k=ratioKpi(rows,f.name,m,S.ytdM,S.includeFC)||kpi(f.rows,m,S.ytdM,S.includeFC);
-      if(!k.isRatio&&isBSRow(f.rows[0])) k=bsRecast(k);
+      if(!k.isRatio&&!isRatioAnyway(f.name)&&isBSRow(f.rows[0])) k=bsRecast(k);
       return {l2:f.name, l1:f.rows[0].d.micaL1, rows:f.rows, scope:f.scope||('d:'+f.key+':'+f.name), k:kpiNamed(k,f.name)};
     }).filter(Boolean);
     scPfx='';
   } else {
     cards=tileGroups(rows).map(g=>{
       let k=ratioKpi(rows,g.nm,m,S.ytdM,S.includeFC)||kpi(g.rs,m,S.ytdM,S.includeFC);
-      if(!k.isRatio&&isBSRow(g.rs[0])) k=bsRecast(k);
+      if(!k.isRatio&&!isRatioAnyway(g.nm)&&isBSRow(g.rs[0])) k=bsRecast(k);
       return {l2:g.nm, l1:g.lv===1? g.nm : g.rs[0].d[TD[0]], rows:g.rs,
         scope:g.lv===1? 'l1:'+g.nm : undefined, k:kpiNamed(k,g.nm)};
     });
@@ -4134,7 +4171,7 @@ function tileBuildCards(rows){
 
   if(!named.length) for(const f of tileAddCards(rows, cards.map(c=>c.l2))){
     let k=kpi(f.rows,m,S.ytdM,S.includeFC);
-    if(isBSRow(f.rows[0])) k=bsRecast(k);
+    if(!isRatioAnyway(f.name)&&isBSRow(f.rows[0])) k=bsRecast(k);
     cards.push({l2:f.name, l1:f.rows[0].d[TD[0]], rows:f.rows, added:true,
       scope:f.scope||(f.key?'d:'+f.key+':'+f.name:undefined), k:kpiNamed(k,f.name)});
   }
@@ -12992,7 +13029,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 19:54</td></tr>
+      <tr><td>Build</td><td>2026-08-17 20:20</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
