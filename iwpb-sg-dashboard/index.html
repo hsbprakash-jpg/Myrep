@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 20:20)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 21:08)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 20:20)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 21:08)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 20:20</div>
+<div id="buildTag">build 2026-08-17 21:08</div>
 </aside>
 <main>
 
@@ -1475,7 +1475,8 @@ const CFG_DEFAULT={
       'commentary carried with it. It may be inaccurate and/or incomplete. It is important to independently review '+
       'and edit the content before further use or distribution.',
     commentary_clause_max:'150',
-    ratio_patterns:'%|\\bbps\\b|\\brote\\b|\\bcer\\b|\\bratio\\b|headcount|\\bfte\\b|\\bcount\\b',
+    ratio_patterns:'%|\\bbps\\b|\\brote\\b|\\bcer\\b|\\bratio\\b',
+    count_patterns:'headcount|\\bfte\\b|\\bcounts?\\b|customers|\\bnos\\b|\\bnumber\\b|\\bheads\\b',
     fsum_memo_label:'Key Metrics',
     balance_sheet_patterns:'deposit|\\bloan|advance|mortgage|\\bcasa\\b|balance|\\basset|liabilit|\\brwa\\b|\\baum\\b|\\bnnm\\b|customer\\s*account',
     hidden_cmp_patterns:'direct\\s*costs?|costs?\\s*[-\u2013]?\\s*(direct|indirect)|indirect\\s*costs?|\\becls?\\b|expected\\s+credit',
@@ -1679,7 +1680,7 @@ const CFG_DEFAULT={
 for(const sp of DIM_SPECS) CFG_DEFAULT.dimensions[sp.key]={label:null, filter:'Y', sim:'Y'};
 let CFG=(()=>{ try{ const v=JSON.parse(localStorage.getItem('iwpbsg_cfg')||'null');
   if(v&&v.settings) return v; }catch(e){} return JSON.parse(JSON.stringify(CFG_DEFAULT)); })();
-let RE_FC,RE_TGT,RE_COST,RE_REV,RE_HIDE,RE_BS,RE_MEMO,RE_RATIO,PRIO_RES;
+let RE_FC,RE_TGT,RE_COST,RE_REV,RE_HIDE,RE_BS,RE_MEMO,RE_RATIO,RE_COUNT,PRIO_RES;
 function cfgS(k){ const v=CFG.settings&&CFG.settings[k]; return (v==null||v==='')? CFG_DEFAULT.settings[k] : String(v); }
 function brandName(){ const t=cfgS('app_title'); return t.replace(/\s*driller\s*$/i,'').trim()||t; }
 function brandMark(){ const v=cfgS('logo_mark'); if(v) return v.slice(0,4);
@@ -1718,6 +1719,7 @@ function cfgCompile(){
   RE_BS=cfgRe(cfgS('balance_sheet_patterns'),CFG_DEFAULT.settings.balance_sheet_patterns);
   RE_MEMO=cfgS('memo_patterns').trim()? cfgRe(cfgS('memo_patterns'),'') : null;
   RE_RATIO=cfgRe(cfgS('ratio_patterns'),CFG_DEFAULT.settings.ratio_patterns);
+  RE_COUNT=cfgRe(cfgS('count_patterns'),CFG_DEFAULT.settings.count_patterns);
   PRIO_RES=((CFG.tilePriority&&CFG.tilePriority.length)?CFG.tilePriority:CFG_DEFAULT.tilePriority)
     .map(p2=>{ try{ return new RegExp(p2,'i'); }catch(e){ return null; } }).filter(Boolean);
   cfgSyncDims();
@@ -2147,20 +2149,41 @@ function ratioLineNames(k){
   if(lv) for(const L of ['micaL4','micaL3','micaL2','micaL1']) if(lv[L]) out.push(lv[L]);
   return out;
 }
-function isRatioAnyway(name){
-  const nm=String(name||'').trim(); if(!nm) return false;
-  /* the same precedence as everywhere else: what the pack declares, then what
-     the file states, and only then the name patterns. FTE is caught by those
-     patterns and is not a ratio — a file that calls it Absolute has settled
-     the question, and the regex does not get to reopen it. */
+/* What kind of thing a line is, worked out once per line and remembered:
+   asked of every row on every render, so it must be a lookup rather than a
+   walk through the declarations. */
+let LINEKIND=new Map(), LK_MODEL=null, LK_CFG=null, LK_RE=null;
+/* the cache turns over when the file, the configuration or the patterns
+   change — compared by identity, because this is asked of every row */
+function lineKindFresh(){
+  if(LK_MODEL===S.model&&LK_CFG===CFG&&LK_RE===RE_RATIO) return;
+  LINEKIND=new Map(); LK_MODEL=S.model; LK_CFG=CFG; LK_RE=RE_RATIO;
+}
+function lineKind(name){
+  const nm=String(name||'').trim(); if(!nm) return '';
+  lineKindFresh();
+  const hit=LINEKIND.get(nm);
+  if(hit!==undefined) return hit;
+  let kind='';
   for(const L of ['micaL4','micaL3','micaL2','micaL1']){
     const d=rollupFind(L, nm);
-    if(d&&d.unit) return unitIsRatio(d.unit);
-    if(d&&d.basis) return d.basis==='ratio';
+    if(d&&d.unit){ kind=unitKind(d.unit)==='money'? 'money' : unitKind(d.unit); break; }
+    if(d&&d.basis){ kind=d.basis==='ratio'? 'ratio' : 'money'; break; }
     const fu=unitFromFile(L, nm);
-    if(fu) return unitIsRatio(fu);
+    if(fu){ kind=unitKind(fu); break; }
   }
-  return isRatioLine(nm);
+  if(!kind) kind=isRatioLine(nm)? 'ratio' : isCountLine(nm)? 'number' : '';
+  LINEKIND.set(nm, kind);
+  return kind;
+}
+/* The precedence, once, in lineKind above: what the pack declares, then what
+   the file states, and only then the name patterns — so FTE, which the ratio
+   patterns catch, is a count wherever a file or a pack has said so. */
+function isRatioAnyway(name){ return lineKind(name)==='ratio'; }
+function isCountAnyway(name){ return lineKind(name)==='number'; }
+function countPlan(){
+  return {u:'#as', div:1, kind:'number', scale:'as', label:'number', suffix:'', dec:0,
+    declared:true, restates:true, why:'a count \u2014 read as reported, never restated'};
 }
 function ratioPlan(){
   return {u:'%', div:1, kind:'ratio', scale:'as', label:'%', suffix:'', dec:2,
@@ -2168,19 +2191,26 @@ function ratioPlan(){
 }
 function unitPlan(k){
   if(!k) return unitPlanOf(null,false);
-  if(k.isRatio||ratioLineNames(k).some(isRatioAnyway)) return ratioPlan();
-  if(!rollupList().length&&!unitsInPlay()) return unitPlanOf(null,!!k.isBS);
-  // a tile named for a metric (Banking NII) is that metric, not the Level 2
-  // line its rows happen to sit under, so its own name is asked first
-  if(k.isRatio||ratioLineNames(k).some(isRatioAnyway)) return ratioPlan();
+  const names=ratioLineNames(k);
+  if(k.isRatio||names.some(isRatioAnyway)) return ratioPlan();
+  // A tile named for a metric (Banking NII) is that metric, not the Level 2
+  // line its rows sit under, so its own name is asked first. A stated unit
+  // gives the scale as well as the kind — "mn" on a count is millions — and
+  // the name patterns speak only where nothing is stated.
   const byName=k.lineName? unitDeclFor(k.lineName) : null;
-  return unitPlanOf(byName||unitDeclLevels(kLvl(k)), !!k.isBS);
+  const decl=byName||unitDeclLevels(kLvl(k));
+  if(decl&&decl.unit) return unitPlanOf(decl, !!k.isBS);
+  if(names.some(isCountAnyway)) return countPlan();
+  return unitPlanOf(decl, !!k.isBS);
 }
 /* a KPI told which line it stands for */
 function kpiNamed(k, name){ if(k&&name&&!k.lineName) k.lineName=String(name); return k; }
 function unitPlanName(name, isBS){
   if(isRatioAnyway(name)) return ratioPlan();
-  return unitPlanOf(unitDeclFor(name), !!isBS);
+  const d=unitDeclFor(name);
+  if(d&&d.unit) return unitPlanOf(d, !!isBS);
+  if(isCountAnyway(name)) return countPlan();
+  return unitPlanOf(d, !!isBS);
 }
 /* a figure printed on its own plan: divided once, never twice */
 function fmtPlan(plan, v){
@@ -4298,8 +4328,8 @@ function renderSummary(){
     // A parent whose lines are stated in different units has no figure of its
     // own: a headcount and a money line added together read as money and are
     // not. The tile says what it is made of instead.
-    const mixU=!!(opt&&opt.rows)&&mixedUnits(opt.rows);
-    const notHere=!mixU&&!!(opt&&opt.rows)&&lineNotAtGrain(name, opt.rows);
+    const notHere=!!(opt&&opt.rows)&&lineNotAtGrain(name, opt.rows);
+    const mixU=!notHere&&!!(opt&&opt.rows)&&mixedUnits(opt.rows);
     const tu=mixU? noSumLabel(opt.rows) : notHere? kpiUnitLabel(k) : kpiUnitLabel(k);
     const hLbl=MON_LBL[tileYtdM()]+(k.isBS? ' closing' : ' YTD');
     const netOf=(opt&&opt.netOf)||[];
@@ -9068,6 +9098,9 @@ function fsumSectionDefs(){
    beside the balances but it is not an amount, so the balance unit never
    applies to it — 14,186 people must not print as 14.2bn */
 function isRatioLine(name){ return !!(RE_RATIO&&RE_RATIO.test(String(name||''))); }
+/* a headcount, a customer count, a number of anything: not money, so never
+   restated into millions or billions and never added into a money total */
+function isCountLine(name){ return !!(RE_COUNT&&RE_COUNT.test(String(name||''))); }
 function isMemoLine(name){ return !!(RE_MEMO&&RE_MEMO.test(String(name||''))); }
 function isBSLine(name){ return isMemoLine(name)||!!(RE_BS&&RE_BS.test(String(name||''))); }
 /* a balance-sheet row, wherever the balance name sits \u2014 the real extracts
@@ -9083,16 +9116,55 @@ function isBSRow(r){
    P&L: headcount, a customer count, a ratio and a money line share a column in
    the extract and mean four different things. Where a scope carries more than
    one unit, no total is drawn and the page says which units it found. */
+/* Every row's kind, stamped once per file: most files are money from end to
+   end, and then no scope has to be examined at all. */
+function stampRowKinds(m){
+  m=m||S.model; if(!m||!m.rows) return null;
+  lineKindFresh();
+  if(m._kindMap===LINEKIND) return m._kinds;
+  const present=new Set();
+  for(const r of m.rows){
+    const nm=String(r.d.micaL4||r.d.micaL3||r.d.micaL2||r.d.micaL1||'').trim();
+    const k=lineKind(nm)||'money';
+    r._k=(k==='ratio'||k==='number')? k : 'money';
+    present.add(r._k);
+  }
+  m._kindMap=LINEKIND; m._kinds=present;
+  return present;
+}
+/* the kinds a scope carries — free where the whole file is one kind */
+function scopeKinds(rows){
+  const m=S.model, all=stampRowKinds(m);
+  if(!rows||!rows.length) return new Set();
+  if(all&&all.size<=1) return new Set(all);
+  const out=new Set();
+  for(const r of rows){ out.add(r._k||'money'); if(out.size>1) break; }
+  return out;
+}
+const SCOPEU=new WeakMap();
 function scopeUnits(rows){
   const out=new Set();
-  if(!rows||!rows.length||!unitsInPlay()) return out;
+  // no declarations and no Unit column does not mean no kinds: a headcount and
+  // a ratio are still not money, and the line's own name says so
+  if(!rows||!rows.length) return out;
+  // the same scope is asked about many times over one render
+  lineKindFresh();
+  const seen=SCOPEU.get(rows);
+  if(seen&&seen.map===LINEKIND) return seen.set;
   for(const r of rows){
     const lv={micaL1:String(r.d.micaL1||'').trim(), micaL2:String(r.d.micaL2||'').trim(),
       micaL3:String(r.d.micaL3||'').trim(), micaL4:String(r.d.micaL4||'').trim()};
     const d=unitDeclLevels(lv);
-    out.add(d&&d.unit? d.unit : (isBSRow(r)&&bsUnit()? bsUnit() : '\u2014'));
+    if(d&&d.unit){ out.add(d.unit); }
+    else {
+      // nothing stated: the line's own name still says what kind of thing it is
+      const nm=[lv.micaL4,lv.micaL3,lv.micaL2,lv.micaL1].find(Boolean)||'';
+      out.add(isRatioAnyway(nm)? '%' : isCountAnyway(nm)? '#as'
+        : (isBSRow(r)&&bsUnit()? bsUnit() : '\u2014'));
+    }
     if(out.size>3) break;
   }
+  SCOPEU.set(rows,{map:LINEKIND, set:out});
   return out;
 }
 /* What may be added is decided by kind, not by scale. Money in millions and
@@ -9104,9 +9176,8 @@ function scopeUnits(rows){
    and customers), and a ratio over more than one row — an average of ratios is
    not the ratio of the whole, which has to be recomputed from its components. */
 function mixedUnits(rows){
-  if(!rows||!rows.length||!unitsInPlay()) return false;
-  const toks=scopeUnits(rows);
-  const kinds=new Set([...toks].map(x=>x==='\u2014'? 'money' : unitKind(x)));
+  if(!rows||!rows.length) return false;
+  const kinds=scopeKinds(rows);
   if(kinds.size>1) return true;
   const only=[...kinds][0];
   if(only==='ratio') return rows.length>1;
@@ -12965,6 +13036,50 @@ function ingestArrayBuffer(buf, name, fromCache){
         for(const r of hc.resid) bits.push(`<b>${esc(r.line)}</b> keeps ${r.rows} row(s) of its own while it also has children, so its children do not add to it (${esc(r.path)})`);
         return `<tr><td>Hierarchy check</td><td>${bits.length? bits.join('<br>') : '\u2713 every row lands on a line, and every parent equals its children'}</td></tr>`;
       })()}
+      ${(()=>{ let bad=[];
+        try{
+          const m2=model, col=(m2.ytdAsOfCols&&m2.ytdAsOfCols[m2.ytdAsOfCols.length-1]||{}).col;
+          const bizOf=r=>String(r.d.business||r.d.cgL1||'').trim().toLowerCase();
+          if(col!=null) for(const md of cfgMetricList()){
+            const defs=md.defs||[];
+            const scoped=defs.filter(d=>d.applies);
+            for(const d of defs){
+              // the rows this definition speaks for: its own business, or the
+              // businesses no definition names
+              const subset=d.applies? m2.rows.filter(r=>bizOf(r)===d.applies)
+                : m2.rows.filter(r=>!scoped.some(x=>x.applies===bizOf(r)));
+              if(!subset.length) continue;
+              // the line it starts from, written either as a lineage component
+              // or as the first dim=value of a scope
+              let lv=null, want='';
+              const first=(d.comps||[]).find(c=>!c.minus&&!c.den);
+              if(first){
+                const t=String(first.level||'').trim();
+                lv=/^l?1$/i.test(t)?'micaL1':/^l?2$/i.test(t)?'micaL2':/^l?3$/i.test(t)?'micaL3'
+                  :/^l?4$/i.test(t)?'micaL4':((t in m2.dimCols)? t : null);
+                want=String(first.line||'').trim().toLowerCase();
+              } else {
+                const mm=/(^|;)\s*([A-Za-z0-9_]+)\s*=\s*([^;]+)/.exec(String(d.sel||md.scope||''));
+                if(mm&&(mm[2] in m2.dimCols)){ lv=mm[2]; want=mm[3].trim().toLowerCase(); }
+              }
+              if(!lv||!want||!(lv in m2.dimCols)) continue;
+              const parent=subset.filter(r=>String(r.d[lv]||'').trim().toLowerCase()===want);
+              const mine=subset.filter(r=>metricDefTest(d,r));
+              if(!parent.length||!mine.length) continue;
+              const pv=sumCols(parent,[col]), mv=sumCols(mine,[col]);
+              if(pv==null||mv==null||!(Math.abs(mv)>Math.abs(pv)*1.0001)) continue;
+              bad.push({name:md.name, line:first? first.line : want, who:d.applies||'', mv, pv,
+                minus:(d.comps||[]).filter(c=>c.minus).map(c=>c.line)});
+            }
+          }
+        }catch(e){ return ''; }
+        if(!bad.length) return '';
+        return `<tr><td>Metric definitions</td><td>${bad.map(x=>
+          `<b>${esc(x.name)}${x.who?' ('+esc(x.who.toUpperCase())+')':''} reads ${fmt(x.mv)} against ${
+            esc(x.line)} at ${fmt(x.pv)}</b> \u2014 a metric defined from a line cannot exceed it.${
+            x.minus.length? ` It subtracts ${esc(x.minus.join(', '))}: check the sign the file carries that line with \u2014 subtracting a negative adds it.` : ''}`
+          ).join('<br>')}</td></tr>`;
+      })()}
       ${(()=>{ const pg=model.unitPerGrain||[]; if(!pg.length) return '';
         return `<tr><td>Units by grain</td><td>${pg.length} line(s) are reported in one unit at Group and another by country \u2014 ${
           esc(pg.slice(0,4).map(x=>`${x.line} (${unitTokLabel(x.group)} at Group, ${unitTokLabel(x.country)} by country)`).join('; '))
@@ -13029,7 +13144,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 20:20</td></tr>
+      <tr><td>Build</td><td>2026-08-17 21:08</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

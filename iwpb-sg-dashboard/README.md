@@ -1616,6 +1616,27 @@ What each section governs:
   the ingest report rather than guessed at, and the report lists the money,
   number and ratio units it found.
 
+  **A metric cannot exceed the line it is defined from.** Where a definition
+  starts from a line — `Banking NII = Revenue less Net Insurance Revenue` —
+  the ingest report compares the two on the loaded file, per business, and
+  says so if the metric comes out larger: *"Banking NII (IWPB) reads 750
+  against Revenue at 650 — a metric defined from a line cannot exceed it. It
+  subtracts Net Insurance Revenue: check the sign the file carries that line
+  with — subtracting a negative adds it."* That last point is the usual
+  cause: a line the extract already carries as a negative, subtracted again by
+  the definition, is added instead.
+
+  **A count is not money either.** `count_patterns` (default: `headcount`,
+  `fte`, `count(s)`, `customers`, `nos`, `number`, `heads`) names the lines
+  that are a number of things rather than an amount of money. Such a line is
+  printed as a plain number — no currency, no restatement into millions or
+  billions because its rows sit under a Key Metrics or memo heading — and it
+  never joins a money total. This is what the `Unit` column says explicitly
+  where a file carries one; the patterns are how a file that carries no units
+  is still read correctly. (`fte`, `headcount` and `count` used to sit in
+  `ratio_patterns`, which made a headcount a ratio; they now have their own
+  setting.)
+
   **A ratio is never printed on a money basis.** Three things can say a line is
   a ratio, and any one is enough: the file states its unit as `%`, the pack
   declares its `Basis` as `Ratio`, or the name itself says so (`ratio_patterns`
