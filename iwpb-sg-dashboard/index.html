@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 18:51)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 19:03)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 18:51)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 19:03)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 18:51</div>
+<div id="buildTag">build 2026-08-17 19:03</div>
 </aside>
 <main>
 
@@ -1925,20 +1925,23 @@ function buildLineUnits(m){
   return {lineUnits:out, unitUnread:unread, unitClash:clash};
 }
 function unitDivFor(u){
-  // a number or a ratio is already in the unit it is stated in: only money is
-  // restated against the file's own currency scale
-  if(!u||unitKind(u)!=='money') return 1;
-  const sc=unitScale(u);
-  if(sc==='as') return 1;
+  if(!u) return 1;
+  const k=unitKind(u), sc=unitScale(u);
+  if(k==='ratio'||sc==='as') return 1;
   const e=UNIT_EXP[sc]; if(e==null) return 1;
-  return Math.pow(10, e-unitNative().exp);
+  /* Money is stated against the file's own scale: a file in US$m carrying a
+     line declared US$m divides by one, and one declared US$bn by a thousand.
+     A count has no such scale — 162,369 customers is 162,369 units — so a
+     count declared in millions divides by a million. */
+  return (k==='money')? Math.pow(10, e-unitNative().exp) : Math.pow(10, e);
 }
 /* what a figure in this unit is called: money carries the currency, a number
    carries only its scale, a ratio carries neither */
 function unitTokLabel(u){
   const k=unitKind(u), sc=unitScale(u);
   if(k==='ratio') return '%';
-  if(k==='number') return sc==='as'? 'number' : sc;
+  // a count is named the way a pack writes it, with no currency in front
+  if(k==='number') return sc==='as'? 'number' : (sc==='m'? 'mn' : sc);
   return unitLabelFor(sc);
 }
 /* one answer for a figure: which unit, what to divide by, what to call it */
@@ -1954,7 +1957,8 @@ function unitPlanOf(decl, isBS){
     const div=unitDivFor(decl.unit);
     const kind=unitKind(decl.unit), sc=unitScale(decl.unit);
     return {u:decl.unit, div, kind, scale:sc, label:unitTokLabel(decl.unit),
-      suffix:(kind==='ratio')? '' : (kind==='number')? (sc==='as'?'':sc) : (sc==='as'?'':sc),
+      suffix:(kind==='ratio')? '' : (kind==='number')? (sc==='as'? '' : sc==='m'? 'mn' : sc)
+        : (sc==='as'?'':sc),
       dec:div>1?1:0, declared:true,
       // A declaration restates the figure where it differs from the
       // convention: declaring the unit the file already carries changes the
@@ -1999,6 +2003,10 @@ function fmtPlan(plan, v){
   const x=plan.div===1? v : v/plan.div;
   let d=plan.dec;
   if(d===0&&Math.abs(x)<50&&Math.abs(x%1)>=0.05) d=1;
+  // a figure scaled down below one keeps enough of itself to be read:
+  // 162,369 customers in millions is 0.16, not 0.2
+  if(d===1&&x!==0&&Math.abs(x)<1) d=2;
+  if(d===2&&x!==0&&Math.abs(x)<0.01) d=3;
   const st=Math.abs(x).toLocaleString(undefined,{maximumFractionDigits:d, minimumFractionDigits:d});
   return x<0? '('+st+')' : st;
 }
@@ -12746,7 +12754,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 18:51</td></tr>
+      <tr><td>Build</td><td>2026-08-17 19:03</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

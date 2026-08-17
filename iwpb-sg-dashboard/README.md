@@ -1562,10 +1562,18 @@ What each section governs:
   | Written as | Kind | Reads as |
   |---|---|---|
   | `$mn`, `US$m`, `$bn`, `US$k` | money | US$m, US$bn, US$k |
-  | `mn`, `bn`, `000s` (no currency) | number | m, bn, k |
+  | `mn`, `bn`, `000s` (no currency) | number | mn, bn, k |
   | `Absolute`, `Number`, `Count`, `FTE`, `Nos` | number | a plain number |
   | `%`, `pct`, `bps`, `ratio` | ratio | a ratio — never additive |
   | `$ as is`, `as reported` | money | the unit the file itself carries |
+
+  **The two kinds scale from different bases**, because they start from
+  different places. Money is stated against the file's own unit — a file in
+  US$m carrying a line declared `US$m` divides by one, and one declared
+  `US$bn` by a thousand. A count has no such base: 162,369 customers is
+  162,369 units, so a count declared `mn` divides by a **million** and prints
+  as `0.16mn`. A count declared `Absolute` divides by one. A figure scaled
+  below one keeps two decimals rather than rounding itself away.
 
   Declared per line at MICA Level 1 and 2. This is the pack's policy, not the reader's preference:
   a declared unit governs that line wherever it is printed, exactly as
