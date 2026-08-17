@@ -13,6 +13,16 @@ of SheetJS) runs locally.
    report confirms the detected columns, KPI count and period coverage.
 3. The dashboard opens on the **KPI summary**.
 
+**Two files, and nothing else.** The app reads the **TM1 data extract** and the
+**configuration pack** — no other file is ingested. Each is recognised by what
+is inside it rather than by where it was dropped: the pack dropped on the
+ingest page is named and refused, with a pointer to *Configuration → Upload
+config*, instead of being parsed as data; an extract picked at Upload config is
+refused instead of replacing every rule with nothing, and the configuration in
+force is left untouched. Anything that is neither — a Word document, a PDF, a
+workbook of notes — is turned away by name before a byte of it is parsed, and
+more than one file at a time is refused rather than half-read.
+
 ## What it expects in the file
 
 A single header row with:

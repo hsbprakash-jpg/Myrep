@@ -425,6 +425,8 @@ main{flex:1;min-width:0;padding:14px 20px}
 #ingestReport details.filemap summary{cursor:pointer;color:var(--text-secondary);font-size:12px}
 #buildTag{font-size:10px;color:var(--text-muted);padding:10px 16px}
 #ingestReport .err{color:var(--status-critical)}
+#ingestReport .warnbox{color:var(--status-critical);border:1px solid var(--status-critical);border-radius:6px;padding:12px 14px;line-height:1.5}
+#ingestReport .warnbox b{color:inherit}
 #ingestReport table{border-collapse:collapse;margin-top:8px;width:100%}
 #ingestReport td{padding:3px 10px 3px 0;color:var(--text-secondary)}
 #ingestReport td:first-child{color:var(--text-primary);font-weight:600;white-space:nowrap}
@@ -977,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 16:37)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 16:49)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 16:37)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 16:49)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1046,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 16:37</div>
+<div id="buildTag">build 2026-08-17 16:49</div>
 </aside>
 <main>
 
@@ -1064,6 +1066,7 @@ setTimeout(function(){
     <div id="dropZone" tabindex="0" role="button" aria-label="Upload TM1 extract">
       <div class="big" data-lbl="ingest_drop">Drop the TM1 data extract here</div>
       <div class="hint">or click to browse &nbsp;·&nbsp; expects MICA / Product / Segment / Function levels + monthly actuals</div>
+      <div class="hint" style="margin-top:6px">the extract and the configuration pack are the only files read &mdash; nothing else is ingested</div>
     </div>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsb,.csv" hidden>
     <div id="cachedInfo"></div>
@@ -10625,16 +10628,6 @@ function comUnsaid(view, names){
   return out;
 }
 function comInSig(){ return comInAll().map(c=>[c.view,c.line,c.text].join('~')).join(';'); }
-function docxXmlToText(xml){
-  return String(xml)
-    .replace(/<\/w:p>/g,'\n')                 // a paragraph ends a line
-    .replace(/<w:br\s*\/?>/g,'\n')
-    .replace(/<w:tab\s*\/?>/g,' ')
-    .replace(/<[^>]*>/g,'')
-    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"')
-    .replace(/&#39;|&apos;/g,"'").replace(/&amp;/g,'&')
-    .split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean).join('\n');
-}
 /* ---- which line a sentence is about ------------------------------------
    Everything here is text matching against the names the loaded file itself
    carries. It reads names; it does not understand banking. Four things decide
@@ -11801,11 +11794,59 @@ function refreshCfgStatus(){
   const el=$('cfgStatus'); if(!el) return;
   el.textContent=localStorage.getItem('iwpbsg_cfg')!=null?'Custom configuration active.':'Default configuration.';
 }
+/* ================= what the app will read =================
+   Two files, and nothing else: the configuration pack and the TM1 data
+   extract. Both are judged by what is inside them rather than by where they
+   were dropped — the pack dropped on the ingest page is named and refused
+   instead of being parsed as data, and an extract picked at Upload config is
+   refused instead of wiping the configuration. Anything that is neither is
+   turned away by name, so a reader is never left reading an error from a
+   parser about a file the app was never meant to take. */
+const FILE_OK=/\.(xlsx|xlsm|xlsb|xls|csv)$/i;
+/* the sheets that make a workbook the configuration. A tab called Commentary
+   is not one of them: an extract may carry the month's words on such a tab */
+const CFG_SHEET_RE=/^(settings|tiles|calculations|tilepriority|dimensions|views|labels|metrics|definitions|producthierarchy|accounthierarchy|countryhierarchy|commentarytemplates|simulations|scenarios|rollup|rollups|aliases)$/;
+function wbIsConfig(wb){
+  const first=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]||{},{header:1,defval:null});
+  const a1=String(((first[0]||[])[0])==null?'':(first[0]||[])[0]).trim().toLowerCase();
+  if(wb.SheetNames.length===1&&a1==='sheet') return true;      // the flat template CSV
+  return wb.SheetNames.some(sn=>{
+    const k=String(sn).trim().toLowerCase().replace(/[^a-z]/g,'');
+    return CFG_SHEET_RE.test(k)||/^(?:commentary)?template/.test(k);
+  });
+}
+function wbIsExtract(wb){
+  for(const sn of wb.SheetNames.slice(0,8)){
+    if(/^commentar(y|ies)$|^comments?$/i.test(String(sn).replace(/[^a-z]/gi,''))) continue;
+    try{
+      const cand=parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null}));
+      if(!cand.error&&cand.rows.length) return true;
+    }catch(err){}
+  }
+  return false;
+}
+const FILE_ONLY_TWO='This dashboard reads two files: the <b>TM1 data extract</b> and the <b>configuration pack</b> (xlsx, or the template CSV). Nothing else is ingested.';
+/* one file, one of the two — checked before a byte is parsed as data */
+function fileGate(files, want, say){
+  if(!files||!files.length) return null;
+  if(files.length>1){ say(`${files.length} files were dropped. Ingest one file at a time — the ${
+    want==='config'?'configuration pack':'TM1 data extract'}.`); return null; }
+  const f=files[0];
+  if(!FILE_OK.test(f.name)){ say(`<b>${esc(f.name)}</b> is not a workbook. ${FILE_ONLY_TWO}`); return null; }
+  return f;
+}
 function handleCfgFile(file){
   const reader=new FileReader();
   reader.onload=e=>{
     try{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      // an extract picked here would otherwise replace every rule with nothing
+      if(!wbIsConfig(wb)){
+        $('cfgStatus').textContent=wbIsExtract(wb)
+          ? '"'+file.name+'" is a TM1 data extract, not the configuration — load it on the Ingest page. The configuration is unchanged.'
+          : '"'+file.name+'" carries no configuration sheet (Settings, Tiles, Labels, Metrics, Rollup…). The configuration is unchanged.';
+        return;
+      }
       CFG=cfgFromWorkbook(wb);
       localStorage.setItem('iwpbsg_cfg',JSON.stringify(CFG));
       // a new configuration speaks for the tiles again: the reader's old
@@ -11855,6 +11896,19 @@ function handleFile(file){
   rep.innerHTML='Reading '+esc(file.name)+'…';
   const reader=new FileReader();
   reader.onload=e=>{
+    // read the workbook once to see which of the two files this is
+    let wb=null;
+    try{ wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'}); }catch(err){}
+    if(wb&&wbIsConfig(wb)&&!wbIsExtract(wb)){
+      rep.innerHTML=`<div class="warnbox"><b>${esc(file.name)}</b> is the configuration pack, not a data extract —
+        it carries ${esc(wb.SheetNames.slice(0,4).join(', '))}${wb.SheetNames.length>4?'…':''} and no data tab.
+        Load it from the left pane under <b>Configuration → Upload config</b>. Nothing has been ingested.</div>`;
+      return;
+    }
+    if(!wb||!wb.SheetNames.length){
+      rep.innerHTML=`<div class="warnbox"><b>${esc(file.name)}</b> could not be read as a workbook. ${FILE_ONLY_TWO}</div>`;
+      return;
+    }
     if(ingestArrayBuffer(e.target.result, file.name, false))
       cachePut(file.name, e.target.result);
   };
@@ -12139,7 +12193,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 16:37</td></tr>
+      <tr><td>Build</td><td>2026-08-17 16:49</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
@@ -12165,10 +12219,13 @@ function init(){
   const dz=$('dropZone'), fi=$('fileInput');
   dz.addEventListener('click',()=>fi.click());
   dz.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') fi.click(); });
-  fi.addEventListener('change',()=>{ if(fi.files.length) handleFile(fi.files[0]); });
+  const sayIngest=h=>{ $('ingestReport').innerHTML='<div class="warnbox">'+h+'</div>'; };
+  fi.addEventListener('change',()=>{ const f=fileGate(fi.files,'extract',sayIngest);
+    if(f) handleFile(f); fi.value=''; });
   ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
   ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
-  dz.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+  dz.addEventListener('drop',e=>{ const f=fileGate(e.dataTransfer.files,'extract',sayIngest);
+    if(f) handleFile(f); });
   $('btnNewFile').addEventListener('click',()=>{
     $('dashView').hidden=true; $('btnNewFile').hidden=true; $('sideNav').hidden=true;
     $('uploadView').hidden=false; $('ingestReport').innerHTML=''; fi.value='';
@@ -12310,7 +12367,9 @@ function init(){
     renderTplPane(); };
   $('tplPick').addEventListener('change',e=>tplSetStyle(e.target.value));
   $('btnCfgUpload').addEventListener('click',()=>$('cfgInput').click());
-  $('cfgInput').addEventListener('change',e=>{ if(e.target.files[0]) handleCfgFile(e.target.files[0]); e.target.value=''; });
+  $('cfgInput').addEventListener('change',e=>{
+    const f=fileGate(e.target.files,'config',h=>{ $('cfgStatus').textContent=h.replace(/<[^>]+>/g,''); });
+    if(f) handleCfgFile(f); e.target.value=''; });
   $('btnCfgTemplate').addEventListener('click',downloadCfgTemplate);
   $('btnCfgReset').addEventListener('click',()=>{
     localStorage.removeItem('iwpbsg_cfg');
