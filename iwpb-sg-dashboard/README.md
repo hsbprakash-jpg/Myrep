@@ -1187,6 +1187,12 @@ left-pane strip and the Filters pane.
   reports on the closing-balance basis in `US$bn` — the last forecast
   month's closing position, never a sum of monthly balances — and mixed
   scopes total the P&L side only, with balances stated separately.
+  A **Forecast by month** table sits under the impact table: every forecast
+  month with its prior forecast, its simulated figure and the movement
+  between them. A P&L foots to the sum of those months; a balance never
+  does — each month is a closing position and the foot is the closing month,
+  so the months are never added up. **⤓ Excel** carries both tables, the
+  impact on one sheet and the month-by-month on another.
   Simulations save by name (localStorage) for reload; the work-in-progress
   simulation survives refreshes.
 

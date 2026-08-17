@@ -977,9 +977,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 07:24)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 09:45)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 07:24)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 09:45)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1046,7 +1046,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 07:24</div>
+<div id="buildTag">build 2026-08-17 09:45</div>
 </aside>
 <main>
 
@@ -9464,7 +9464,9 @@ function simAgg(rules){
   const actSeries=actMonths.filter(p=>p.m<=S.ytdM||true).map(p=>({m:p.m,val:sumCols(tRows,[p.col])/dv}));
   const baseSeries=fcMonths.map(p=>({m:p.m,val:sumBase(tRows,[p])/dv}));
   const simSeries=fcMonths.map(p=>({m:p.m,val:sumSim(tRows,[p])/dv}));
-  return {groups,total,actSeries,baseSeries,simSeries,fcMonths,mixed,bsFocus,lastM:lastP.m};
+  const baseSeriesRaw=fcMonths.map(p=>({m:p.m,val:sumBase(tRows,[p])}));
+  const simSeriesRaw=fcMonths.map(p=>({m:p.m,val:sumSim(tRows,[p])}));
+  return {groups,total,actSeries,baseSeries,simSeries,baseSeriesRaw,simSeriesRaw,fcMonths,mixed,bsFocus,lastM:lastP.m};
 }
 function simChart(el, act, base, sim, yearCY){
   const W=880,H=250,Lm=66,T=14,B=30,R=14;
@@ -9531,6 +9533,33 @@ function simCmpChart(el, act, base, series){
     svg+=`<path d="${path(s2.pts)}" fill="none" stroke="${CAT_COLORS[i%CAT_COLORS.length]}" stroke-width="2" stroke-dasharray="2 2"/>`;
   });
   el.innerHTML=`<div class="scroll-x"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Simulation comparison">${svg}</svg></div>`;
+}
+/* prior forecast against simulated, month by month. A P&L foots to the sum of
+   the forecast months; a balance never does — its foot is the closing month. */
+function simMonthRows(a){
+  const t=a.total, bs=!!t.bs;
+  const rows=a.fcMonths.map((p,i)=>{
+    const base=(a.baseSeriesRaw[i]||{}).val, sim=(a.simSeriesRaw[i]||{}).val;
+    return {m:p.m, lbl:MON_LBL[p.m], base, sim, d:(sim==null||base==null)? null : sim-base,
+      pct:(base)? (sim-base)/Math.abs(base) : null};
+  });
+  const foot=bs
+    ? {lbl:MON_LBL[a.lastM]+' closing', base:t.baseOut, sim:t.simOut, d:t.delta,
+       pct:t.baseOut? t.delta/Math.abs(t.baseOut) : null}
+    : (()=>{ const b=rows.reduce((x,r)=>x+(r.base||0),0), sm=rows.reduce((x,r)=>x+(r.sim||0),0);
+       return {lbl:'Forecast months', base:b, sim:sm, d:sm-b, pct:b? (sm-b)/Math.abs(b) : null}; })();
+  return {rows, foot, bs};
+}
+function simMonthAOA(){
+  const a=simAgg(SIM_LAST||[]), mm=simMonthRows(a);
+  const u=mm.bs? bsUnitLabel()+' closing' : cfgUnit();
+  const aoa=[[`Simulation \u2014 forecast by month \u2014 ${SIM.name||'unsaved simulation'}`],
+    [filterNote(true)],[`Figures in ${u}`],[],
+    ['Month','Prior forecast','Simulated','\u0394','\u0394 %']];
+  for(const r of mm.rows) aoa.push([r.lbl, r.base, r.sim, r.d, r.pct==null?null:+(r.pct*100).toFixed(2)]);
+  aoa.push([mm.foot.lbl, mm.foot.base, mm.foot.sim, mm.foot.d,
+    mm.foot.pct==null?null:+(mm.foot.pct*100).toFixed(2)]);
+  return aoa;
 }
 function simAOA(){
   const rules=SIM_LAST||[];
@@ -9661,7 +9690,19 @@ function renderSim(){
       <td class="num">${Math.abs(g.delta||0)<0.0005? c(0) : movVal(dk,g.delta,dp)}</td></tr>`;}).join('')}</tbody></table></div>
     ${(()=>{ const n2=a.groups.filter(g=>Math.abs(g.delta||0)<=0.0005).length;
       const any=a.groups.length-n2;
-      return (any&&n2)? `<p class="note">${n2} unaffected line${n2>1?'s':''} hidden — the table lists only the lines this simulation moves.</p>` : ''; })()}`;
+      return (any&&n2)? `<p class="note">${n2} unaffected line${n2>1?'s':''} hidden — the table lists only the lines this simulation moves.</p>` : ''; })()}
+    ${(()=>{ const mm=simMonthRows(a); if(!mm.rows.length) return '';
+      const cell=v=>mm.bs? `<span${v!=null&&v<0?' class="negnum"':''}>${fmtBS(v)}${bsUnit()}</span>` : fmtCell(v);
+      const dk={...(t.k||{}), isBS:mm.bs};
+      const line=r=>`<td>${esc(r.lbl)}</td><td class="num">${cell(r.base)}</td><td class="num">${cell(r.sim)}</td>
+        <td class="num">${Math.abs(r.d||0)<0.0005? cell(0) : movVal(dk, r.d, r.pct)}</td>`;
+      return `<h4 style="margin:16px 0 2px">Forecast by month</h4>
+      <p class="subtitle">Prior forecast against simulated, month by month \u00b7 ${
+        esc(mm.bs? bsUnitLabel()+' closing' : cfgUnit())}${mm.bs? ' \u2014 balances are read at each month end, never added up' : ''}.</p>
+      <div class="scroll-x"><table class="atable"><thead><tr><th>Month</th>
+        <th class="num">Prior fcst</th><th class="num">Simulated</th><th class="num">\u0394</th></tr></thead>
+      <tbody>${mm.rows.map(r=>`<tr>${line(r)}</tr>`).join('')}
+        <tr style="font-weight:700">${line(mm.foot)}</tr></tbody></table></div>`; })()}`;
   $('simBy').addEventListener('change',e=>{ SIM.by=e.target.value; saveSimCur(); renderSim(); });
   simChart($('simChartEl'), a.actSeries, a.baseSeries, a.simSeries, m.yearCY);
   aiComment($('simCom'), 'sim|'+JSON.stringify(SIM_LAST)+'|'+filterNote(true)+'|'+(SIM.by||''), {noButtons:true, ctx:filterNote(true)}, ()=>{
@@ -11731,7 +11772,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 07:24</td></tr>
+      <tr><td>Build</td><td>2026-08-17 09:45</td></tr>
       </table></details>`;
     const go=()=>{
       $('uploadView').hidden=true;
@@ -11934,7 +11975,8 @@ function init(){
   });
   $('btnSimExport').addEventListener('click',()=>{
     if(!SIM_LAST){ alert('Run the simulation first.'); return; }
-    exportWB([{name:'Simulation', aoa:simAOA()}],brandSlug()+'_simulation');
+    exportWB([{name:'Simulation', aoa:simAOA()},
+      {name:'Forecast by month', aoa:simMonthAOA()}],brandSlug()+'_simulation');
   });
   $('btnAiAsk').addEventListener('click',()=>{ aiAsk($('aiInput').value); $('aiInput').value=''; });
   $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ aiAsk($('aiInput').value); $('aiInput').value=''; } });
