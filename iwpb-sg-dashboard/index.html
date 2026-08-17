@@ -977,9 +977,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 10:40)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 16:37)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 10:40)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 16:37)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1046,7 +1046,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 10:40</div>
+<div id="buildTag">build 2026-08-17 16:37</div>
 </aside>
 <main>
 
@@ -1480,6 +1480,7 @@ const CFG_DEFAULT={
     font_greeting:'', font_commentary:'', font_eyebrow:'',
     sim_value_width:'50',
     summary_lede:'N',
+    rollup_tolerance:'0.5',
     tile_height:'150', tile_min_width:'252',
     month_case:'upper',
     unit_label:'US$m',
@@ -1539,6 +1540,7 @@ const CFG_DEFAULT={
   countrymap:[],
   dimensions:{},
   calcdefs:[],
+  rollup:[],
   metrics:[
     {name:'Revenue',      scope:'accH2=Revenue'},
     {name:'Banking NII',  scope:'accH3=Banking NII'},
@@ -11325,6 +11327,247 @@ function applyHierarchies(m){
     }
   }
 }
+/* ================= Roll-up: how a line aggregates =================
+   One resolver, so a figure aggregates the same way on every page. Four
+   behaviours: sum (parent = its children), asis (the row is authoritative and
+   its children are information), never (non-additive — a ratio), memo (never
+   contributes to a parent).
+
+   Two axes, declared separately because they are different questions: down the
+   lines (does a parent equal its children?) and across geographies (a metric
+   reported at country, region, global AND group must be read at the level asked
+   for, never added up from beneath it).
+
+   And one rule that outranks the sheet: a sum is taken on the file's own YTD
+   column for the month in hand — never by adding months together. */
+const ROLLUP_GRAINS=['country','region','global','group'];
+function rollupList(){ return (CFG&&CFG.rollup)||[]; }
+function rollupNames(d){
+  return [String(d.line||''), ...(d.match||[])].map(x=>x.trim().toLowerCase()).filter(Boolean);
+}
+function rollupFind(level, name){
+  const n=String(name||'').trim().toLowerCase(); if(!n) return null;
+  return rollupList().find(d=>d.level===level&&rollupNames(d).includes(n))||null;
+}
+/* a metric the Definitions tab builds from other rows is a view of them, so it
+   never rolls into a parent beside its own components */
+function rollupIsCalc(name){
+  const n=String(name||'').trim().toLowerCase();
+  return ((CFG&&CFG.calcdefs)||[]).some(d=>String(d.calc||'').trim().toLowerCase()===n);
+}
+function rollupRule(level, name){
+  const d=rollupFind(level, name);
+  // 1. arithmetic invariants — the sheet cannot vote these away
+  if(isRatioLine(name)) return {rule:'never', basis:'ratio', why:'ratio — never additive', decl:d};
+  // 2. what the configuration declares
+  if(d) return {rule:d.rule, basis:d.basis, why:'declared on the Rollup sheet', decl:d};
+  // 3. the pattern settings the app already reads
+  if(isBSLine(name)) return {rule:'sum', basis:'bs', why:'balance — summed within a closing column', decl:null};
+  // 4. a calculated metric is a view of other rows
+  if(rollupIsCalc(name)) return {rule:'memo', basis:'pl', why:'calculated from other lines', decl:null};
+  // 5. the default
+  return {rule:'sum', basis:'pl', why:'default', decl:null};
+}
+/* the grain a figure may be read at: at or above a declared grain the reported
+   row is authoritative; below it nothing is ever apportioned */
+function rollupGrainOK(level, name, grain){
+  const d=rollupFind(level, name);
+  if(!d||!d.grain||d.grain.includes('all')) return true;
+  return d.grain.includes(String(grain||'').toLowerCase());
+}
+/* which column family a basis is read in — the sum axis is rows, never time */
+function rollupColsFor(basis, m, ytdM){
+  if(basis==='bs'){
+    const p=(m.cyMonths||[]).find(x=>x.m===ytdM&&!x.fc);
+    return {cols:p?[p.col]:[], kind:'closing', reported:!!p};
+  }
+  const asOf=(m.ytdAsOfCols||[]).find(p=>p.ytdM===ytdM);
+  if(asOf) return {cols:[asOf.col], kind:'YTD column', reported:true};
+  const months=(m.cyMonths||[]).filter(p=>!p.fc&&p.m<=ytdM);
+  return {cols:months.map(p=>p.col), kind:'built from months', reported:false};
+}
+/* Reconcile what the declarations claim against the file, month by month, on
+   the YTD column for each month — a cascade can tie in December and not in
+   June, and that is exactly what a reader needs to know before quoting it. */
+function rollupReconcile(m, opt){
+  m=m||S.model; if(!m) return null;
+  const tol=(()=>{ const v=parseFloat(cfgS('rollup_tolerance')); return isFinite(v)&&v>=0? v : 0.5; })();
+  const rows=(opt&&opt.rows)||m.rows||[];
+  const months=(m.ytdAsOfCols||[]).map(p=>p.ytdM).filter(x=>x!=null).sort((a,b)=>a-b);
+  const monthList=months.length? months : [S.ytdM];
+  const out={tol, lines:[], decls:[], calc:[], grain:[], ytdSource:{}, mixedParents:[],
+    ytdGap:[], grainMix:[]};
+  // the P&L YTD column for the month in hand, used by the grain comparison
+  const asOf0=(m.ytdAsOfCols||[]).find(p=>p.ytdM===S.ytdM);
+  const colsPL=asOf0? [asOf0.col] : (m.cyMonths||[]).filter(p=>!p.fc&&p.m<=S.ytdM).map(p=>p.col);
+  const pairs=[['micaL1','micaL2'],['micaL2','micaL3']];
+  for(const ym of monthList){
+    // the YTD source is a property of the month, not of a line
+    out.ytdSource[ym]=rollupColsFor('pl', m, ym).kind;
+    for(const [pl,cl] of pairs){
+      if(!(pl in m.dimCols)||!(cl in m.dimCols)) continue;
+      for(const [pname,prows] of groupBy(rows, pl)){
+        if(!pname||pname==='(blank)') continue;
+        const rr=rollupRule(pl, pname);
+        const cf=rollupColsFor(rr.basis, m, ym);
+        if(!cf.cols.length) continue;
+        // A parent is reconciled against children of its own statement only:
+        // a balance is never added into a P&L, whatever any sheet says.
+        const wantBS=rr.basis==='bs';
+        const pOwn=prows.filter(r=>isBSRow(r)===wantBS);
+        const kidsAll=[...groupBy(prows, cl)].filter(([n])=>n&&n!=='(blank)');
+        const kids=kidsAll.map(([n,rs])=>[n, rs.filter(r=>isBSRow(r)===wantBS)])
+          .filter(([,rs])=>rs.length);
+        if(kidsAll.length>kids.length&&!out.mixedParents.some(x=>x.line===pname&&x.level===pl))
+          out.mixedParents.push({level:pl, line:pname,
+            dropped:kidsAll.length-kids.length,
+            note:'children of the other statement are left out of this footing — a balance is never added into a P&L'});
+        if(kids.length<2) continue;                     // nothing to reconcile
+        const parent=sumCols(pOwn, cf.cols);
+        const kidSum=kids.reduce((x,[,rs])=>x+sumCols(rs, cf.cols),0);
+        // a parent that keeps rows of its own is the residual case hierCheck names
+        const diff=kidSum-parent;
+        const near=Math.abs(diff)<=tol;
+        let verdict;
+        if(rr.rule==='never'||rr.rule==='memo') verdict='skipped';
+        else if(rr.rule==='asis') verdict= near? 'asis-ties' : 'asis-expected';
+        else verdict= near? 'ok' : 'differs';
+        out.lines.push({ym, level:pl, line:pname, rule:rr.rule, basis:rr.basis,
+          why:rr.why, colKind:cf.kind, parent, kidSum, diff, verdict, kids:kids.length});
+      }
+    }
+  }
+  // The YTD column against the months behind it. This is the check that
+  // follows from taking sums on the YTD column: where they disagree the column
+  // is authoritative, and the size of the gap is worth knowing.
+  for(const ym of monthList){
+    const asOf=(m.ytdAsOfCols||[]).find(p=>p.ytdM===ym);
+    if(!asOf) continue;
+    const mcols=(m.cyMonths||[]).filter(p=>!p.fc&&p.m<=ym).map(p=>p.col);
+    if(!mcols.length) continue;
+    for(const lv of ['micaL1','micaL2']){
+      if(!(lv in m.dimCols)) continue;
+      for(const [nm,rs] of groupBy(rows, lv)){
+        if(!nm||nm==='(blank)') continue;
+        const rr=rollupRule(lv, nm);
+        if(rr.basis!=='pl') continue;              // a balance is a stock, not a run
+        const pl=rs.filter(r=>!isBSRow(r));
+        if(!pl.length) continue;
+        const col=sumCols(pl,[asOf.col]), mo=sumCols(pl,mcols);
+        if(Math.abs(col-mo)>tol)
+          out.ytdGap.push({ym, level:lv, line:nm, col, months:mo, diff:col-mo});
+      }
+    }
+  }
+  // Where a file carries a line at more than one geographic grain, adding the
+  // finer rows double counts the coarser one. Naming the grain is what stops it.
+  // geography is stamped onto the rows by the tab and the country hierarchy,
+  // not carried as a column, so ask the rows rather than the column map
+  const geo=['country','region','business'].filter(k=>rows.some(r=>String(r.d[k]||'').trim()));
+  const coarse=/^(global|group|total|all|consolidated|worldwide)$/i;
+  for(const lv of ['micaL1','micaL2','micaL3']){
+    if(!(lv in m.dimCols)) continue;
+    for(const [nm,rs] of groupBy(rows, lv)){
+      if(!nm||nm==='(blank)') continue;
+      for(const g of geo){
+        const vals=[...new Set(rs.map(r=>String(r.d[g]||'').trim()))];
+        const coarseVals=vals.filter(v=>coarse.test(v));
+        const fineVals=vals.filter(v=>v&&!coarse.test(v));
+        if(coarseVals.length&&fineVals.length){
+          const cSum=sumCols(rs.filter(r=>coarse.test(String(r.d[g]||'').trim())), colsPL);
+          const fSum=sumCols(rs.filter(r=>{const v=String(r.d[g]||'').trim(); return v&&!coarse.test(v);}), colsPL);
+          out.grainMix.push({level:lv, line:nm, dim:g, coarse:coarseVals.join(', '),
+            fine:fineVals.length, coarseVal:cSum, fineVal:fSum, diff:cSum-fSum,
+            declared:!!rollupFind(lv,nm),
+            note:'the file carries this line at two grains — adding the finer rows would double count the coarser one'});
+        }
+      }
+    }
+  }
+  // a declaration that names nothing in this file is a typo, not a policy
+  for(const d of rollupList()){
+    const names=rollupNames(d);
+    const seen=(d.level in m.dimCols) &&
+      [...new Set(rows.map(r=>String(r.d[d.level]||'').trim().toLowerCase()))].some(n=>names.includes(n));
+    if(!seen) out.decls.push({level:d.level, line:d.line, note:'matches no line in this file'});
+  }
+  // a calculated metric whose component is absent contributes zero, not a gap
+  for(const md of cfgMetricList()){
+    for(const def of (md.defs||[])){
+      if(!def.comps||!def.comps.length) continue;
+      for(const c of def.comps){
+        const lv=/^l?1$/i.test(c.level)?'micaL1':/^l?2$/i.test(c.level)?'micaL2'
+          :/^l?3$/i.test(c.level)?'micaL3':/^l?4$/i.test(c.level)?'micaL4':null;
+        if(!lv||!(lv in m.dimCols)) continue;
+        const have=rows.some(r=>String(r.d[lv]||'').trim().toLowerCase()===String(c.line).trim().toLowerCase());
+        if(!have) out.calc.push({metric:md.name, applies:def.applies||'(all)', comp:c.line, level:c.level,
+          note:'component not in this file — it contributes zero, so the metric reads as if it were nil'});
+      }
+    }
+    // the file may also carry a reported row for a metric the pack computes
+    for(const lv of ['micaL1','micaL2','micaL3']){
+      if(!(lv in m.dimCols)) continue;
+      const hit=rows.some(r=>String(r.d[lv]||'').trim().toLowerCase()===String(md.name).trim().toLowerCase());
+      if(hit&&(md.defs||[]).some(d=>d.comps&&d.comps.length))
+        out.calc.push({metric:md.name, applies:'—', comp:md.name, level:lv,
+          note:'the file reports this line and the pack also computes it — check they agree'});
+    }
+  }
+  // grain declarations, stated so a reader can see what is available where
+  for(const d of rollupList()){
+    if(d.grain&&!d.grain.includes('all'))
+      out.grain.push({level:d.level, line:d.line, grain:d.grain.join(', '),
+        note:'read at these levels only; never apportioned below them'});
+  }
+  return out;
+}
+function rollupSummary(rec){
+  if(!rec) return null;
+  const bad=rec.lines.filter(x=>x.verdict==='differs');
+  const exp=rec.lines.filter(x=>x.verdict==='asis-expected');
+  const derived=Object.entries(rec.ytdSource).filter(([,k])=>k==='built from months').map(([ym])=>+ym);
+  return {checked:rec.lines.length, bad, exp, derived, mixed:rec.mixedParents,
+    ytdGap:rec.ytdGap, grainMix:rec.grainMix,
+    decls:rec.decls, calc:rec.calc, grain:rec.grain, tol:rec.tol};
+}
+function rollupAOA(){
+  const rec=rollupReconcile(); if(!rec) return [['No file loaded']];
+  const s2=rollupSummary(rec);
+  const aoa=[['Roll-up reconciliation'],['Scope', filterNote(true)],['Source file', S.fileName||''],
+    ['Tolerance', rec.tol],[],
+    ['The YTD column against the months behind it \u2014 where they differ the column is authoritative'],
+    ['Month','Level','Line','YTD column','Sum of months','Difference'],
+    ...(rec.ytdGap.length? rec.ytdGap.map(g=>[MON_LBL[g.ym], ALL_DIM_LABELS[g.level]||g.level, g.line,
+        g.col, g.months, g.diff])
+      : [['\u2014','none \u2014 every YTD column agrees with its months','','','','']]),
+    [],
+    ['Lines carried at more than one grain \u2014 adding the finer rows would double count'],
+    ['Level','Line','Dimension','Coarse rows','Finer values','Coarse total','Finer total','Difference','Declared?'],
+    ...(rec.grainMix.length? rec.grainMix.map(g=>[ALL_DIM_LABELS[g.level]||g.level, g.line, g.dim,
+        g.coarse, g.fine, g.coarseVal, g.fineVal, g.diff, g.declared? 'yes':'NO \u2014 declare a Grain'])
+      : [['\u2014','none \u2014 every line sits at one grain','','','','','','','']]),
+    [],
+    ['Mapping completeness \u2014 a parent against the children it is made of.'],
+    ['Because a parent is the rows of its children, these tie unless rows fall outside every child, so a tie proves the mapping is complete, not that two sources agree.'],
+    ['Month','Level','Line','Rule','Basis','YTD source','Parent','Sum of children','Difference','Verdict','Why']];
+  for(const l of rec.lines) aoa.push([MON_LBL[l.ym], ALL_DIM_LABELS[l.level]||l.level, l.line,
+    l.rule, l.basis, l.colKind, l.parent, l.kidSum, l.diff, l.verdict, l.why]);
+  aoa.push([], ['Parents whose children span both statements'], ['Level','Line','Children left out','Note']);
+  for(const x of rec.mixedParents) aoa.push([ALL_DIM_LABELS[x.level]||x.level, x.line, x.dropped, x.note]);
+  if(!rec.mixedParents.length) aoa.push(['\u2014','none','','']);
+  aoa.push([], ['Declarations that match nothing in this file'], ['Level','Line','Note']);
+  for(const d of rec.decls) aoa.push([ALL_DIM_LABELS[d.level]||d.level, d.line, d.note]);
+  if(!rec.decls.length) aoa.push(['\u2014','none','']);
+  aoa.push([], ['Calculated metrics'], ['Metric','Applies to','Component','Level','Note']);
+  for(const c of rec.calc) aoa.push([c.metric, c.applies, c.comp, c.level, c.note]);
+  if(!rec.calc.length) aoa.push(['\u2014','none','','','']);
+  aoa.push([], ['Grain — where a line may be read'], ['Level','Line','Grain','Note']);
+  for(const g of rec.grain) aoa.push([ALL_DIM_LABELS[g.level]||g.level, g.line, g.grain, g.note]);
+  if(!rec.grain.length) aoa.push(['\u2014','none','','']);
+  // the file itself carries one decimal, so a figure printed to more is noise
+  // and a difference of 1e-11 is a zero
+  return aoa.map(r=>r.map(c=>typeof c==='number'? Math.round(c*10)/10 : c));
+}
 function hierCheck(m, pfx){
   pfx=pfx||'accH';
   const depth=[1,2,3,4,5].filter(i=>(pfx+i) in m.dimCols);
@@ -11390,6 +11633,7 @@ function applyCfgDom(){
 function cfgFromWorkbook(wb){
   LIVEMET_CACHE=null;
   CFG_DEFAULT.scenarios=CFG_DEFAULT.scenarios||[];
+  CFG_DEFAULT.rollup=CFG_DEFAULT.rollup||[];
   const cfg=JSON.parse(JSON.stringify(CFG_DEFAULT));
   const low=x=>deMoji(String(x==null?'':x).trim()).trim();
   const tp=[], hb={}; let mz=false, cz=false, tz=false, chCols=null;
@@ -11440,6 +11684,30 @@ function cfgFromWorkbook(wb){
         // carves it out, blank Business covers businesses that wrote none
         if(/^calculation/i.test(String(a))) continue;
         if(a&&c) cfg.calcdefs.push({calc:a, biz:b2||'', line:c, sign:d||'+', level:e2||'', tile:f2||''});
+      }
+      else if(sec==='rollup'||sec==='rollups'){
+        // Level | Line | Roll up | Basis | Grain | Match | Notes
+        if(/^level$/i.test(String(a))) continue;
+        const lvl=(x=>{ const t=String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+          if(/l?1$/.test(t)||/level1/.test(t)) return 'micaL1';
+          if(/l?2$/.test(t)||/level2/.test(t)) return 'micaL2';
+          if(/l?3$/.test(t)||/level3/.test(t)) return 'micaL3';
+          if(/l?4$/.test(t)||/level4/.test(t)) return 'micaL4';
+          return 'micaL2'; })(a);
+        const rule=(x=>{ const t=String(x||'').toLowerCase();
+          if(/^n(ever)?$|non.?add|ratio/.test(t)) return 'never';
+          if(/memo|o\/w|of which/.test(t)) return 'memo';
+          if(/as.?report|as.?is|reported/.test(t)) return 'asis';
+          return 'sum'; })(c);
+        const basis=(x=>{ const t=String(x||'').toLowerCase();
+          if(/bal|bs|closing/.test(t)) return 'bs';
+          if(/ratio|%|bps/.test(t)) return 'ratio';
+          return 'pl'; })(d);
+        const grain=String(e2||'').split(/[,;|]/).map(x=>x.trim().toLowerCase())
+          .filter(Boolean).map(x=>/^all$/.test(x)? 'all' : x);
+        const match=String(f2||'').split('|').map(x=>x.trim()).filter(Boolean);
+        if(b2) cfg.rollup.push({level:lvl, line:b2, rule, basis,
+          grain:grain.length? grain : ['all'], match, note:g2||''});
       }
       else if(sec==='scenarios'||sec==='simulations'){
         // Simulation | Dim | Value | Dim2 | Value2 | Statement | Type | Change | From | To
@@ -11837,6 +12105,26 @@ function ingestArrayBuffer(buf, name, fromCache){
         for(const r of hc.resid) bits.push(`<b>${esc(r.line)}</b> keeps ${r.rows} row(s) of its own while it also has children, so its children do not add to it (${esc(r.path)})`);
         return `<tr><td>Hierarchy check</td><td>${bits.length? bits.join('<br>') : '\u2713 every row lands on a line, and every parent equals its children'}</td></tr>`;
       })()}
+      ${(()=>{ let s3=null; try{ s3=rollupSummary(rollupReconcile(model)); }catch(e){ return ''; }
+        if(!s3) return '';
+        const bits=[];
+        if(!rollupList().length) bits.push('No Rollup sheet \u2014 lines aggregate as they always have');
+        else bits.push(`${rollupList().length} declaration(s) \u00b7 ${s3.checked} line/month check(s)`);
+        if(s3.ytdGap.length) bits.push(`<b>${s3.ytdGap.length} line/month(s) where the YTD column differs from the months behind it</b> \u2014 e.g. ${
+          esc(s3.ytdGap.slice(0,2).map(x=>`${x.line} ${MON_LBL[x.ym]} by ${fmt(x.diff)}`).join('; '))} \u00b7 the column is taken`);
+        if(s3.grainMix.length) bits.push(`<b>${s3.grainMix.length} line(s) carried at more than one grain</b> \u2014 ${
+          esc(s3.grainMix.slice(0,2).map(x=>`${x.line} by ${x.dim}${x.declared?'':' (no Grain declared)'}`).join('; '))}`);
+        if(s3.bad.length) bits.push(`${s3.bad.length} line(s) where rows fall outside every child`);
+        if(s3.exp.length) bits.push(`${s3.exp.length} As-reported line(s) differ from their children, as declared`);
+        if(s3.derived.length) bits.push(`<b>YTD built from months for ${
+          esc(s3.derived.map(x=>MON_LBL[x]).join(', '))}</b> \u2014 no YTD column in the file for those months`);
+        if(s3.decls.length) bits.push(`<b>${s3.decls.length} declaration(s) match no line here</b> \u2014 ${
+          esc(s3.decls.slice(0,3).map(d=>d.line).join(', '))}`);
+        if(s3.mixed.length) bits.push(`${s3.mixed.length} parent(s) carry children of both statements \u2014 the other statement is left out of the footing`);
+        if(s3.calc.length) bits.push(`${s3.calc.length} note(s) on calculated metrics`);
+        return `<tr><td>Roll-up</td><td>${bits.join('<br>')}<br>
+          <button class="linklike" id="btnRollupXl">\u2913 Roll-up reconciliation (Excel)</button></td></tr>`;
+      })()}
       <tr><td>Rows</td><td>${model.rows.length.toLocaleString()}</td></tr>
       <tr><td>MICA Level 2 KPIs</td><td>${l2s.size} (${esc([...l2s].slice(0,5).join(', '))}${l2s.size>5?', …':''})</td></tr>
       <tr><td>Periods</td><td>${model.pyMonths.length?`${model.pyMonths.length} months ${esc(model.yearPY)} · `:''}${model.cyMonths.length} months ${esc(model.yearCY)}${model.cyMonths.some(p=>p.fc)?' (incl. forecast)':''}</td></tr>
@@ -11851,8 +12139,11 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 10:40</td></tr>
+      <tr><td>Build</td><td>2026-08-17 16:37</td></tr>
       </table></details>`;
+    { const rb=document.getElementById('btnRollupXl');
+      if(rb) rb.addEventListener('click',()=>exportWB(
+        [{name:'Roll-up reconciliation', aoa:rollupAOA()}], brandSlug()+'_rollup_reconciliation')); }
     const go=()=>{
       $('uploadView').hidden=true;
       $('dashView').hidden=false;

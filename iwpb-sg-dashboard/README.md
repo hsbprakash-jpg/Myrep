@@ -1311,8 +1311,8 @@ configuration — **left pane → Configuration → Upload config**. There is
 **one configuration file**: `Group_dashboard_config_pack.xlsx` in this
 folder, an xlsx workbook with a sheet per section — `Settings`, `Tiles`,
 `TilePriority`, `Dimensions`, `Views`, `Metrics`, `Commentary`,
-`CommentaryTemplates`, the hierarchies. Everything the page does is driven
-from it. (A flat CSV with columns `Sheet,Key,Value,Extra1,Extra2,Extra3` is
+`CommentaryTemplates`, `Simulations`, `Rollup`, the hierarchies. Everything
+the page does is driven from it. (A flat CSV with columns `Sheet,Key,Value,Extra1,Extra2,Extra3` is
 also accepted for tooling that emits CSV; the in-app download offers it. A
 sample lives under `sample/`.)
 
@@ -1524,6 +1524,49 @@ What each section governs:
   balances: closing balance vs FY target and PY closing). Everything resolves
   through one scope machinery, exports included. Uploaded Metrics rows replace the
   built-in list wholesale.
+- **Rollup** — which lines foot to their children and which are taken as
+  the file reports them, declared at MICA Level 1 and 2 (Level 3/4 accepted
+  too). Columns: `Level | Line | Roll up | Basis | Grain | Match | Notes`.
+  `Roll up` is `Sum` (the parent equals its components), `As reported` (the
+  row is authoritative and its children are information — a fee metric
+  reported at country, region, global *and* group belongs here), `Never`
+  (non-additive — a ratio) or `Memo` (disclosure only; never contributes to
+  a parent). `Basis` is `P&L`, `Balance` or `Ratio`. `Grain` names the
+  geographic levels a line may be read at — `Country, Region, Global,
+  Group`, or `All` — and nothing is ever apportioned below the finest grain
+  declared. `Match` lists alternative names for the same line, separated by
+  `|`, so one declaration covers the naming a pack actually uses
+  (`PBT|PBT ex Notables`). Calculated metrics belong here as well: a metric
+  the **Definitions** tab builds from other rows (Banking NII, for
+  instance) is a view of those rows, so it is a `Memo` — it is shown on its
+  tile and never added beside its own components.
+
+  Two things the sheet cannot vote away. A ratio is never additive, whatever
+  it is declared as. And **a sum is taken on the file's own actuals YTD
+  column for the month in hand** — Jun YTD, May YTD — never by adding
+  months together; where a month has no YTD column in the file the report
+  says the figure was built from months, so the reader knows. Balances are
+  read at one closing month and never accumulated across months, and a
+  parent is footed against children of its own statement only: a balance is
+  never added into a P&L, whatever any sheet says.
+
+  **This phase reports, it does not yet drive the figures.** Loading a file
+  adds a **Roll-up** row to the ingest report with a **⤓ Roll-up
+  reconciliation (Excel)** download, so the declarations can be proved
+  against a real extract before anything on a page consults them. The
+  workbook carries, in order: the YTD column against the months behind it
+  (where they differ, the column is authoritative and the gap is sized);
+  lines the file carries at more than one grain, with both totals, flagging
+  any that have no `Grain` declared — adding the finer rows there would
+  double count the coarser one; mapping completeness, parent against
+  children, month by month; parents whose children span both statements;
+  declarations that match nothing in this file (a typo, not a policy);
+  notes on calculated metrics, including a component the file does not
+  carry, which contributes zero rather than a gap; and the grain
+  declarations themselves. `rollup_tolerance` (default `0.5`, in the file's
+  own units) sets how close a footing must be to count as tied. With no
+  `Rollup` sheet the report says so and every line aggregates exactly as it
+  always has.
 - **Views** — enable/disable each page (summary, fsum, custom, builder,
   query, table, assist, sim).
 
@@ -1552,6 +1595,12 @@ matched to their lines when read.
 `sample/IWPB_SG_Jun26_SixBasis_Commentary.docx` is what the ⤓ Word download
 produces from that TM1 extract and pack together — a worked example of the six
 bases as a document.
+
+`sample/IWPB_GrainMix_Driller.xlsx` is the extract to load when checking the
+**Rollup** declarations: it carries a `Global` tab reporting the same MICA
+lines as its three country tabs, so the roll-up reconciliation flags every
+line that sits at two grains — and shows both totals, so the size of the
+double count that adding the finer rows would cause is on the page.
 
 ### Two worked reporting packs
 
