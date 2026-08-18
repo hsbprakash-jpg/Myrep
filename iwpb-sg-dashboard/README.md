@@ -1616,6 +1616,27 @@ What each section governs:
   the ingest report rather than guessed at, and the report lists the money,
   number and ratio units it found.
 
+  **How a component names its line.** The `MICA level` column names the column
+  the line lives in, written however the extract heads it — `L3`,
+  `MICA_Level_3`, `Product_Level_7`, `CG_Level_2`, `Function_Level_1`,
+  `accH3` all resolve. An optional **`Product Level`** column qualifies the
+  component further, in either of two forms: a bare column name
+  (`Product_Level_7`) lets the same line be found in that column as well, for a
+  pack whose line sits in the product hierarchy rather than the MICA one; and
+  `Product_Level_7 = Wealth` restricts the component to rows holding that
+  value. The sheet is read by its headings, so a column may be added or moved
+  without shifting the ones behind it.
+
+  **What `−` does, and when it does nothing.** A `−` component **removes rows
+  from the selection** — it does not subtract a value. So it only bites where
+  those rows were in the selection to begin with: carving `Net Insurance
+  Revenue` out of `Revenue` works, because insurance sits inside Revenue;
+  carving it out of `NII - Net Interest Income` removes nothing, because
+  insurance was never an NII row, and the calculation reads the same with or
+  without that line. The ingest report says so, with the value that was
+  expected to come out: *"taking out 'Net Insurance Revenue' removes nothing —
+  its 2 rows, worth (396), are not inside NII - Net Interest Income."*
+
   **A metric cannot exceed the line it is defined from.** Where a definition
   starts from a line — `Banking NII = Revenue less Net Insurance Revenue` —
   the ingest report compares the two on the loaded file, per business, and

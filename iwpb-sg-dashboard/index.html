@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 08:22)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 10:53)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 08:22)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 10:53)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 08:22</div>
+<div id="buildTag">build 2026-08-18 10:53</div>
 </aside>
 <main>
 
@@ -6286,6 +6286,7 @@ function cfgMetricList(){
     }
     const sg=String(cd.sign||'+').trim();
     d.comps.push({line:String(cd.line).trim(), level:String(cd.level||'').trim(),
+      alt:String(cd.alt||'').trim(),
       minus:/^\s*(-|\u2212|less\b|minus\b)/i.test(sg),
       // a component marked "/" is the denominator: that is what makes the
       // calculation a ratio rather than a signed sum
@@ -6436,26 +6437,62 @@ function metricSelTest(sel, r){
   }
   return true;
 }
+/* A component names the column its line lives in. A pack writes that column
+   however the extract heads it — L3, MICA_Level_3, Product_Level_7,
+   CG_Level_2, Function_Level_1 — and every one of them has to resolve, or the
+   component silently matches nothing. */
+const CALC_LEVEL_FAMILY=[
+  [/^mica(?:level)?([1-5])$/, 'micaL'], [/^l(?:evel)?([1-5])$/, 'micaL'],
+  [/^product(?:level)?([1-7])$/, 'prodL'], [/^prod(?:level)?([1-7])$/, 'prodL'],
+  [/^cg(?:level)?([1-2])$/, 'cgL'], [/^function(?:level)?([1-2])$/, 'funcL'],
+  [/^func(?:level)?([1-2])$/, 'funcL'],
+  [/^account(?:hierarchy)?(?:level)?([1-5])$/, 'accH'], [/^acch([1-5])$/, 'accH'],
+  [/^prodh([1-5])$/, 'prodH']];
 function calcLevelKey(v){
   const t=String(v||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
   if(!t) return '';
-  const m=t.match(/^(?:mica)?l(?:evel)?([1-4])$/)||t.match(/^([1-4])$/);
+  const m=t.match(/^([1-4])$/);
   if(m) return 'micaL'+m[1];
+  for(const [re,pfx] of CALC_LEVEL_FAMILY){ const mm=t.match(re); if(mm) return pfx+mm[1]; }
   for(const k in (S.model? S.model.dimCols : {})) if(k.toLowerCase()===t) return k;
   return t;
 }
-function metricRowHasLine(r, line, level){
+/* A second column may qualify a component, written either way:
+     Product_Level_7            \u2014 the line may be named in THAT column too,
+                                   for a pack whose line sits in the product
+                                   hierarchy rather than the MICA one
+     Product_Level_7 = Wealth   \u2014 the line, and only where that column
+                                   holds this value                            */
+function metricAlsoOK(r, alt){
+  if(!alt) return null;
+  const s2=String(alt).trim(); if(!s2) return null;
+  const eq=s2.split(/\s*=\s*/);
+  if(eq.length>1){
+    const k=calcLevelKey(eq[0]); if(!k) return null;
+    return String(r.d[k]||'').trim().toLowerCase()===eq.slice(1).join('=').trim().toLowerCase();
+  }
+  return undefined;                     // a bare column name: an alternative home
+}
+function metricRowHasLine(r, line, level, alt){
   const v=String(line||'').trim().toLowerCase(); if(!v||!S.model) return false;
+  const gate=metricAlsoOK(r, alt);
+  if(gate===false) return false;        // "column = value" not met
   const lk=calcLevelKey(level);
-  if(lk) return String(r.d[lk]||'').trim().toLowerCase()===v;
-  for(const k in S.model.dimCols) if(String(r.d[k]||'').trim().toLowerCase()===v) return true;
+  const hit=lk? String(r.d[lk]||'').trim().toLowerCase()===v
+             : Object.keys(S.model.dimCols).some(k=>String(r.d[k]||'').trim().toLowerCase()===v);
+  if(hit) return true;
+  // a bare column name: the same line may be named there instead
+  if(gate===undefined&&alt){
+    const k2=calcLevelKey(alt);
+    if(k2&&String(r.d[k2]||'').trim().toLowerCase()===v) return true;
+  }
   return false;
 }
 function metricDefTest(d, r){
   if(d.comps&&d.comps.length){
     let inc=false;
     for(const c of d.comps){
-      if(metricRowHasLine(r,c.line,c.level)){ if(c.minus) return false; inc=true; }
+      if(metricRowHasLine(r,c.line,c.level,c.alt)){ if(c.minus) return false; inc=true; }
     }
     return inc;
   }
@@ -12474,6 +12511,9 @@ function cfgFromWorkbook(wb){
   // the Rollup sheet's columns are read by their headings, so a column may be
   // added or moved without breaking a pack already in circulation
   let RUCOL={level:0, line:1, rule:2, basis:3, grain:4, match:5, note:6, unit:7};
+  // the Definitions tab is read by its headings too, so a pack may add a
+  // column (a product level, a tile) without shifting the ones behind it
+  let DFCOL={calc:0, biz:1, line:2, sign:3, level:4, alt:5, tile:6};
   const handle=(section,rows)=>{
     const sec=String(section).toLowerCase().replace(/[^a-z]/g,'');
     for(const r of rows){
@@ -12519,11 +12559,32 @@ function cfgFromWorkbook(wb){
         else if(a&&b2) cfg.comtpl.push({style:a, view:'', pattern:b2});
       }
       else if(sec==='definitions'||sec==='calcdefs'||sec==='calculationdefinitions'||sec==='lineage'){
-        // Calculation | Business | Line | Include \u2014 the lineage form: each
-        // component is a line of the driller by name, + includes it, \u2212
-        // carves it out, blank Business covers businesses that wrote none
-        if(/^calculation/i.test(String(a))) continue;
-        if(a&&c) cfg.calcdefs.push({calc:a, biz:b2||'', line:c, sign:d||'+', level:e2||'', tile:f2||''});
+        /* Calculation | Business | Line | Include | MICA level | Product Level |
+           Tile — the lineage form: each component is a line of the driller by
+           name, + includes it, − carves it out, blank Business covers the
+           businesses that wrote none. The level column names the column the
+           line lives in; a further column may qualify it. */
+        const cells=[a,b2,c,d,e2,f2,g2,h2];
+        if(/^calculation/i.test(String(a))){
+          const seen={};
+          cells.forEach((hd,i)=>{ const k=String(hd||'').toLowerCase().replace(/[^a-z]/g,'');
+            if(!k) return;
+            if(/^calc/.test(k)) seen.calc=i;
+            else if(/^business|^appliesto$/.test(k)) seen.biz=i;
+            else if(k==='line'||k==='component') seen.line=i;
+            else if(/^include|^sign$/.test(k)) seen.sign=i;
+            else if(/^mica.*level$|^level$/.test(k)) seen.level=i;
+            else if(/level$/.test(k)) seen.alt=i;          // Product Level, CG level…
+            else if(k==='tile') seen.tile=i; });
+          if(seen.line!=null) DFCOL={...DFCOL, ...seen};
+          continue;
+        }
+        const cell=i=>(i==null||i>=cells.length)? '' : (cells[i]||'');
+        const cline=String(cell(DFCOL.line)||'').trim();
+        const ccalc=String(cell(DFCOL.calc)||'').trim();
+        if(ccalc&&cline) cfg.calcdefs.push({calc:ccalc, biz:cell(DFCOL.biz)||'', line:cline,
+          sign:cell(DFCOL.sign)||'+', level:cell(DFCOL.level)||'',
+          alt:cell(DFCOL.alt)||'', tile:cell(DFCOL.tile)||''});
       }
       else if(sec==='rollup'||sec==='rollups'){
         // Level | Line | Roll up | Basis | Unit | Grain | Match | Notes, in
@@ -13036,7 +13097,7 @@ function ingestArrayBuffer(buf, name, fromCache){
         for(const r of hc.resid) bits.push(`<b>${esc(r.line)}</b> keeps ${r.rows} row(s) of its own while it also has children, so its children do not add to it (${esc(r.path)})`);
         return `<tr><td>Hierarchy check</td><td>${bits.length? bits.join('<br>') : '\u2713 every row lands on a line, and every parent equals its children'}</td></tr>`;
       })()}
-      ${(()=>{ let bad=[], miss=[];
+      ${(()=>{ let bad=[], miss=[], noop=[];
         try{
           const m2=model, col=(m2.ytdAsOfCols&&m2.ytdAsOfCols[m2.ytdAsOfCols.length-1]||{}).col;
           const bizOf=r=>String(r.d.business||r.d.cgL1||'').trim().toLowerCase();
@@ -13054,9 +13115,8 @@ function ingestArrayBuffer(buf, name, fromCache){
               let lv=null, want='';
               const first=(d.comps||[]).find(c=>!c.minus&&!c.den);
               if(first){
-                const t=String(first.level||'').trim();
-                lv=/^l?1$/i.test(t)?'micaL1':/^l?2$/i.test(t)?'micaL2':/^l?3$/i.test(t)?'micaL3'
-                  :/^l?4$/i.test(t)?'micaL4':((t in m2.dimCols)? t : null);
+                const k0=calcLevelKey(first.level);
+                lv=(k0 in m2.dimCols)? k0 : null;
                 want=String(first.line||'').trim().toLowerCase();
               } else {
                 const mm=/(^|;)\s*([A-Za-z0-9_]+)\s*=\s*([^;]+)/.exec(String(d.sel||md.scope||''));
@@ -13069,9 +13129,8 @@ function ingestArrayBuffer(buf, name, fromCache){
                  unless it is said, and it is the usual reason a definition
                  looks wrong: the level or the name has moved in the extract. */
               for(const c of (d.comps||[])){
-                const t2=String(c.level||'').trim();
-                const cl=/^l?1$/i.test(t2)?'micaL1':/^l?2$/i.test(t2)?'micaL2':/^l?3$/i.test(t2)?'micaL3'
-                  :/^l?4$/i.test(t2)?'micaL4':((t2 in m2.dimCols)? t2 : null);
+                const k1=calcLevelKey(c.level);
+                const cl=(k1 in m2.dimCols)? k1 : null;
                 if(!cl) continue;
                 const wn=String(c.line||'').trim().toLowerCase();
                 if(subset.some(r=>String(r.d[cl]||'').trim().toLowerCase()===wn)) continue;
@@ -13081,6 +13140,20 @@ function ingestArrayBuffer(buf, name, fromCache){
                       if(L in m2.dimCols && subset.some(r=>String(r.d[L]||'').trim().toLowerCase()===wn))
                         return ALL_DIM_LABELS[L]||L;
                     return ''; })()});
+              }
+              /* A "−" component takes rows OUT of the selection. If its rows
+                 were never in it — a fee line carved out of an NII base — it
+                 removes nothing at all, and the calculation quietly reads as
+                 though the component were not there. */
+              const plusRows=subset.filter(r=>(d.comps||[]).some(c=>!c.minus&&!c.den&&metricRowHasLine(r,c.line,c.level,c.alt)));
+              for(const c of (d.comps||[])){
+                if(!c.minus) continue;
+                const mrows=subset.filter(r=>metricRowHasLine(r,c.line,c.level,c.alt));
+                if(!mrows.length) continue;                  // already named as unmatched
+                if(mrows.some(r=>plusRows.includes(r))) continue;
+                const plusName=((d.comps||[]).find(x=>!x.minus&&!x.den)||{}).line||'';
+                noop.push({metric:md.name, who:d.applies||'', line:c.line, rows:mrows.length,
+                  val:sumCols(mrows,[col]), base:plusName});
               }
               const parent=subset.filter(r=>String(r.d[lv]||'').trim().toLowerCase()===want);
               const mine=subset.filter(r=>metricDefTest(d,r));
@@ -13105,7 +13178,11 @@ function ingestArrayBuffer(buf, name, fromCache){
             }
           }
         }catch(e){ return ''; }
-        if(!bad.length&&!miss.length) return '';
+        if(!bad.length&&!miss.length&&!noop.length) return '';
+        const noopTxt=noop.map(x=>
+          `<b>${esc(x.metric)}${x.who?' ('+esc(x.who.toUpperCase())+')':''}: taking out "${esc(x.line)}" removes nothing</b> \u2014 its ${
+            x.rows} row(s), worth ${fmt(x.val)}, are not inside ${esc(x.base||'the lines it adds')}, so the calculation reads the same with or without that line. To subtract the ${
+            fmt(x.val)} instead, the metric has to start from a line that contains it.`);
         const missTxt=miss.map(x=>
           `<b>${esc(x.metric)}${x.who?' ('+esc(x.who.toUpperCase())+')':''}: "${esc(x.line)}" at ${esc(x.level)} matches no row here</b>${
             x.where? `, though a line of that name sits at ${esc(x.where)}` : ''} \u2014 ${
@@ -13116,7 +13193,7 @@ function ingestArrayBuffer(buf, name, fromCache){
               esc(x.cutLine||'the line it excludes')} is itself negative at ${fmt(x.cv)} \u2014 taking it out raises the total. The definition is doing what it says.`
           : `<b>${esc(x.metric)}${x.who?' ('+esc(x.who.toUpperCase())+')':''} reads ${fmt(x.mv)} where ${
               esc(x.line)} less what it excludes is ${fmt(x.pv-(x.cv||0))}</b> \u2014 its selection reaches rows outside ${esc(x.line)}.`);
-        return `<tr><td>Metric definitions</td><td>${missTxt.concat(badTxt).join('<br>')}</td></tr>`;
+        return `<tr><td>Metric definitions</td><td>${missTxt.concat(noopTxt).concat(badTxt).join('<br>')}</td></tr>`;
       })()}
       ${(()=>{ const pg=model.unitPerGrain||[]; if(!pg.length) return '';
         return `<tr><td>Units by grain</td><td>${pg.length} line(s) are reported in one unit at Group and another by country \u2014 ${
@@ -13182,7 +13259,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 08:22</td></tr>
+      <tr><td>Build</td><td>2026-08-18 10:53</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
