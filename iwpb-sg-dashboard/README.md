@@ -1730,6 +1730,33 @@ What each section governs:
   parse itself is slow and still runs on the main thread, so the dialog stops
   but the wait does not. Moving the parse to a worker is the remaining step.
 
+  **Re-opening the page no longer re-reads the workbook.** The page keeps the
+  last file so it need not be uploaded again each morning — but it kept the
+  *workbook*, and re-parsed it on every open, to arrive at precisely the model
+  it already had. On a global extract that is the whole 40-second parse, paid
+  again, before anything appears. Measured on 21,780 rows across 11 tabs:
+
+  | | |
+  |---|---|
+  | opening with nothing cached | **190 ms** — the page itself was never the problem |
+  | opening with a file cached, before | **30,840 ms** |
+  | opening with a file cached, now | **1,292 ms** |
+
+  The parsed model is stored beside the workbook and restored instead. The rows
+  are plain data — dimension strings and numbers — so they survive the round
+  trip as they are; everything *derived* from them (units, grain, the account
+  and country hierarchies, the duplication checks) is deliberately left out and
+  worked out again on restore, which is quick and cannot go stale against a
+  configuration that has changed since.
+
+  Two things this must not break, both checked: a restored page has to be
+  **identical**, not merely fast — same rows, dimensions, countries and tile
+  figures as a fresh parse, verified across seven sample shapes including the
+  multi-tab, group-tab and mixed-grain ones. And a cache written before this
+  existed, holding only the workbook, still opens by parsing it exactly as it
+  used to. `check_reopen` proves the restore does no parsing at all by deleting
+  the workbook from the cache first and requiring the page to come up anyway.
+
   **Switching country or business is instant again.** After ingest, three
   things a render leans on hardest were rebuilt from scratch on every call —
   and on a global file, one click could cost seconds:

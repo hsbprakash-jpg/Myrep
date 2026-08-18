@@ -988,9 +988,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 19:15)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 20:18)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 19:15)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 20:18)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1057,7 +1057,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 19:15</div>
+<div id="buildTag">build 2026-08-18 20:18</div>
 </aside>
 <main>
 
@@ -12342,6 +12342,53 @@ async function cachePut(name,buf){
     db.transaction('files','readwrite').objectStore('files').put({name, ts:Date.now(), buf},'last');
   }catch(e){}
 }
+/* The parse is the expensive half of reading a file \u2014 40 seconds and more on
+   a global extract \u2014 and re-opening the page paid it again every single
+   time, to arrive at exactly the model it had before. The parsed model is
+   stored alongside the workbook and restored instead: the rows are plain data
+   (dimension strings and numbers), so they survive the round trip as they are.
+   Everything derived FROM them is left out and worked out again on restore,
+   which is quick and cannot go stale against a changed configuration. */
+const MODEL_BASE_KEYS=['rows','header','dimCols','missing','pyMonths','cyMonths','quarterCols',
+  'ytdCols','targetCols','unitCol','unitHead','fyPriorCols','fyPriorLabel','fyFcCols',
+  'ytdAsOfCols','ytdFcAsOfCols','pyYtdAsOfCols','ytdTgtAsOfCols','fcProfile','yearPY','yearCY',
+  'groupRows','groupTab','groupSkipped','countries','sheetName'];
+function modelSnapshot(m){
+  const out={};
+  for(const k of MODEL_BASE_KEYS) if(k in m) out[k]=m[k];
+  /* dimCols is added to while the model is being derived (a country tab merge
+     and the region mapping both put keys in it), so it is copied rather than
+     referenced \u2014 a reference would leave what gets stored depending on
+     when IndexedDB happened to clone it. */
+  if(m.dimCols) out.dimCols={...m.dimCols};
+  /* a row's own dimensions are likewise copied, and its stamped kind (_k) is
+     left out: that is a function of the configuration, not of the file, and
+     is worked out again on restore against whatever config is loaded then */
+  const row=r=>{ const o={d:{...r.d}, v:r.v}; if(r.u!=null) o.u=r.u; return o; };
+  out.rows=(m.rows||[]).map(row);
+  if(m.groupRows) out.groupRows=m.groupRows.map(row);
+  return out;
+}
+async function modelPut(name, m, sheetName){
+  try{ const db=await idbOpen();
+    db.transaction('files','readwrite').objectStore('files')
+      .put({name, ts:Date.now(), sheetName, model:modelSnapshot(m), v:1},'lastmodel');
+  }catch(e){}
+}
+async function modelGet(){
+  try{ const db=await idbOpen();
+    return await new Promise(res=>{
+      const rq=db.transaction('files').objectStore('files').get('lastmodel');
+      rq.onsuccess=()=>res(rq.result&&rq.result.v===1? rq.result : null);
+      rq.onerror=()=>res(null);
+    });
+  }catch(e){ return null; }
+}
+async function modelClear(){
+  try{ const db=await idbOpen();
+    db.transaction('files','readwrite').objectStore('files').delete('lastmodel');
+  }catch(e){}
+}
 async function cacheGet(){
   try{ const db=await idbOpen();
     return await new Promise(res=>{
@@ -12353,7 +12400,8 @@ async function cacheGet(){
 }
 async function cacheClear(){
   try{ const db=await idbOpen();
-    db.transaction('files','readwrite').objectStore('files').delete('last');
+    const st=db.transaction('files','readwrite').objectStore('files');
+    st.delete('last'); st.delete('lastmodel');
   }catch(e){}
 }
 async function refreshCachedInfo(){
@@ -13342,6 +13390,23 @@ async function ingestArrayBuffer(buf, name, fromCache){
       if(fromCache) cacheClear();
       return false;
     }
+    /* the workbook is parsed; everything past this point is shared with a
+       restore from cache, which already holds the parsed model and must not
+       pay for the parse a second time */
+    const ok=await ingestFinish(model, sheetName, name, fromCache);
+    // kept only once the model is complete: a snapshot taken mid-derivation
+    // would restore to something subtly short of what this page is showing
+    if(ok&&!fromCache) modelPut(name, model, sheetName);
+    return ok;
+  }
+}
+
+/* Everything after the parse: deriving the model, the checks that read every
+   row, the ingest report, and putting the page on screen. Reached either from
+   a freshly parsed workbook or from one restored out of the cache. */
+async function ingestFinish(model, sheetName, name, fromCache){
+  const rep=$('ingestReport');
+  {
     model.sheetName=sheetName;
     /* the tabs are read; what follows \u2014 merging them, looking for
        duplicates, working out the report \u2014 is a second stretch of work,
@@ -13652,7 +13717,7 @@ async function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 19:15</td></tr>
+      <tr><td>Build</td><td>2026-08-18 20:18</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
@@ -14135,11 +14200,21 @@ function init(){
 }
 if(typeof window!=='undefined' && window.document){
   init();
-  // auto-restore the last uploaded file so it doesn't need re-uploading
-  cacheGet().then(rec=>{
-    if(rec && !S.model) ingestArrayBuffer(rec.buf, rec.name, true);
-    else if(!rec) refreshCachedInfo();
-  }).catch(()=>{});
+  /* auto-restore the last file so it doesn't need re-uploading \u2014 from the
+     PARSED model where one was kept, which skips the parse altogether. The raw
+     workbook is still the fallback, so a cache written by an older version, or
+     one whose model could not be stored, still opens exactly as it did. */
+  modelGet().then(async rec=>{
+    if(rec && rec.model && !S.model){
+      await ingestFinish(rec.model, rec.sheetName||rec.name, rec.name, true);
+      return;
+    }
+    const raw=await cacheGet();
+    if(raw && !S.model) ingestArrayBuffer(raw.buf, raw.name, true);
+    else if(!raw) refreshCachedInfo();
+  }).catch(()=>{ cacheGet().then(raw=>{
+    if(raw && !S.model) ingestArrayBuffer(raw.buf, raw.name, true);
+    else if(!raw) refreshCachedInfo(); }).catch(()=>{}); });
 }
 if(typeof module!=='undefined' && module.exports){
   module.exports={parseSheet, classifyPeriod, num, kpi, rag, sumCols, groupBy, normH};
