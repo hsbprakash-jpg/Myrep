@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 12:18)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 12:25)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 12:18)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 12:25)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 12:18</div>
+<div id="buildTag">build 2026-08-18 12:25</div>
 </aside>
 <main>
 
@@ -13259,7 +13259,7 @@ function ingestArrayBuffer(buf, name, fromCache){
         for(const r of hc.resid) bits.push(`<b>${esc(r.line)}</b> keeps ${r.rows} row(s) of its own while it also has children, so its children do not add to it (${esc(r.path)})`);
         return `<tr><td>Hierarchy check</td><td>${bits.length? bits.join('<br>') : '\u2713 every row lands on a line, and every parent equals its children'}</td></tr>`;
       })()}
-      ${(()=>{ let bad=[], miss=[], noop=[];
+      ${(()=>{ let bad=[], miss=[], noop=[], qbad=[];
         try{
           const m2=model, col=(m2.ytdAsOfCols&&m2.ytdAsOfCols[m2.ytdAsOfCols.length-1]||{}).col;
           const bizOf=r=>String(r.d.business||r.d.cgL1||'').trim().toLowerCase();
@@ -13304,6 +13304,24 @@ function ingestArrayBuffer(buf, name, fromCache){
                         return ALL_DIM_LABELS[L]||L;
                     return ''; })()});
               }
+              /* A value in a "Product_Level_7 = ..." qualifier that matches
+                 no row does nothing. Where a list carries several, the others
+                 still work, so rows remain and nothing looks wrong \u2014 the
+                 figure is simply off by whatever the misspelt one was worth. */
+              for(const c of (d.comps||[])){
+                const q=String(c.alt||'').trim(); if(!q||q.indexOf('=')<0) continue;
+                const qk=calcLevelKey(q.split(/\s*=\s*/)[0]);
+                if(!qk||!(qk in m2.dimCols)) continue;
+                const rhs=q.split(/\s*=\s*/).slice(1).join('=').trim();
+                const have=new Set(subset.map(r=>String(r.d[qk]||'').trim().toLowerCase()));
+                if(have.has(rhs.toLowerCase())) continue;      // the whole string is itself a value
+                const parts=rhs.split(/\s*[|,]\s*/).filter(Boolean);
+                const dud=parts.filter(v=>!have.has(v.toLowerCase()));
+                if(!dud.length) continue;
+                qbad.push({metric:md.name, who:d.applies||'', col:q.split(/\s*=\s*/)[0].trim(),
+                  dud, all:parts.length, minus:!!c.minus,
+                  near:[...new Set(dud.flatMap(v=>nearLineNames(v, subset, qk)))].slice(0,3)});
+              }
               if(!subset.some(r=>metricDefTest(d,r)))
                 for(const x of miss) if(x.def===d) x.dead=true;
               /* A "−" component takes rows OUT of the selection. If its rows
@@ -13330,7 +13348,7 @@ function ingestArrayBuffer(buf, name, fromCache){
                  excluded line is itself negative, removing it RAISES the
                  total, and a metric above its own line is then arithmetic
                  rather than error. */
-              const cut=subset.filter(r=>(d.comps||[]).some(c=>c.minus&&metricRowHasLine(r,c.line,c.level)));
+              const cut=subset.filter(r=>(d.comps||[]).some(c=>c.minus&&metricRowHasLine(r,c.line,c.level,c.alt)));
               const cv=cut.length? sumCols(cut,[col]) : 0;
               const want2=pv-(cv||0);
               if(Math.abs(mv-want2)>Math.max(0.5, Math.abs(want2)*0.0005)){
@@ -13338,12 +13356,20 @@ function ingestArrayBuffer(buf, name, fromCache){
                   kind:'off'});
               } else if(Math.abs(mv)>Math.abs(pv)&&cv<0){
                 bad.push({metric:md.name, who:d.applies||'', line:first? first.line : want, mv, pv, cv,
-                  kind:'negcut', cutLine:(d.comps||[]).filter(c=>c.minus).map(c=>c.line).join(', ')});
+                  kind:'negcut', cutLine:(d.comps||[]).filter(c=>c.minus)
+                    .map(c=>String(c.line)+(c.alt&&c.alt.indexOf('=')>=0? ' where '+c.alt : '')).join(', ')});
               }
             }
           }
         }catch(e){ return ''; }
-        if(!bad.length&&!miss.length&&!noop.length) return '';
+        if(!bad.length&&!miss.length&&!noop.length&&!qbad.length) return '';
+        const qbadTxt=qbad.map(x=>
+          `<b>${esc(x.metric)}${x.who?' ('+esc(x.who.toUpperCase())+')':''}: ${
+            x.dud.length===x.all? 'no value named in' : x.dud.length+' of the '+x.all+' values in'
+            } ${esc(x.col)} matches no row here \u2014 ${esc(x.dud.map(v=>'"'+v+'"').join(', '))}</b>${
+            x.near.length? ` \u2014 the file carries ${esc(x.near.map(v=>'"'+v+'"').join(', '))}` : ''} \u2014 ${
+            x.minus? 'those rows are not taken out' : 'those rows are not brought in'}, so ${
+            esc(x.metric)} is out by whatever they are worth.`);
         const noopTxt=noop.map(x=>
           `${esc(x.metric)}${x.who?' ('+esc(x.who.toUpperCase())+')':''}: "${esc(x.line)}" is <b>subtracted</b>, not removed \u2014 its ${
             x.rows} row(s), worth ${fmt(x.val)}, are not inside ${esc(x.base||'the lines it adds')}, so there is nothing to take out and the value is deducted instead. It appears in a drill-down as "less ${esc(x.line)}".`);
@@ -13359,7 +13385,7 @@ function ingestArrayBuffer(buf, name, fromCache){
               esc(x.cutLine||'the line it excludes')} is itself negative at ${fmt(x.cv)} \u2014 taking it out raises the total. The definition is doing what it says.`
           : `<b>${esc(x.metric)}${x.who?' ('+esc(x.who.toUpperCase())+')':''} reads ${fmt(x.mv)} where ${
               esc(x.line)} less what it excludes is ${fmt(x.pv-(x.cv||0))}</b> \u2014 its selection reaches rows outside ${esc(x.line)}.`);
-        return `<tr><td>Metric definitions</td><td>${missTxt.concat(noopTxt).concat(badTxt).join('<br>')}</td></tr>`;
+        return `<tr><td>Metric definitions</td><td>${qbadTxt.concat(missTxt).concat(noopTxt).concat(badTxt).join('<br>')}</td></tr>`;
       })()}
       ${(()=>{ const pg=model.unitPerGrain||[]; if(!pg.length) return '';
         return `<tr><td>Units by grain</td><td>${pg.length} line(s) are reported in one unit at Group and another by country \u2014 ${
@@ -13425,7 +13451,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 12:18</td></tr>
+      <tr><td>Build</td><td>2026-08-18 12:25</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

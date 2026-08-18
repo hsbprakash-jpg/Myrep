@@ -1648,6 +1648,13 @@ What each section governs:
   as a whole value first, so a value that genuinely contains a comma
   (`Hong Kong, China`) still matches itself.
 
+  **A value spelt wrong in a list is the quiet case**, and so it is reported.
+  The other values still match, so rows remain and the tile shows a perfectly
+  plausible figure — it is simply out by whatever the misspelt one was worth.
+  The ingest report names it: *"Banking NII (IWPB): 1 of the 3 values in
+  Product_Level_7 matches no row here — "Insurance Manufactring" — those rows
+  are not taken out, so Banking NII is out by whatever they are worth."*
+
   **Banking NII, as the global dataset actually files it.** The insurance piece
   of NII is not a MICA line of its own — it is the *same* `NII - Net Interest
   Income` line, filed under `Product_Level_7 = Insurance Manufacturing`. So
