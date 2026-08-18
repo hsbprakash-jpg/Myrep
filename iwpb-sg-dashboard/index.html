@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 11:48)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 12:04)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 11:48)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 12:04)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 11:48</div>
+<div id="buildTag">build 2026-08-18 12:04</div>
 </aside>
 <main>
 
@@ -6814,18 +6814,23 @@ function calcMissWhy(name, rows){
                    : ' \u2014 this file names no business at all');
     }
   }
+  const defs=def.defs||[];
+  const scoped=defs.filter(d=>d.applies), open=defs.find(d=>!d.applies)||null;
+  const pick=r=>{ if(!scoped.length) return open||null;
+    return scoped.find(x=>x.applies===bizOf(r))||open||null; };
+  const mine=rows.filter(r=>pick(r));
   const bad=[];
-  for(const d of (def.defs||[])){
+  for(const d of defs){
     for(const c of (d.comps||[])){
       if(c.minus||c.den) continue;                 // the base is what must exist
       const k=calcLevelKey(c.level);
       if(c.level&&!(k in dims)){ bad.push({line:c.line, level:c.level, noCol:true}); continue; }
-      if(rows.some(r=>metricRowHasLine(r,c.line,c.level,c.alt))) continue;
+      if(mine.some(r=>metricRowHasLine(r,c.line,c.level,c.alt))) continue;
       /* The line may well be there, and a qualifier the one thing keeping it
          out \u2014 "Product_Level_7 = Wealth" against a file whose rows are
          filed under something else. Saying "line not found" would send the
          reader hunting for the wrong thing. */
-      if(c.alt&&rows.some(r=>metricRowHasLine(r,c.line,c.level))){
+      if(c.alt&&mine.some(r=>metricRowHasLine(r,c.line,c.level))){
         const q=String(c.alt).trim(), col=calcLevelKey(q.split(/\s*=\s*/)[0]);
         bad.push({line:c.line, qual:q,
           qualMissing:!!(col&&!(col in dims))});
@@ -6835,7 +6840,20 @@ function calcMissWhy(name, rows){
         near:(k in dims)? nearLineNames(c.line, rows, k) : []});
     }
   }
-  if(!bad.length) return '';
+  if(!bad.length){
+    /* Every line the definition names is here, and it still selects nothing.
+       The reader is owed the arithmetic rather than a shrug. */
+    const hits=(r,mn)=>defs.some(d=>pick(r)===d&&(d.comps||[]).some(c=>
+      (mn? c.minus : (!c.minus&&!c.den))&&metricRowHasLine(r,c.line,c.level,c.alt)));
+    const plus=mine.filter(r=>hits(r,false)), cut=plus.filter(r=>hits(r,true));
+    const cutNames=[...new Set(defs.flatMap(d=>(d.comps||[]).filter(c=>c.minus)
+      .map(c=>String(c.line)+(c.alt? ' where '+c.alt : ''))))];
+    if(plus.length&&cut.length===plus.length&&cutNames.length)
+      return `the base matches ${plus.length} row(s) here and every one of them is taken out again by ${
+        cutNames.map(n=>'"'+n+'"').join(', ')} \u2014 nothing is left to report`;
+    if(!mine.length) return 'no row in view answers to this definition';
+    return `${mine.length} row(s) are in view and none of them answer the definition \u2014 check the Definitions tab against the headings the extract itself uses`;
+  }
   const seen=new Set(), one=[];
   for(const b of bad){ const key=b.line+'|'+(b.level||b.qual); if(seen.has(key)) continue; seen.add(key); one.push(b); }
   return one.map(b=> b.noCol
@@ -13398,7 +13416,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 11:48</td></tr>
+      <tr><td>Build</td><td>2026-08-18 12:04</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
