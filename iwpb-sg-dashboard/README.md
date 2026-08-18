@@ -1761,6 +1761,32 @@ What each section governs:
   a new one (`check_frcache`) exists solely to prove that loading a second,
   different file is never answered from the first file's cached rows.
 
+  **A subtotal that also carries its own detail rows, under one MICA parent.**
+  `totMix` (above) catches a value literally named *"Total …"* that weighs
+  about as much as the rest of the WHOLE file — built for a Level 1-style
+  grand total sitting beside everything else. It does nothing for a smaller,
+  more local shape: one MICA_Level_2 parent whose own detail already includes
+  a row that speaks for the parent in full — no further breakdown, or its
+  Level_3 simply repeating the Level_2 name — sitting beside OTHER rows that
+  genuinely break that same parent down. Every tile groups by the parent, so
+  the whole and its own pieces add together.
+
+  The name proves nothing on its own — *"Total Indirect Costs"* is an
+  ordinary P&L line, not a marker, and an earlier version of this check
+  treated any line starting with "Total" as one, which is exactly the mistake
+  `totMix`'s own comment warns against. What proves it is the arithmetic: a
+  genuine subtotal's own value is close to what its children sum to (within
+  5%, in practice); a coincidence is not. Where it holds, the ingest report
+  names the line and both sides' row counts, and the tile itself carries the
+  warning — the report alone is too easy to miss:
+
+  > ⚠ counted twice — 1 row already speaks for the whole; 2 more break it
+  > down again — see the ingest report
+
+  This is reported, not silently corrected — the reader chooses which side
+  to keep, or fixes it in the extract mapping. Six shipped sample files were
+  swept for false positives before this shipped; none raised anything.
+
   **A tab keeps its business even when its country is not in the hierarchy.**
   A tab named `IWPB HK ex HASE`, against a `CountryHierarchy` that lists
   `Singapore` and `HASE` but no `HK ex HASE`, used to lose the business
