@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 12:25)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 13:54)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 12:25)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 13:54)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 12:25</div>
+<div id="buildTag">build 2026-08-18 13:54</div>
 </aside>
 <main>
 
@@ -12886,6 +12886,20 @@ const FILE_OK=/\.(xlsx|xlsm|xlsb|xls|csv)$/i;
 /* the sheets that make a workbook the configuration. A tab called Commentary
    is not one of them: an extract may carry the month's words on such a tab */
 const CFG_SHEET_RE=/^(settings|tiles|calculations|tilepriority|dimensions|views|labels|metrics|definitions|producthierarchy|accounthierarchy|countryhierarchy|commentarytemplates|simulations|scenarios|rollup|rollups|aliases)$/;
+/* SheetJS builds formatted text, a style record and a number format for every
+   cell unless told not to. On a global extract \u2014 a dozen country tabs, a
+   million cells \u2014 that is most of the parse and none of it is ever read:
+   this page takes raw values. Sheets are also read one at a time, so the
+   browser is never held for a whole workbook at once. */
+const XL_FAST={type:'array', cellText:false, cellStyles:false, cellNF:false, dense:true};
+function xlNames(u8){ try{ return (XLSX.read(u8,{type:'array',bookSheets:true}).SheetNames)||[]; }
+  catch(e){ return null; } }
+function xlAoa(u8, sn){
+  const wb=XLSX.read(u8,{...XL_FAST, sheets:[sn]});
+  const sh=wb.Sheets[sn];
+  return sh? XLSX.utils.sheet_to_json(sh,{header:1,raw:true,defval:null}) : [];
+}
+const xlBreathe=()=>new Promise(r=>setTimeout(r,0));
 function wbIsConfig(wb){
   const first=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]||{},{header:1,defval:null});
   const a1=String(((first[0]||[])[0])==null?'':(first[0]||[])[0]).trim().toLowerCase();
@@ -12976,21 +12990,27 @@ function handleFile(file){
   rep.innerHTML='Reading '+esc(file.name)+'…';
   const reader=new FileReader();
   reader.onload=e=>{
-    // read the workbook once to see which of the two files this is
-    let wb=null;
-    try{ wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'}); }catch(err){}
-    if(wb&&wbIsConfig(wb)&&!wbIsExtract(wb)){
-      rep.innerHTML=`<div class="warnbox"><b>${esc(file.name)}</b> is the configuration pack, not a data extract —
-        it carries ${esc(wb.SheetNames.slice(0,4).join(', '))}${wb.SheetNames.length>4?'…':''} and no data tab.
-        Load it from the left pane under <b>Configuration → Upload config</b>. Nothing has been ingested.</div>`;
-      return;
-    }
-    if(!wb||!wb.SheetNames.length){
+    /* which of the two files this is turns on the sheet NAMES and on whether
+       the first data tab parses. Reading the whole workbook to learn that, and
+       then reading it all over again to ingest it, cost a large extract its
+       parse twice over — long enough for the browser to call the page dead. */
+    const u8=new Uint8Array(e.target.result);
+    const names=xlNames(u8);
+    if(!names||!names.length){
       rep.innerHTML=`<div class="warnbox"><b>${esc(file.name)}</b> could not be read as a workbook. ${FILE_ONLY_TWO}</div>`;
       return;
     }
-    if(ingestArrayBuffer(e.target.result, file.name, false))
-      cachePut(file.name, e.target.result);
+    const firstData=names.find(sn=>!/^commentar(y|ies)$|^comments?$/i.test(String(sn).replace(/[^a-z]/gi,'')))||names[0];
+    const probe={SheetNames:[firstData].concat(names.filter(n=>n!==firstData)), Sheets:{}};
+    try{ probe.Sheets[firstData]=XLSX.read(u8,{...XL_FAST, sheets:[firstData]}).Sheets[firstData]; }catch(err){}
+    if(wbIsConfig(probe)&&!wbIsExtract(probe)){
+      rep.innerHTML=`<div class="warnbox"><b>${esc(file.name)}</b> is the configuration pack, not a data extract —
+        it carries ${esc(names.slice(0,4).join(', '))}${names.length>4?'…':''} and no data tab.
+        Load it from the left pane under <b>Configuration → Upload config</b>. Nothing has been ingested.</div>`;
+      return;
+    }
+    ingestArrayBuffer(e.target.result, file.name, false)
+      .then(ok=>{ if(ok) cachePut(file.name, e.target.result); });
   };
   reader.readAsArrayBuffer(file);
 }
@@ -13111,21 +13131,32 @@ function mergeCountryModels(tabs){
   merged.fcProfile=merged.cyMonths.map(p=>({m:p.m, w:merged.rows.reduce((s2,r)=>s2+Math.abs(r.v[p.col]||0),0)}));
   return merged;
 }
-function ingestArrayBuffer(buf, name, fromCache){
+async function ingestArrayBuffer(buf, name, fromCache){
   const rep=$('ingestReport');
   {
     let model=null, sheetName=null, lastErr=null, lastMissing=null;
     try{
-      const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+      const u8=new Uint8Array(buf);
+      const sheetNames=xlNames(u8);
+      if(!sheetNames) throw new Error('this file could not be read as a workbook');
       // non-data tabs (Control, Mapping, notes) never parse; every tab that
       // does parse is a data tab. Two or more parsing tabs = one country per
       // tab, merged into a single model with a Country dimension.
       const parsedTabs=[];
-      for(const sn of wb.SheetNames){
+      let readN=0;
+      for(const sn of sheetNames){
         // a tab named Commentary is prose, never data \u2014 the words themselves
         // belong in the configuration, not the driller
         if(/^commentar(y|ies)$|^comments?$/i.test(String(sn).replace(/[^a-z]/gi,''))) continue;
-        const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
+        /* one tab at a time, with a breath between: a workbook read in a single
+           call holds the browser for its whole length, and a reader watching a
+           frozen page cannot tell working from hung */
+        if(sheetNames.length>1){
+          rep.innerHTML=`<span class="ok">Reading ${esc(name)}\u2026</span> <span class="note">tab ${
+            ++readN} of ${sheetNames.length} \u2014 ${esc(sn)}</span>`;
+          await xlBreathe();
+        }
+        const aoa=xlAoa(u8, sn);
         const cand=parseSheet(aoa);
         if(!cand.error && cand.rows.length){
           parsedTabs.push({sn, m:cand});
@@ -13189,6 +13220,11 @@ function ingestArrayBuffer(buf, name, fromCache){
       return false;
     }
     model.sheetName=sheetName;
+    /* the tabs are read; what follows \u2014 merging them, looking for
+       duplicates, working out the report \u2014 is a second stretch of work,
+       and it is broken up for the same reason the reading was */
+    if(rep) rep.innerHTML=`<span class="ok">Read ${esc(name)}</span> <span class="note">working out the figures\u2026</span>`;
+    await xlBreathe();
     Object.assign(model, buildGrainDup(model));
     model.groupLeaves=leafSet(model.groupRows);
     Object.assign(model, buildLineUnits(model));
@@ -13227,6 +13263,7 @@ function ingestArrayBuffer(buf, name, fromCache){
           model.totMix.push({dim:k, tot, others:vals.length-1});
       }
     }
+    await xlBreathe();
     S.model=model; S.model0=model; S.reportYear='cy'; S.fileName=name;
     simSeedFromCfg();
     COM_DOC_CACHE=null;      // the commentary is matched again against this file
@@ -13236,6 +13273,7 @@ function ingestArrayBuffer(buf, name, fromCache){
     Q.filters=[]; Q.out=[]; Q.sort=[]; qLastResult=null;
     const dlh=document.getElementById('qDlHost'); if(dlh) dlh.dataset.done='';
     const l2s=new Set(model.rows.map(r=>r.d.micaL2).filter(Boolean));
+    await xlBreathe();               // the report reads every row again
     rep.innerHTML=`<span class="ok">✔ ${fromCache?'Restored from cache':'Ingested'} ${esc(name)}</span>
       <table>
       <tr><td>Sheet</td><td>${esc(sheetName)}</td></tr>
@@ -13451,7 +13489,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 12:25</td></tr>
+      <tr><td>Build</td><td>2026-08-18 13:54</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

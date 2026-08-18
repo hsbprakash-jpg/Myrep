@@ -1676,6 +1676,28 @@ What each section governs:
   place; `Group_dashboard_config_pack.xlsx` keeps the simpler Revenue-based
   form the other sample files reconcile against.
 
+  **A large extract is read once, a tab at a time.** The page used to read the
+  whole workbook twice over: once at the door, to tell a configuration pack
+  from a data extract, and again to ingest it. On a global extract — a dozen
+  country tabs, a million cells — that is the entire parse cost paid twice, in
+  two unbroken blocks, and the browser answers with *"This page isn't
+  responding"*. Three things changed:
+
+  - the door reads the sheet **names** and the first data tab, not the whole
+    book, which is the only part the question turns on;
+  - the ingest reads **one tab at a time**, with a breath between each, and
+    says where it is — *"Reading … tab 4 of 11 — IWPB Australia"*. The work
+    after the tabs — merging them, looking for duplicates, writing the report —
+    is broken up the same way;
+  - SheetJS is told not to build formatted text, a style record and a number
+    format for every cell. The page reads raw values and never used them.
+
+  On 21,780 rows across 11 country tabs the longest stretch the browser is held
+  falls from **51 seconds to 7.9** — under the threshold at which Chrome calls
+  the page dead. The total is still around 53 seconds on a file that size: the
+  parse itself is slow and still runs on the main thread, so the dialog stops
+  but the wait does not. Moving the parse to a worker is the remaining step.
+
   **A tab keeps its business even when its country is not in the hierarchy.**
   A tab named `IWPB HK ex HASE`, against a `CountryHierarchy` that lists
   `Singapore` and `HASE` but no `HK ex HASE`, used to lose the business
