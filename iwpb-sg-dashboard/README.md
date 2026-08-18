@@ -1676,6 +1676,38 @@ What each section governs:
   place; `Group_dashboard_config_pack.xlsx` keeps the simpler Revenue-based
   form the other sample files reconcile against.
 
+  **What a tile prints above its figure.** The page header already names the
+  period and the scope, so a tile repeating *JUN YTD* on every card is noise.
+  What it must always say is its **unit**, because that is the one thing the
+  header cannot say for it — the cards are not all in the same unit, and a
+  balance in billions sitting beside a result in millions has to be told apart
+  at a glance. `tile_unit_label` chooses:
+
+  | Setting | A tile reads |
+  |---|---|
+  | `unit` *(default)* | `US$m` |
+  | `period` | `JUN YTD · US$m` — the older form |
+  | `off` | no label at all |
+
+  **Where `US$m`, `US$bn` and `%` come from**, in the order the page asks:
+
+  1. the **`Unit` column on the Tiles tab**, beside the tile it belongs to —
+     the most direct thing a pack can say, and it speaks over everything below;
+  2. the **`Unit` column on the Rollup tab**, which declares a line's unit
+     wherever that line appears;
+  3. the **extract's own `Unit` column**, where the file states it per row;
+  4. failing all three, the convention: `unit_label` (default `US$m`) for a
+     result, `bs_unit` (default `bn`) for a balance, `%` for a line matching
+     `ratio_patterns`, and a plain number for one matching `count_patterns`.
+
+  Writing `US$bn` beside `Revenue` on the Tiles tab restates that tile and
+  labels it: 2,967 US$m is printed as **3.0 US$bn**. Nothing else moves.
+
+  **A headcount is a count, not a ratio.** The shipped packs listed `fte`,
+  `headcount` and `count` under `ratio_patterns`, so an FTE tile was labelled
+  `%` while printing 1,286. Those names live in `count_patterns` now, where
+  they belong; `ratio_patterns` keeps `%`, `bps`, `rote`, `cer` and `ratio`.
+
   **A large extract is read once, a tab at a time.** The page used to read the
   whole workbook twice over: once at the door, to tell a configuration pack
   from a data extract, and again to ingest it. On a global extract — a dozen

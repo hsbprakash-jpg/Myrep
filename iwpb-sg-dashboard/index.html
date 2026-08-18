@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 13:54)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 14:02)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 13:54)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 14:02)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 13:54</div>
+<div id="buildTag">build 2026-08-18 14:02</div>
 </aside>
 <main>
 
@@ -1462,6 +1462,9 @@ const CFG_DEFAULT={
     tile_hidden:'',
     tile_visible:'',
     tile_net:'',
+    /* what a tile prints above its figure: unit (US$m), period (JUN YTD · US$m,
+       the older form), or off. The page header already names the period. */
+    tile_unit_label:'unit',
     tile_net_auto:'Y',
     scorecard_hidden:'',
     tile_metrics:'auto',
@@ -1864,8 +1867,21 @@ function unitDeclLevels(lvl){
   }
   return null;
 }
+/* A unit written on the Tiles tab, beside the tile it belongs to. It is the
+   most direct thing a pack can say \u2014 "this one is billions" \u2014 so it
+   speaks over the Rollup declaration and over the extract's own Unit column. */
+function tileUnitOf(name){
+  const nm=String(name||'').trim().toLowerCase(); if(!nm) return '';
+  for(const t of ((CFG&&CFG.tiles)||[])){
+    if(String(t.name||'').trim().toLowerCase()!==nm) continue;
+    const u=unitFromText(t.unit); if(u) return u;
+  }
+  return '';
+}
 function unitDeclFor(name, level){
   const nm=String(name||'').trim();
+  const tu=tileUnitOf(nm);
+  if(tu) return {level:level||null, at:'tile', line:nm, name:nm, unit:tu, fromTile:true};
   for(const L of (level? [level] : ['micaL1','micaL2','micaL3','micaL4'])){
     const d=rollupFind(L, nm);
     if(d&&d.unit) return {...d, at:L, name:nm};
@@ -4340,7 +4356,14 @@ function renderSummary(){
     const notHere=!!(opt&&opt.rows)&&lineNotAtGrain(name, opt.rows);
     const mixU=!notHere&&!!(opt&&opt.rows)&&mixedUnits(opt.rows);
     const tu=mixU? noSumLabel(opt.rows) : notHere? kpiUnitLabel(k) : kpiUnitLabel(k);
+    /* the page header already carries the period, so a tile repeating it on
+       every card is noise. tile_unit_label: unit (the default) prints just the
+       unit, period prints the old "JUN YTD \u00b7 US$m", off prints neither. */
+    const lblMode=(cfgS('tile_unit_label')||'unit').trim().toLowerCase();
     const hLbl=MON_LBL[tileYtdM()]+(k.isBS? ' closing' : ' YTD');
+    const lblTxt=/^(off|none|no|n)$/.test(lblMode)? ''
+      : /^(period|both|full|periodunit|period\+unit)$/.test(lblMode)? (hLbl+' \u00b7 '+tu)
+      : tu;
     const netOf=(opt&&opt.netOf)||[];
     const netSub=netOf.length
       ? `<div class="krow actonly"><span class="kl">net of ${esc(netOf.map(x=>x.name).join(', '))}</span>
@@ -4351,7 +4374,8 @@ function renderSummary(){
     <button class="card${(opt&&opt.parked)?' parked':''}" ${l2attr} title="View this line in the trajectory and commentary">
       ${(opt&&opt.ctl)||''}
       <div class="thead"><span class="tname" title="${esc((l=>l? name+' \u2014 '+l : name)(metricLineageTxt(name)))}">${esc(name)}</span>
-        <span class="tval${(!mixU&&!notHere&&(hv||0)<0)?' negnum':''}"><span class="tvlbl">${esc(hLbl)} · ${esc(tu)}</span>${
+        <span class="tval${(!mixU&&!notHere&&(hv||0)<0)?' negnum':''}">${
+          lblTxt? `<span class="tvlbl">${esc(lblTxt)}</span>` : ''}${
           (mixU||notHere)? '–' : fmtKu(k,hv)}</span></div>
       ${netSub}
       ${notHere? `<div class="krow actonly"><span class="kl">reported below this level only — never carried up</span></div>`
@@ -12697,7 +12721,9 @@ function cfgFromWorkbook(wb){
         if(String(a).length>60||/[.:]\s/.test(String(a))) continue;
         if(b2&&!/^([YNX]|\+|add\b|yes|no|show|hide|park|never|off|exclude|remove|drop|none)/i
              .test(String(b2).trim())) continue;
-        if(a) cfg.tiles.push({name:a, show:(b2||'Y'), net:(c||'')});
+        // Tile | Show | Nets with | Unit \u2014 the unit is written beside the
+        // tile it belongs to, which is the first place a reader looks
+        if(a) cfg.tiles.push({name:a, show:(b2||'Y'), net:(c||''), unit:(d||'')});
       }
       else if(sec==='commentarytemplates'||sec==='commentarystyles'){
         // Style | View | Pattern — with two columns, Style | Pattern; the
@@ -13489,7 +13515,7 @@ async function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 13:54</td></tr>
+      <tr><td>Build</td><td>2026-08-18 14:02</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
