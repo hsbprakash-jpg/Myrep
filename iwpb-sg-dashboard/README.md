@@ -1654,6 +1654,20 @@ What each section governs:
   place; `Group_dashboard_config_pack.xlsx` keeps the simpler Revenue-based
   form the other sample files reconcile against.
 
+  **A tab keeps its business even when its country is not in the hierarchy.**
+  A tab named `IWPB HK ex HASE`, against a `CountryHierarchy` that lists
+  `Singapore` and `HASE` but no `HK ex HASE`, used to lose the business
+  altogether: the whole tab name became the country and the `Business` column
+  was left blank. Every Definitions row written for `IWPB` then skipped that
+  tab **in silence**, and the metric simply read low — on a two-tab file,
+  1,496 where the answer was 2,296. The business is now taken from the first
+  word of the tab name where the hierarchy cannot place it, so the tab reads as
+  `IWPB` / `HK ex HASE`: attributed, and still listed under **Unmapped** in the
+  ingest report until a row is added to `CountryHierarchy` to give it a region.
+  Where a definition names a business the file genuinely does not carry, the
+  tile says so rather than blaming a line — *"it is written for "GBM", and no
+  row here is that business — this file carries "IWPB""*.
+
   **A calculation the file cannot produce keeps its place.** Naming a line the
   extract does not carry is an ordinary mistake — `NII - Net Interest Income`
   against a file that heads it `NII - Interest Income` is one word out — and

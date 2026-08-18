@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 11:37)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 11:48)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 11:37)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 11:48)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 11:37</div>
+<div id="buildTag">build 2026-08-18 11:48</div>
 </aside>
 <main>
 
@@ -6800,6 +6800,20 @@ function calcMissWhy(name, rows){
   const def=metricDef(name);
   if(!def) return '';
   const dims=(S.model&&S.model.dimCols)||{};
+  /* Every definition written for a business, and not one row of that business
+     here: the lines may all be present and the metric still produce nothing.
+     Naming the businesses the file does carry is the whole diagnosis. */
+  const bizOf=r=>String(r.d.business||r.d.cgL1||'').trim().toLowerCase();
+  const want=(def.defs||[]).map(d=>String(d.applies||'').trim()).filter(Boolean);
+  if(want.length===(def.defs||[]).length&&want.length){
+    const here=new Set(rows.map(bizOf).filter(Boolean));
+    if(!want.some(w=>here.has(w.toLowerCase()))){
+      const got=[...new Set(rows.map(r=>String(r.d.business||r.d.cgL1||'').trim()).filter(Boolean))];
+      return `it is written for ${want.map(w=>'"'+w.toUpperCase()+'"').join(', ')}, and no row here is that business`+
+        (got.length? ` \u2014 this file carries ${got.slice(0,4).map(g=>'"'+g+'"').join(', ')}`
+                   : ' \u2014 this file names no business at all');
+    }
+  }
   const bad=[];
   for(const d of (def.defs||[])){
     for(const c of (d.comps||[])){
@@ -12992,6 +13006,19 @@ function chResolveTab(name){
     if(low===(String(e2.l0).trim()+' '+String(e2.country).trim()).toLowerCase())
       return {business:String(e2.l0).trim(), country:String(e2.country).trim()};
   }
+  /* "IWPB HK ex HASE" against a hierarchy that lists Singapore and HASE but no
+     "HK ex HASE". The tab still says which business it is \u2014 it is the
+     first word \u2014 and dropping that on the floor makes every definition
+     written for that business skip the tab in silence, which reads as a figure
+     that is simply too small. Take the business from the name and leave the
+     rest as the country, unmapped but attributed. */
+  const l0s=[...new Set(cm.map(e2=>String(e2.l0||'').trim()).filter(Boolean))]
+    .sort((a,b)=>b.length-a.length);
+  for(const b of l0s){
+    const p=b.toLowerCase()+' ';
+    if(low.startsWith(p)&&low.length>p.length)
+      return {business:b, country:String(name).trim().slice(b.length).trim(), loose:true};
+  }
   return null;
 }
 function applyCountryRegions(m){
@@ -13189,7 +13216,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       ${model.groupSkipped&&model.groupSkipped.length? `<tr><td>Group</td><td>tab ${esc(model.groupSkipped.join(', '))} set aside (group_consolidation: rollup) \u2014 the Group is the roll-up of the country tabs</td></tr>` : ''}
       ${model.dupCombos? `<tr><td>Duplication</td><td><b>${model.dupCombos.toLocaleString()} dimension combination${model.dupCombos===1?'':'s'} appear${model.dupCombos===1?'s':''} on more than one row</b> (${model.dupExtra.toLocaleString()} extra row${model.dupExtra===1?'':'s'}) \u2014 every figure that touches them adds up more than once. First example: ${esc(Object.entries(model.dupSample||{}).filter(([,v])=>v).map(([k,v])=>k+'='+v).join(' \u00b7 '))}. Check the extract for a repeated block or two vintages of the same slice.</td></tr>` : ''}
       ${model.totMix&&model.totMix.length? model.totMix.map(t=>`<tr><td>Double count</td><td>The <b>${esc(t.dim)}</b> dimension carries <b>\u201c${esc(t.tot)}\u201d</b> beside ${t.others} detail value${t.others===1?'':'s'} \u2014 totals and their own details add together. Filter one side out, or remove the total rows from the extract.</td></tr>`).join('') : ''}
-      ${model.unmappedTabs&&model.unmappedTabs.length? `<tr><td>Unmapped</td><td>${model.unmappedTabs.length} tab name${model.unmappedTabs.length===1?'':'s'} not found in the CountryHierarchy \u2014 grouped as Unmapped: <b>${esc(model.unmappedTabs.slice(0,6).join(', '))}${model.unmappedTabs.length>6?' \u2026':''}</b>. Add a row per name to the configuration's CountryHierarchy sheet to place them.</td></tr>` : ''}
+      ${model.unmappedTabs&&model.unmappedTabs.length? `<tr><td>Unmapped</td><td>${model.unmappedTabs.length} tab name${model.unmappedTabs.length===1?'':'s'} not found in the CountryHierarchy \u2014 grouped as Unmapped: <b>${esc(model.unmappedTabs.slice(0,6).join(', '))}${model.unmappedTabs.length>6?' \u2026':''}</b>. Their business is taken from the first word of the tab name, so a definition written for that business still reads them; their region is Unmapped until a row per name is added to the configuration's CountryHierarchy sheet.</td></tr>` : ''}
       ${model.globalTabWarn&&model.globalTabWarn.length? `<tr><td>\u26a0 Global tab</td><td>tab ${esc(model.globalTabWarn.join(', '))} looks like a business consolidation, and it was merged as a <b>country</b> \u2014 a Global business is always summed from its own tabs, so this will double-count. Remove the tab, or name it Group / add it to group_tab_patterns if it is the Group consolidation.</td></tr>` : ''}
       ${model.countries&&model.countries.length? `<tr><td>Country tabs</td><td>${esc(model.countries.join(' \u00b7 '))} — the top of the left pane is their sum; pick a node in the left pane or top bar</td></tr>`:''}
       ${model.countries&&model.countries.length? `<tr><td>Roll-up</td><td>${model.countries.map(sn=>{
@@ -13371,7 +13398,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 11:37</td></tr>
+      <tr><td>Build</td><td>2026-08-18 11:48</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
