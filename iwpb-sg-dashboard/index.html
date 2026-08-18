@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 20:31)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 21:24)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 20:31)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 21:24)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 20:31</div>
+<div id="buildTag">build 2026-08-18 21:24</div>
 </aside>
 <main>
 
@@ -9473,10 +9473,40 @@ function scopeUnits(rows){
    Two more that look additive and are not: counts of different things (staff
    and customers), and a ratio over more than one row — an average of ratios is
    not the ratio of the whole, which has to be recomputed from its components. */
+/* The scales a scope's rows state for THEMSELVES, in the file's own Unit
+   column — as distinct from what the pack declares a line to be. A declared
+   unit covers a whole line, so its figures are all held at one scale and only
+   divided when printed; rows that each state their own, and disagree, are not
+   at one scale and cannot be added as they stand. */
+function statedScales(rows){
+  /* A P&L stated in millions beside balances stated in billions is ordinary,
+     and no business of this test: those two are never summed into one figure
+     anyway \u2014 the statement keeps them apart, not the scale. What cannot
+     stand is rows that WOULD be added to each other disagreeing on their own
+     scale: 500 stated in millions and 2 stated in billions are 2,500 million,
+     and adding the figures as they stand says 502. So each side is judged
+     against itself. */
+  const pl=new Set(), bs=new Set();
+  for(const r of rows){
+    if(!r.u) continue;
+    const tok=unitFromText(r.u);
+    if(!tok||unitKind(tok)!=='money') continue;
+    const side=isBSRow(r)? bs : pl;
+    side.add(unitScale(tok));
+    if(side.size>1) return side;
+  }
+  return new Set();
+}
 function mixedUnits(rows){
   if(!rows||!rows.length) return false;
   const kinds=scopeKinds(rows);
   if(kinds.size>1) return true;
+  /* money at two scales in the file itself: 500 stated in millions and 2
+     stated in billions are 2,500 million, never 502, and summing the figures
+     as they stand says the second. The ingest report already tells the reader
+     no total is drawn across a line whose rows disagree on their unit — this
+     is what makes that true. */
+  if(statedScales(rows).size>1) return true;
   const only=[...kinds][0];
   if(only==='ratio') return rows.length>1;
   if(only==='number')
@@ -9495,10 +9525,17 @@ function noSumWhy(rows){
     return 'a ratio is read at the level it is reported, never added';
   if(kinds.size===1&&[...kinds][0]==='number')
     return 'counts of different things are never added together';
+  /* a clash of KINDS comes first: a ratio, a count and money added together is
+     a deeper fault than a scale, and where both are true it is the one to say */
+  if(kinds.size>1) return `${unitsNote(rows)} are never added together`;
+  const sc=statedScales(rows);
+  if(sc.size>1) return `the file states this line in ${
+    [...sc].map(x=>unitTokLabel(x)).join(' and ')} \u2014 figures at two scales are not added as they stand`;
   return `${unitsNote(rows)} are never added together`;
 }
 /* and what to call a scope that carries no single unit */
 function noSumLabel(rows){
+  if(statedScales(rows).size>1) return 'mixed units';
   const toks=scopeUnits(rows);
   const kinds=new Set([...toks].map(x=>x==='\u2014'? 'money' : unitKind(x)));
   if(kinds.size===1&&[...kinds][0]==='ratio') return '%';
@@ -13668,7 +13705,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 20:31</td></tr>
+      <tr><td>Build</td><td>2026-08-18 21:24</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

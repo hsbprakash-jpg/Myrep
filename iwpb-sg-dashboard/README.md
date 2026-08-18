@@ -1975,7 +1975,26 @@ What each section governs:
   different things (staff and customers), and a ratio over more than one row —
   an average of ratios is not the ratio of the whole. Scales are different:
   money in millions and money in billions are one kind, held in the file's own
-  unit and divided only when printed, so they still add.
+  unit and divided only when printed, so they still add — **as long as the
+  rows that would be added to each other agree on their scale.**
+
+  **Rows the file itself states at different scales are not added as they
+  stand.** `sumCols` adds the figures as the file holds them, which is right
+  when a line's rows are all at one scale and wrong when they are not: 500
+  stated in `$mn` and 2 stated in `$bn` are 2,500 million, and adding them as
+  they stand says **502** — a figure that looks perfectly ordinary and is wrong
+  by a factor of five. The ingest report already told the reader that no total
+  is drawn across a line whose rows disagree on their unit; the guard now makes
+  that true, because it reads the row's own `Unit` cell rather than only what
+  the pack declares the line to be. Such a parent shows `–` and says *"the file
+  states this line in US$m and US$bn — figures at two scales are not added as
+  they stand"*.
+
+  A P&L stated in millions beside balances stated in billions is **ordinary and
+  untouched**: those two are never summed into one figure anyway — the
+  statement keeps them apart, not the scale — so each side is judged against
+  itself. Where a scope clashes on *kind* as well as scale, the kind is what is
+  said: a ratio, a count and money added together is the deeper fault.
 
   Two things the sheet cannot vote away. A ratio is never additive, whatever
   it is declared as. And **a sum is taken on the file's own actuals YTD
