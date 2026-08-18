@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-17 21:08)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 07:59)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-17 21:08)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 07:59)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-17 21:08</div>
+<div id="buildTag">build 2026-08-18 07:59</div>
 </aside>
 <main>
 
@@ -13077,7 +13077,7 @@ function ingestArrayBuffer(buf, name, fromCache){
         return `<tr><td>Metric definitions</td><td>${bad.map(x=>
           `<b>${esc(x.name)}${x.who?' ('+esc(x.who.toUpperCase())+')':''} reads ${fmt(x.mv)} against ${
             esc(x.line)} at ${fmt(x.pv)}</b> \u2014 a metric defined from a line cannot exceed it.${
-            x.minus.length? ` It subtracts ${esc(x.minus.join(', '))}: check the sign the file carries that line with \u2014 subtracting a negative adds it.` : ''}`
+            x.minus.length? ` Its definition leaves ${esc(x.minus.join(', '))} out of the selection, and the file carries that line as a negative \u2014 so removing it raises the total. That is the definition working as written; whether it is what the pack means is the question.` : ''}`
           ).join('<br>')}</td></tr>`;
       })()}
       ${(()=>{ const pg=model.unitPerGrain||[]; if(!pg.length) return '';
@@ -13144,7 +13144,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-17 21:08</td></tr>
+      <tr><td>Build</td><td>2026-08-18 07:59</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
