@@ -979,9 +979,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 07:59)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 08:17)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 07:59)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 08:17)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1048,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 07:59</div>
+<div id="buildTag">build 2026-08-18 08:17</div>
 </aside>
 <main>
 
@@ -13036,7 +13036,7 @@ function ingestArrayBuffer(buf, name, fromCache){
         for(const r of hc.resid) bits.push(`<b>${esc(r.line)}</b> keeps ${r.rows} row(s) of its own while it also has children, so its children do not add to it (${esc(r.path)})`);
         return `<tr><td>Hierarchy check</td><td>${bits.length? bits.join('<br>') : '\u2713 every row lands on a line, and every parent equals its children'}</td></tr>`;
       })()}
-      ${(()=>{ let bad=[];
+      ${(()=>{ let bad=[], miss=[];
         try{
           const m2=model, col=(m2.ytdAsOfCols&&m2.ytdAsOfCols[m2.ytdAsOfCols.length-1]||{}).col;
           const bizOf=r=>String(r.d.business||r.d.cgL1||'').trim().toLowerCase();
@@ -13063,6 +13063,25 @@ function ingestArrayBuffer(buf, name, fromCache){
                 if(mm&&(mm[2] in m2.dimCols)){ lv=mm[2]; want=mm[3].trim().toLowerCase(); }
               }
               if(!lv||!want||!(lv in m2.dimCols)) continue;
+              /* A component that matches no row does nothing — and for a "−"
+                 component doing nothing means the line it was meant to take out
+                 stays in, so the metric comes out too big. That is silent
+                 unless it is said, and it is the usual reason a definition
+                 looks wrong: the level or the name has moved in the extract. */
+              for(const c of (d.comps||[])){
+                const t2=String(c.level||'').trim();
+                const cl=/^l?1$/i.test(t2)?'micaL1':/^l?2$/i.test(t2)?'micaL2':/^l?3$/i.test(t2)?'micaL3'
+                  :/^l?4$/i.test(t2)?'micaL4':((t2 in m2.dimCols)? t2 : null);
+                if(!cl) continue;
+                const wn=String(c.line||'').trim().toLowerCase();
+                if(subset.some(r=>String(r.d[cl]||'').trim().toLowerCase()===wn)) continue;
+                miss.push({metric:md.name, who:d.applies||'', line:c.line, level:c.level, minus:!!c.minus,
+                  where:(()=>{ // where the name does appear, if it does
+                    for(const L of ['micaL1','micaL2','micaL3','micaL4'])
+                      if(L in m2.dimCols && subset.some(r=>String(r.d[L]||'').trim().toLowerCase()===wn))
+                        return ALL_DIM_LABELS[L]||L;
+                    return ''; })()});
+              }
               const parent=subset.filter(r=>String(r.d[lv]||'').trim().toLowerCase()===want);
               const mine=subset.filter(r=>metricDefTest(d,r));
               if(!parent.length||!mine.length) continue;
@@ -13073,12 +13092,18 @@ function ingestArrayBuffer(buf, name, fromCache){
             }
           }
         }catch(e){ return ''; }
-        if(!bad.length) return '';
-        return `<tr><td>Metric definitions</td><td>${bad.map(x=>
+        if(!bad.length&&!miss.length) return '';
+        const missTxt=miss.map(x=>
+          `<b>${esc(x.metric)}${x.who?' ('+esc(x.who.toUpperCase())+')':''}: "${esc(x.line)}" at ${esc(x.level)} matches no row here</b>${
+            x.where? `, though a line of that name sits at ${esc(x.where)}` : ''} \u2014 ${
+            x.minus? 'nothing is taken out, so the metric comes out too big'
+                   : 'it contributes nothing, so the metric comes out too small'}.`);
+        if(!bad.length) return `<tr><td>Metric definitions</td><td>${missTxt.join('<br>')}</td></tr>`;
+        return `<tr><td>Metric definitions</td><td>${missTxt.concat(bad.map(x=>
           `<b>${esc(x.name)}${x.who?' ('+esc(x.who.toUpperCase())+')':''} reads ${fmt(x.mv)} against ${
             esc(x.line)} at ${fmt(x.pv)}</b> \u2014 a metric defined from a line cannot exceed it.${
             x.minus.length? ` Its definition leaves ${esc(x.minus.join(', '))} out of the selection, and the file carries that line as a negative \u2014 so removing it raises the total. That is the definition working as written; whether it is what the pack means is the question.` : ''}`
-          ).join('<br>')}</td></tr>`;
+          )).join('<br>')}</td></tr>`;
       })()}
       ${(()=>{ const pg=model.unitPerGrain||[]; if(!pg.length) return '';
         return `<tr><td>Units by grain</td><td>${pg.length} line(s) are reported in one unit at Group and another by country \u2014 ${
@@ -13144,7 +13169,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 07:59</td></tr>
+      <tr><td>Build</td><td>2026-08-18 08:17</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
