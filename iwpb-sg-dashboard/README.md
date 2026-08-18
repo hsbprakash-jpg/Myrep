@@ -310,17 +310,23 @@ left-pane strip and the Filters pane.
   one component per row, in the file's own line names:
 
   ```
-  Calculation  | Business | Line                   | Include | MICA level | Tile
-  Banking NII  | IWPB     | Revenue                |   +     |    L2      |
-  Banking NII  | IWPB     | Net Insurance Revenue  |   −     |    L3      |
-  Banking NII  | CIB      | Banking NII            |   +     |   accH3    |
+  Calculation  | Business | Line                   | Include | MICA level | Product Level   | Tile
+  Banking NII  | IWPB     | Revenue                |   +     |    L2      |                 |
+  Banking NII  | IWPB     | Net Insurance Revenue  |   −     |    L3      | Product_Level_7 |
+  Banking NII  | CIB      | Banking NII            |   +     |   accH3    |                 |
   ```
 
   `+` includes the named line, `−` carves it out, blank Business covers
   every business that wrote none. **MICA level** pins the name to the level
   it lives at — `L1`..`L4` for MICA, or a hierarchy key like `accH3` — so a
   name that exists at two levels is never guessed (blank searches every
-  level). A defined calculation **follows through by itself**: it joins the
+  level). **Product Level** qualifies a component further: a bare column name
+  lets the line be found in that column too, `Product_Level_7 = Wealth`
+  restricts it to rows holding that value. A `−` line **inside** the base is
+  removed from the selection; one **outside** it — insurance carved out of
+  `NII - Net Interest Income` rather than out of `Revenue` — has its value
+  subtracted instead, since there is nothing there to remove. Both read as
+  *the base, less that line*, and the ingest report says which applied. A defined calculation **follows through by itself**: it joins the
   tile grid, the slide deck, the KPI nav and the tile-driven commentary with
   no further wiring — put `N` in the **Tile** column to keep it a definition
   only. What the tab reads is exactly what the tile computes — the tile's
@@ -1627,25 +1633,36 @@ What each section governs:
   value. The sheet is read by its headings, so a column may be added or moved
   without shifting the ones behind it.
 
-  **What `−` does, and when it does nothing.** A `−` component **removes rows
-  from the selection** — it does not subtract a value. So it only bites where
-  those rows were in the selection to begin with: carving `Net Insurance
-  Revenue` out of `Revenue` works, because insurance sits inside Revenue;
-  carving it out of `NII - Net Interest Income` removes nothing, because
-  insurance was never an NII row, and the calculation reads the same with or
-  without that line. The ingest report says so, with the value that was
-  expected to come out: *"taking out 'Net Insurance Revenue' removes nothing —
-  its 2 rows, worth (396), are not inside NII - Net Interest Income."*
+  **What `−` does.** It reads as one sentence — *the base, less that line* —
+  and takes whichever of two forms the data calls for:
 
-  **A metric cannot exceed the line it is defined from.** Where a definition
-  starts from a line — `Banking NII = Revenue less Net Insurance Revenue` —
-  the ingest report compares the two on the loaded file, per business, and
-  says so if the metric comes out larger: *"Banking NII (IWPB) reads 750
-  against Revenue at 650 — a metric defined from a line cannot exceed it. It
-  subtracts Net Insurance Revenue: check the sign the file carries that line
-  with — subtracting a negative adds it."* That last point is the usual
-  cause: a line the extract already carries as a negative, subtracted again by
-  the definition, is added instead.
+  | Where the line taken out sits | What happens |
+  |---|---|
+  | **inside the base** — `Net Insurance Revenue` carved out of `Revenue` | its rows are **removed from the selection** |
+  | **outside the base** — the same line carved out of `NII - Net Interest Income` | there is nothing to remove, so its **value is subtracted** |
+
+  Both give "the base less that line". The second is carried as a row of its
+  own, named `less <line>`, so every figure downstream sums it exactly as it
+  sums everything else and a drill-down shows it rather than hiding it. The
+  ingest report says which form applied and what it was worth. Note that where
+  the line removed is itself negative, "less" **raises** the total — insurance
+  at (396) taken out of NII of 1,100 gives 1,496 — which is arithmetic, not a
+  fault.
+
+  **A metric must equal what it says it is.** Where a definition starts from a
+  line — `Banking NII = Revenue less Net Insurance Revenue` — the ingest report
+  tests that identity on the loaded file, per business: the metric's own rows
+  against the line less the rows taken out. It is the identity that is checked,
+  not the sizes, because where the line taken out is itself negative the metric
+  *should* come out above its base. Two things can be said:
+
+  | What the report finds | What it says |
+  |---|---|
+  | the identity fails | *"**Banking NII (IWPB) reads 812 where Revenue less what it excludes is 750** — its selection reaches rows outside Revenue."* |
+  | the identity holds, but the metric is above its base because the excluded line is negative | *"Banking NII (IWPB) reads 1,146, above Revenue at 750, because Net Insurance Revenue is itself negative at (396) — taking it out raises the total. The definition is doing what it says."* |
+
+  The first is bold, because it is a fault to look into; the second is plain,
+  because it is arithmetic and needs only to be understood.
 
   **A count is not money either.** `count_patterns` (default: `headcount`,
   `fte`, `count(s)`, `customers`, `nos`, `number`, `heads`) names the lines
