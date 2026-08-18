@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 12:04)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 12:18)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 12:04)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 12:18)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 12:04</div>
+<div id="buildTag">build 2026-08-18 12:18</div>
 </aside>
 <main>
 
@@ -6481,7 +6481,16 @@ function metricAlsoOK(r, alt){
   const eq=s2.split(/\s*=\s*/);
   if(eq.length>1){
     const k=calcLevelKey(eq[0]); if(!k) return null;
-    return String(r.d[k]||'').trim().toLowerCase()===eq.slice(1).join('=').trim().toLowerCase();
+    const want=eq.slice(1).join('=').trim().toLowerCase();
+    const have=String(r.d[k]||'').trim().toLowerCase();
+    if(have===want) return true;
+    /* Insurance is rarely one value. A pack that writes several \u2014
+       "Insurance Manufacturing | Insurance Distribution" \u2014 means any of
+       them, and reading that as one long value would quietly exclude nothing
+       at all. The whole string is tried first, so a value that genuinely
+       contains a comma ("Hong Kong, China") still matches itself. */
+    const parts=want.split(/\s*[|,]\s*/).filter(Boolean);
+    return parts.length>1 && parts.indexOf(have)>=0;
   }
   return undefined;                     // a bare column name: an alternative home
 }
@@ -13416,7 +13425,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 12:04</td></tr>
+      <tr><td>Build</td><td>2026-08-18 12:18</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

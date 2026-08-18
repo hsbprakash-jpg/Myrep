@@ -1633,6 +1633,21 @@ What each section governs:
   value. The sheet is read by its headings, so a column may be added or moved
   without shifting the ones behind it.
 
+  **Where more than one value carries the same thing** — insurance rarely sits
+  under a single `Product_Level_7` — there are three ways to say it, and they
+  give the same figure:
+
+  | Written as | When to use it |
+  |---|---|
+  | `Product_Level_4 = Insurance` | a parent level already gathers them: **one row, and it keeps working when a new Level 7 value appears** |
+  | one `−` row per value | the values share no parent, or only some of them are meant |
+  | `Product_Level_7 = Insurance Manufacturing \| Insurance Distribution` | the values share no parent but belong together; `\|` or `,` both separate |
+
+  The first is the one to reach for: a list has to be revisited every time the
+  product hierarchy gains a value, and a parent level does not. A list is read
+  as a whole value first, so a value that genuinely contains a comma
+  (`Hong Kong, China`) still matches itself.
+
   **Banking NII, as the global dataset actually files it.** The insurance piece
   of NII is not a MICA line of its own — it is the *same* `NII - Net Interest
   Income` line, filed under `Product_Level_7 = Insurance Manufacturing`. So
