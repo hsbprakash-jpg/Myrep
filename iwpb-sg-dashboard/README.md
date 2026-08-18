@@ -1633,6 +1633,29 @@ What each section governs:
   value. The sheet is read by its headings, so a column may be added or moved
   without shifting the ones behind it.
 
+  **A calculation the file cannot produce keeps its place.** Naming a line the
+  extract does not carry is an ordinary mistake — `NII - Net Interest Income`
+  against a file that heads it `NII - Interest Income` is one word out — and
+  the page must not answer it by removing the tile: a gap the reader cannot see
+  is a gap they cannot question. No figure is invented, but the tile holds its
+  place on the grid and says why, naming what the file does carry:
+
+  > **Banking NII** — no figure on this file
+  > *"NII - Net Interest Income" is not a line at MICA_Level_3 here — the file
+  > carries "NII - Interest Income"*
+
+  Names are compared as sets of words, so word order and punctuation do not
+  defeat the suggestion, and a name with nothing in common offers nothing
+  rather than a misleading guess. Where the line **is** there and a `Product
+  Level` qualifier is the one thing keeping it out, the card says that instead
+  — *"NII - Interest Income" is here, but no row of it meets "Product_Level_7 =
+  Wealth"* — because "line not found" would send the reader after the wrong
+  thing. The ingest report carries the same distinction: a component that
+  merely fails to match leaves the total too big or too small and says so,
+  while a definition **none** of whose lines are in the file reads *"nothing
+  this definition names is in the file, so Banking NII has no figure here and
+  no tile"*.
+
   **What `−` does.** It reads as one sentence — *the base, less that line* —
   and takes whichever of two forms the data calls for:
 
@@ -1641,10 +1664,14 @@ What each section governs:
   | **inside the base** — `Net Insurance Revenue` carved out of `Revenue` | its rows are **removed from the selection** |
   | **outside the base** — the same line carved out of `NII - Net Interest Income` | there is nothing to remove, so its **value is subtracted** |
 
-  Both give "the base less that line". The second is carried as a row of its
+  Both give "the base less that line". The second is carried as rows of its
   own, named `less <line>`, so every figure downstream sums it exactly as it
-  sums everything else and a drill-down shows it rather than hiding it. The
-  ingest report says which form applied and what it was worth. Note that where
+  sums everything else and a drill-down shows it rather than hiding it. There
+  is **one such row per row it stands for**, keeping that row's country,
+  product and segment: a single lumped deduction would carry the first row's
+  dimensions, so the total would still foot while every split by geography was
+  wrong — the worst kind of error, because nothing looks amiss. The ingest
+  report says which form applied and what it was worth. Note that where
   the line removed is itself negative, "less" **raises** the total — insurance
   at (396) taken out of NII of 1,100 gives 1,496 — which is arithmetic, not a
   fault.

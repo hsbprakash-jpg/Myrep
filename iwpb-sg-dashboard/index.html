@@ -577,6 +577,14 @@ h2.landingTitle{color:var(--hsbc-red);text-transform:none;font-size:23px;font-we
 .card.morecard{display:flex;align-items:center;justify-content:center;color:var(--series-1);
   font-weight:700;font-size:12.5px;min-height:0;align-self:start;padding:9px 12px;border-style:dashed}
 .card.morecard:hover{background:color-mix(in srgb, var(--hsbc-red) 4%, transparent)}
+/* a calculation the pack asks for that this file cannot produce: it keeps its
+   place on the grid and says so, rather than leaving a gap nobody can query */
+.card.morecard.nofig{flex-direction:column;align-items:flex-start;justify-content:center;
+  text-align:left;font-weight:600;color:var(--text-secondary);line-height:1.45}
+.card.morecard.nofig b{color:var(--text-primary)}
+.card.morecard.nofig .nf{display:block;margin-top:1px}
+.card.morecard.nofig .sub{display:block;font-weight:500;font-size:11.5px;margin-top:5px;
+  color:var(--text-tertiary,var(--text-secondary))}
 .card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
 .card .tval.negnum,.trio .tv.negnum,#kpiNav .v,.widget .val.negnum{color:var(--text-primary)}
 .legend .swl{display:inline-block;width:20px;height:0;margin-right:6px;vertical-align:middle}
@@ -979,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 11:02)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 11:37)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 11:02)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 11:37)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1048,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 11:02</div>
+<div id="buildTag">build 2026-08-18 11:37</div>
 </aside>
 <main>
 
@@ -4199,7 +4207,8 @@ function tileBuildCards(rows){
     }
   }
 
-  if(!named.length) for(const f of tileAddCards(rows, cards.map(c=>c.l2))){
+  const missingCalcs=[];
+  if(!named.length) for(const f of tileAddCards(rows, cards.map(c=>c.l2), missingCalcs)){
     let k=kpi(f.rows,m,S.ytdM,S.includeFC);
     if(!isRatioAnyway(f.name)&&isBSRow(f.rows[0])) k=bsRecast(k);
     cards.push({l2:f.name, l1:f.rows[0].d[TD[0]], rows:f.rows, added:true,
@@ -4210,7 +4219,7 @@ function tileBuildCards(rows){
   // downstream can park it, list it or count it
   const dropped=cards.filter(c=>tileDropped(c.l2)).map(c=>c.l2);
   if(dropped.length) cards=cards.filter(c=>!tileDropped(c.l2));
-  return {cards, missingLines, named, tileL1, byL1g, TD, scPfx, fixedOrder, dropped};
+  return {cards, missingLines, missingCalcs, named, tileL1, byL1g, TD, scPfx, fixedOrder, dropped};
 }
 /* the headline exactly as the tile prints it: closing for a balance,
    otherwise the year to date through the last actual month */
@@ -4237,7 +4246,7 @@ function renderSummary(){
   } else $('greetLine').style.display='none';
 
   // KPI tiles \u2014 built by the one shared pipeline (tileBuildCards)
-  const {cards, missingLines, named, tileL1, byL1g, TD, scPfx, fixedOrder}=tileBuildCards(rows);
+  const {cards, missingLines, missingCalcs, named, tileL1, byL1g, TD, scPfx, fixedOrder}=tileBuildCards(rows);
   const l1name=[...byL1g.keys()][0]||'Revenue';
   const tileNames=cards.map(c=>c.l2);
   const totName=tileL1? totalLabel(tileNames) : `Total ${l1name}`;
@@ -4388,7 +4397,10 @@ function renderSummary(){
     (!named.length&&!mixedFile&&prio.length&&rest.length&&cfgYes('collapse_rest')?`<button class="card morecard" id="btnMoreKpis">${
       S.showAllKpis?'Show top KPIs only':`Show all ${cards.length} KPIs \u2192`}</button>`:'')+
     (missingLines.length?`<div class="card morecard" style="cursor:default">Not found in ${
-      esc(tileLevelNames())}: ${esc(missingLines.join(', '))}</div>`:'');
+      esc(tileLevelNames())}: ${esc(missingLines.join(', '))}</div>`:'')+
+    ((missingCalcs||[]).map(x=>`<div class="card morecard nofig" style="cursor:default"><b>${
+      esc(x.name)}</b><span class="nf">no figure on this file</span>${
+      x.why? `<span class="sub">${esc(x.why)}</span>` : ''}</div>`).join(''));
   const moreBtn=$('btnMoreKpis');
   if(moreBtn) moreBtn.addEventListener('click',e=>{ e.stopPropagation(); S.showAllKpis=!S.showAllKpis; renderSummary(); });
   const ordBtn=$('btnTileOrder');
@@ -6504,12 +6516,17 @@ function metricDefTest(d, r){
    pack plainly means to deduct them. The deduction is carried as one row of
    its own — negated, named "less <line>" — so every figure downstream sums
    it exactly as it sums everything else, and a drill-down shows it. */
-function metricNegRow(mrows, lvlKey, lineName){
-  const d={...mrows[0].d};
+/* One row negated, keeping its own country, product and segment. Lumping the
+   rows into a single deduction would stamp it with the first row's dimensions,
+   and a view split by geography would then hand the whole deduction to one
+   country while the total stayed right \u2014 the worst kind of wrong, because
+   it foots. */
+function metricNegRow(r, lvlKey, lineName){
+  const d={...r.d};
   if(lvlKey) d[lvlKey]='less '+String(lineName||'').trim();
   const v=[];
-  for(const r of mrows) for(const i in r.v){ const x=r.v[i]; if(x!=null) v[i]=(v[i]||0)-x; }
-  return {d, v, neg:true};
+  for(const i in r.v){ const x=r.v[i]; if(x!=null) v[i]=-x; }
+  return {d, v, neg:true, u:r.u, _k:r._k};
 }
 function metricRows(def, rows){
   const defs=def.defs||[{sel:def.scope, applies:''}];
@@ -6530,7 +6547,7 @@ function metricRows(def, rows){
       if(!c.minus) continue;
       const mine=rows.filter(r=>pick(r)===d&&metricRowHasLine(r,c.line,c.level,c.alt));
       const outside=mine.filter(r=>!plusHit(r));
-      if(outside.length) extra.push(metricNegRow(outside, calcLevelKey(c.level), c.line));
+      for(const r of outside) extra.push(metricNegRow(r, calcLevelKey(c.level), c.line));
     }
   }
   return extra.length? sel.concat(extra) : sel;
@@ -6691,7 +6708,7 @@ function tileAddDefs(){
   }
   return out;
 }
-function tileAddCards(rows, have){
+function tileAddCards(rows, have, miss){
   const seen=new Set(have.map(h=>String(h).trim().toLowerCase()));
   const out=[];
   for(const nm of tileAddDefs()){
@@ -6700,6 +6717,10 @@ function tileAddCards(rows, have){
     if(f&&f.rows.length&&!seen.has(String(f.name).trim().toLowerCase())){
       seen.add(String(f.name).trim().toLowerCase());
       out.push(f);
+    } else if(!f&&miss&&metricDef(nm)){
+      // a calculation the pack asked for that this file cannot produce: it is
+      // named rather than dropped, so the reader sees the gap and its reason
+      miss.push({name:nm, why:calcMissWhy(nm, rows)});
     }
   }
   return out;
@@ -6750,6 +6771,68 @@ function tileLevelNames(){
   return tileDimOrder().map(k=>FIELD_LABELS[k]||ALL_DIM_LABELS[k]||k).join(' / ');
 }
 /* find a named line: first dimension that carries the value wins */
+/* A definition names a line the file does not carry. "NII - Net Interest
+   Income" against a file that heads it "NII - Interest Income" is a typo
+   apart, and saying so is the difference between a five-second fix and a
+   hunt. Names are compared as sets of words, so word order and punctuation
+   do not matter and a near miss still surfaces. */
+function nearLineNames(want, rows, key){
+  const tok=s=>new Set(String(s||'').toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>2));
+  const w=tok(want); if(!w.size) return [];
+  const seen=new Map();
+  for(const r of rows){ const n=String(r.d[key]||'').trim();
+    if(n&&!seen.has(n.toLowerCase())) seen.set(n.toLowerCase(),n); }
+  const out=[];
+  for(const n of seen.values()){
+    const t=tok(n); if(!t.size) continue;
+    let hit=0; for(const x of w) if(t.has(x)) hit++;
+    if(!hit) continue;
+    const score=hit/(w.size+t.size-hit);
+    if(score>=0.34) out.push({name:n, score});
+  }
+  return out.sort((a,b)=>b.score-a.score).slice(0,3).map(x=>x.name);
+}
+/* Why a calculation the Definitions tab writes produces nothing on this file.
+   A tile that simply disappears cannot be questioned \u2014 the reader does not
+   miss what is not there \u2014 so the page keeps its place and says which
+   component was not found, and what the file carries instead. */
+function calcMissWhy(name, rows){
+  const def=metricDef(name);
+  if(!def) return '';
+  const dims=(S.model&&S.model.dimCols)||{};
+  const bad=[];
+  for(const d of (def.defs||[])){
+    for(const c of (d.comps||[])){
+      if(c.minus||c.den) continue;                 // the base is what must exist
+      const k=calcLevelKey(c.level);
+      if(c.level&&!(k in dims)){ bad.push({line:c.line, level:c.level, noCol:true}); continue; }
+      if(rows.some(r=>metricRowHasLine(r,c.line,c.level,c.alt))) continue;
+      /* The line may well be there, and a qualifier the one thing keeping it
+         out \u2014 "Product_Level_7 = Wealth" against a file whose rows are
+         filed under something else. Saying "line not found" would send the
+         reader hunting for the wrong thing. */
+      if(c.alt&&rows.some(r=>metricRowHasLine(r,c.line,c.level))){
+        const q=String(c.alt).trim(), col=calcLevelKey(q.split(/\s*=\s*/)[0]);
+        bad.push({line:c.line, qual:q,
+          qualMissing:!!(col&&!(col in dims))});
+        continue;
+      }
+      bad.push({line:c.line, level:c.level||'any level',
+        near:(k in dims)? nearLineNames(c.line, rows, k) : []});
+    }
+  }
+  if(!bad.length) return '';
+  const seen=new Set(), one=[];
+  for(const b of bad){ const key=b.line+'|'+(b.level||b.qual); if(seen.has(key)) continue; seen.add(key); one.push(b); }
+  return one.map(b=> b.noCol
+    ? `"${b.line}" is named at ${b.level}, a column this file does not carry`
+    : b.qual
+    ? `"${b.line}" is here, but no row of it meets "${b.qual}"`+
+      (b.qualMissing? ' \u2014 this file has no such column' : '')
+    : `"${b.line}" is not a line at ${b.level} here`+
+      (b.near.length? ` \u2014 the file carries ${b.near.map(n=>'"'+n+'"').join(', ')}` : '')
+  ).join('; ');
+}
 function tileFindLine(rows, name){
   const def=metricDef(name);
   if(def){ const rs=metricRows(def, rows);
@@ -13160,12 +13243,15 @@ function ingestArrayBuffer(buf, name, fromCache){
                 const wn=String(c.line||'').trim().toLowerCase();
                 if(subset.some(r=>String(r.d[cl]||'').trim().toLowerCase()===wn)) continue;
                 miss.push({metric:md.name, who:d.applies||'', line:c.line, level:c.level, minus:!!c.minus,
+                  def:d, near:nearLineNames(c.line, subset, cl),
                   where:(()=>{ // where the name does appear, if it does
                     for(const L of ['micaL1','micaL2','micaL3','micaL4'])
                       if(L in m2.dimCols && subset.some(r=>String(r.d[L]||'').trim().toLowerCase()===wn))
                         return ALL_DIM_LABELS[L]||L;
                     return ''; })()});
               }
+              if(!subset.some(r=>metricDefTest(d,r)))
+                for(const x of miss) if(x.def===d) x.dead=true;
               /* A "−" component takes rows OUT of the selection. If its rows
                  were never in it — a fee line carved out of an NII base — it
                  removes nothing at all, and the calculation quietly reads as
@@ -13209,8 +13295,10 @@ function ingestArrayBuffer(buf, name, fromCache){
             x.rows} row(s), worth ${fmt(x.val)}, are not inside ${esc(x.base||'the lines it adds')}, so there is nothing to take out and the value is deducted instead. It appears in a drill-down as "less ${esc(x.line)}".`);
         const missTxt=miss.map(x=>
           `<b>${esc(x.metric)}${x.who?' ('+esc(x.who.toUpperCase())+')':''}: "${esc(x.line)}" at ${esc(x.level)} matches no row here</b>${
-            x.where? `, though a line of that name sits at ${esc(x.where)}` : ''} \u2014 ${
-            x.minus? 'nothing is taken out, so the metric comes out too big'
+            x.where? `, though a line of that name sits at ${esc(x.where)}` : ''}${
+            x.near&&x.near.length? ` \u2014 the file carries ${esc(x.near.map(n=>'"'+n+'"').join(', '))}` : ''} \u2014 ${
+            x.dead? `nothing this definition names is in the file, so ${esc(x.metric)} has no figure here and no tile`
+              : x.minus? 'nothing is taken out, so the metric comes out too big'
                    : 'it contributes nothing, so the metric comes out too small'}.`);
         const badTxt=bad.map(x=> x.kind==='negcut'
           ? `${esc(x.metric)}${x.who?' ('+esc(x.who.toUpperCase())+')':''} reads ${fmt(x.mv)}, above ${esc(x.line)} at ${fmt(x.pv)}, because ${
@@ -13283,7 +13371,7 @@ function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 11:02</td></tr>
+      <tr><td>Build</td><td>2026-08-18 11:37</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
