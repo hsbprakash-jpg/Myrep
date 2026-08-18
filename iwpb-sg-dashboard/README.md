@@ -1633,6 +1633,27 @@ What each section governs:
   value. The sheet is read by its headings, so a column may be added or moved
   without shifting the ones behind it.
 
+  **Banking NII, as the global dataset actually files it.** The insurance piece
+  of NII is not a MICA line of its own — it is the *same* `NII - Net Interest
+  Income` line, filed under `Product_Level_7 = Insurance Manufacturing`. So
+  Banking NII is that line less those rows, and the Definitions tab says
+  exactly that:
+
+  ```
+  Calculation | Business | Line                      | Include | MICA level   | Product Level
+  Banking NII | IWPB     | NII - Net Interest Income |    +    | MICA_Level_3 |
+  Banking NII | IWPB     | NII - Net Interest Income |    −    | MICA_Level_3 | Product_Level_7 = Insurance Manufacturing
+  ```
+
+  Because those rows sit **inside** the base, they are removed from the
+  selection rather than deducted — no `less` row is created, which is the
+  cleaner of the two readings. On the shipped `IWPB_SG_InsMfg_Shape` fixture
+  this gives 1,760 less (536) = **2,296**, and Singapore on its own reads 1,100
+  less (396) = **1,496**, with each country's carve-out landing in that
+  country. `IWPB_Global_config_pack.xlsx` ships with these rows already in
+  place; `Group_dashboard_config_pack.xlsx` keeps the simpler Revenue-based
+  form the other sample files reconcile against.
+
   **A calculation the file cannot produce keeps its place.** Naming a line the
   extract does not carry is an ordinary mistake — `NII - Net Interest Income`
   against a file that heads it `NII - Interest Income` is one word out — and
