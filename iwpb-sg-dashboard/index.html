@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 14:02)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-18 18:35)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 14:02)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-18 18:35)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-18 14:02</div>
+<div id="buildTag">build 2026-08-18 18:35</div>
 </aside>
 <main>
 
@@ -3232,9 +3232,36 @@ const GEO_DIMS=new Set(['country','region','business']);
    Scope to a country, a region or a business \u2014 or ask for a geographic
    split (opts.geo) \u2014 and the country rows answer, because the
    consolidation has no geography inside it. */
+/* The single most-called function on the page — 50-odd call sites, several
+   times each on a render — recomputing from scratch every time: rebuilding
+   the group/country merge, re-testing the grain gate row by row, then
+   filtering the whole file again for the same filters that were active a
+   moment ago. On a large file that cost is paid over and over for an answer
+   that has not changed. Cached on everything the computation actually reads;
+   any of it changing invalidates in the same stroke, because the key stops
+   matching. */
+/* keyed on the model object itself, not a string built from it — two
+   different models plainly coerce to the same "[object Object]" text, and a
+   cache that could not tell them apart would hand a second file the first
+   file's rows the moment the rest of the key happened to match. A WeakMap
+   compares the model by reference, which is never wrong, and drops its entry
+   the moment nothing else points at that model any more. */
+const FR_CACHE=new WeakMap();
 function filteredRows(opts){
-  const active=Object.entries(S.filters).filter(([,set])=>set&&set.size);
   const m=S.model;
+  if(!m) return [];
+  const geo=!!(opts&&opts.geo);
+  const active=Object.entries(S.filters).filter(([,set])=>set&&set.size);
+  const key=geo+'|'+cfgS('grain_reported')+'|'+
+    active.map(([k,set])=>k+'='+[...set].sort().join(',')).sort().join(';');
+  const hit=FR_CACHE.get(m);
+  if(hit&&hit.key===key) return hit.rows;
+  const out=filteredRowsCompute(m, active, geo);
+  FR_CACHE.set(m,{key, rows:out});
+  return out;
+}
+function filteredRowsCompute(m, active, geo){
+  const opts=geo? {geo:true} : undefined;
   const useGroup=m&&m.groupRows&&m.groupRows.length
     &&!(opts&&opts.geo)
     &&!active.some(([k])=>GEO_DIMS.has(k));
@@ -3259,6 +3286,14 @@ function filteredRows(opts){
     }
     return true;
   });
+}
+/* nothing downstream may mutate the array filteredRows() hands back — it is
+   the same reference on every call this scope stays unchanged, which is the
+   whole saving. Callers filter into a new array, as they already did; this
+   only guards against a mistake reaching for .sort()/.push() on it directly. */
+if(typeof Object.freeze==='function'){
+  const _frc=filteredRowsCompute;
+  filteredRowsCompute=(...a)=>Object.freeze(_frc(...a));
 }
 /* the variance-period selector — options and labels are rebuilt from the
    selected YTD-through month, so they re-date as the actuals month moves */
@@ -6295,7 +6330,22 @@ function groupByFn(rows, fn){
 /* the scorecard metrics: named scopes from the config's Metrics section —
    'accH3=Wealth Balances;cgL2=Private Bank' selects the rows the metric
    speaks about, across any dimension the model carries */
+/* Every named tile, the scorecard, Business performance and the PPT export
+   each ask for this afresh — half a dozen times or more in one render —
+   and it was rebuilt from scratch every time: new objects, so nothing that
+   cached against the definitions it hands back (metricRows below) could ever
+   recognise one call's answer as the same question already asked. Rebuilt
+   only when the configuration actually changed — checked cheaply, since
+   there are never more than a handful of rows to sign. */
+let CML_CACHE=null, CML_SIG='';
 function cfgMetricList(){
+  const sig=JSON.stringify([CFG.metrics, CFG.calcdefs]);
+  if(CML_CACHE&&CML_SIG===sig) return CML_CACHE;
+  const out=cfgMetricListCompute();
+  CML_SIG=sig; CML_CACHE=out;
+  return out;
+}
+function cfgMetricListCompute(){
   const own=CFG.metrics;
   const raw=((own&&own.length)? own : CFG_DEFAULT.metrics||[])
     .map(x=>({name:String(x.name||''), scope:String(x.scope||''), applies:String(x.applies||'').trim()}))
@@ -6330,6 +6380,9 @@ function cfgMetricList(){
   }
   return [...by.values()];
 }
+// tests write CFG.calcdefs/CFG.metrics in place, not by reassignment — the
+// same array reference, mutated — which a signature over the array
+// CONTENTS still catches, but nothing here should silently outlive that
 /* ---- ratios are recomputed, never added ---------------------------------
    An average of ratios is not the ratio of the whole: Group CER is the Group's
    cost over the Group's revenue, not the mean of the countries' CERs. So a
@@ -6484,14 +6537,30 @@ const CALC_LEVEL_FAMILY=[
   [/^func(?:level)?([1-2])$/, 'funcL'],
   [/^account(?:hierarchy)?(?:level)?([1-5])$/, 'accH'], [/^acch([1-5])$/, 'accH'],
   [/^prodh([1-5])$/, 'prodH']];
+const CLK_CACHE=new Map();
 function calcLevelKey(v){
-  const t=String(v||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
-  if(!t) return '';
-  const m=t.match(/^([1-4])$/);
-  if(m) return 'micaL'+m[1];
-  for(const [re,pfx] of CALC_LEVEL_FAMILY){ const mm=t.match(re); if(mm) return pfx+mm[1]; }
-  for(const k in (S.model? S.model.dimCols : {})) if(k.toLowerCase()===t) return k;
-  return t;
+  // the fallback path reads S.model.dimCols, so a new file starts this cache
+  // over — checked first, so a stale answer is never handed out on a hit
+  if(CLK_CACHE._m!==S.model){ CLK_CACHE.clear(); CLK_CACHE._m=S.model; }
+  const raw=String(v||'');
+  const hit=CLK_CACHE.get(raw); if(hit!==undefined) return hit;
+  const t=raw.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  let out='';
+  if(t){
+    const m=t.match(/^([1-4])$/);
+    if(m) out='micaL'+m[1];
+    else{
+      let found=null;
+      for(const [re,pfx] of CALC_LEVEL_FAMILY){ const mm=t.match(re); if(mm){ found=pfx+mm[1]; break; } }
+      if(found) out=found;
+      else{
+        for(const k in (S.model? S.model.dimCols : {})) if(k.toLowerCase()===t){ out=k; break; }
+        if(!out) out=t;
+      }
+    }
+  }
+  CLK_CACHE.set(raw, out);
+  return out;
 }
 /* A second column may qualify a component, written either way:
      Product_Level_7            \u2014 the line may be named in THAT column too,
@@ -6561,7 +6630,26 @@ function metricNegRow(r, lvlKey, lineName){
   for(const i in r.v){ const x=r.v[i]; if(x!=null) v[i]=-x; }
   return {d, v, neg:true, u:r.u, _k:r._k};
 }
+/* Which of a definition's rows are in view is asked many times over one
+   render — once to build its tile, again for the tooltip lineage, again in
+   Business performance, again in the PPT export prep — and every one of
+   those scans the file. Cached per (definition, row set): the definition
+   object is now stable within a configuration (cfgMetricList above), and the
+   row set is stable within a scope (filteredRows above), so the SAME
+   question asked twice is answered once. A row set built some other way —
+   a slice taken inside a loop — is simply never in the cache, and is
+   answered fresh, correctly. */
+const METRICROWS_CACHE=new WeakMap();
 function metricRows(def, rows){
+  if(!rows||!rows.length) return rows||[];
+  let byDef=METRICROWS_CACHE.get(rows);
+  if(!byDef){ byDef=new Map(); METRICROWS_CACHE.set(rows, byDef); }
+  const hit=byDef.get(def); if(hit) return hit;
+  const out=metricRowsCompute(def, rows);
+  byDef.set(def, out);
+  return out;
+}
+function metricRowsCompute(def, rows){
   const defs=def.defs||[{sel:def.scope, applies:''}];
   const scoped=defs.filter(d=>d.applies), open=defs.find(d=>!d.applies)||null;
   const pick=r=>{
@@ -13515,7 +13603,7 @@ async function ingestArrayBuffer(buf, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-18 14:02</td></tr>
+      <tr><td>Build</td><td>2026-08-18 18:35</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

@@ -1730,6 +1730,37 @@ What each section governs:
   parse itself is slow and still runs on the main thread, so the dialog stops
   but the wait does not. Moving the parse to a worker is the remaining step.
 
+  **Switching country or business is instant again.** After ingest, three
+  things a render leans on hardest were rebuilt from scratch on every call —
+  and on a global file, one click could cost seconds:
+
+  - **`filteredRows()`** — the rows the current scope holds — is asked for
+    fifty-odd times over one render. It re-filtered the whole file every
+    single time, even for the same scope asked a moment before. It is now
+    cached against everything that decides its answer — the loaded file, the
+    active filters, breakdown mode, `grain_reported` — so the same question
+    within one scope is answered once.
+  - **`cfgMetricList()`** — every named calculation, read off the Definitions
+    and Metrics tabs — rebuilt fresh new objects on every call, which meant
+    nothing that cached *against* those objects could ever recognise the same
+    question twice. It is now rebuilt only when the configuration actually
+    changes.
+  - **`metricRows()`** — which rows answer a given calculation — is asked for
+    the same calculation many times over one render: once for its tile, again
+    for the tooltip, again in Business performance. With the two caches above
+    making its inputs stable, it now caches its own answer per
+    (calculation, scope) pair instead of rescanning the file each time.
+
+  On a 21,780-row file with one calculated metric (Banking NII) declared,
+  switching from the full file to one country used to cost **3.7–4.9
+  seconds** — the visible cause of *"opening and reading tab sheet has become
+  extremely slow"*. It now costs **240–290 ms** for a single country and
+  **around 1.2 seconds** to go back to the whole file. Nothing about what a
+  figure reads has changed — every check that exercises Banking NII, roll-up,
+  units, grain, or a second file loaded after the first, passes unchanged;
+  a new one (`check_frcache`) exists solely to prove that loading a second,
+  different file is never answered from the first file's cached rows.
+
   **A tab keeps its business even when its country is not in the hierarchy.**
   A tab named `IWPB HK ex HASE`, against a `CountryHierarchy` that lists
   `Singapore` and `HASE` but no `HK ex HASE`, used to lose the business
