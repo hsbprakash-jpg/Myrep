@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 10:01)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 10:29)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 10:01)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 10:29)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 10:01</div>
+<div id="buildTag">build 2026-08-19 10:29</div>
 </aside>
 <main>
 
@@ -2418,9 +2418,13 @@ const VP_DEFS={
   mth_fc:{mode:'fc', grain:'month', line:'fc',
     lbl:c=>`Month vs Forecast (${c.mon}-${c.cyy} vs ${c.mon}-${c.cyy} forecast)`,
     main:c=>`${c.mon}-${c.cyy}`, base:c=>`${c.mon}-${c.cyy} forecast`, vs:c=>`vs ${c.mon}-${c.cyy} forecast`,
-    /* offered wherever the pack can write its month-vs-forecast section: a
-       forecast basis, or an FY forecast column even alongside prior year */
-    avail:m=>fcBasis(m)||!!(m.fyFcCols&&m.fyFcCols.length), pick:v=>[v.mth, v.mthFc]},
+    /* offered only where the file holds a forecast for the selected month.
+       It used to be offered wherever an FY forecast column existed, and the
+       baseline was a twelfth of it \u2014 so a month was compared against an
+       average the file never states, and a forecast month was compared with a
+       phased average of itself. */
+    avail:(m,ytdM)=>mthFcOK(m, ytdM==null? (typeof S!=='undefined'? S.ytdM : 0) : ytdM),
+    pick:v=>[v.mth, v.mthFc]},
   fy_tgt:{mode:'tgt', grain:'ytd', line:'tgt',
     lbl:c=>`FY${c.cyy} vs Target (${c.cy4} forecast vs ${c.cy4} target)`,
     main:c=>`FY${c.cyy} forecast`, base:c=>`FY${c.cyy} target`, vs:c=>`vs FY${c.cyy} target`,
@@ -2804,7 +2808,11 @@ function kpi(rows, model, ytdM, includeFC){
   const mthPy = pyCol? sumCols(rows,[pyCol.col]) : null;
   const mthW = fcWeight(model, ytdM);
   const mthTgt = target!=null? target*mthW : null;
-  const mthFc = fyFc!=null? fyFc*mthW : null;
+  /* the month's own forecast column where the file carries one; otherwise the
+     phased year, but only where the pack asked for the year to be phased */
+  const mthFcC = mthFcCol(model, ytdM);
+  const mthFc = mthFcC? sumCols(rows,[mthFcC.col])
+    : (fcPhased()&&fyFc!=null)? fyFc*mthW : null;
   const pyFull = model.pyMonths.length? sumCols(rows, model.pyMonths.map(p=>p.col)) : null;
   const fyMain = fyFc!=null? fyFc : outlook;
   const fyBase = fyPrior!=null? fyPrior : pyFull;
@@ -2970,6 +2978,34 @@ function tileRows(k,m){
   return rows.slice(0,3);
 }
 /* a file supports the forecast basis via an FY forecast column OR forecast months */
+/* A forecast for one month, read from the file rather than made up.
+   Two shapes count. A file may carry the month twice \u2014 the actual and a
+   forecast for the same month \u2014 in which case the forecast column is the
+   baseline. Or the month may itself be a forecast month, in which case the
+   figure on the page IS the forecast and there is nothing to compare it with.
+   Anything else means the file holds no forecast for that month: the forecast
+   columns are the months still to come, which is the ordinary shape \u2014
+   actuals to date, forecast for the rest of the year. Then a month-against-
+   forecast comparison cannot be made, and a twelfth of the full-year forecast
+   is not one: it is an average the file never states. */
+function mthFcCol(m, ytdM){
+  if(!m||!m.cyMonths) return null;
+  const fc=m.cyMonths.filter(p=>p.m===ytdM&&p.fc);
+  const act=m.cyMonths.filter(p=>p.m===ytdM&&!p.fc);
+  return (fc.length&&act.length)? fc[0] : null;
+}
+/* the pack may ask for the full-year forecast to be spread over the months on
+   a stated profile; that is a phasing it chose, not one the page invented */
+function fcPhased(){
+  const v=cfgS('calc_ytd_forecast').toLowerCase();
+  return v==='weights'||v==='profile';
+}
+/* can a month be compared with a forecast at all, on this file? */
+function mthFcOK(m, ytdM){
+  if(mthFcCol(m, ytdM)) return true;
+  if(!fcPhased()) return false;
+  return !!((m&&m.fyFcCols&&m.fyFcCols.length)||(m&&m.cyMonths&&m.cyMonths.some(p=>p.fc)));
+}
 function fcBasis(m){
   return !!(m&&!m.pyMonths.length&&((m.fyFcCols&&m.fyFcCols.length)||m.cyMonths.some(p=>p.fc)));
 }
@@ -14168,7 +14204,32 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-19 10:01</td></tr>
+      ${(()=>{
+        /* A basis the pack asks for that this file cannot answer is simply
+           absent from the selector, and a reader who put it in variance_periods
+           deserves to know why rather than wonder where it went. */
+        const want=cfgS('variance_periods').split(/[,;\s]+/).map(x=>x.trim()).filter(Boolean);
+        if(!want.length) return '';
+        /* the month the reader lands on \u2014 the last one the file states as
+           actual. The report is written at ingest, before any month has been
+           chosen, so asking the file is the only stable question. */
+        const acts=(model.cyMonths||[]).filter(p=>!p.fc);
+        const mi=acts.length? acts[acts.length-1].m : 0;
+        const have=new Set(vpOptions(model, mi).map(o=>o.id));
+        const gone=want.filter(id=>VP_DEFS[id]&&!have.has(id));
+        if(!gone.length) return '';
+        const why=id=>{
+          if(id==='mth_fc') return `the file carries no forecast for ${MON_LBL[mi]} \u2014 its forecast columns are the months still to come, and a twelfth of the full year is an average the file never states`;
+          if(id==='ytd_tgt'||id==='fy_tgt') return 'no target column';
+          if(id==='fy_pfc') return 'no FY forecast column';
+          if(id==='qtr_py'||id==='fy_py'||id==='ytd_py'||id==='mth_py') return 'no prior-year figures';
+          if(id==='ytd_fc') return 'no year-to-date forecast column';
+          return 'the file carries no figures for it';
+        };
+        return `<tr><td>Comparisons not offered</td><td>${gone.map(id=>
+          `<b>${esc(VP_DEFS[id].lbl? VP_DEFS[id].lbl(vpCtx(model,mi)) : id)}</b> \u2014 ${esc(why(id))}`).join('<br>')}</td></tr>`;
+      })()}
+      <tr><td>Build</td><td>2026-08-19 10:29</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
