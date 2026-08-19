@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 05:30)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 07:05)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 05:30)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 07:05)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 05:30</div>
+<div id="buildTag">build 2026-08-19 07:05</div>
 </aside>
 <main>
 
@@ -6518,11 +6518,26 @@ function ratioKpi(rows, name, m, ytdM, includeFC){
   k.varFc=d(k.cy,k.ytdFc);      k.varFcPct=pc(k.varFc,k.ytdFc);
   k.varTgt=d(k.outlook,k.target); k.varTgtPct=pc(k.varTgt,k.target);
   k.varYT=d(k.cy,k.ytdTgt);     k.varYTPct=pc(k.varYT,k.ytdTgt);
-  // the headline comparison keeps whichever basis the page is set to
+  /* the headline comparison keeps whichever basis the page is set to — and
+     that means the WHOLE basis, period as well as baseline. Rebuilding it
+     from cmpMode alone read the year to date whatever the selector said,
+     because a mode is only py / fc / tgt and carries no period with it: a
+     ratio on "Current QTR vs PY" compared YTD against YTD while every
+     ordinary line beside it compared the quarter. The same pick() the plain
+     path uses, over this ratio's own recomputed levels, keeps them together. */
   const mode=kn.cmpMode;
   k.cmpMode=mode;
-  k.cmpMain=(mode==='tgt')? k.outlook : k.cy;
-  k.cmpBase=(mode==='py')? k.py : (mode==='fc')? k.ytdFc : (mode==='tgt')? k.target : null;
+  const vpD=VP_DEFS[vpSel(m, ytdM)];
+  if(vpD&&vpD.pick){
+    const [rm,rb]=vpD.pick({cy:k.cy, py:k.py, ytdFc:k.ytdFc, ytdTgt:k.ytdTgt, target:k.target,
+      outlook:k.outlook, fyFc:k.fyFc, fyPrior:k.fyPrior, mth:k.mth, mthPrev:k.mthPrev,
+      mthPy:k.mthPy, mthTgt:k.mthTgt, mthFc:k.mthFc, pyFull:k.pyFull, fyMain:k.fyMain,
+      fyBase:k.fyBase, qtd:k.qtd, qtdPy:k.qtdPy, fyPrFc:k.fyPrFc});
+    k.cmpMain=rm; k.cmpBase=rb;
+  } else {
+    k.cmpMain=(mode==='tgt')? k.outlook : k.cy;
+    k.cmpBase=(mode==='py')? k.py : (mode==='fc')? k.ytdFc : (mode==='tgt')? k.target : null;
+  }
   k.cmpVar=d(k.cmpMain,k.cmpBase); k.cmpVarPct=pc(k.cmpVar,k.cmpBase);
   // a rising CER is unfavourable because its numerator is cost; a rising ROTE
   // is not — the numerator's own lines decide, exactly as they do for a KPI
@@ -13747,7 +13762,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-19 05:30</td></tr>
+      <tr><td>Build</td><td>2026-08-19 07:05</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

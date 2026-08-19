@@ -1816,6 +1816,16 @@ What each section governs:
   and target reads as though the selection had been ignored, and invites a
   figure to be taken off the wrong basis.
 
+  **A ratio is compared on the same basis as the lines beside it.** `ratioKpi`
+  rebuilt its headline from `cmpMode` alone — and a mode is only `py` / `fc` /
+  `tgt`, carrying no period with it. So on *Current QTR vs PY* a ratio compared
+  year-to-date against year-to-date while every ordinary tile beside it
+  compared the quarter: two different questions answered in one panel, with
+  nothing on screen to say which was which. It now runs the selection's own
+  `pick()` over the ratio's recomputed levels — the same call the ordinary path
+  makes — so CER on a quarter selection reads **0.1918**, the quarter, not the
+  **0.1830** year-to-date it used to fall back to.
+
   **And each comparison reads the column that belongs to it.** A quarter
   figure is an actual — it is what the vs-prior-year comparison is built from.
   Where a file carried no *actual* quarter column, the page fell back to
