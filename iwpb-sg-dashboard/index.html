@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 09:41)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 10:01)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 09:41)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 10:01)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 09:41</div>
+<div id="buildTag">build 2026-08-19 10:01</div>
 </aside>
 <main>
 
@@ -4808,7 +4808,11 @@ function slGroups(rows, key){
   const m=S.model;
   const atF=fileOrder(m);
   return [...groupBy(rows,key).entries()].filter(([n])=>n&&n!=='(blank)')
-    .map(([name,rs])=>({name, rs, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
+    .map(([name,rs])=>{
+      const rr=rollableRows(rs, name);
+      return {name, rs:rr, rs0:rs, drop:sideDropNote(rs, name),
+        k:kpiNamed(kpi(rr,m,S.ytdM,S.includeFC),name)};
+    })
     .sort((a,b)=>atF(a.rs)-atF(b.rs));
 }
 function slideCommentaryHtml(){
@@ -4830,20 +4834,44 @@ function slideCommentaryHtml(){
   const pl=tops.filter(g=>!isBSLine(g.name)), bs=tops.filter(g=>isBSLine(g.name));
   // the result: the P&L rollup when there is one, else the whole scope
   const res=(pl.length===1)? pl[0] : null;
-  const resRows=res? res.rs : rows;
-  const resK=res? res.k : kpi(rows,m,S.ytdM,S.includeFC);
+  /* With no single profit-and-loss rollup the result used to be every row in
+     scope added together \u2014 balances included, in whatever unit each was
+     stated. That is what put "Total P&L" at $1.7m million. The fallback is the
+     profit-and-loss lines only, and only where they are one kind of thing that
+     the pack allows a total across. */
+  const plRows=pl.length? pl.flatMap(g=>g.rs) : [];
+  const resRows=res? res.rs : plRows;
+  const noRes=!res&&(!plRows.length||!fsumTotalOK(plRows));
+  const resK=res? res.k : (noRes? null : kpi(rollableRows(plRows),m,S.ytdM,S.includeFC));
   const resName=res? res.name : (cfgS('total_label')||'Result');
   const parts=res? slGroups(res.rs, LV[1]||LV[0]) : pl;
 
+  /* why no result figure, in the terms that actually settled it \u2014 the
+     pack's own instruction, the units, or simply nothing to total */
+  const totWhy=()=>{
+    if(!plRows.length) return 'the scope carries no profit and loss line';
+    const v=cfgS('fsum_total').trim().toLowerCase();
+    if(v==='n'||v==='no'||v==='false') return 'the pack does not draw a total across these lines';
+    if(mixedScope(plRows)||mixedUnits(plRows)) return noSumWhy(plRows);
+    return 'these lines do not make one statement to total';
+  };
   const dirWord=k=>{
     if(k.cmpVar==null) return 'flat';
     const base=(k.cmpMain!=null? k.cmpMain : 0);
     return (base>=0? k.cmpVar>=0 : k.cmpVar<=0)? 'higher' : 'lower';
   };
-  h+=`<p>(${esc(mon)}) ${esc(head)} <b>${esc(resName)}</b> is <b>${slVal(resK.cmpMain,false,resK)}</b> `+
-     `${resK.cmpVar==null?'':((resK.favVarPct==null? resK.cmpVar>=0 : resK.favVarPct>=0)?'up':'down')+' '}vs ${esc(L.base)}`;
-  if(parts.length) h+=` driven by ${slJoin(parts.map(g=>`${dirWord(g.k)} ${esc(g.name)} (${slVar(g.k)})`))}`;
-  h+='</p>';
+  if(noRes){
+    // the lines are named and each carries its own figure; what is not written
+    // is a single number across them, and the reason is given once
+    h+=`<p>(${esc(mon)}) ${esc(head)}`;
+    if(parts.length) h+=` \u2014 ${slJoin(parts.map(g=>`${dirWord(g.k)} ${esc(g.name)} (${slVar(g.k)})`))}`;
+    h+=`.</p><p class="note">No single ${esc(resName)} figure is drawn here \u2014 ${esc(totWhy())}.</p>`;
+  } else {
+    h+=`<p>(${esc(mon)}) ${esc(head)} <b>${esc(resName)}</b> is <b>${slVal(resK.cmpMain,false,resK)}</b> `+
+       `${resK.cmpVar==null?'':((resK.favVarPct==null? resK.cmpVar>=0 : resK.favVarPct>=0)?'up':'down')+' '}vs ${esc(L.base)}`;
+    if(parts.length) h+=` driven by ${slJoin(parts.map(g=>`${dirWord(g.k)} ${esc(g.name)} (${slVar(g.k)})`))}`;
+    h+='</p>';
+  }
 
   // each line of the statement, with its own lines beneath where it has them
   for(const g of parts){
@@ -4853,7 +4881,7 @@ function slideCommentaryHtml(){
       // clause has just been given, it ends the sentence instead
       const tl=comTail(g.name);
       h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${slVal(g.k.cmpMain,false,g.k)}</b> `+
-        `is ${slVar(g.k)}${nt}${tl||':'}</p><ul class="houselist">`;
+        `is ${slVar(g.k)}${nt}${tl||':'}${g.drop? ` <span class="note">\u2014 ${esc(g.drop)}</span>`:''}</p><ul class="houselist">`;
       for(const c of kids) h+=`<li><b>${esc(c.name)}</b> ${slVar(c.k)}${slDrivers(c.rs,dimKey,N)}${comTail(c.name)}</li>`;
       h+='</ul>';
     } else {
@@ -5180,7 +5208,7 @@ function tplCommentaryHtml(style){
   const walk=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
     .map(([name,rs0])=>{
       const notHere=lineNotAtGrain(name, rs0);
-      const rs=rollableRows(rs0);
+      const rs=rollableRows(rs0, name);
       return {name, rs, rs0, notHere, noSum:!notHere&&lineNoSum(rs)};
     });
   /* the Rollup tab decides whether a line exists at the level being written
@@ -5445,18 +5473,41 @@ function rowRollsUp(r){
   }
   return true;
 }
+/* A profit and a balance are never one figure. The real extracts carry
+   Customer Deposits and Loans and Advances as Level 2 memo lines under a
+   Level 1 that reads PBT \u2014 isBSRow has always known that \u2014 and the
+   commentary added them into PBT regardless, so PBT came out at $655,949m
+   beside a Revenue of $5,562m, and the result line above it at $1.7m million.
+   A line totals its own side of the statement. */
+function sideRows(rows, name){
+  if(!rows||!rows.length||!mixedScope(rows)) return rows;
+  const wantBS=(name!=null&&name!=='')? isBSLine(name)
+    : (rows.filter(isBSRow).length*2 > rows.length);
+  const keep=rows.filter(r=>isBSRow(r)===wantBS);
+  return keep.length? keep : rows;
+}
+/* what was set aside, so a figure is never quietly smaller than its rows */
+function sideDropNote(rows, name){
+  if(!rows||!rows.length||!mixedScope(rows)) return '';
+  const kept=sideRows(rows, name);
+  const n=rows.length-kept.length;
+  if(!n) return '';
+  const bs=isBSLine(name||'');
+  return `${n} ${bs?'profit and loss':'balance sheet'} row${n===1?'':'s'} filed under this line ${
+    n===1?'is':'are'} not in the figure \u2014 a profit and a balance are never one number`;
+}
 let ROLLABLE_CACHE=new WeakMap();
-function rollableRows(rows){
+function rollableRows(rows, name){
   if(!rows||!rows.length) return rows;
   const e=ROLLABLE_CACHE.get(rows);
-  if(e&&e.model===S.model&&e.cfg===CFG) return e.out;
-  const kept=rows.filter(rowRollsUp);
+  if(e&&e.model===S.model&&e.cfg===CFG&&e.name===(name||'')) return e.out;
+  const kept=sideRows(rows.filter(rowRollsUp), name);
   /* nothing taken out, or everything taken out: hand back what came in. The
      first keeps the row array identity every cache downstream depends on; the
      second is a line that is itself never carried up, and lineNotAtGrain has
      already said so in its own words. */
   const out=(kept.length&&kept.length!==rows.length)? kept : rows;
-  ROLLABLE_CACHE.set(rows, {model:S.model, cfg:CFG, out});
+  ROLLABLE_CACHE.set(rows, {model:S.model, cfg:CFG, name:name||'', out});
   return out;
 }
 /* A line carries no total where its own rows are not one kind of thing. This
@@ -5496,7 +5547,7 @@ function houseBlock(rows, secName){
        rows produces one that means nothing. */
     if(lineNotAtGrain(name, rs))
       return `<li><b>${esc(name)}</b> \u2014 ${esc(rollupWhyNotHere(name))}${comTail(name)}</li>`;
-    rs=rollableRows(rs);
+    rs=rollableRows(rs, name);
     if(lineNoSum(rs))
       return `<li><b>${esc(name)}</b> \u2014 no total: ${esc(lineNoSumWhy(rs))}${comTail(name)}</li>`;
     const k=kpi(rs,m,S.ytdM,S.includeFC);
@@ -5508,7 +5559,7 @@ function houseBlock(rows, secName){
   const l1All=[...groupBy(rows,LV[0]).entries()]
     .map(([name,rs0])=>{
       const notHere=lineNotAtGrain(name, rs0);
-      const rs=rollableRows(rs0);
+      const rs=rollableRows(rs0, name);
       return {name, rs, rs0, notHere, noSum:!notHere&&lineNoSum(rs)};
     })
     .filter(g=>g.name);
@@ -14117,7 +14168,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-19 09:41</td></tr>
+      <tr><td>Build</td><td>2026-08-19 10:01</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
