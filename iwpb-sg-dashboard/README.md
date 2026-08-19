@@ -1816,6 +1816,17 @@ What each section governs:
   and target reads as though the selection had been ignored, and invites a
   figure to be taken off the wrong basis.
 
+  **And each comparison reads the column that belongs to it.** A quarter
+  figure is an actual — it is what the vs-prior-year comparison is built from.
+  Where a file carried no *actual* quarter column, the page fell back to
+  whatever quarter column it could find, a forecast one included, and put a
+  forecast on one side of an actuals-to-actuals comparison without saying so.
+  On a file whose only Q2 column is `Q2-26 Forecast`, "Q2 2026 vs Q2 2025"
+  read **9,999 against 240** — a 4,000% movement out of nothing. It now reads
+  the three actual months, 300 against 240. An actual quarter column is still
+  preferred over adding months where the file has one, which on a balance
+  sheet is the difference between a closing position and three times it.
+
   Following the selection means following it in both directions: choose a
   target or forecast basis and the commentary talks about target or forecast,
   because that is what was asked for. The **Commentary — all bases** view is
