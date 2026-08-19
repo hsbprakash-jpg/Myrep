@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 10:41)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 10:45)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 10:41)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 10:45)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 10:41</div>
+<div id="buildTag">build 2026-08-19 10:45</div>
 </aside>
 <main>
 
@@ -2398,7 +2398,12 @@ const VP_DEFS={
   ytd_fc:{mode:'fc', grain:'ytd', line:'fc',
     lbl:c=>`YTD vs Forecast (${c.mon}-${c.cyy} YTD vs ${c.mon}-${c.cyy} YTD forecast)`,
     main:c=>`${c.mon}-${c.cyy} YTD`, base:c=>`${c.mon}-${c.cyy} YTD forecast`, vs:()=>'vs YTD forecast',
-    avail:m=>fcBasis(m)||!!(m.ytdFcAsOfCols&&m.ytdFcAsOfCols.length), pick:v=>[v.cy, v.ytdFc]},
+    /* the file's own year-to-date forecast column for this month; a slice of
+       the full year is not one, unless the pack asked for the year to be
+       phased */
+    avail:(m,ytdM)=>!!(m.ytdFcAsOfCols||[]).some(p=>p.ytdM===(ytdM==null?(typeof S!=='undefined'?S.ytdM:0):ytdM))
+      || (fcPhased()&&(fcBasis(m)||!!(m.fyFcCols&&m.fyFcCols.length))),
+    pick:v=>[v.cy, v.ytdFc]},
   ytd_tgt:{mode:'tgt', grain:'ytd', line:'tgt',
     lbl:c=>`YTD vs Target (${c.mon}-${c.cyy} YTD vs ${c.mon}-${c.cyy} YTD target)`,
     main:c=>`${c.mon}-${c.cyy} YTD`, base:c=>`${c.mon}-${c.cyy} YTD target`, vs:()=>'vs YTD target',
@@ -2448,7 +2453,11 @@ const VP_DEFS={
   fy_pfc:{mode:'fc', grain:'ytd', line:'fc',
     lbl:c=>`FY${c.cyy} vs Prior Forecast (${c.cy4} forecast vs prior forecast)`,
     main:c=>`FY${c.cyy} forecast`, base:()=>'Prior forecast', vs:()=>'vs prior forecast',
-    avail:m=>!!(m.fyFcCols&&m.fyFcCols.length), pick:v=>[v.outlook, v.fyPrFc]}
+    /* A prior forecast is a second, earlier full-year forecast column. With
+       only one the page was comparing the forecast against itself \u2014 or,
+       before months stopped being added, against twelve months summed beside
+       it, which is a different question wearing this one's label. */
+    avail:m=>!!(m.fyFcCols&&m.fyFcCols.length>1), pick:v=>[v.fyFc, v.fyPrFc]}
 };
 /* every value a definition's pick() may name — handing these back as
    their own names is how the page learns which two it chose */
@@ -2783,14 +2792,24 @@ function kpi(rows, model, ytdM, includeFC){
   const varPct = (varAbs!=null && py!==0)? varAbs/Math.abs(py) : null;
   const cySeries = MO.map(p=>({m:p.m, fc:p.fc, val:sumCols(rows,[p.col])}));
   const pySeries = model.pyMonths.map(p=>({m:p.m, fc:false, val:sumCols(rows,[p.col])}));
-  // full-year outlook = Jan..Dec month columns only (quarters/YTD columns are never included,
-  // so nothing is double counted); FY target strictly from the FY target column
-  const outlook = sumCols(rows, MO.map(p=>p.col));
+  /* whether the file's own roll-up columns are authoritative. The pack can
+     say 'months' and have everything built from the months instead. */
+  const useCols=cfgS('calc_ytd_actuals').toLowerCase()!=='months';
+  const useQC=useCols;
+  // the full year: the file's own column where it states one, else the months
+  /* Months are never added to make a period the file already states. The
+     extract carries a YTD column for every month, a column for every quarter
+     and a column for the full year \u2014 those are the figures, and adding
+     the months beside them is a second, different answer to a question the
+     file has already answered. Months are added only where the file states no
+     such column. */
+  const fyFcColSum = (model.fyFcCols&&model.fyFcCols.length)? sumCols(rows, model.fyFcCols.map(p=>p.col)) : null;
+  const monthsOutlook = sumCols(rows, MO.map(p=>p.col));
+  const outlook = (useCols&&fyFcColSum!=null)? fyFcColSum : monthsOutlook;
   // The quarter to date, read the way the Financial Summary reads it: from the
   // file's own quarterly column where there is one, and only otherwise from the
   // months. On a balance sheet a quarter column carries the closing balance
   // while three months added carry three times it.
-  const useQC=cfgS('calc_ytd_actuals').toLowerCase()!=='months';
   const qNo=Math.floor(ytdM/3)+1;
   /* The quarter figure is an ACTUAL, and only an actual: it is what the
      vs-prior-year comparison is built from. Falling back to a forecast
@@ -2814,7 +2833,12 @@ function kpi(rows, model, ytdM, includeFC){
     : (model.pyMonths.length? sumCols(rows, model.pyMonths.filter(p=>qMonthsK.some(x=>x.m===p.m)).map(p=>p.col)) : null);
   const target = (model.targetCols&&model.targetCols.length)? sumCols(rows, model.targetCols.map(p=>p.col)) : null;
   const fyPrior = (model.fyPriorCols&&model.fyPriorCols.length)? sumCols(rows, model.fyPriorCols.map(p=>p.col)) : null;
-  const fyFcCol = (model.fyFcCols&&model.fyFcCols.length)? sumCols(rows, model.fyFcCols.map(p=>p.col)) : null;
+  /* where the file states more than one full-year forecast, the first in the
+     file is the earlier one \u2014 the prior forecast \u2014 and the last is
+     the one in force */
+  const fyFcAll=(model.fyFcCols||[]);
+  const fyFcCol = fyFcAll.length? sumCols(rows,[fyFcAll[fyFcAll.length-1].col]) : null;
+  const fyPrFcCol = fyFcAll.length>1? sumCols(rows,[fyFcAll[0].col]) : null;
   // no FY forecast column but forecast months exist: the Jan-Dec outlook
   // (actual + forecast months) is the full-year forecast
   const fyFc = (cfgS('calc_fy_forecast').toLowerCase()!=='outlook'&&fyFcCol!=null)? fyFcCol
@@ -2823,7 +2847,7 @@ function kpi(rows, model, ytdM, includeFC){
   const fcAsOf=(model.ytdFcAsOfCols||[]).find(p=>p.ytdM===ytdM);
   const ytdFcIsCol=!!fcAsOf;
   const ytdFc = fcAsOf? sumCols(rows,[fcAsOf.col])
-    : fyFc!=null? fyFc*phaseFrac(model,cySel) : null;
+    : (fcPhased()&&fyFc!=null)? fyFc*phaseFrac(model,cySel) : null;
   const varFc = (cy!=null&&ytdFc!=null)? cy-ytdFc : null;
   const varFcPct = (varFc!=null&&ytdFc!==0)? varFc/Math.abs(ytdFc) : null;
   const varTgt = (outlook!=null&&target!=null)? outlook-target : null;
@@ -2856,7 +2880,10 @@ function kpi(rows, model, ytdM, includeFC){
   const mthFcC = mthFcCol(model, ytdM);
   const mthFc = mthFcC? sumCols(rows,[mthFcC.col])
     : (fcPhased()&&fyFc!=null)? fyFc*mthW : null;
-  const pyFull = model.pyMonths.length? sumCols(rows, model.pyMonths.map(p=>p.col)) : null;
+  const pyFullCol = (useCols&&model.fyPriorCols&&model.fyPriorCols.length)
+    ? sumCols(rows, model.fyPriorCols.map(p=>p.col)) : null;
+  const pyFull = pyFullCol!=null? pyFullCol
+    : (model.pyMonths.length? sumCols(rows, model.pyMonths.map(p=>p.col)) : null);
   const fyMain = fyFc!=null? fyFc : outlook;
   const fyBase = fyPrior!=null? fyPrior : pyFull;
   // the comparison every view leans on: the selected variance period, or —
@@ -2865,7 +2892,7 @@ function kpi(rows, model, ytdM, includeFC){
   const vpId=vpSel(model, ytdM), vpDef=VP_DEFS[vpId];
   if(vpDef&&vpDef.pick){
     const [mn,bs]=vpDef.pick({cy,py,ytdFc,ytdTgt,target,outlook,fyFc,fyPrior,
-      mth,mthPrev,mthPy,mthTgt,mthFc,pyFull,fyMain,fyBase,qtd,qtdPy,fyPrFc:fyFcCol});
+      mth,mthPrev,mthPy,mthTgt,mthFc,pyFull,fyMain,fyBase,qtd,qtdPy,fyPrFc:fyPrFcCol});
     cmpMode=vpDef.mode; cmpMain=mn; cmpBase=bs;
     cmpVar=(mn!=null&&bs!=null)? mn-bs : null;
     cmpVarPct=(cmpVar!=null&&bs!==0&&bs!=null)? cmpVar/Math.abs(bs) : null;
@@ -2887,8 +2914,8 @@ function kpi(rows, model, ytdM, includeFC){
   const favVarPct = cmpVarPct==null? null : ((flip&&cfgYes('calc_rag_direction'))? -cmpVarPct : cmpVarPct);
   return {cy, py, varAbs, varPct, cySeries, pySeries, outlook, target, varTgt, varTgtPct, fyPrior,
     fyFc, ytdFc, varFc, varFcPct, cmpMode, cmpBase, cmpVar, cmpVarPct, cmpMain, favVarPct,
-    ytdTgt, varYT, varYTPct, mth, mthPrev, mthPy, mthTgt, mthFc, fyMain, fyBase,
-    qtd, qtdPy, fyPrFc:fyFcCol,
+    ytdTgt, varYT, varYTPct, mth, mthPrev, mthPy, mthTgt, mthFc, fyMain, fyBase, pyFull,
+    qtd, qtdPy, fyPrFc:fyPrFcCol,
     vp:vpId, dirFlip:flip, costLike, ytdFcIsCol, cyIsCol,
     /* Which columns each side of the selected comparison was read from.
        Asked for only when something wants to check the two sides are
@@ -14286,7 +14313,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
           if(id==='mth_tgt') return `the file states no target for ${MON_LBL[mi]} \u2014 its targets are the year and the year to date, and a twelfth of the year is a number the file never states`;
           if(id==='ytd_tgt') return 'no year-to-date target column matching this month';
           if(id==='fy_tgt') return 'no full-year target column';
-          if(id==='fy_pfc') return 'no FY forecast column';
+          if(id==='fy_pfc') return 'the file states one full-year forecast, and a prior forecast is a second, earlier one to compare it with';
           if(id==='qtr_py'||id==='fy_py'||id==='ytd_py'||id==='mth_py') return 'no prior-year figures';
           if(id==='ytd_fc') return 'no year-to-date forecast column';
           return 'the file carries no figures for it';
@@ -14294,7 +14321,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
         return `<tr><td>Comparisons not offered</td><td>${gone.map(id=>
           `<b>${esc(VP_DEFS[id].lbl? VP_DEFS[id].lbl(vpCtx(model,mi)) : id)}</b> \u2014 ${esc(why(id))}`).join('<br>')}</td></tr>`;
       })()}
-      <tr><td>Build</td><td>2026-08-19 10:41</td></tr>
+      <tr><td>Build</td><td>2026-08-19 10:45</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
