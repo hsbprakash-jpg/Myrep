@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 10:31)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 10:41)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 10:31)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 10:41)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 10:31</div>
+<div id="buildTag">build 2026-08-19 10:41</div>
 </aside>
 <main>
 
@@ -2719,6 +2719,17 @@ function parseSheet(aoa){
      there is no monthly or quarterly target \u2014 a slice of the full-year
      target is a number the file never states, which is the same rule the
      year-to-date target has always been held to. */
+  /* A file may state the same month twice \u2014 the actual and the forecast
+     for that month, side by side. Both belong in the model: the forecast is
+     what a month-against-forecast comparison is made of. Neither belongs in a
+     sum over the months, though, or the year carries June twice. Anywhere a
+     run of months is added up, this is the list to add. The actual wins where
+     both are stated; a month only the forecast covers is the forecast. */
+  const cyMonthsOnce=(()=>{
+    const by=new Map();
+    for(const p of cyMonths){ const cur=by.get(p.m); if(!cur||(cur.fc&&!p.fc)) by.set(p.m,p); }
+    return [...by.values()].sort((a,b)=>a.m-b.m);
+  })();
   const mthTgtCols=ytdCols.filter(p=>p.target&&!p.fy&&p.m!=null&&(p.year==null||p.year===cyYY));
   const qTgtCols=ytdCols.filter(p=>p.target&&!p.fy&&p.q!=null&&(p.year==null||String(p.year).padStart(2,'0')===cyYY));
   const fcProfile=cyMonths.map(p=>({m:p.m, w:rows.reduce((s2,r)=>s2+Math.abs(r.v[p.col]||0),0)}));
@@ -2733,7 +2744,7 @@ function parseSheet(aoa){
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
     unitCol, unitHead:unitCol>=0? String(header[unitCol]||'').trim() : '',
     fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, pyYtdAsOfCols, ytdTgtAsOfCols,
-    mthTgtCols, qTgtCols, fcProfile, yearPY, yearCY};
+    mthTgtCols, qTgtCols, cyMonthsOnce, fcProfile, yearPY, yearCY};
 }
 
 /* ================= aggregation ================= */
@@ -2747,8 +2758,15 @@ function groupBy(rows, key){
   for(const r of rows){ const k=r.d[key]||'(blank)'; let a=m.get(k); if(!a){a=[];m.set(k,a);} a.push(r); }
   return m;
 }
+function monthsOnce(model){
+  if(model.cyMonthsOnce&&model.cyMonthsOnce.length) return model.cyMonthsOnce;
+  const by=new Map();
+  for(const p of (model.cyMonths||[])){ const cur=by.get(p.m); if(!cur||(cur.fc&&!p.fc)) by.set(p.m,p); }
+  return [...by.values()].sort((a,b)=>a.m-b.m);
+}
 function kpi(rows, model, ytdM, includeFC){
-  const cySel = model.cyMonths.filter(p=>p.m<=ytdM && (!p.fc || includeFC));
+  const MO = monthsOnce(model);
+  const cySel = MO.filter(p=>p.m<=ytdM && (!p.fc || includeFC));
   const months = new Set(cySel.map(p=>p.m));
   const pySel = model.pyMonths.filter(p=>months.has(p.m));
   let cy = sumCols(rows, cySel.map(p=>p.col));
@@ -2763,11 +2781,11 @@ function kpi(rows, model, ytdM, includeFC){
      pyAsOf&&pyAsOf.ytdM===ytdM) py=sumCols(rows,[pyAsOf.col]);
   const varAbs = (cy!=null&&py!=null)? cy-py : null;
   const varPct = (varAbs!=null && py!==0)? varAbs/Math.abs(py) : null;
-  const cySeries = model.cyMonths.map(p=>({m:p.m, fc:p.fc, val:sumCols(rows,[p.col])}));
+  const cySeries = MO.map(p=>({m:p.m, fc:p.fc, val:sumCols(rows,[p.col])}));
   const pySeries = model.pyMonths.map(p=>({m:p.m, fc:false, val:sumCols(rows,[p.col])}));
   // full-year outlook = Jan..Dec month columns only (quarters/YTD columns are never included,
   // so nothing is double counted); FY target strictly from the FY target column
-  const outlook = sumCols(rows, model.cyMonths.map(p=>p.col));
+  const outlook = sumCols(rows, MO.map(p=>p.col));
   // The quarter to date, read the way the Financial Summary reads it: from the
   // file's own quarterly column where there is one, and only otherwise from the
   // months. On a balance sheet a quarter column carries the closing balance
@@ -2790,7 +2808,7 @@ function kpi(rows, model, ytdM, includeFC){
   const qcyy=String(model.yearCY).slice(-2);
   const qpyy=model.pyMonths.length? String(model.yearPY).slice(-2) : (model.fyPriorLabel||null);
   const qColK=useQC? qFindK(qNo,qcyy) : null, qPyColK=useQC? qFindK(qNo,qpyy) : null;
-  const qMonthsK=model.cyMonths.filter(p=>Math.floor(p.m/3)===qNo-1&&p.m<=ytdM&&(!p.fc||includeFC));
+  const qMonthsK=MO.filter(p=>Math.floor(p.m/3)===qNo-1&&p.m<=ytdM&&(!p.fc||includeFC));
   const qtd=qColK? sumCols(rows,[qColK.col]) : (qMonthsK.length? sumCols(rows,qMonthsK.map(p=>p.col)) : null);
   const qtdPy=qPyColK? sumCols(rows,[qPyColK.col])
     : (model.pyMonths.length? sumCols(rows, model.pyMonths.filter(p=>qMonthsK.some(x=>x.m===p.m)).map(p=>p.col)) : null);
@@ -2819,9 +2837,9 @@ function kpi(rows, model, ytdM, includeFC){
   // single-month figures for the month-level variance periods (MoM, month vs
   // target / PY / forecast) — the selected month, the one before it (December
   // of the prior year when January is selected) and its phased baselines
-  const curCol=model.cyMonths.find(p=>p.m===ytdM);
+  const curCol=MO.find(p=>p.m===ytdM);
   const mth = curCol? sumCols(rows,[curCol.col]) : null;
-  const prvCol = model.cyMonths.filter(p=>p.m<ytdM).pop()
+  const prvCol = MO.filter(p=>p.m<ytdM).pop()
     || (model.pyMonths.length? model.pyMonths.find(p=>p.m===11) : null);
   const mthPrev = prvCol? sumCols(rows,[prvCol.col]) : null;
   const pyCol = model.pyMonths.find(p=>p.m===ytdM);
@@ -3050,7 +3068,7 @@ function trajSeries(k,m){
   if(m.pyMonths.length&&k.pySeries.length){ cmp=cum(k.pySeries); name=`YTD ${m.yearPY}`; }
   else if(k.fyFc!=null){
     let accW=0;
-    cmp=m.cyMonths.map(p2=>{ accW+=fcWeight(m,p2.m); return {m:p2.m, fc:false, val:k.fyFc*accW}; });
+    cmp=monthsOnce(m).map(p2=>{ accW+=fcWeight(m,p2.m); return {m:p2.m, fc:false, val:k.fyFc*accW}; });
     name='YTD forecast';
   }
   return {act, cmp, name};
@@ -3062,7 +3080,7 @@ function trajFor(k, m, L){
   const cum=ser=>{ let acc=0; return ser.map(p=>({m:p.m, fc:p.fc, val:(acc+=(p.val||0))})); };
   const mth=(L.grain||'ytd')==='month';
   const act=mth? k.cySeries.map(p=>({m:p.m, fc:p.fc, val:p.val})) : cum(k.cySeries);
-  const phased=(tot)=>{ let acc=0; return m.cyMonths.map(p=>{ const w=fcWeight(m,p.m); acc+=w;
+  const phased=(tot)=>{ let acc=0; return monthsOnce(m).map(p=>{ const w=fcWeight(m,p.m); acc+=w;
     return {m:p.m, fc:false, val:tot*(mth? w : acc)}; }); };
   const yr=mth? String(m.yearPY) : `YTD ${m.yearPY}`;
   let cmp=[], name='';
@@ -3468,7 +3486,8 @@ function deriveYearModel(m0, yr){
   m.targetCols=[]; m.fyFcCols=[]; m.fyPriorCols=[]; m.fyPriorLabel='';
   m.ytdAsOfCols=(m0.pyYtdAsOfCols||[]).slice();
   m.ytdFcAsOfCols=[]; m.pyYtdAsOfCols=[]; m.ytdTgtAsOfCols=[]; m.mthTgtCols=[]; m.qTgtCols=[];
-  m.fcProfile=m.cyMonths.map(p2=>({m:p2.m, w:m0.rows.reduce((s2,r)=>s2+Math.abs(r.v[p2.col]||0),0)}));
+  m.cyMonthsOnce=[];
+  m.fcProfile=monthsOnce(m).map(p2=>({m:p2.m, w:m0.rows.reduce((s2,r)=>s2+Math.abs(r.v[p2.col]||0),0)}));
   m.yearCY=m0.yearPY;
   m.yearPY=/^\d{4}$/.test(String(m0.yearPY))? String(+m0.yearPY-1) : m0.yearPY;
   m._yr='py';
@@ -9549,11 +9568,12 @@ function fsumDepth(){
 }
 /* the month, quarter and prior-quarter columns behind the three bands */
 function fsumPlan(m, ytdM){
-  const idx=m.cyMonths.findIndex(p=>p.m===ytdM);
-  const monCols=idx<0? [] : m.cyMonths.slice(Math.max(0,idx-2), idx+1);
+  const MO=monthsOnce(m);
+  const idx=MO.findIndex(p=>p.m===ytdM);
+  const monCols=idx<0? [] : MO.slice(Math.max(0,idx-2), idx+1);
   const q=Math.floor(ytdM/3);
-  const qMonths=m.cyMonths.filter(p=>Math.floor(p.m/3)===q&&p.m<=ytdM);
-  const pqMonths=q>0? m.cyMonths.filter(p=>Math.floor(p.m/3)===q-1)
+  const qMonths=MO.filter(p=>Math.floor(p.m/3)===q&&p.m<=ytdM);
+  const pqMonths=q>0? MO.filter(p=>Math.floor(p.m/3)===q-1)
     : m.pyMonths.filter(p=>Math.floor(p.m/3)===3);
   const yy=String(m.yearCY).slice(-2);
   return {monCols, qMonths, pqMonths, q, yy, qLbl:`Q${q+1}${yy}`,
@@ -9617,7 +9637,7 @@ function fsumFigsRaw(rows, m, P, ytdM, name){
   else if(useCols&&asOf&&ytdM>=asOf.ytdM){
     // YTD column as-is at its own month; forecast months beyond it laid on
     // top rather than the whole year being rebuilt from months
-    const beyond=m.cyMonths.filter(p2=>p2.m>asOf.ytdM&&p2.m<=ytdM&&(!p2.fc||S.includeFC));
+    const beyond=monthsOnce(m).filter(p2=>p2.m>asOf.ytdM&&p2.m<=ytdM&&(!p2.fc||S.includeFC));
     ytdOv=sumCols(rows,[asOf.col])+(beyond.length? (sum(beyond)||0) : 0);
   }
   const ytd=ytdOv!=null? ytdOv : k.cy;
@@ -9639,7 +9659,8 @@ function fsumFigsRaw(rows, m, P, ytdM, name){
   // Full Year: for flows the live forecast (Jan–Dec actuals + forecast
   // months); for balances the December closing forecast — each against the
   // published prior-forecast column, the FY target and prior-year actuals
-  const decCol=m.cyMonths.length? m.cyMonths[m.cyMonths.length-1] : null;
+  const MO2=monthsOnce(m);
+  const decCol=MO2.length? MO2[MO2.length-1] : null;
   const fy=bs? (decCol? sumCols(rows,[decCol.col]) : k.fyFc) : k.outlook;
   const fyPrFc=(m.fyFcCols&&m.fyFcCols.length)? sum(m.fyFcCols) : null;
   const fyPY=k.fyPrior!=null? k.fyPrior
@@ -11023,7 +11044,7 @@ function simRuleNote(r){
     if(!match.length) return '<div class="rnote warn">⚠ no rows match this scope under the current filters — this rule changes nothing</div>';
     if(!months.length) return '<div class="rnote warn">⚠ no forecast months in this range — this rule changes nothing</div>';
     const base=sumCols(match, months.map(p=>p.col));
-    const fyNow=sumCols(match, S.model.cyMonths.map(q=>q.col));
+    const fyNow=sumCols(match, monthsOnce(S.model).map(q=>q.col));
     const eff= r.type==='pct'? base*(+r.val||0)/100
       : r.type==='pctfy'? (fyNow||0)*(+r.val||0)/100
       : r.type==='amt'? (+r.val||0)
@@ -11082,7 +11103,7 @@ function computeSim(rules){
         const tot=match.reduce((s2,r)=>s2+(sv.get(r)[p.col]||0),0);
         if(ru.type==='pctfy'){
           // percentage of the full-year figure, spread across the selected months
-          const fyBase=sumCols(match, m.cyMonths.map(q=>q.col));
+          const fyBase=sumCols(match, monthsOnce(m).map(q=>q.col));
           const per=fyBase*val/100/months.length;
           for(const r of match){ const cur=sv.get(r)[p.col]||0;
             sv.get(r)[p.col]=cur+(tot? per*cur/tot : per/match.length); }
@@ -12909,7 +12930,8 @@ async function cachePut(name,buf){
    which is quick and cannot go stale against a changed configuration. */
 const MODEL_BASE_KEYS=['rows','header','dimCols','missing','pyMonths','cyMonths','quarterCols',
   'ytdCols','targetCols','unitCol','unitHead','fyPriorCols','fyPriorLabel','fyFcCols',
-  'ytdAsOfCols','ytdFcAsOfCols','pyYtdAsOfCols','ytdTgtAsOfCols','mthTgtCols','qTgtCols','fcProfile','yearPY','yearCY',
+  'ytdAsOfCols','ytdFcAsOfCols','pyYtdAsOfCols','ytdTgtAsOfCols','mthTgtCols','qTgtCols',
+  'cyMonthsOnce','fcProfile','yearPY','yearCY',
   'groupRows','groupTab','groupSkipped','countries','sheetName'];
 function modelSnapshot(m){
   const out={};
@@ -14239,7 +14261,10 @@ async function ingestFinish(model, sheetName, name, fromCache){
         || 'none \u2014 a month or quarter target is read from the file only, never sliced from the year'}</td></tr>
       <tr><td>PY YTD columns</td><td>${model.pyYtdAsOfCols.length? esc(model.pyYtdAsOfCols.map(p=>`${p.label} (${MON_LBL[p.ytdM]})`).join(' · ')) : 'none'}</td></tr>
       <tr><td>${esc(model.yearPY)} months</td><td>${model.pyMonths.length? esc(model.pyMonths.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
-      <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
+      <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}${(()=>{
+        const twice=[...new Set(model.cyMonths.filter(p=>model.cyMonths.filter(q=>q.m===p.m).length>1).map(p=>MON_LBL[p.m]))];
+        return twice.length? ` — ${esc(twice.join(', '))} ${twice.length===1?'is':'are'} stated twice, actual and forecast: the actual is the month, and the year adds each month once`:'';
+      })()}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
       ${(()=>{
@@ -14269,7 +14294,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
         return `<tr><td>Comparisons not offered</td><td>${gone.map(id=>
           `<b>${esc(VP_DEFS[id].lbl? VP_DEFS[id].lbl(vpCtx(model,mi)) : id)}</b> \u2014 ${esc(why(id))}`).join('<br>')}</td></tr>`;
       })()}
-      <tr><td>Build</td><td>2026-08-19 10:31</td></tr>
+      <tr><td>Build</td><td>2026-08-19 10:41</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
