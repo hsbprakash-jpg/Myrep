@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 07:46)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 08:54)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 07:46)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 08:54)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 07:46</div>
+<div id="buildTag">build 2026-08-19 08:54</div>
 </aside>
 <main>
 
@@ -4678,13 +4678,24 @@ function slUnitTok(){
   const sel=unitSel();
   return sel==='as'? (unitNative().tok||'') : sel;
 }
-function slAmt(v, bs){
+/* A headcount is not money and a ratio is not money. The tiles have known
+   that since the units work \u2014 unitPlan carries the line's own kind and
+   scale \u2014 but the commentary printed every figure through the money
+   picker, so FTE came out "\u25bc$1.2bn" and CER% came out "\u25bc$0.0bn":
+   a dollar sign on a headcount, and a percentage divided by a thousand.
+   Where the line restates itself, it is printed as itself. Money is
+   untouched. */
+function slAmt(v, bs, k){
   if(v==null) return '–';
+  const p2=k? unitPlan(k) : null;
+  if(planRestates(p2)) return moneyPfx(p2)+fmtPlan(p2,Math.abs(v))+(p2.suffix||'');
   if(bs&&bsUnit()&&bsUnitDiv()!==1) return '$'+fmtBS(Math.abs(v)).replace(/[()]/g,'')+bsUnit();
   return '$'+fmt(Math.abs(v))+slUnitTok();
 }
-function slVal(v, bs){
+function slVal(v, bs, k){
   if(v==null) return '–';
+  const p2=k? unitPlan(k) : null;
+  if(planRestates(p2)) return moneyPfx(p2)+fmtPlan(p2,v)+(p2.suffix||'');
   if(bs&&bsUnit()&&bsUnitDiv()!==1) return '$'+fmtBS(v)+bsUnit();
   return '$'+fmt(v)+slUnitTok();
 }
@@ -4698,7 +4709,7 @@ function slVar(k, bs){
   if(k.cmpVar==null) return 'n/a';
   const fav=(k.favVarPct==null? (k.cmpVar>=0) : k.favVarPct>=0);
   const p=k.cmpVarPct==null? '' : ' / '+pctAbs(k.cmpVarPct);
-  return `<b${faCls(fav)}>${movUp(k,k.cmpVar,k.cmpVarPct)?'\u25B2':'\u25BC'}${slAmt(k.cmpVar,bs)}${fav?'F':'A'}</b>${p}`;
+  return `<b${faCls(fav)}>${movUp(k,k.cmpVar,k.cmpVarPct)?'\u25B2':'\u25BC'}${slAmt(k.cmpVar,bs,k)}${fav?'F':'A'}</b>${p}`;
 }
 function slDrivers(rows, dimKey, n, bs){
   // a product cut never explains an expense line — fall back to a
@@ -4746,7 +4757,7 @@ function slideCommentaryHtml(){
     const base=(k.cmpMain!=null? k.cmpMain : 0);
     return (base>=0? k.cmpVar>=0 : k.cmpVar<=0)? 'higher' : 'lower';
   };
-  h+=`<p>(${esc(mon)}) ${esc(head)} <b>${esc(resName)}</b> is <b>${slVal(resK.cmpMain)}</b> `+
+  h+=`<p>(${esc(mon)}) ${esc(head)} <b>${esc(resName)}</b> is <b>${slVal(resK.cmpMain,false,resK)}</b> `+
      `${resK.cmpVar==null?'':((resK.favVarPct==null? resK.cmpVar>=0 : resK.favVarPct>=0)?'up':'down')+' '}vs ${esc(L.base)}`;
   if(parts.length) h+=` driven by ${slJoin(parts.map(g=>`${dirWord(g.k)} ${esc(g.name)} (${slVar(g.k)})`))}`;
   h+='</p>';
@@ -4758,7 +4769,7 @@ function slideCommentaryHtml(){
       // the colon introduces the lines beneath; where the commentary's own
       // clause has just been given, it ends the sentence instead
       const tl=comTail(g.name);
-      h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${slVal(g.k.cmpMain)}</b> `+
+      h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${slVal(g.k.cmpMain,false,g.k)}</b> `+
         `is ${slVar(g.k)}${nt}${tl||':'}</p><ul class="houselist">`;
       for(const c of kids) h+=`<li><b>${esc(c.name)}</b> ${slVar(c.k)}${slDrivers(c.rs,dimKey,N)}${comTail(c.name)}</li>`;
       h+='</ul>';
@@ -4784,7 +4795,7 @@ function slideCommentaryHtml(){
       .filter(d2=>d2.k.cmpVar!=null&&Math.abs(d2.k.cmpVar)>0)
       .sort((a2,b2)=>Math.abs(b2.k.cmpVar)-Math.abs(a2.k.cmpVar)).slice(0,N);
     const drv=ds.length? ' driven by '+ds.map(d2=>`${esc(d2.name)} (${slVar(d2.k,true)})`).join(', ') : '';
-    h+=`<p style="margin:8px 0 2px"><b>${esc(g.name)}</b> of <b>${slVal(kk.cmpMain,true)}</b> is ${slVar(kk,true)}${drv}</p>`;
+    h+=`<p style="margin:8px 0 2px"><b>${esc(g.name)}</b> of <b>${slVal(kk.cmpMain,true,kk)}</b> is ${slVar(kk,true)}${drv}</p>`;
   }
   return h;
 }
@@ -4822,11 +4833,21 @@ let HOUSE_DIM=null;
 function faCls(fav){
   return cfgYes('commentary_fa_colours')? ` class="${fav?'fa-f':'fa-a'}"` : '';
 }
+/* the same rule for the house writer: a line that restates itself is printed
+   in its own unit, money is left exactly as it was */
+/* a declared balance in billions is still money and still takes a $; a
+   headcount and a percentage never did */
+function moneyPfx(p2){ return (p2&&p2.kind&&p2.kind!=='money')? '' : '$'; }
+function faVal(k, v){
+  const x=(v!==undefined? v : (k? k.cmpMain : null));
+  const p2=unitPlan(k);
+  return planRestates(p2)? moneyPfx(p2)+fmtPlan(p2,x)+(p2.suffix||'') : fmt(x);
+}
 function faTxt(k){
   if(k.cmpVar==null) return 'n/a';
   const fav=(k.favVarPct==null? (k.cmpVar>=0) : k.favVarPct>=0);
   const pctTxt=k.cmpVarPct==null? '' : ' / '+pctAbs(k.cmpVarPct);
-  return `<b${faCls(fav)}>${movUp(k,k.cmpVar,k.cmpVarPct)?'\u25B2':'\u25BC'}${fmt(Math.abs(k.cmpVar))}${fav?'F':'A'}</b>${pctTxt}`;
+  return `<b${faCls(fav)}>${movUp(k,k.cmpVar,k.cmpVarPct)?'\u25B2':'\u25BC'}${faVal(k,Math.abs(k.cmpVar))}${fav?'F':'A'}</b>${pctTxt}`;
 }
 /* movement of the line itself: a bigger cost charge reads as "higher" even
    though the value is stored as a larger negative */
@@ -5074,16 +5095,18 @@ function tplCommentaryHtml(style){
   const LV=houseLevels(); if(!LV.length) return '';
   const atF=fileOrder(m);
   const walk=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
-    .map(([name,rs])=>({name, rs, notHere:lineNotAtGrain(name, rs)}));
+    .map(([name,rs])=>({name, rs, notHere:lineNotAtGrain(name, rs),
+      noSum:!lineNotAtGrain(name, rs)&&lineNoSum(rs)}));
   /* the Rollup tab decides whether a line exists at the level being written
      about. One declared Never has no figure here to word a template with, and
      filling the pattern from a sum of its rows states a number the tile beside
      it deliberately refuses to show. */
   const notCarried=walk.filter(g=>g.notHere);
-  const groups=walk.filter(g=>!g.notHere)
+  const noSum=walk.filter(g=>g.noSum);
+  const groups=walk.filter(g=>!g.notHere&&!g.noSum)
     .map(g=>({...g, k:kpiNamed(kpi(g.rs,m,S.ytdM,S.includeFC),g.name)}))
     .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0)||atF(a.rs)-atF(b.rs));
-  if(!groups.length&&!notCarried.length) return '';
+  if(!groups.length&&!notCarried.length&&!noSum.length) return '';
   const c=vpCtx(m,S.ytdM);
   let h=`<p><u><b>(${esc(MON_LBL[S.ytdM])}) ${esc(L.main)} Vs ${esc(L.base)}${cfgS('commentary_note')?` (${esc(cfgS('commentary_note'))})`:''}:</b></u></p>`;
   h+='<ul class="actlist">'+groups.map(g=>
@@ -5091,7 +5114,10 @@ function tplCommentaryHtml(style){
     // named rather than dropped, so a line absent from the narrative is never
     // simply absent
     +notCarried.map(g=>`<li><b>${esc(g.name)}</b> \u2014 ${
-      esc(rollupWhyNotHere(g.name))}${comTail(g.name)}</li>`).join('')+'</ul>';
+      esc(rollupWhyNotHere(g.name))}${comTail(g.name)}</li>`).join('')
+    // said, not skipped: the reader is told there is no figure and why
+    +noSum.map(g=>`<li><b>${esc(g.name)}</b> \u2014 no total: ${
+      esc(lineNoSumWhy(g.rs))}${comTail(g.name)}</li>`).join('')+'</ul>';
   return h;
 }
 function comTplLineHtml(pat, g, m, L, dimKey, N, c){
@@ -5106,7 +5132,7 @@ function comTplLineHtml(pat, g, m, L, dimKey, N, c){
   const k=g.k;
   const ctx={
     line:`<b>${esc(g.name)}</b>`,
-    main:slVal(k.cmpMain,bs), base:slVal(k.cmpBase,bs),
+    main:slVal(k.cmpMain,bs,k), base:slVal(k.cmpBase,bs,k),
     'var':slVar(k,bs), varamt:slVar(k,bs).replace(/ \/ [^<]*$/,''), varpct:pctAbs(k.cmpVarPct),
     vs:esc(L.vs), basename:esc(L.base), period:esc(L.period),
     drivers:drTxt, month:esc(MON_LBL[S.ytdM]), quarter:'Q'+c.q,
@@ -5296,6 +5322,20 @@ function houseCommentaryHtml(){
 function fileOrder(m){
   return rs=>{ let i=Infinity; for(const r of rs){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
 }
+/* A line whose rows cannot be added at all. The tiles have refused these
+   totals since the units work: a ratio is not summed, counts of different
+   things are not summed, and a P&L is never added to a balance sheet. The
+   commentary was adding them anyway and printing the answer as money \u2014
+   "Key Metrics was \u25bc$8.8bn", "FTE was \u25bc$1.2bn", "CER% was \u25bc$0.0bn"
+   \u2014 which is how a variance of several hundred per cent appears on a line
+   that never moved that far. The reason is given instead of the figure, in the
+   same words the tile uses. */
+function lineNoSum(rs){ return mixedScope(rs)||mixedUnits(rs); }
+function lineNoSumWhy(rs){
+  return mixedScope(rs)&&!mixedUnits(rs)
+    ? 'a profit and loss line and a balance are never added together'
+    : noSumWhy(rs);
+}
 /* why a declared line carries no figure at the level being written about \u2014
    in the Rollup tab's own terms, so the commentary and the tile give the
    reader the same reason in the same words */
@@ -5322,20 +5362,25 @@ function houseBlock(rows, secName){
        rows produces one that means nothing. */
     if(lineNotAtGrain(name, rs))
       return `<li><b>${esc(name)}</b> \u2014 ${esc(rollupWhyNotHere(name))}${comTail(name)}</li>`;
+    if(lineNoSum(rs))
+      return `<li><b>${esc(name)}</b> \u2014 no total: ${esc(lineNoSumWhy(rs))}${comTail(name)}</li>`;
     const k=kpi(rs,m,S.ytdM,S.includeFC);
     const dr=houseDrivers(rs,dimKey,depth===1?NDRV:Math.max(2,NDRV-1));
+    for(const g of dr) kpiNamed(g.k, name);
     const drTxt=dr.length? ` driven by ${dr.map(g=>`${esc(g.name)} (${faTxt(g.k)})`).join(', ')}` : '';
     return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}${comTail(name)}</li>`;
   };
   const l1All=[...groupBy(rows,LV[0]).entries()]
-    .map(([name,rs])=>({name, rs, notHere:lineNotAtGrain(name, rs)}))
+    .map(([name,rs])=>({name, rs, notHere:lineNotAtGrain(name, rs),
+      noSum:!lineNotAtGrain(name, rs)&&lineNoSum(rs)}))
     .filter(g=>g.name);
   /* a line the pack never carries up to this level is not narrated as though
      it had a figure here, and \u2014 just as important \u2014 is kept out of
      the "driven by" clause, where a summed ratio would otherwise be named as
      one of the movers behind the result */
   const notCarried=l1All.filter(g=>g.notHere);
-  const l1=l1All.filter(g=>!g.notHere)
+  const noSum=l1All.filter(g=>g.noSum);
+  const l1=l1All.filter(g=>!g.notHere&&!g.noSum)
     .map(g=>({...g, k:kpiNamed(kpi(g.rs,m,S.ytdM,S.includeFC),g.name)}))
     .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0) || atF(a.rs)-atF(b.rs));
   // the headline still names the biggest movers first
@@ -5345,10 +5390,13 @@ function houseBlock(rows, secName){
   const single=l1.length===1;
   const totLbl=single? l1[0].name : (secName||totalLabel(l1Names(rows)));
   const noTot=(secName? fsumNoTotal().has(String(secName).toLowerCase()) : false)
-    || (!single&&!fsumTotalOK(rows));
+    || (!single&&!fsumTotalOK(rows))
+    // and a block that spans both statements, or units that do not add, has
+    // no headline figure either \u2014 the same rule as the line beneath it
+    || lineNoSum(rows);
   let h='';
   if(!(noTot&&!single)){
-    h=`<p>(${esc(L.main)}) <b>${esc(totLbl)}</b> of <b>${fmt(mainOf(kT))}</b> is ${faTxt(kT)} vs ${esc(L.base)}`;
+    h=`<p>(${esc(L.main)}) <b>${esc(totLbl)}</b> of <b>${faVal(single? l1[0].k : kT)}</b> is ${faTxt(kT)} vs ${esc(L.base)}`;
     if(l1.length>1) h+=` driven by ${movers.map(g=>`${faWord(g.k, mainOf(g.k))} ${esc(g.name)} (${faTxt(g.k)})`).join(', ')}`;
     h+='.</p>';
   } else if(secName){
@@ -5356,7 +5404,7 @@ function houseBlock(rows, secName){
   }
   for(const g of l1){
     // a lone line is already the headline — go straight to what drove it
-    if(!single) h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${fmt(mainOf(g.k))}</b> is ${faTxt(g.k)}${comTail(g.name)}</p>`;
+    if(!single) h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${faVal(g.k)}</b> is ${faTxt(g.k)}${comTail(g.name)}</p>`;
     h+=`<ul class="houselist">`;
     const kids=(LV.length>1? [...groupBy(g.rs,LV[1]).entries()] : [])
       .map(([name,rs])=>({name, rs, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
@@ -5370,6 +5418,8 @@ function houseBlock(rows, secName){
   if(notCarried.length)
     h+=`<p class="note">${notCarried.map(g=>esc(g.name)).join(', ')} ${
       notCarried.length===1?'is':'are'} ${esc(rollupWhyNotHere(notCarried[0].name))}.</p>`;
+  for(const g of noSum)
+    h+=`<p class="note"><b>${esc(g.name)}</b> \u2014 no total: ${esc(lineNoSumWhy(g.rs))}.</p>`;
   return h;
 }
 /* flexible dropdown-driven chart on the summary page */
@@ -13836,7 +13886,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-19 07:46</td></tr>
+      <tr><td>Build</td><td>2026-08-19 08:54</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
