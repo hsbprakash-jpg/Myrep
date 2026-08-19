@@ -1816,6 +1816,24 @@ What each section governs:
   and target reads as though the selection had been ignored, and invites a
   figure to be taken off the wrong basis.
 
+  **A line that did not move is not a decision.** Floating point leaves
+  −4e-12 on a line whose forecast equals its prior forecast, and the rating
+  reads any negative as unfavourable — so such a line was rated *"Unfavourable
+  · ▼0 / ▼0.0%"* and counted in the decisions badge, beside lines that
+  genuinely moved. A movement below half a unit — the same threshold the
+  commentary uses to decide a comparison said nothing worth a clause — is now
+  rated as no movement.
+
+  **And the same comparison is not stated twice.** On *FY26 vs Target* the
+  card read *"FY26 forecast (3,453) vs FY26 target (3,394) — ▲1.7%"* and then
+  *"FY outlook (3,453) vs target (3,394) — ▲1.7%"*: one fact, twice, inviting
+  the reader to look for a second that is not there. The full-year gap is
+  dropped where the selected basis already *is* the full-year gap — that
+  selection picks `[fyMain, target]`, so its base is the FY target itself. A
+  *YTD vs Target* selection picks `ytdTgt` instead, and keeps the full-year
+  gap beside it, because a different period is a second fact rather than the
+  same one reworded.
+
   **A ratio is compared on the same basis as the lines beside it.** `ratioKpi`
   rebuilt its headline from `cmpMode` alone — and a mode is only `py` / `fc` /
   `tgt`, carrying no period with it. So on *Current QTR vs PY* a ratio compared
