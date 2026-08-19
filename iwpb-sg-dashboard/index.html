@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 07:13)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 07:22)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 07:13)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 07:22)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 07:13</div>
+<div id="buildTag">build 2026-08-19 07:22</div>
 </aside>
 <main>
 
@@ -5053,14 +5053,25 @@ function tplCommentaryHtml(style){
   const dimKey=houseDimKey(), N=houseDrvCount();
   const LV=houseLevels(); if(!LV.length) return '';
   const atF=fileOrder(m);
-  const groups=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
-    .map(([name,rs])=>({name, rs, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
+  const walk=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
+    .map(([name,rs])=>({name, rs, notHere:lineNotAtGrain(name, rs)}));
+  /* the Rollup tab decides whether a line exists at the level being written
+     about. One declared Never has no figure here to word a template with, and
+     filling the pattern from a sum of its rows states a number the tile beside
+     it deliberately refuses to show. */
+  const notCarried=walk.filter(g=>g.notHere);
+  const groups=walk.filter(g=>!g.notHere)
+    .map(g=>({...g, k:kpiNamed(kpi(g.rs,m,S.ytdM,S.includeFC),g.name)}))
     .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0)||atF(a.rs)-atF(b.rs));
-  if(!groups.length) return '';
+  if(!groups.length&&!notCarried.length) return '';
   const c=vpCtx(m,S.ytdM);
   let h=`<p><u><b>(${esc(MON_LBL[S.ytdM])}) ${esc(L.main)} Vs ${esc(L.base)}${cfgS('commentary_note')?` (${esc(cfgS('commentary_note'))})`:''}:</b></u></p>`;
   h+='<ul class="actlist">'+groups.map(g=>
-    `<li>${comTplLineHtml(pat,g,m,L,dimKey,N,c)}${comTail(g.name)}</li>`).join('')+'</ul>';
+    `<li>${comTplLineHtml(pat,g,m,L,dimKey,N,c)}${comTail(g.name)}</li>`).join('')
+    // named rather than dropped, so a line absent from the narrative is never
+    // simply absent
+    +notCarried.map(g=>`<li><b>${esc(g.name)}</b> \u2014 ${
+      esc(rollupWhyNotHere(g.name))}${comTail(g.name)}</li>`).join('')+'</ul>';
   return h;
 }
 function comTplLineHtml(pat, g, m, L, dimKey, N, c){
@@ -5265,6 +5276,16 @@ function houseCommentaryHtml(){
 function fileOrder(m){
   return rs=>{ let i=Infinity; for(const r of rs){ const j=m.rows.indexOf(r); if(j>=0&&j<i) i=j; } return i; };
 }
+/* why a declared line carries no figure at the level being written about \u2014
+   in the Rollup tab's own terms, so the commentary and the tile give the
+   reader the same reason in the same words */
+function rollupWhyNotHere(name){
+  const d=rollupList().find(x=>rollupNames(x).includes(String(name||'').trim().toLowerCase()));
+  const rule=d? String(d.rule||'').toLowerCase() : '';
+  if(rule==='never') return 'read at the level it is reported, never carried up';
+  if(rule==='asis') return 'reported at each level in its own right, never added up from beneath';
+  return 'reported below this level only \u2014 never carried up';
+}
 function houseBlock(rows, secName){
   const m=S.model, L=cmpLabels(m);
   if(!rows.length) return '';
@@ -5275,14 +5296,27 @@ function houseBlock(rows, secName){
   const kT=kpi(rows,m,S.ytdM,S.includeFC);
   const mainOf=k=>k.cmpMain;
   const per=(name,rs,depth)=>{
+    /* the Rollup tab decides whether this line exists at this level at all.
+       A line declared Never \u2014 a ratio, worked out again wherever it is
+       asked for \u2014 has no figure here to write about, and summing its
+       rows produces one that means nothing. */
+    if(lineNotAtGrain(name, rs))
+      return `<li><b>${esc(name)}</b> \u2014 ${esc(rollupWhyNotHere(name))}${comTail(name)}</li>`;
     const k=kpi(rs,m,S.ytdM,S.includeFC);
     const dr=houseDrivers(rs,dimKey,depth===1?NDRV:Math.max(2,NDRV-1));
     const drTxt=dr.length? ` driven by ${dr.map(g=>`${esc(g.name)} (${faTxt(g.k)})`).join(', ')}` : '';
     return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}${comTail(name)}</li>`;
   };
-  const l1=[...groupBy(rows,LV[0]).entries()]
-    .map(([name,rs])=>({name, rs, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
-    .filter(g=>g.name)
+  const l1All=[...groupBy(rows,LV[0]).entries()]
+    .map(([name,rs])=>({name, rs, notHere:lineNotAtGrain(name, rs)}))
+    .filter(g=>g.name);
+  /* a line the pack never carries up to this level is not narrated as though
+     it had a figure here, and \u2014 just as important \u2014 is kept out of
+     the "driven by" clause, where a summed ratio would otherwise be named as
+     one of the movers behind the result */
+  const notCarried=l1All.filter(g=>g.notHere);
+  const l1=l1All.filter(g=>!g.notHere)
+    .map(g=>({...g, k:kpiNamed(kpi(g.rs,m,S.ytdM,S.includeFC),g.name)}))
     .sort((a,b)=>(isBSLine(a.name)?1:0)-(isBSLine(b.name)?1:0) || atF(a.rs)-atF(b.rs));
   // the headline still names the biggest movers first
   const movers=[...l1].sort((a,b)=>Math.abs(b.k.cmpVar||0)-Math.abs(a.k.cmpVar||0));
@@ -5312,6 +5346,10 @@ function houseBlock(rows, secName){
     else for(const d of houseDrivers(g.rs,dimKey,NDRV)) h+=`<li><b>${esc(d.name)}</b> ${faTxt(d.k)}</li>`;
     h+='</ul>';
   }
+  // named once, so a line missing from the narrative is never simply missing
+  if(notCarried.length)
+    h+=`<p class="note">${notCarried.map(g=>esc(g.name)).join(', ')} ${
+      notCarried.length===1?'is':'are'} ${esc(rollupWhyNotHere(notCarried[0].name))}.</p>`;
   return h;
 }
 /* flexible dropdown-driven chart on the summary page */
@@ -13778,7 +13816,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-19 07:13</td></tr>
+      <tr><td>Build</td><td>2026-08-19 07:22</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(

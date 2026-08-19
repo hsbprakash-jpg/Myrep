@@ -1816,6 +1816,24 @@ What each section governs:
   and target reads as though the selection had been ignored, and invites a
   figure to be taken off the wrong basis.
 
+  **The commentary reads the same roll-up declarations the tiles read.** The
+  Rollup tab says which lines carry up and which do not, and the tile has
+  always honoured it — a CER declared `Never` shows `–` and *"reported below
+  this level only"*. The commentary did not: at a Global view it wrote **"CER
+  was ▼$0"**, a ratio summed across three countries and printed as money,
+  beside a tile deliberately refusing to show any figure at all.
+
+  Both writers — the pack-format one and the template-styled one — now check
+  the declaration before wording a line, and a line that does not carry up to
+  the level being written about is **named with the reason from the Rollup tab
+  rather than dropped**, in the same words the tile uses:
+
+  > CER — read at the level it is reported, never carried up
+
+  It is also kept out of the *"driven by"* clause, where a summed ratio would
+  otherwise be named as one of the movers behind the result. Lines declared
+  `Sum` are untouched and keep their figures and their drivers.
+
   **A line that did not move is not a decision.** Floating point leaves
   −4e-12 on a line whose forecast equals its prior forecast, and the rating
   reads any negative as unfavourable — so such a line was rated *"Unfavourable
