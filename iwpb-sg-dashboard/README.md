@@ -1,0 +1,2281 @@
+# IWPB Singapore Driller — KPI Dashboard
+
+A self-contained, single-file web app that ingests the IWPB Singapore TM1
+extract and shows a **RAG-rated KPI summary at MICA Level 2** with full
+drill-down. No server, no build step, no network calls — open `index.html` in
+any modern browser and everything (including XLSX parsing via an embedded copy
+of SheetJS) runs locally.
+
+## Using it
+
+1. Open `index.html` in a browser (double-click works).
+2. Drop the TM1 extract (`.xlsx` or `.csv`) onto the upload zone. The ingest
+   report confirms the detected columns, KPI count and period coverage.
+3. The dashboard opens on the **KPI summary**.
+
+**Two files, and nothing else.** The app reads the **TM1 data extract** and the
+**configuration pack** — no other file is ingested. Each is recognised by what
+is inside it rather than by where it was dropped: the pack dropped on the
+ingest page is named and refused, with a pointer to *Configuration → Upload
+config*, instead of being parsed as data; an extract picked at Upload config is
+refused instead of replacing every rule with nothing, and the configuration in
+force is left untouched. Anything that is neither — a Word document, a PDF, a
+workbook of notes — is turned away by name before a byte of it is parsed, and
+more than one file at a time is refused rather than half-read.
+
+## What it expects in the file
+
+A single header row with:
+
+- **Dimensions** — `MICA`, `MICA_Level_5/4/3/2/1`, `Product_code`,
+  `Product_Level_3/2/1`, `Segment_code`, `CG_Level_2/1`, `Function_code`,
+  `Function_Level_2/1`, `Entity code`. Header matching is tolerant of
+  case/underscore/spacing differences; missing optional columns just disable
+  the related filter. Beyond the built-in list, **any other column in the
+  TM1 extract can be declared as a dimension** through the config's Dimensions
+  section (see below) and then behaves like the rest everywhere — filters,
+  Financial Summary cascade, drag & drop charts, dashboards, commentary.
+- **Periods** — either of two layouts:
+  1. Monthly columns for the prior and current year. When the labels name
+     their year (`Jan-25`, `Jan 2026`) the columns can sit **anywhere in
+     the file in any order** — the year on the label assigns them. Yearless
+     labels (`Jan Actual`) fall back to the sequence rule: two blocks in
+     calendar order, prior year first. Quarterly columns (`1Q25 Actual`,
+     `1Q26 Actual`, …) whose 2-digit years label the blocks, plus optional
+     `… FC` forecast months and YTD columns.
+  2. CIB-style: title rows above the table, an **Actuals / Forecast /
+     Target band row** above the headers, a single year of months
+     (`Jan-26 … Dec-26`) whose actual-vs-forecast split comes from the
+     band, quarters without year digits, YTD, FY and FY-Target columns.
+     The data sheet may sit behind Control/notes tabs — every sheet is
+     tried until one matches. With no prior-year months, the primary
+     comparison becomes **YTD actuals vs YTD forecast** — the FY
+     forecast column phased over the elapsed months (FY forecast ×
+     months ÷ 12) — with the FY outlook (Jan–Dec months), FY target and
+     FY prior-year actuals shown alongside in the trajectory panel. The
+     forecast comparison applies to every KPI, costs and ECL included,
+     with direction-aware ratings.
+
+  Values may be numbers, `1,234` text, `(1,234)` bracket negatives, `-`,
+  or blank.
+
+**Multi-country workbooks** — a regional TM1 extract can carry **one country
+per tab**: every tab that parses as a TM1 extract becomes a country (named
+after its tab), while Control/Mapping/notes tabs are skipped as before.
+The countries merge into one model with a `Country` dimension, aligned by
+column label so tabs may lay their columns out in any order; any tab
+missing columns of the first data tab is reported in the ingest summary.
+
+**The consolidated Group.** A regional workbook often carries the Group on
+its own tab, and the Group is *not* the sum of the countries — eliminations
+and central items live only in the consolidation. A tab whose name matches
+`group_tab_patterns` (`Group`, `Consol…`, `Group Total` by default) is
+therefore **never merged as one more country**, so nothing ever double
+counts. What happens instead is `group_consolidation`'s choice:
+
+  - **`auto`** (default) — if the tab is present its figures speak for the
+    Group: the unscoped page (tiles, Financial Summary, commentary,
+    exports) and the strip's top row read the consolidation, while scoping
+    to any country, region or business — or cutting a chart by geography —
+    reads the country tabs, because the consolidation has no geography
+    inside it. If no such tab exists, the Group is the roll-up of the
+    country tabs, exactly as before.
+  - **`rollup`** — the tab is set aside and the Group is always the
+    roll-up, for workbooks whose Group tab is stale or unwanted.
+
+  The ingest report says which way the Group was made — *"read from the
+  Group tab — the consolidated figures speak for the Group, and the tab is
+  never added to the countries"* — so the source is never a guess.
+
+**The tiers read as the organisation reads them.** Countries make a region,
+regions make the global business, global businesses make the Group: tabs
+named `IWPB Singapore` and `CIB Singapore` resolve through the
+CountryHierarchy's Level 0, the strip shows **Group** on top (the
+consolidation where the file carries one, tagged `CONSOL`; the sum of the
+global businesses otherwise), then **Global IWPB** and **Global CIB** — the
+business rows carry the `global_business_prefix` (`Global` by default, blank
+switches it off, and the scope-bar dropdown reads the same) — each opening
+into its regions (tagged `REGION`, each the sum of its countries), with the
+countries in the picker beneath. The scope bar's **country dropdown keeps
+the same association**: countries are grouped under their `Business · Region`
+headings rather than listed flat, and picking Singapore under `CIB · Asia`
+scopes to CIB's Singapore, not to every Singapore. And wherever the file
+carries a Group consolidation, the top of the tree and the dropdowns'
+everything-option are named **Group** — choosing it reads the consolidation,
+so it says so, rather than whatever the CountryHierarchy calls its Level 1.
+The hierarchy never leaks the other way: an entry with no tab in the loaded
+file — a country or a whole region the CountryHierarchy knows but this
+month's TM1 extract does not carry — is not offered in any dropdown, strip row
+or picker. The hierarchy places what is loaded; it never invents entries.
+
+**Group and Global are different words for different things.** The **Group**
+is every business together — summed, or read from the Group tab — so the top
+of a multi-business file, and of any file carrying a Group tab, is named
+Group. A **Global business** is one business consolidated across its
+regions, so a single-business file with no Group tab is headed
+**Global IWPB**, never Group.
+
+**Business groups are whatever the CountryHierarchy declares** — its
+Level 0 values. IWPB and CIB are the classic global businesses, and entity
+groups sit beside them as peers: the Group pack declares **HK**, **UK** and
+**Corp Centre**, each consolidating exactly the same way — the Group is the
+sum of all five (Corp Centre negative and all), each group scopes every
+page, and per-group Definitions read each group its own way with a `GROUP`
+row as the fallback. A bare tab named after an entity group (a tab called
+`UK`) resolves to that group even where the same name exists as a country
+inside another business — the country tab inside a business carries the
+business in its name (`IWPB UK`).
+
+**Business performance** is its own page off the left-hand nav, beside
+the Financial Summary — the consolidation shown as evidence: one column
+per KPI tile on the grid (Revenue, ECL, the cost lines…, the same names
+and the same netting), one row per business / region / country with a
+Global subtotal per business and the Group at the foot. Every column
+casts exactly as displayed — the rounding point lands on the largest row
+of each block, and the Group line reads exactly what its tile reads. A
+lone country that would just rename its region is skipped. **Every cell reads
+through the same scope machinery the tiles read** — a row's figure is
+exactly what the scope bar would show for that business / region /
+country, never a private row-selection of the page's own, so the page
+and the tiles cannot disagree. The Group line is what the unscoped
+tiles show: the file's own Group consolidation tab where it carries
+one, and any gap against the roll-up stands as an explicit
+`Consolidation & eliminations` line so the column still casts in plain
+sight. **The rollup counts only rows the hierarchy maps** — the same
+rows the scope bar can reach. Rows without a
+business mapping (an `Unallocated` line) and rows whose region the
+hierarchy never mapped — an empty region cell or the literal `Unmapped`
+the merge stamps on a tab the CountryHierarchy cannot place (an
+`(unmapped)` tier beside the named regions)
+stay visible as grey memo lines that never join the sums, so a mapping
+gap shows itself instead of silently inflating a Global line; setting
+`bizperf_unmapped=add` restores adding them. Note the scope bar and
+this page read differently by design: the tiles obey the full
+geographic scope, while this page always shows the whole tree. A line a group defines no reading for (a per-business
+Definition it never wrote) shows a dash rather than borrowing a figure;
+a line that sits wholly inside another (Banking NII inside Revenue) is
+headed `within Revenue` so nobody adds the two; balance-sheet tiles keep
+their own column in the balance unit as closing positions — never added
+into a P&L column. **Export to Excel** writes the same table as a
+workbook. The page reads the whole tree whatever geography is scoped
+elsewhere, and the nav link only appears on a file that carries more
+than one business group.
+
+Scoping lives in the **top scope bar**: the business line, region and
+country dropdowns beside Units (each narrowed to the level above it), with
+the active scope shown as removable chips on the Summary. Picking a scope
+there drives every page, chart, export and simulation, and clearing a chip
+restores the wider view. Region consolidation keeps
+all the standing rules: YTD from YTD columns, balances as closing
+positions in `US$bn`, P&L in `US$m`, and P&L and balance sheet never
+totalled together. Country also works as an ordinary column
+(`Country`/`Country_Name`/`Country_Code`) in a single-tab file. Settings:
+`country_tabs` (`auto` merges all parsing tabs, `first` restores the old
+first-tab-only behaviour) and `region_label` (the Region row's caption).
+
+**Country hierarchy (multi-region)** — a `CountryHierarchy` config
+section defines the roll-up; nothing is hard-coded. Paste the group
+sheet in verbatim: a header row then `ID | Level 1 | Level 2 | Level 3`
+— or the five-column form with `Level 0` (IWPB / CIB / GROUP), which is
+retained per entry (e.g. `C14 | IWPB | Global | Asia | Singapore`; a
+Level-2-only row such as Holdings becomes its own region; flat
+`Key=country, Value=region` rows also work). Without the section, a
+multi-tab file shows the flat Region → Country strip.
+
+**Business lines (Level 0 / group roll-up)** — when tabs are named
+`<business> <country>` (`IWPB Singapore`, `CIB Singapore`) and the
+hierarchy carries `Level 0`, the same country may appear once per
+business line and the roll-up gains a tier: **Group — all business
+lines → business line → region → country**, with the group total the
+sum across business lines and a group-level country (business line
+"All" + the country in the top bar) summing that country across
+businesses. `Business line` is a full dimension — filters, chart axes,
+simulation scopes — and the top bar gains a business dropdown, with
+region and country lists narrowing to the selection. A plain country
+tab name resolves to its (single) hierarchy entry as before, and
+`group_label` renames the top row. With the map uploaded,
+the left-pane strip becomes three levels — the Level 1 name (Global) on
+top, each region in bold with its consolidated P&L YTD, and its
+countries indented beneath — and clicking any row scopes the whole app
+to that node. `Region` becomes a full dimension everywhere: filters,
+chart axes, query builder, simulation scopes and "View impact by".
+Countries not in the map group under "Unmapped" so nothing silently
+drops out of the consolidation. The top bar (next to Units) carries the
+same scope as two compact dropdowns — Global/region and country, the
+country list narrowing to the chosen region — always in sync with the
+left-pane strip and the Filters pane.
+
+## Views
+
+- **KPI summary** — financial-dashboard tiles: one per MICA
+  Level 1 rollup (Revenue, Costs, ECL, …) plus a Total P&L tile (files
+  with a single Level 1 value fall back to Level 2 tiles), each with the KPI name and headline YTD value,
+  then compact comparison rows (`vs PY`, `vs Fcst`, `vs Target`) showing
+  the variance amount and % with direction triangles — the triangle tracks
+  the business movement (revenue up ▲, cost up ▲) and the colour the
+  favourability (green favourable, red unfavourable). The **⤓ PPT** button
+  beside Export to Excel produces the same tile grid as a single
+  widescreen slide, built natively in PowerPoint. The deck mirrors the
+  screen exactly: the tiles the summary is showing right now, in their
+  rendered order — a tile behind "Show all" or parked stays off the deck,
+  and a panel the screen hides never becomes a slide — followed by the
+  page's own commentary: the hero line, the trajectory and Mix notes where
+  those panels are visible, and the Management Commentary on its own slides.
+  The trajectory's note is written under the chart on the page itself — the
+  selected line's movement against its baseline, its strongest actual month
+  and the outlook against target — so what the deck prints is what the screen
+  already shows, and it can be edited and kept like any other commentary
+  block before exporting.
+- **One way of writing a movement, in every view.** The KPI tiles and their
+  trajectory strip, the KPI scorecard, the auto-written commentary, the
+  executive decisions, the attention chips, the management commentary, every
+  breakdown and chart data table, chart annotations and labels, the
+  simulation's impact table and headline, and every MI Assistant answer all
+  render variances through the same pair of rules: the
+  **triangle is the direction the line actually moved**, and the **colour is
+  what that movement means** — a cost or ECL going up is ▲ red, revenue or a
+  balance going up is ▲ green, a cost coming down is ▼ green. Percentages
+  are written as magnitudes (`▲15.6%`), never as a signed number that flips
+  meaning between a file storing costs as negatives and one storing them as
+  positives, so the text and the legend can never disagree with each other or
+  with the tile they sit beside. The management commentary keeps the pack's F/A
+  wording with the triangle joining the letter — `▲346A` / `▼18F`.
+  **The Financial Summary is the one view without arrows**: it replicates the
+  reporting pack, where fifteen variance columns sit on every line and a
+  triangle in each one is clutter rather than signal. There the pack's own
+  reading stands — the colour carries favourability (a cost underspend green,
+  an ECL overshoot red) and the bracket carries the sign — in the grid, in
+  its narrative's F/A wording and on its PowerPoint slide alike. The
+  favourability test itself lives in one place
+  (`movFav` / `movUp`), which every one of those surfaces calls, so they
+  cannot drift apart again; a chart category or a simulation line, which has
+  rows but no KPI record, derives the same flags from its own rows.
+- **The result line is opened up** — on a TM1 extract whose only P&L rollup is a
+  single Level 1 line (a PBT beside Deposits and Loans), the tile grid would
+  otherwise show that one result and the balance sheet, and nothing of what
+  drove it. Its Level 2 lines lead the grid in statement order — revenue,
+  the cost lines, the charge — with the result behind them and the
+  balance-sheet lines last. Files with several P&L rollups are unaffected.
+  Switch it off with `tile_expand_result`.
+- **Naming the tiles** — `tile_lines` lists exactly which lines become KPI
+  tiles, in the order given: `Revenue,PBT,Loans,Deposits,Costs`. Each name
+  is looked up in the MICA hierarchy — Level 1 first, then Level 2
+  (`tile_line_levels`) — and taken from the first level that carries it, so
+  a summary can mix a Level 1 rollup with Level 2 lines inside it without
+  forcing everything to one level. Nothing resolves against a product,
+  segment or function that happens to share a line's name. The list is shown as
+  given — no priority reordering, no collapsing behind "show all" — a name
+  the file does not carry is called out rather than silently dropped, and
+  the grand-total tile is left off because the lines were chosen by hand.
+  The PowerPoint tile grid and the landing narrative follow the same list.
+  Leave it blank for the default behaviour (`tile_level` + `tilePriority`).
+- **Hide a tile you don't want on the page** — every KPI tile carries a small
+  **✕** in its top-right corner. Hiding parks the tile rather than deleting
+  it: the grid ends with a dashed *"N hidden tiles — show"* card, one click
+  brings them back as dimmed tiles, and the **↺** on a dimmed tile restores
+  it to the grid. The choice is remembered in the browser (alongside the
+  drag-to-reorder order) and the PowerPoint tile grid follows the page, so a
+  parked line is off the one-pager too. Nothing is recalculated by hiding —
+  a parked tile is only out of view, and the reporting pack, the Financial
+  Summary and the KPI scorecard still carry the line in full. Set
+  `tile_hidden` (a `;`- or `,`-separated list of tile names) to have a build
+  open with those tiles parked out of the box; the reader's own first hide or
+  restore takes over from then on. The plain-language form is the **Tiles**
+  tab of the configuration workbook, which puts each tile in one of **three
+  states**:
+
+  | `Show` cell | What happens |
+  |---|---|
+  | `Y` (also `Yes`, `Show`, or blank) | the tile is on the grid |
+  | `N` (also `No`, `Hide`, `Park`) | **parked** — off the grid, but the page offers *"N hidden tiles — show"* and the reader can bring it back |
+  | `X` (also `Never`, `Off`, `Exclude`, `Remove`, `None`) | **not on the page at all** — off the grid, out of the parked list, out of the left-rail KPI list, out of the PowerPoint deck and out of the Business performance columns, and no reader setting can bring it back |
+
+  A tab of only-`Y` rows shows just those. `+` **adds** a line
+  the default grid does not carry — resolved from the `Metrics` sheet or any
+  MICA level, so `Banking NII | +` puts Banking NII on the grid, always
+  visible, without touching the rest. An optional **Nets with** column names
+  the lines a tile nets in. A `Metrics` row defines a named selection the
+  grid can carry: `dim=value` keeps rows, `dim!=value` excludes them — so
+  `Banking NII` is defined as `micaL2=Revenue; micaL3!=Net Insurance
+  Revenue`, the Revenue block less its insurance line, and every figure on
+  the tile is computed over exactly those rows. The same name may carry a
+  **different definition per business** — an optional `Applies to` column
+  names whose definition each row is (`Banking NII | micaL2=Revenue;
+  micaL3!=Net Insurance Revenue | IWPB` beside `Banking NII | accH3=Banking
+  NII | CIB`): each business's rows are judged by the definition that
+  business wrote, a row with no `Applies to` covers the businesses that
+  wrote none, and a group view is simply the sum of every business read its
+  own way — never one business's definition forced on another's rows. The
+  plain-language form is the **Definitions** tab — the calculation's lineage,
+  one component per row, in the file's own line names:
+
+  ```
+  Calculation  | Business | Line                   | Include | MICA level | Product Level   | Tile
+  Banking NII  | IWPB     | Revenue                |   +     |    L2      |                 |
+  Banking NII  | IWPB     | Net Insurance Revenue  |   −     |    L3      | Product_Level_7 |
+  Banking NII  | CIB      | Banking NII            |   +     |   accH3    |                 |
+  ```
+
+  `+` includes the named line, `−` carves it out, blank Business covers
+  every business that wrote none. **MICA level** pins the name to the level
+  it lives at — `L1`..`L4` for MICA, or a hierarchy key like `accH3` — so a
+  name that exists at two levels is never guessed (blank searches every
+  level). **Product Level** qualifies a component further: a bare column name
+  lets the line be found in that column too, `Product_Level_7 = Wealth`
+  restricts it to rows holding that value. A `−` line **inside** the base is
+  removed from the selection; one **outside** it — insurance carved out of
+  `NII - Net Interest Income` rather than out of `Revenue` — has its value
+  subtracted instead, since there is nothing there to remove. Both read as
+  *the base, less that line*, and the ingest report says which applied. A defined calculation **follows through by itself**: it joins the
+  tile grid, the slide deck, the KPI nav and the tile-driven commentary with
+  no further wiring — put `N` in the **Tile** column to keep it a definition
+  only. What the tab reads is exactly what the tile computes — the tile's
+  tooltip reads the lineage back word for word, level included — and a
+  Definitions entry speaks over a Metrics row written for the same
+  calculation and business, so there is one place to look and it wins.
+- **The headline is always the year to date, through the last actual month.**
+  Whatever the variance period compares on — a quarter, a single month, the
+  full year — the figure at the top of a tile is the same one: the YTD
+  through the last month before the forecast begins, taken from the file's
+  own YTD column, and labelled with that month (`JUN YTD`). The **YTD
+  through** selector offers actual months only — pick MAY and every tile
+  reads `MAY YTD`; forecast months are not offered, so the page never looks
+  like it is reading a month that hasn't happened. The forecast still feeds
+  everything it should: the FY bases, the trajectory's forecast tail and the
+  full-year outlook. Balances keep their closing balance, labelled the same
+  way (`JUN closing`). The PowerPoint one-pager leads with the same figure.
+- **Three comparisons on a tile, and no more** — `vs PY`, `vs Fcst`,
+  `vs Tgt`, in those words, at the grain of the headline: year to date for a
+  P&L line, closing for a balance. The variance period drives the trajectory,
+  the commentary and the reporting pack; it never renames or replaces a tile
+  row. Tiles move only with the **YTD through** month.
+- **Tiles never invent lines.** The grid is the file's own MICA lines —
+  **Level 1 and Level 2 together**: every Level 2 line and every Level 1
+  rollup, one tile each (a rollup that adds nothing over its only child is
+  dropped, and a P&L rollup's figure excludes the balance memo lines filed
+  beneath it, so a result and a balance are never added). `tile_level:
+  level1` or `level2` narrows the grid to one level; a `tile_lines` list
+  names the set explicitly. The `Metrics` sheet feeds the KPI scorecard and
+  the metric scopes, but metrics reach the tile grid only when the config
+  says `tile_metrics: Y` in so many words; the old `auto` no longer puts
+  every metric on the grid.
+- **One tile per line.** A merged configuration names the same line more than
+  once — in each pack's metric list, as a rollup and again as its own row —
+  and two lists can call one set of rows by two names. The grid, the
+  PowerPoint one-pager and the left-hand KPI nav each show a line once: a name
+  already on the grid does not come again, and neither do rows already on it,
+  whatever the second list calls them. Only a genuinely different parent earns
+  a second tile, and that tile says whose it is (`Other · Costs`).
+- **A line nets in what offsets it.** Where a revenue line is reduced by
+  another line beside it — an offset, a contra, a negative revenue line —
+  the tile shows the **net**, and says what it netted in (`net of Other
+  Revenue (212)`) so nothing is silent. The netting is done on the rows
+  themselves, so the year to date, every variance period and the trajectory
+  all net the same way, and a line already inside the tile is never counted
+  twice. The configuration has the first word: a **Nets with** entry on the
+  `Tiles` tab (`Revenue | Y | Other Revenue, Revenue offsets`), or a
+  `tile_net` rule (`Revenue = Other Revenue; Total Opex = Recoveries`),
+  names exactly what nets with what; `-` in that column stops a netting the
+  page would otherwise make, and `tile_net_auto: N` switches the automatic
+  rule off everywhere. With nothing named, the page nets a line only when it
+  runs against its own block — a negative line inside a positive revenue
+  block — and only into the largest line of that block under the same
+  parent, never into two tiles at once, and never a cost, an ECL or a
+  balance (`revenue_patterns` decides what reads as revenue). A balance
+  never joins a P&L line.
+- **Move a tile where you want it** — drag any KPI tile onto another and it
+  lands there, before or after depending on which half of the target you drop
+  on. The order holds whatever produced the tiles: a config-named set
+  (`Metrics` / `tile_lines`), a priority-ordered set, or a plain MICA
+  grouping — a dragged order is an explicit act and leads, with the declared
+  order filling in behind it, so a line the stored order has never seen keeps
+  its declared place rather than jumping the queue. It survives re-rendering,
+  re-ingesting the file and reopening the browser, covers collapsed and
+  parked tiles as well as the ones on screen, and the PowerPoint one-pager
+  follows it. A quiet **↺ Tile order** button appears beside Export to Excel
+  once something has moved — it puts the file's own order back — and stays
+  out of sight until then, so it never takes a tile's place in the grid.
+- **Balance scopes read in billions everywhere** — any tile, chart or
+  table whose scope is a balance line switches to the balance unit: Mix
+  analysis and builder charts scoped to Deposits or Loans plot and label
+  in `US$bn`, dashboard cards and breakdown tables restate to closings in
+  bn (a balance's YTD figure is the file's own YTD column when it carries
+  one at the selected month — the same figure the Financial Summary shows —
+  and the month's closing balance otherwise), and the MI Assistant's tables show each line in its own unit. A
+  chart over a mixed scope (the whole file) stays in the file's unit.
+- **Collapsible commentary** — the Management commentary folds behind its
+  header: click the caret (or the title) to collapse it to a single line
+  and click again to reopen. The state is remembered in the browser, and
+  `commentary_collapsed: Y` starts it folded for everyone. Folding is
+  display-only — the text, edits and Word/Copy exports are untouched.
+- **A calmer landing page** — the KPI summary leads with one narrative
+  line, the tile grid, a single row of RAG-and-attention chips, then the
+  two analysis panels. The greeting line is off by default
+  (`show_greeting: Y` restores it), best/weakest and row-count chips are
+  gone (the narrative and left pane already carry them), the trajectory
+  strip caps at four figures, the per-panel filter note appears only when
+  filters are actually applied, and editing chrome — View detail, RETRIEVE
+  / REGENERATE — reveals on hover.
+- **Units on the tiles** — every KPI tile names its unit beside the KPI
+  (`US$m` on the P&L lines, `US$bn` on balances), the page lede states the
+  split ("P&L in US$m · balances in US$bn"), and the one-slide PPT export
+  mirrors the same grid, units, expansion and totals rule as the page.
+  Because the tiles carry their own units, the *Financial Performance*
+  header carries none.
+- **Summary layout** — the tiles sit in equal-height cards; below them the
+  performance trajectory takes the left column and an **Executive
+  decisions** panel the right, the two stretched to the same height. The
+  panel is computed, never narrated: **a decision is asked for where a line
+  is unfavourable**, so those lines rank worst-first as decision cards, each
+  with the variance
+  as its headline impact figure (233A / +11.5%), and the inferences the
+  data supports — position vs the basis and the full-year gap to target —
+  plus a *Review trajectory* action that points the chart at that line. A count badge
+  carries the number of unfavourable lines, cards cap at
+  `decisions_max` (default 3) with the overflow noted, and a file with
+  nothing unfavourable says so instead. The
+  Management commentary sits full-width beneath the pair. Clicking a tile
+  (or a KPI in the left rail) points the trajectory and its actions at
+  that line. The mix-analysis panel no longer shows on this page, though
+  its view still feeds the one-page PPT export.
+- **No total when a total means nothing** — `total_tile` and `fsum_total`
+  default to `auto`: a computed total is printed only while no MICA Level 1
+  line in the file is a balance-sheet line, recognised by
+  `balance_sheet_patterns` (deposits, loans, advances, mortgages, balances,
+  assets, liabilities, RWA, AUM, NNM …). Those patterns are their own
+  setting, independent of `TilePriority`, so re-ordering the tile
+  priorities cannot switch totalling back on. Balance-sheet lines are also
+  never hoisted by tile priority and always sort below the P&L, and a file
+  carrying them never collapses its tile grid. A TM1 extract carrying Deposits or Loans beside a result gets no
+  total tile, no total row and no total in its commentary, because adding a
+  balance to a result is not a figure; a P&L-only TM1 extract keeps its bottom
+  line as before. `Y` or `N` force it either way (though `Y` can never force a
+  total on a scope mixing balance-sheet and P&L lines — that guard is
+  absolute), and naming the lines in
+  `tile_lines` or declaring statements in `fsum_sections` also drops it.
+  Lines the priority patterns do not recognise are ordered as they appear
+  in the TM1 extract rather than by size, so a balance-sheet line is not
+  hoisted above the P&L. Lines *within* a statement — the Level 2 lines
+  under a rollup — always read in the TM1 extract's own sequence, so revenue
+  sits with the cost lines in statement order rather than being reshuffled
+  by whichever moved most; the "driven by" openers still name the biggest
+  movers first. With no total, the whole KPI summary follows the
+  same line: the tiles carry the Level 1 lines only, the narrative and the
+  trajectory open on the first of them, leader and laggard are ranked
+  inside that line rather than across statements, Mix analysis opens scoped
+  to it, and the Management commentary writes one narrative per Level 1
+  line instead of one led by a total. With no total, the landing narrative and the
+  performance trajectory are about a **MICA line** instead: a picker on the
+  trajectory panel lists Level 1 and Level 2 lines, and the page opens on
+  the first declared statement's line (the P&L result) — the trio, the
+  chart, the RAG pill and the commentary all follow the chosen line.
+- **The total tile** — the first KPI tile adds up every row in scope. If a
+  line in the file carries the same name as `total_label` the tile takes
+  `total_all_label` instead ("Total (all lines)"), so the grand total and
+  the line of that name are never two tiles with one name. Set
+  `total_tile` to `N` to drop the tile altogether — worth doing on a file
+  that mixes statements, where adding balance-sheet balances to a P&L
+  result gives a number with no meaning.
+- **Units** — a strip at the top of every page declaring the unit every
+  figure is stated in, with a selector. The file's own unit comes from
+  `unit_label` (e.g. `US$m`); *as reported* leaves the figures alone, and
+  `k` / `mm` / `bn` restate every figure against the chosen unit — a line
+  of 11,489 US$m reads as 11.5 US$bn, or 11,489,000 US$k. Figures never carry their own `m`/`bn`
+  suffix on top of the file's unit, which would scale the same number
+  twice. Excel and PowerPoint exports follow the selection (percentages
+  and the raw source-row export are never restated), and simulation
+  amounts are typed in whatever unit is on screen. Configurable via
+  `display_units` (the unit selected on load), `unit_options` (which are
+  offered) and `unit_decimals` (blank = 0 as reported, 1 when restated).
+- **Financial Summary** — the management-reporting layout: three column
+  bands over the P&L cascade taken from the TM1 extract's own hierarchy.
+  *Month* (the three months ending at the selected one, then Variance vs
+  Fcst / vs Target / vs PM / vs PY), *QTD* (the quarter to date, then vs
+  Target / vs PQ / vs PY) and *YTD* (year to date, then Variance in
+  currency and in % vs Target and vs PY). Rows cascade child lines into a
+  bold subtotal per top level and a grand total, in the tile-priority
+  order. Everything moves with the YTD-through month — pick MAY and the
+  months become Mar/Apr/May, the quarter Q226 to date, the year-to-date
+  Jan–May. Comparisons a file cannot serve show as `–` with a note saying
+  which and why. The QTD figure comes from the file's **quarterly column**
+  and the year-to-date from the **YTD column** — months are only added when
+  no such column exists (`calc_ytd_actuals: months` forces sums). YTD
+  headers are recognised in any common shape: `Jun YTD-26`, `YTD Jun-26`,
+  `YTD-Jun'26`, a quarter-named `Q2 YTD-26` (read as through the
+  quarter-end month), or a bare `YTD` (read as the file's running YTD,
+  through the last actual month) — under an Actuals, Forecast or Target
+  band alike. A file may carry **one YTD column per month** (`Apr YTD-26`,
+  `May YTD-26`, `Jun YTD-26` …, actuals and forecast alike): all are kept
+  and the one matching the selected YTD-through month serves that month —
+  moving the month selector moves between columns, never back to summing
+  months. A file whose actuals exist only as YTD columns (all month
+  columns marked Forecast) takes its month list and default month from
+  the YTD columns themselves. The same
+  rule covers the prior year: a PY YTD column (`Jun YTD-25`) matching the
+  selected month is authoritative for every vs-PY figure, with PY months
+  summed only when the file carries no such column. Target comparisons are
+  YTD-only: a **YTD target column** (`Jun YTD-26` under a Target band)
+  matching the selected month drives the `vs Tgt` row on KPI cards, the
+  scorecard and the Target comparison basis — there is no `FY vs Tgt` row
+  and no phasing, so a file carrying only an FY target shows no target
+  comparison (balances still compare the closing balance to the target
+  balance, which is already same-grain). Comparison charts
+  compute their bases on actuals only, so the YTD column stays
+  authoritative there even with forecast months toggled into the page. Lines
+  matched by `balance_sheet_patterns` are treated as stocks throughout:
+  month, QTD, YTD and FY are closing balances, and target/forecast
+  baselines are the full-year columns as-is, never phased fractions or
+  summed months, and they read in **billions** while the P&L stays in the
+  file's unit — the table splits into a `P&L (US$m)` and a
+  `Balance Sheet (US$bn)` band automatically, and the commentary, Excel,
+  PPT and Word exports follow (`bs_unit` names the balance unit, blank
+  switches it off; `fsum_bs_label` names the band). Every figure in a
+  balance-sheet block is written in that unit, the movers named at the end of
+  its sentence included — *"led by Total RWAs (4.7A US$bn)"*, never the raw
+  4,660 — and a ratio line's movers keep the ratio's own decimals rather than
+  rounding to a whole number. A **Full Year band** closes the table — the live FY
+  forecast (Jan–Dec actuals + forecast months) with variance in currency
+  and percent vs the prior forecast column, the FY target and prior-year
+  actuals — so once the selected month crosses the last actual and the
+  month columns read Forecast, the comparison that matters is on the page,
+  and the commentary reports it with numbers and percentages. The **PPT
+  export** is a single aligned slide: banded headers, a fixed column grid,
+  rows sized to fit the page, favourability colours in the variance cells,
+  and the commentary — coloured F/A figures included — beneath the table.
+  A **cascade builder** sits above the
+  table: the levels the summary rolls through are chips — drag a dimension
+  in from the palette (Product under MICA Level 1, or between Level 1 and
+  Level 2 — MICA Levels 4 and 5 and any config-declared dimension are
+  offered when the file carries them), drag chips to reorder, ✕ to remove
+  — up to six levels (`fsum_max_levels` lowers the cap if a tighter page
+  is wanted), remembered in the browser, with the roll-up selector, commentary
+  and all three exports following the cascade. A level that doesn't fan
+  out (a lone child repeating its parent) is collapsed, but the walk keeps
+  descending so a deeper level that does split is never lost. The **rows
+  themselves drag too**: pull any line onto a sibling to reorder it — drop
+  on the top half to land above it, bottom half below — and the line's
+  whole block moves with it (its o/w children re-render beneath it, and a
+  group total carries everything above it). A row only accepts siblings at
+  the same level under the same parent, so statements stay apart and a
+  child can't leave its parent. The order persists in the browser, every
+  export follows it, and a *Reset row order* link under the table restores
+  the default. Every parent row carries a **− / + toggle**: collapse a
+  line and its children fold away while the parent's own figures stay
+  put, at any depth — the fold state persists in the browser, exports
+  follow the folded view, and an *Expand all* link under the table
+  reopens everything. **Row labels rename in place**: double-click a
+  line's name, type the label you want (blank restores the original) —
+  the rename keys off the underlying line, so it follows the row through
+  reordering and shows in the table, the commentary and all three
+  exports; a *Reset labels* link under the table clears them. The whole
+  arrangement can be kept as a **named view**:
+  *Save view…* beside the roll-up selector snapshots the cascade levels,
+  roll-up depth, dragged row order, fold state and renamed labels under
+  a name you give it, the
+  picker switches between saved views, ✕ deletes the selected one, and
+  the last applied view is remembered in the browser and restored on the
+  next visit. The **⟲ Default** button clears the working view outright —
+  labels, order, folds and cascade — and returns the page to the
+  Account Hierarchy L1 cascade (`fsum_default_levels`, default
+  `accH1,accH2,accH3`); saved views survive it and can be reapplied. When the cascade runs on hierarchy levels, lines the mapping
+  could not place any deeper than the block's parent no longer masquerade
+  as a sibling named after that parent — they show as an **Other** line
+  (`fsum_residual_label`) at the end of the block — and the block's total
+  row takes the name of the one hierarchy parent every line rolls up to,
+  so a P&L block cascaded at Account Level 2 reads Revenue / ECL / Total
+  Operating Expense / Other with **PBT** as its total, in the app and in
+  all three exports (`fsum_total_label` still overrides). Parent rows
+  lead their block by default — PBT on top, then Revenue with its lines
+  beneath it (`fsum_parent_row: bottom` restores the classic
+  bottom-total layout where children build up to the parent). A **roll-up selector** beside the export buttons sets how
+  deep the cascade reads — Level 1 rollups only, to Level 2, or the full
+  o/w Level 3 detail — and the Excel, PPT and Word exports follow it
+  (`fsum_detail` sets the level on load). Variance colours follow
+  favourability, not raw sign: a lower cost reads green and lower revenue
+  red, on either sign convention. Every variance in the page's commentary is written the way
+  the pack writes it — `18F`, `346A`, `14%A` — favourable or adverse taken
+  from the line's own direction, so a smaller cost reads F and a deeper loss
+  reads A. Excel and PowerPoint exports carry the same headers and
+  figures. The page is deliberately independent of the **Variance period**
+  selector — it shows every basis side by side already, so only the
+  YTD-through month moves it. Configurable via `fsum_title`, `fsum_section_label`,
+  `fsum_levels`, `fsum_ow` (the "o/w" prefix on the deepest level) and
+  `fsum_total_label`.
+- **Notes pinned on a chart** — double-click any bar, point, slice or bubble
+  and write what it means; the note is drawn on the chart as a callout with a
+  leader line back to the mark it belongs to. **Double-click (or click) a note
+  and it opens with what is already written on it** — a proper box, not a
+  browser prompt: edit it, rewrite it, pick its shape from the same seven
+  glyphs, or press **Remove**. Esc closes without saving, Ctrl+Enter saves.
+  A note read from the file's written commentary opens the same way, with its own
+  words in the box and a line saying where they came from; edit it and it
+  becomes yours, or Remove it and it stays off that mark rather than returning
+  on the next draw. Each note belongs to that category
+  on that chart, so it survives a re-render, a change of chart type and a
+  reload — it is kept in the browser beside the tile order and the parked
+  tiles. Notes are drawn into the SVG itself, so the PNG capture and the
+  PowerPoint slide carry them exactly as the page shows them. A note sits
+  **directly over the bar it belongs to** — the chart grows the headroom it
+  needs rather than the note drifting sideways — and where two would collide
+  the later one moves straight up until it clears, so every note still points
+  down at its own mark. On a horizontal bar the notes form a clean column
+  beyond the value labels, in the same order as the bars, so no leader
+  crosses another. A chart that is not on screen yet (a collapsed panel, a
+  view not yet opened) waits to be measured rather than pinning its notes at
+  the origin.
+- **The note does not repeat the bar's name** — the bar already carries its
+  name under the axis, so the note carries the comment alone; saying it twice
+  an inch apart only crowded the card. Hovering the note still names its mark,
+  and `chart_note_head:'Y'` puts the name back as a red-caps heading above the
+  comment for a callout that is lifted onto a slide on its own. The speech
+  bubble carries a swept tail rather than a spike, and a note clears the
+  *other bars* as well as the other notes: where a tall bar leaves no room, the
+  chart grows upward and the note floats above the plot instead of covering the
+  data.
+- **A note reads as a card, not an outline** — a quiet grey border, a soft
+  shadow lifting it off the plot, a red accent bar down its leading edge (the
+  same accent the commentary blocks carry), 11px text with room to breathe,
+  and a hairline in red at 55% opacity running to a small red dot on the mark
+  itself. The red is the accent and the anchor rather than the whole outline,
+  which used to fight the bars for attention.
+- **Seven shapes for a note**, offered both in the note editor and on the
+  palette — a **speech bubble** that points at its mark
+  with a swept tail, a **callout** — a square-cut card with a straight spike
+  beneath it, a **thought cloud** that trails shrinking puffs toward its
+  mark, an **oval**, a **square box**, a **tag** with a pointed notch, and
+  **plain text** with no box at all for a light touch. The shape is stored
+  with the note, so it survives a re-render and a reload and travels into the
+  PNG and the slide. Set `chart_note_shape` (`bubble` / `callout` / `cloud` /
+  `oval` / `box` / `tag` / `plain`) for the shape a new note starts as.
+- **Drag a shape onto a bar** — a small palette of the seven shapes sits
+  under every chart, labelled **Note shapes**: the drag-and-drop builder's
+  preview, the Summary mix panel, and **every widget you can add to the Dynamic
+  Dashboard** — KPI card, monthly trend, YTD vs forecast, breakdown by field and
+  custom chart alike. A widget of months is a chart like any other: each month
+  is a mark, so a note pins to **JUN** exactly as it pins to a bar, and the key
+  is the widget's subject rather than its drawing, so the note survives
+  switching a card between sparkline, bars and columns. (The KPI scorecard is a
+  table of boxes, and a table graph has no marks — nothing to pin a note to, so
+  they carry no palette.) A note is held against the chart's own
+  shape — its scope, grouping, split and measure — so one written in the
+  builder is already there when the same chart is pinned to the dashboard. Drag one onto a bar, point or
+  slice: the mark lights up as you cross it, and on the drop the note is
+  written in that shape. Drop a shape onto a note already there and it is
+  simply redrawn that way — it never asks for the words again. There is no
+  dragging on a phone, so **tapping a shape arms it** (it takes the red
+  outline) and the next tap on a bar places it; tap it again to put it back.
+  Double-clicking a bar still writes a note, and double-clicking a note opens
+  what is on it. (Double-click used to step a note through the shapes; the
+  shapes now live in the editor and on the palette, where they can be seen.)
+- **Drag the corner to set how wide a note is** — hover a note and a small
+  grip appears on its bottom-right corner. Drag it sideways and the note takes
+  that width, the text rewraps into it as you drag, and the card grows or
+  shrinks downward to hold the lines. **Double-click the grip** to hand the
+  width back to the layout, which sizes the note around its words again. The
+  width is stored with the note, so it survives a rewrite, a change of shape, a
+  re-render and a reload — and it travels into the PNG and the slide. The grip
+  itself is a screen handle only: it never appears in an export.
+- **Every word is kept** — a note used to stop at four lines and finish with an
+  ellipsis. It now wraps the whole comment however narrow the box, up to
+  fourteen lines, and a single word too long for the line is broken rather than
+  left to run out of the box. Between that and the corner grip, a long comment
+  is managed by making the box the shape you want rather than by losing its
+  tail.
+- **Leaders run beneath the cards** — every hairline, anchor dot and cloud
+  puff is drawn in one layer under all the note cards, so a line to one bar
+  never runs across the note pinned on another. A note also clears the
+  **value labels**: covering the number a bar is worth is as bad as covering
+  the bar itself, so the placement steps over those too.
+- **All commentaries** — a view that writes the same narrative once per
+  comparison, the way the reporting tool does: one collapsible section for each
+  of **(Current QTR) Actuals vs PY**, **(Month YTD) Actuals vs Target**,
+  **(Month) Actuals vs Forecast**, **(Month) FY Forecast vs Prior Forecast**,
+  **vs Prior Year** and **vs Target**. A comparison the file cannot make is not
+  offered — load a file with no target and the target sections are simply
+  absent, rather than printed empty.
+
+  **The three hierarchies write it.** The cascade is the **account** hierarchy —
+  PBT, PBT (ex Notables), Total Revenue, then each revenue line — and the movers
+  behind each line are read from the **product** hierarchy crossed with the
+  **country** hierarchy, one level below whatever the line already names:
+  *"MSS $77mA 2.0% driven by Foreign Exchange in Hong Kong ($10mA 2.0%), Rates
+  in Hong Kong ($8mA 2.0%)"*. Where a line has no product split beneath it the
+  mover is named by country alone, as the pack does. **An expense line never
+  names a product**: costs are not earned on products — Mortgages did not
+  drive Variable Pay up — so cost lines (the same `cost_patterns` that colours
+  favourability, plus opex, variable pay, staff and litigation) cut their
+  movers by country or function alone, and an expense in a single country
+  names no movers at all rather than "explaining" itself with its own total.
+  Balances follow at the end in billions, then the memo lines.
+
+  **It is set like the document it comes from.** The opening statement stands
+  alone with a line under it; each line of the statement is its own paragraph
+  with air around it; the lines beneath are indented and bulleted, and the level
+  below that indented again with a lighter bullet. Past that the pack does not
+  indent again and neither does this — it names them inline, *"Credit and
+  Lending $13mA 2.0% of which Portfolio Management $0mF 2.0%, Corporate Lending
+  $13mA 2.0%"*. A line either opens into its own lines or says what drove it,
+  never a colon with nothing after it. The same typography applies to the
+  management commentary and the Financial Summary block, which are set the same
+  way.
+
+  Each section reads as the pack reads: the result, what moved it and what
+  worked the other way — *"PBT (Reported) is $101m down vs Target driven by
+  lower PBT (ex Notables) ($102mA 2.0%), offset by lower Notables ($1mF 2.0%)"*
+  — then each line of the statement with its own lines beneath it, and the
+  countries or segments behind whichever is the last one printed. Amounts carry
+  the **F/A** suffix, balances print in billions as closings, and every figure
+  comes from the **same figures as the Financial Summary**: a quarter from the
+  quarterly column, a year-to-date from the YTD column, never months added
+  together. A check ties the two together line for line.
+
+  **The file's written commentary feeds it**, as it feeds every other block:
+  a written line rides on its own line's sentence, once per section and at the
+  highest line it belongs to; what was written about the period as a whole
+  stands under the opening statement, a line each; and a line the statement
+  never names — a paragraph about Loans where the cascade is a P&L — closes the
+  section rather than being dropped. Everything that came from the document
+  carries a red rule down its left edge, so the writer's words are visible as
+  the writer's.
+
+  **The written words follow the filters.** Commentary is written
+  about the whole book — one paragraph about Private Bank names Switzerland and
+  Luxembourg, another names India. Filter the page to India and the figures
+  recompute; the words move with them. A paragraph that names a value of a
+  filtered dimension which is **not** in the current selection is about
+  somewhere else, and is held back until the filters reach it again — a
+  Luxembourg paragraph never rides into the India view. Three things keep this
+  honest: only *filtered* dimensions are judged, so with no country filter set
+  a Luxembourg paragraph is group commentary and belongs; a paragraph naming a
+  *selected* value stays even when it names others too ("India led while
+  Luxembourg lagged" belongs in the India view); and a paragraph naming no
+  value of the dimension at all is neutral and always belongs. The left pane's
+  commentary note counts what is being held back, so nothing disappears silently. This
+  governs every view the document feeds — the six bases, the management
+  commentary, the Financial Summary, the charts.
+
+  **The basis filter** at the top of the view narrows to one comparison; the
+  same six are offered in the left pane's **Variance period**, wherever the file
+  supports them — including the two the page could not make before, the quarter
+  against the same quarter last year and the full-year forecast against the one
+  published before it. The quarter is read from the file's own quarterly column
+  where there is one, months only otherwise. The **management commentary** opens
+  with the result across every basis in one sentence: *"PBT (Reported) is $101m
+  down on YTD vs target, $18m down on the month vs forecast and $307m down on
+  the full year vs target."* The standard disclaimer stands under the
+  commentary once there is one to disclaim — under **every** generated
+  commentary, not just this page: the Management commentary on the KPI
+  summary, the Financial Summary's own words and the All commentaries page
+  each carry it, and on the summary it folds away with the commentary it
+  belongs to. Its wording is the config file's
+  to own — a `commentary_disclaimer` row on the **Settings** sheet — so each
+  business ships its approved words in its pack, every surface and the Word
+  exports carry the same words, and leaving the row out keeps the standard
+  text. The CIB pack carries its own wording as a worked example.
+
+  **Base Commentary** shows the generated text; **Updated Commentary** is the same
+  text editable and kept, block by block, like every other commentary on the
+  page. **Expand all** opens or closes every section, and the strip above says
+  what the commentary was written from — month-end, basis, scope, the TM1 extract
+  and how many written lines the file carries.
+
+  **⤓ Word** writes the whole view — every basis the file supports, in the order
+  the page shows them — to a real .docx, so the six bases leave the screen as a
+  document rather than a screenshot. Each basis becomes a heading, the month
+  and filters the commentary was written under stand under the title, the
+  statement's lines keep their nesting as real Word bullets — a solid bullet at
+  the first level, a hollow one at the second — and every F/A figure keeps its
+  colour, green for favourable and red for adverse. The standard disclaimer
+  closes the document once, in the same pink it carries on the page, under a
+  rule. A collapsed section still exports: what is written is what is on the
+  page, edits included, whether or not it happens to be open. As with every
+  other export, the file is assembled in the browser and nothing leaves it.
+- **Ingesting commentary the business has written** — the page computes
+  figures; it never writes narrative. Where the narrative already exists, it can
+  be read in and the commentary blocks will lead with it, word for word,
+  neither paraphrased nor summarised, with the computed figures following.
+  One way in: the **`Commentary` section of the configuration** — a sheet in
+  the config workbook, or `Commentary` rows in the single-sheet CSV. The
+  TM1 extract stays figures only; nothing is loaded separately; the words live in
+  the pack the business already owns. (A tab named `Commentary` inside a
+  TM1 extract is still never parsed as data — it is simply ignored.)
+
+  Rows that aim themselves — three columns `View | Line | Text`, or two
+  `Line | Text` — are taken at their word. **Bare paragraphs are unstructured
+  commentary**: each is matched against the names the TM1 extract itself carries
+  (see below), so the pack's narrative pastes straight into a column with no
+  tagging of any kind. A paragraph covering several lines is split so each
+  sentence keeps its own; a paragraph naming nothing belongs to the view.
+
+  **The words are kept, not the answers.** The paragraphs are stored as
+  written and matched afresh every time they are read — next month's TM1 extract
+  re-matches the same paragraphs against next month's names with nobody
+  tagging a thing, and the left pane's commentary note always says how many
+  matched, how many were addressed by hand, and what the filters are holding back.
+
+  **The page writes the sentence; the document gives the cause.** Quoting a
+  paragraph beside the figures says the same thing twice — the paragraph reads
+  "Global Trade Solutions came in light", the line beneath reads 754 and 15
+  behind target. So the page composes: it puts its own figures first and takes
+  only the telling clause from the document.
+
+  > **Global Trade Solutions** at **754**, ▼2.0% vs YTD forecast — Drawdowns
+  > slipped into July, which is timing rather than demand.
+
+  Nothing is reworded. Every word kept is the writer's own, in the writer's
+  order — what the composer does is **choose**. It drops a sentence that only
+  restates the line's name ("Global Trade Solutions came in light."), drops the
+  name where the figures already carry it ("Credit and Lending was steady…"
+  becomes "…— was steady…"), and stops at a clause boundary rather than running
+  a paragraph across a chart, never leaving the clause hanging on a conjunction.
+  The same clause captions the note on the bar, cut shorter still, with the
+  whole paragraph one click away on the note itself. `commentary_style:'verbatim'`
+  prints the paragraph exactly as written, for wording that has been approved
+  and must not be trimmed; `commentary_clause_max` sets the length.
+
+  **Written commentary is often itself generated**, and then it carries nothing
+  the page has not already worked out: *"Consumer Liabilities at 314,722 down
+  0.9% vs MAY-26 — Deposits $9bnF 3% driven by Retail $5bnF 3% (Australia
+  $1,315mF 7%, China $1,071mF 6%)"*. Printing that beside the page's own
+  sentence says every number twice and reads as a dump. So each sentence is
+  weighed before it is used: the figures are set aside, the file's own names
+  and the reporting words around them are taken out, and what remains is the
+  writer's own contribution. *"the migration from current accounts into time
+  deposits continued"* survives — the page could never have written it. A
+  sentence left with nothing is dropped, and the page's own figures stand
+  alone. Section labels a tool printed (*"(Month YTD) Actuals Vs Target (ex
+  Notables)"* — title case, no full stop, nothing said) go the same way, and a
+  sentence carrying no figures at all is never treated as a restatement,
+  because no tool wrote it.
+
+  **One reason per line, a couple per block.** A writer who returned to
+  Deposits four times is making one point about Deposits; four paragraphs under
+  one heading read as a dump. The block takes the first that survives the
+  weighing, and `commentary_max_notes` (default 2) caps how many loose
+  paragraphs any one block can carry, so a long document never buries the
+  page's own commentary.
+
+- **One config file drives everything** — `Group_dashboard_config_pack.xlsx`
+  is the single source of truth: it carries every business side by side —
+  the merged CountryHierarchy (all businesses, regions and countries), both
+  businesses' Product and Account hierarchies, their metrics, written
+  commentary and scoped commentary templates (`IWPB Global` … `CIB
+  Country`), the six-basis variance periods and the tile controls — under
+  one Group branding. Upload this one workbook and the page serves the
+  Group, either business, any region and any country from it; maintain
+  this one file and nothing else. The per-business packs
+  (`IWPB_dashboard_config_pack.xlsx`, `CIB_dashboard_config_pack.xlsx`)
+  remain as worked single-business examples of the same format.
+
+  A worked example ships with the packs: **`IWPB_dashboard_config_pack.xlsx`**
+  carries a `Commentary` sheet of eight plain paragraphs with no tagging of
+  any kind, and loading it with `sample/IWPB_SG_Driller_sixbasis.xlsx` pins
+  seven of them — NII, Net Fee Income, Deposits, Loans, Cards, Insurance,
+  Trading Income — and sends the opening line about the half to the view.
+  `CIB_dashboard_config_pack.xlsx` carries five addressed rows against the
+  CIB names.
+
+  A sentence that names a line only **in passing** stays with the view rather
+  than being pinned to it: *"The half closed ahead of plan on revenue, with
+  costs the watch item"* is about the half, not about the Revenue line, and the
+  pane reports it as mentioning Revenue in passing. The test is whether the name
+  is the sentence's subject — a name at the front counts, a name behind a
+  preposition in a long sentence does not, and a short sentence such as
+  *"Growth in Deposits was strong"* still pins.
+
+  **Where one written paragraph ends up.** The same paragraphs reach four places,
+  each stitched into what that place already says:
+
+  | | What the written commentary does there |
+  |---|---|
+  | **Management commentary** (Summary) | each line's reason rides on that line's own sentence, after its figures and its drivers — *"NII - Interest Income ▲$968mF / 30.6% driven by Retail Banking & Wealth Management — NII carried the half. Deposit margin held better than the plan assumed…"* |
+  | **Financial Summary** | the same, on each statement block's sentence, and in the **Line commentary** column as *figures; reason* |
+  | **Graphs** | pinned as a note on the bar it names, capped and switchable, with the block beneath carrying the lines the chart is not showing |
+  | **The block lead** | only what was written about the period as a whole — plus anything about a line no sentence could carry, so nothing is dropped for want of a home |
+
+  A reason is given **once** per block, at the highest line it belongs to: a
+  paragraph about Trading Income does not repeat itself on Trading Income – NII
+  and Trading Income – Income beneath it.
+
+  **To correct a match** there are three ways, and none of them is retyping the
+  commentary: set an `Aliases` row in the configuration (permanent, and it wins
+  over everything), click the note on the chart and edit it there (it becomes
+  your own note), or edit the commentary block and keep it.
+
+  `View` aims the line — `Summary`, `Financial Summary` (or whatever the view has
+  been renamed to), `Chart`, `Dashboard`, or blank for all of them. `Line` names
+  the line, product or region it is about, matched loosely against the names on
+  the page, and blank means the view as a whole. Where nothing is written a block
+  reads its own figures exactly as before, so ingesting one line never silences
+  the rest. A written line also leads its own row in the Line commentary column.
+  Editing a block and keeping it still works: the
+  written words refresh in place on the next ingest while your own edits stay.
+
+  **Commentary templates — choosing how the narrative is worded.** The
+  Management Commentary panel carries a **Style** selector: the pack
+  narrative, the house cascade, or any named template from the
+  configuration's `CommentaryTemplates` tab (`Style | View | Pattern`).
+  A pattern is a sentence with tokens the page fills per statement line
+  from the TM1 extract's own figures under the selected variance period —
+
+  ```
+  Exec brief   | {line} {var} {vs}, led by {drivers}.
+  FP&A detail  | {line}: {main} against {base} — {varamt} ({varpct}) {vs}. Key movers: {drivers}.
+  ```
+
+  Tokens: `{line}` `{main}` `{base}` `{var}` (movement with %), `{varamt}`
+  (movement alone), `{varpct}`, `{vs}`, `{basename}`, `{period}`,
+  `{drivers}`, `{month}`, `{quarter}`, `{fy}`, `{ytd}`. A template governs
+  word order and tone, never arithmetic: every figure is computed exactly
+  as the pack style computes it, expense lines still name no products as
+  movers, and the written commentary still leads each line. Uploaded rows
+  replace the built-in examples wholesale; `View` scopes a pattern
+  (blank = everywhere); `commentary_format` in Settings names the default
+  style, and the reader's own pick on the panel is remembered. The Word
+  and PPT exports carry whichever style is on the page.
+
+  **Scoped templates — the scope picks its own voice.** With the Style
+  selector on **Auto — match the scope** (the default), the page adopts
+  whichever defined template best fits where it is looking: an unscoped
+  multi-business page speaks the `Group` template, a selected business
+  its `IWPB Global` or `CIB Global` template, a region its `Regional`
+  and a country its `Country` one — re-resolved automatically as the
+  scope moves, with nothing to pick. A template's scope is its `Scope`
+  column, or simply its own name: `Group`, `Global`, `Regional`,
+  `Country`, optionally led by a business (`IWPB Global`) or a specific
+  place (`Singapore`) — the most specific match wins, so `IWPB Global`
+  beats plain `Global` when IWPB is selected. A scope with no template
+  defined speaks the pack narrative, so IWPB can have its own voice
+  while CIB reads the standard one until CIB defines its own. Both
+  packs ship worked examples; a hand-picked style always overrides the
+  scope.
+
+  **The Active style lists scopes, not style names.** However many
+  named styles the config carries, the pane's selector shows one entry
+  per **Scope** value — `Group`, `IWPB`, `CIB`, `HK`, `UK`, whatever
+  the CommentaryTemplates' Scope column defines — plus Auto, and any
+  style whose rows are deliberately unscoped, by its own name. Picking
+  a scope forces that scope's template (its last-defined row), still
+  filled from the selected variance period.
+
+  **One selector, in the pane.** The Management Commentary panel
+  carries no Style dropdown of its own: the narrative follows the
+  scope and the **selected variance period**, exactly as the
+  trajectory and tiles above it — a style pinned to one basis can
+  never contradict the graph beside it. The left pane's **Active
+  style** is the single deliberate override.
+
+  **The Style dropdown speaks the configuration's language.** It offers
+  **Auto — match the scope** plus the styles the config (and the
+  reader's own saves) define — nothing else. The built-in Pack
+  narrative and House cascade writers appear as choices only in a file
+  with no templates defined at all; with templates present they remain
+  the silent fallback wherever no scoped template matches, not a menu
+  entry. And whichever **variance period** is selected, the adopted
+  template stays applied and re-fills from that basis — figures,
+  vs-phrase and period label alike.
+
+  **The style speaks on every composed surface.** The active style —
+  Auto-resolved or hand-picked — words the Management Commentary, each
+  **All Commentaries** section (on that section's own basis, so the
+  same sentence shape reads vs PY in one section and vs Target in the
+  next), and the **graph commentary's** movement sentence beneath the
+  mix panel, the builder and the dashboard widgets. The analytical
+  reads stay the writer's own — the section heads, the "largest line"
+  opener, shares and concentration — and choosing **Pack narrative**
+  restores every surface at once. The Word and PPT exports carry
+  whichever style is on the page.
+
+  **The pane picks; the config authors.** The left pane's Commentary
+  templates section is a picker, nothing more: the **Active style**
+  selector, offering Auto and the styles the configuration defines.
+  All template authoring lives in the one config workbook — the
+  `CommentaryTemplates` tab and `Template <scope>` tabs — so there is a
+  single place templates come from and nothing to paste or upload in
+  the page itself.
+
+  **A write-up instead of a pattern.** This is the normal form: the
+  Group pack's `CommentaryTemplates` rows are themselves written as
+  commentary sentences, and the pattern is detected automatically
+  wherever a Pattern cell carries no `{tokens}` — in the config rows,
+  in `Template <scope>` tabs, in template uploads and in the pane
+  alike.  Nobody has to think in tokens: a
+  written commentary — *"Revenue of $4,193m was up $102m (2.5%) vs Q2
+  2025, led by Mutual Funds and Deposits."* — is read and turned into
+  its pattern automatically, a token placed where each figure sits and
+  every other word kept exactly as written. A write-up lives in the config workbook: a `CommentaryTemplates`
+  row whose Pattern cell is prose, or a **`Template <scope>` tab**
+  (e.g. `Template IWPB Global`) holding a longer write-up, which
+  overrides the sheet's row for the same scope. The recognition covers the
+  movement clause (up/down amounts, F/A notation), the vs-phrase, an
+  against/from base, percentages, mover lists after "led by", "driven
+  by", "on the back of" or "reflecting", the subject line matched
+  against the file's own line names, and place or business names, which
+  become the scope. **Placeholder figures are recognised too**, the way
+  template packs are actually written: `$Xm up/down` reads as the
+  movement, `x%` as the percentage, a bare `$Xm` as the figure itself,
+  and a named basis — "(Month) Actuals Vs Forecast", "FY Forecast vs
+  Target" — reads as the **selected variance period**, so a write-up
+  built on placeholders fills from whichever basis the left pane has
+  selected and re-fills when it changes. Once derived it is an ordinary scoped template —
+  adopted by Auto, previewed, exported and overridden like any other —
+  and as always the tokens fill from the page's computed figures, so
+  the example's own numbers never survive into the output.
+
+  **How it decides which line a comment is about.** This is text matching
+  against the names in your own file. It reads names; it does not understand
+  banking. Four things can resolve a sentence, and the left pane says which one
+  fired for each line so the answer can be checked:
+
+  | | Example |
+  |---|---|
+  | **Alias** set in the configuration | `NII` → `NII - Interest Income` |
+  | **The name**, written out | "Banking NII held up" → `Banking NII` |
+  | **The acronym** of the name | `GTS` → `Global Trade Solutions` |
+  | **A short form or a telling word** that can only mean one line | `NII` → the NII line, where every other NII line sits beneath it; `deposits` → `Customers and Banks Deposits (PE)`, the only line carrying the word |
+
+  Common banking terms read the same either way round, so `Net interest income`
+  finds a line called `NII` and `expected credit losses` finds `ECLs` — NII,
+  ECL, RWA, PBT, VP, AUM, RoTE, CER, NNIA.
+
+  Where a sentence names two lines the **earlier one wins**, because a sentence
+  is about its subject: *"NII was the main driver of the revenue beat"* is about
+  NII, not Revenue. The other name is reported beside the row rather than
+  silently dropped.
+
+  Where a term could mean more than one line **nothing is pinned** — a wrong
+  line is worse than no line — and the pane says why: *"'deposits' could be
+  Customer Deposits (PE) or Customers and Banks Deposits (PE) — set an alias"*.
+  An **`Aliases`** section in the configuration (`Alias | Line`) settles it for
+  good and wins over everything else. Acronyms are derived only from names of
+  three or more real words, so a two-letter initialism cannot collide with an
+  English word: `Opex Notables` gave `ON`, and every sentence containing "on"
+  matched it.
+- **Commentary pinned onto the charts** — a written line aimed at a name shows
+  as a note on the mark it names, on every chart where that name is a category:
+  the words reach the graph, not only the block. It is capped at three notes a
+  chart (`chart_note_auto_max`), because a chart papered with notes says less
+  than a chart with three, and the **Commentary** switch in the note palette
+  turns the layer off and on. A note pinned by hand always wins over an ingested
+  one. What the chart is showing is **not repeated in the block beneath it** —
+  switch the layer off and those words go back into the block. Clicking an
+  ingested note opens it for editing with its own words already in the box, and
+  once edited it becomes your own note, kept like any other.
+- **Line commentary, as the pack prints it** — the reporting pack sets a
+  short note beside each line, and the Financial Summary now carries the same
+  column beneath the grid. A note written by the business leads — a
+  **Commentary** row in the config, keyed by the line's name — and a line
+  without one reads its own figures in the
+  page's own words (`JUN YTD 2,293 — ▼46 vs target; JUN ▼4 vs forecast`),
+  each in that line's unit, so a note and the row beside it can never
+  disagree. `fsum_note_lines` sets which lines are commented on and in what
+  order (blank = every line that carries a written note), and `fsum_notes`
+  (`auto` / `Y` / `N`) decides whether the column appears at all — `auto`
+  shows it once a note exists or a line list is set. The column travels into
+  the Word export with the rest of the commentary.
+- **Renaming the page** — the view is named in two config places: Settings
+  `fsum_title` (the page heading, and with it the Excel title row, sheet name
+  and workbook file name, the PowerPoint slide title and the Word commentary
+  heading) and Labels `nav_fsum` (the item in the left rail). Set both to the
+  same text — `Business Performance`, say — and nothing anywhere still calls
+  it the Financial Summary. The workbook name follows the new title without
+  repeating the entity (`IWPB_Singapore_business_performance.xlsx`), and a
+  title carrying characters Excel refuses in a sheet name (`:` `/` `\` `?`
+  `*` `[` `]`) keeps them on the page while the sheet takes a cleaned,
+  31-character version. The same pair of keys renames any other view:
+  `landing_title` + `nav_summary` for the KPI summary, `nav_custom`,
+  `nav_builder`, `nav_query`, `nav_table`, `nav_assist`, `nav_sim`.
+- **Keeping statements apart** — a TM1 extract carrying both a P&L and balance
+  sheet must not add them together. `fsum_sections` assigns the lines of a
+  column (`fsum_section_dim`, MICA Level 1 by default) to named blocks:
+
+  ```
+  Settings,fsum_sections,"P&L=PBT | Balance Sheet=Deposits,Loans",,
+  Settings,fsum_no_total,Balance Sheet,,
+  ```
+
+  The Financial Summary then shows the P&L lines cascading into PBT, and
+  Deposits and Loans as separate balance-sheet lines beneath — with no
+  total across the two, and none within a block named in `fsum_no_total`
+  where adding the lines together would mean nothing. Lines in no block
+  fall into a trailing block named by `fsum_other_label`. The Management
+  commentary follows the same split, writing one narrative per block.
+  `fsum_section_dim` on its own (without `fsum_sections`) still bands the
+  table by every value of a column, ordered by `fsum_section_order`.
+
+  Without declaring statements, two simpler keys do the same job in one
+  block: `fsum_line_order` fixes the order of the top-level lines
+  (`PBT,Deposits,Loans` puts the balance-sheet lines below the P&L), and
+  `fsum_total` set to `N` removes every total row from the table, the
+  commentary and both exports.
+- **Management commentary** — the reporting pack's own wording, generated
+  from the file. A heading naming the comparison, an opener giving the
+  result and what moved it, then each line of the statement with its
+  variance in F/A notation and the movements behind it:
+
+  ```
+  (JUN) FY Forecast Vs FY26 target (ex notables):
+  (JUN) FY Forecast PBT is $(4,067)m down vs FY26 target driven by lower
+  Revenue ($109mA / 1.3%), lower Total Direct Cost ($110mF / 3.2%) …
+  Revenue of $8,379m is $109mA / 1.3% (ex notables):
+    • NII - Interest Income $36mA / 0.9% driven by …
+  ```
+
+  The comparison follows the selected **Variance period**, so the same
+  generator writes the vs-forecast, vs-target and vs-prior-year versions.
+  Balance-sheet lines are reported after the statement, never inside it.
+  `commentary_format` picks `slide` (this) or `house` (the earlier
+  cascading style), `commentary_levels` sets the cascade,
+  `commentary_dim` the dimension the "driven by" clauses cut by,
+  `commentary_drivers` how many are named, and `commentary_headline` /
+  `commentary_note` the wording of the heading.
+
+  **A sentence names the movers, not every mover.** A reader can hold three or
+  four in their head; past that the sentence is a list, and a list of
+  everything explains nothing. So movers are named biggest first until between
+  them they account for the movement — `commentary_driver_cover`, 80% by
+  default — and anything below `commentary_driver_floor` (3% of the line's own
+  variance) is left out. A mover that rounds to zero in the unit it prints in
+  is never named at all: *"$0mF 0%"* is not a reason. The same rule governs the
+  management commentary, the Financial Summary blocks, the chart blocks and the
+  six bases, so no view can drift into a data dump on its own. Every F/A figure is
+  coloured by favourability — F green, A red — in the page and in the Word
+  export alike (`commentary_fa_colours` switches it off). **⤓ Word** writes the
+  commentary as it stands on the page — your edits included — to a real
+  .docx, keeping the bold figures, the underlined heading and the bullets.
+  The Financial Summary's own **⤓ Word** puts that page's commentary and
+  the management commentary in one document. The file is assembled in the
+  browser (a .docx is a zip of XML parts, written uncompressed), so it
+  needs no library and nothing leaves the page.
+- **Variance period** — a left-pane selector (Period & RAG) that sets the
+  comparison every view is rated on: YTD vs PY, MoM, Month vs Target, YTD
+  vs Target, YTD vs Forecast, FY vs Target, FY vs PY. The option labels
+  are built from the selected YTD-through month, so they re-date
+  themselves — pick MAY and MoM reads *MAY-26 vs APR-26*. Tiles,
+  trajectory, Mix analysis, breakdowns, dashboard cards, the management
+  commentary, the MI Assistant and both exports all follow the selection;
+  **Auto** keeps the file's default basis (`calc_cmp_priority`). The
+  performance trajectory redraws with it: a month-level basis (MoM, Month
+  vs Target) plots the monthly shape, a YTD or FY basis the cumulative
+  path, each against the base the period names — prior-year, phased
+  forecast or phased target. Mix analysis, the chart builder and pinned
+  dashboard charts re-size on the period too, until a measure is picked by
+  hand — that choice then sticks. Month-by-month visuals (the Monthly
+  trend widget, the mini-charts under KPI cards, the YTD actuals vs
+  forecast widget) stay monthly by definition and do not re-base.
+- **MI Assistant** — a governed Q&A page (left-pane entry) driven by
+  **plain language**: type the question in your own words and a
+  comprehension layer works out the intent (how are we doing, why did it
+  move, what is behind, break it down by X, monthly trend,
+  costs, ECL, target) together with anything the question names — a line,
+  product, business line, region or country. Names are matched against the
+  values actually in the loaded file, longest first, with the Global
+  Business dimensions (business line, region, country) winning over the
+  same text in an ordinary TM1 extract column — so "iwpb" reads as the
+  business line, not the CG Level 1 code. Case does not matter except for
+  codes that are also ordinary words (`US`, `UK`, `IT`), which must be
+  capitalised. Naming two values of one dimension ("Singapore vs
+  Malaysia", "IWPB vs CIB") is read as a comparison and ranks just those. **It asks back rather than
+  guessing**: a bare name offers the readings available for it, a term
+  living in two dimensions asks which was meant, a basis the file cannot
+  serve offers the one it can, and an unrecognised question offers what
+  this file can answer — each as one-click options. A short follow-up
+  ("and Malaysia?") inherits the previous question. Behind it sit the
+  approved analyses (performance, lines behind forecast, FY target,
+  top/dragging products, costs, ECL, prior year,
+  contribution mix, movement drivers, dimension breakdowns, monthly
+  trend, geography comparisons)
+  answered deterministically in the browser from the filtered data on the
+  standard comparison basis, plus geography comparisons — countries,
+  regions and business lines side by side with share and RAG. Answers
+  respect the active Global Business scope (stated in each answer's
+  note), and naming a business line, region or country in a question
+  ("How is Singapore doing?", "CIB costs") answers for that slice
+  without changing the page scope. Free-text questions are matched to
+  the governed set; anything outside it is declined. Nothing leaves the
+  page.
+- **Simulation Assistant** — what-if simulations on the forecast months. Build
+  any number of ordered rules, each scoped to any dimension value (or all
+  rows) with three adjustment types: % change, add amount (spread over the
+  chosen months, pro-rata across matching rows), or set the monthly total.
+  Each rule also carries an **Apply to** choice — P&L + balances (default),
+  P&L only, or Balances only — because a product scope such as
+  Product Level 4 = Deposits legitimately tags both the deposit balances
+  and the deposit NII lines; pinning the rule to one statement stops the
+  other side from moving, and the assistant warns when a rule's scope
+  straddles both statements. The prior forecast stays untouched; the page
+  shows prior vs simulated FY outlook, the delta, both against the FY
+  target, a monthly chart (actuals, prior forecast, simulated forecast)
+  and an impact table listing only the lines the simulation actually moves,
+  with Excel export. A simulation whose scope is entirely balance-sheet rows
+  reports on the closing-balance basis in `US$bn` — the last forecast
+  month's closing position, never a sum of monthly balances — and mixed
+  scopes total the P&L side only, with balances stated separately.
+  A **Forecast by month** table sits under the impact table: every forecast
+  month with its prior forecast, its simulated figure and the movement
+  between them. A P&L foots to the sum of those months; a balance never
+  does — each month is a closing position and the foot is the closing month,
+  so the months are never added up. **⤓ Excel** sits on the result itself and
+  carries both tables, the impact on one sheet and the month-by-month on
+  another. Each sheet opens with what was run and over what: the simulation's
+  name and category, the scope in force (business, region, country, month),
+  the basis and units, the forecast months and the source file — then a rule
+  table setting out how it was applied, one row per rule with its scope, its
+  second condition, the statement it touches, the adjustment, the change and
+  the months — and then the figures.
+  **Compare simulations** runs any number of saved simulations side by side
+  against the prior forecast — the picker groups them by their Category — with
+  a chart, an FY outlook table and a **Comparison by month** table: the prior
+  forecast path with each simulation in its own column, footing to the sum of
+  the forecast months. Its **⤓ Excel** carries the FY comparison on one sheet
+  and the month-by-month on another, each opening with the scope, units and a
+  rule table naming how every simulation in the comparison is applied.
+  Simulations save by name (localStorage) for reload; the work-in-progress
+  simulation survives refreshes.
+
+  **Pre-loaded simulations from the config pack** — an optional
+  `Simulations` sheet in the configuration workbook ships ready-made
+  simulations to every user who opens the dashboard, instead of each
+  living in one person's browser. Columns: `Simulation | Dim | Value |
+  Dim2 | Value2 | Statement | Type | Change | From | To | Category`. Rows
+  sharing a Simulation name become one multi-rule simulation, and
+  `Category` files it on the page — the Saved simulations list and the
+  compare picker group under those headings (Cost, Macroeconomic,
+  Geopolitical, or whatever the sheet says), with anything a person saved
+  themselves last under **My simulations**. (A sheet still named
+  `Scenarios`, the tab's earlier name, is read exactly the same way, so
+  packs already in circulation keep working.) `Dim`/`Value` is the main
+  scope (e.g.
+  `MICA Level 3` = `NII - Net Interest Income`); `Dim2`/`Value2` is an
+  optional second condition — a line *within* a geography — shown on the
+  rule as "· within Region = MENAT" (dims accepted: Country, Region,
+  Business, MICA Level 1–4, Product Level 1–3). `Statement` is `pl`, `bs`
+  or `all`; `Type` is `pct` (% change), `pctfy` (% of full year), `amt`
+  (add amount) or `setm` (set monthly total); `Change` is the number;
+  `From`/`To` are month names (`AUG`…`DEC`). Seeding happens when the
+  config loads and never overwrites a simulation the user already saved
+  under the same name; a seeded rule whose scope matches nothing in the
+  loaded TM1 extract shows the usual "no rows match" note rather than
+  silently doing nothing. The Group pack ships sixteen simulations built
+  this way: six Middle East crisis cases (Gulf rate cuts, EGP
+  devaluation, deposit flight, Gulf inflows upside, trade disruption,
+  and an oil-spike counter-case), five macroeconomic cases (global rate
+  cuts, China hard landing, US/Europe recession, a markets-rally upside,
+  and stagflation), and five cost cases (pay review, variable pay
+  true-up, savings programme, indirect cost inflation, and an offshoring
+  footprint shift that lowers UK direct costs while raising Asia's),
+  filed on the sheet as Geopolitical, Macroeconomic and Cost
+  respectively.
+- **Data** — the filtered source rows, paginated with search. Every text
+  column header carries a **filter button**: it opens a value picker
+  (searchable, Select all / Clear, tick the values to keep) that combines
+  with the page search and the left-pane filters; active funnels highlight
+  and a Clear column filters button drops them all at once. The picker
+  only offers values that can still appear under the other active filters.
+
+Clicking a KPI card (or a KPI in the left pane) focuses the **Mix
+analysis** panel on that KPI — deeper slicing lives in the Query builder
+and the chart builder, which cover the old drill-down and more.
+
+The KPI summary also ends with a **Mix analysis** panel: a flexible chart
+driven entirely by dropdowns — KPI scope, view-by dimension, measure and
+chart type (donut / column / horizontal bar) — that follows the global
+filters and remembers its last configuration.
+
+- **My dashboard** — a personal, drag-and-drop dashboard. A widget is
+  composed on the add bar from four choices: **type** (KPI card, monthly
+  trend, YTD actuals vs forecast, breakdown by field, custom chart, KPI
+  scorecard), **KPI** (any metric, MICA line, or the total), **field** and
+  **graph**. The field picker lists every dimension the loaded file carries —
+  MICA levels, product, segment, function, entity, country, region, business
+  line — and appears for the types where a field means something (breakdown
+  and custom chart); the graph list is the one belonging to the type chosen,
+  so a card offers horizontal bar / sparkline / column / table, a trend or
+  trajectory offers line / area / column / bar, and a breakdown offers table /
+  bar / column / donut / pie / Pareto / treemap. A breakdown drawn as a table
+  keeps the RAG grid; drawn as anything else it renders as that chart.
+- **Every widget can be re-composed in place.** Its header carries the same
+  pickers it was built with — field and graph on a breakdown, graph on a
+  card, trend or trajectory, layout on the scorecard, view-by and chart type
+  on a pinned chart — so nothing has to be deleted and rebuilt to change what
+  it shows. The choice is saved with the widget, and the PowerPoint deck
+  draws each widget the way the page draws it. Drag widgets by their header
+  to rearrange, drag a KPI from the left pane onto the canvas to add it as a
+  card, and remove widgets with ✕. The layout persists in the browser
+  (localStorage) across sessions.
+- A breakdown whose field mixes P&L and balance-sheet lines shows its lines
+  and **no total** — on the page and in the Excel export alike — because the
+  two statements are never added together.
+
+The design follows HSBC management-reporting conventions: a light left pane
+with a red brand block, section headers and pink-highlighted active items; a
+red uppercase eyebrow over large page titles; flat white stat tiles with big
+numbers (negatives in red brackets); and red monochrome charts with a grey
+prior-year series. The left pane is deliberately spare: the dashboards
+navigation, the Configuration section, the period controls (YTD-through
+month and variance period) and the Commentary templates picker — scoping
+happens in the top scope bar, and the Excel exports carry
+the default column set. The old Data drill down page is retired — the
+**Query builder** covers it: drag the columns you want, filter and sort,
+run, and **⤓ Export to Excel** on the Results panel downloads the result
+RAG compares YTD actuals with the same
+prior-year months: **green at or above prior year, red below it**. There is
+no amber and no watch band — an in-between rating only ever meant "within a
+tolerance nobody agreed", and it let the same figure read three ways
+depending on a setting. `calc_rag_green_at` sets where favourable starts and
+is the whole of the policy; there is no tolerance control in the left pane. Ratings are direction-aware — an increase
+in revenue rates Favourable while an increase in costs or ECL rates
+Unfavourable, whichever sign convention the file stores costs in (signed
+negatives or positive magnitudes).
+
+## Configuration
+
+The app's behavioural rules are externalised into an uploadable
+configuration — **left pane → Configuration → Upload config**. There is
+**one configuration file**: `Group_dashboard_config_pack.xlsx` in this
+folder, an xlsx workbook with a sheet per section — `Settings`, `Tiles`,
+`TilePriority`, `Dimensions`, `Views`, `Metrics`, `Commentary`,
+`CommentaryTemplates`, `Simulations`, `Rollup`, the hierarchies. Everything
+the page does is driven from it. (A flat CSV with columns `Sheet,Key,Value,Extra1,Extra2,Extra3` is
+also accepted for tooling that emits CSV; the in-app download offers it. A
+sample lives under `sample/`.)
+
+What each section governs:
+
+- **Labels** — every heading, section title and control label the page shows,
+  one `Key | Text` row each. The whole left rail is worded here: the section
+  headings (`sect_dashboards`, `sect_config`, `sect_period`, `sect_comtpl`),
+  every navigation entry (`nav_*`), the ingest button and page
+  (`btn_newfile`, `ingest_title`, `ingest_drop`) and the period controls
+  (`lbl_year`, `lbl_ytd`, `lbl_varper`, `lbl_units`). Change a row and the
+  pane follows on the next config load — nothing in the rail is hard-coded.
+  The three packs carry the complete set, and **Download template CSV** lists
+  every key with its default, so the full surface is discoverable without
+  reading the page source.
+
+- **Settings** — app title/subtitle/eyebrow (`app_title` also drives the
+  browser-tab title, the upload-page wording, the greeting, the export
+  headers, the red logo badge and the Financial Summary page title, so the
+  whole app rebrands from the config; `logo_mark` optionally sets the
+  badge letters, otherwise they derive from the title's initials;
+  `export_prefix` optionally sets the download filename prefix, otherwise
+  it derives from the title; `fsum_title` still overrides the Financial
+  Summary heading explicitly), landing page title, total
+  tile label, tile grouping level (`auto`/`level1`/`level2`), collapse of
+  non-priority tiles, which tiles show at all (the plain-language form is the **`Tiles`
+  tab** — one row per tile, its name in column A, `Y` or `N` in column
+  B; `N` parks it, and a tab of only-`Y` rows shows just those. The
+  Settings rows remain for pattern work: `tile_hidden` parks the named
+  tiles — exact names or patterns, so `cost.*` parks every cost line —
+  and `tile_visible` keeps **only** the named ones; parked tiles stay one click away behind the "Show parked tiles"
+  strip, a reader's own show/hide toggle still wins on their screen,
+  and uploading a configuration re-baselines the tiles to its policy), the RAG threshold (`calc_rag_green_at`), the regex patterns that
+  recognise Forecast and Target columns, the cost/ECL direction patterns,
+  the hidden-comparison patterns for target-only files, the My
+  dashboard page size, and `variance_periods` — the ordered list of
+  comparison bases offered in the left pane. By default this is exactly
+  the six comparisons the All Commentaries pack writes, in the pack's
+  order — `qtr_py`, `ytd_tgt`, `mth_fc`, `fy_pfc`, `fy_py`, `fy_tgt` —
+  so the selector and the pack read one basis list; the page lands on
+  the first of them the file can serve. A config can still narrow or
+  extend the list (`auto`, `ytd_py`, `ytd_fc`, `mom`, `mth_py`,
+  `mth_tgt` remain understood); entries a file cannot serve are hidden
+  automatically.
+
+  The **opening line** that used to stand above the page title — the one
+  sentence naming the lead line, its movement and the outlook against target
+  — is off by default (`summary_lede`). Set it to `Y` to bring it back; the
+  PowerPoint export follows the page either way.
+
+  **Tile size** is configurable too: `tile_height` (default `150`) is the
+  height in pixels every tile shares, and `tile_min_width` (default `252`)
+  is the narrowest a tile may become before the grid drops a column — so
+  it governs how many tiles sit in a row, and therefore how many rows the
+  summary needs. Raise `tile_height` for a roomier grid; raise
+  `tile_min_width` for fewer, wider tiles. `tile_height` is a floor rather
+  than a cap: a tile whose content needs more room still grows, so setting
+  it very low simply lets the tiles find their natural height. Values that
+  are not numbers, or below the workable minimums (60px high, 150px wide),
+  fall back to the defaults rather than breaking the grid.
+- **Hierarchy check** — the ingest report states whether the cascade adds
+  up: it names any row that matched no line (they group under Unmapped)
+  and any line that keeps rows of its own while also having children, so
+  the children would not add to it. A clean file reads "every row lands
+  on a line, and every parent equals its children".
+- **AccountHierarchy** — the reporting pack's own line cascade:
+  `ID | Level 1 … Level 5 | Match`, where Level 1 is the statement group
+  (`PBT ex Notables`, `Balance Sheet`, `Key Metrics`) and `Match` lists the
+  TM1 extract line names that roll into the deepest level. Uploaded rows
+  replace the defaults wholesale.
+- **Key metrics as memo lines** — `memo_patterns` marks lines that are
+  neither P&L nor balance sheet (Premier Customers, CER %, FTE, NNM/NND/
+  NNIA, Wealth balances). They are **never totalled into the P&L or the
+  balance sheet**, are never restated onto the balance unit, and get their
+  own Financial Summary band named by `fsum_memo_label` (default
+  "Key Metrics") — so the pack's three blocks appear as
+  `P&L (US$m)`, `Balance Sheet (US$bn)`, `Key Metrics`.
+- **A rate is not an amount** — `ratio_patterns` (default `%`, `bps`,
+  `RoTE`, `CER`, `ratio`, `headcount`, `FTE`, `count`) marks the memo lines
+  that are rates or counts rather than money. They keep a balance's
+  arithmetic — a closing value, never three months added — but are printed
+  as reported, so a headcount of 14,186 stays 14,186 instead of being
+  restated to 14.2bn, and a RoTE of 20.9% keeps its decimal instead of
+  rounding to 21. Values of 100 and over print whole with a thousands
+  separator, smaller ones to one or two decimals, on the page, in the
+  workbook and on the slide alike.
+- **Calculations** — the calculation rules themselves:
+  `calc_ytd_actuals` (`column` = a YTD column matching the selected
+  month is authoritative everywhere, months are never added when one
+  exists — including in files that also carry prior-year months;
+  `months` = always sum months), `calc_fy_forecast` (`column` = FY
+  forecast column first / `outlook` = always Jan–Dec months),
+  `calc_ytd_forecast` phasing (`even` = elapsed÷12 / `profile` = the
+  file's own monthly shape / `weights` = custom), `calc_forecast_weights`
+  (12 comma-separated weights for `weights` mode, also drives the trend
+  reference lines), `calc_cmp_priority` (ordered comparison basis, e.g.
+  `py,fc,tgt`, used when the variance period is `auto`),
+  `calc_variance_period` (the basis selected on load, e.g. `ytd_py`),
+  `calc_rag_green_at` (variance needed to rate Favourable,
+  e.g. `0.02` requires +2%), `calc_rag_direction` (Y/N — direction-aware
+  cost/ECL rating).
+- **TilePriority** — the ordered name patterns pinning the top KPI tiles.
+- **Dimensions** — per dimension: display label override, whether it
+  appears in the left-pane filters (`Extra1` = Y/N) and whether it is
+  offered as a simulation rule scope (`Extra2` = Y/N — every dimension
+  defaults to Y, and the derived hierarchy levels are always offered, so a
+  simulation can scope on any non-numeric field in the file; a blank cell
+  inherits the default, an explicit N excludes). A row whose key is
+  **not** one of the built-ins declares a **new dimension**: `Extra3`
+  holds the text to match against the TM1 extract's column headers (falling
+  back to the label, then the key — matching ignores case, spaces and
+  underscores). E.g. `Dimensions,channel,Channel,Y,N,channel` turns a
+  `Channel` column into a full dimension across every view.
+- **AccountHierarchy / ProductHierarchy** — the reporting hierarchies as
+  mapping tables, one row per node: `Key` an ID, then up to five levels
+  across `Value…Extra4` (both run five deep — the account side mirrors
+  the reporting pack: PBT → Revenue → Banking NII / Fees and Other Income
+  → Retail Banking / Wealth / Others → Investment Distribution / Private
+  Bank / Asset Management / Insurance, with ECLs, Operating Expenses →
+  Direct Cost ex VP CC GT / Global Teams / Variable Pay ex CC / Indirect
+  Costs, and Balance Sheet → Deposits, Loans and Advances, Wealth
+  Balances → Wealth Deposits / Wealth Invested Assets → NNIA, NNM → NND;
+  product — IWPB → Retail/Wealth/Others down to Payroll or Saving
+  Accounts). Revenue foots as Banking NII + Fees and Other Income,
+  Operating Expenses as its four cost lines, and PBT as Revenue + ECLs +
+  Operating Expenses — the same arithmetic as the pack slide. The app binds them at load: each TM1 extract row's line names
+  (matched against the columns in `account_hierarchy_from` /
+  `product_hierarchy_from`, deepest match wins) place the row in each
+  hierarchy, and every level becomes a derived dimension — `Acct Hier
+  L1–L4`, `Prod Hier L1–L5` — usable in the drag & drop chart builder,
+  dynamic dashboard widgets, Financial Summary cascade, commentary
+  Driven-by and Mix analysis exactly like a TM1 extract column. Beyond a
+  node's own name, `Extra5` **stitches the node to the TM1 extract's MICA
+  lines**: a `|`-separated list of line names that belong to it
+  (`Banking NII` ← `NII - Interest Income`, `Loans and Advances` ←
+  `Loans|Customer Loans`, `Direct Cost` ← `Total Direct Cost|Staff
+  Costs`, …). A stitched match always beats an incidental name
+  equality, so `Deposits` lands on Customer Deposits even though a
+  deeper node happens to be called Deposits too. Rows naming nothing in
+  a hierarchy fall into `hierarchy_unmapped_label` (`Unmapped`). Uploading rows for a section replaces the built-in
+  mapping wholesale; a section row with a blank first level clears it.
+  The Financial Performance page itself binds through `tile_dims` (e.g.
+  `accH1,accH2`, or just `accH2`): the KPI tiles, left-rail KPI list,
+  trajectory line picker, narrative ranking and the one-slide PPT all
+  regroup by those dimensions instead of MICA Level 1/2.
+- **Metrics** — the reporting pack's scorecard metrics as named scopes:
+  each row is `Metrics,<name>,<scope>` where the scope selects the rows
+  the metric speaks about, as `dimension=value` pairs ANDed with `;` —
+  any dimension works, hierarchy levels included
+  (`accH3=Wealth Balances;cgL2=Private Bank` is *PB Wealth Balance*).
+  Twelve ship by default: Revenue, Banking NII, Wealth Fees, PBT, Direct
+  Cost ex VP CC GT, ECL, Deposits, Loans and Advances, Retail & Premier /
+  PB Wealth Balances, NNM and FY ROTE (the last needs a ROTE line in the
+  TM1 extract). A metric a file cannot serve simply doesn't appear. Metrics
+  are first-class scopes everywhere — and by default they ARE the KPI
+  cards: whenever at least two metrics resolve against the loaded file,
+  the Financial Performance grid and the left-rail KPI list show the
+  scorecard metrics (in catalogue order, each with its own unit and
+  variances) instead of plain MICA grouping — `tile_metrics: N` restores
+  the old grouping, and an explicit `tile_lines` (separate with `;` so
+  comma-bearing names stay whole) always wins. From each card the usual
+  flows make graphs and tables: click for the trajectory, drag a
+  left-rail metric onto **My dashboard** for a card/spark/table widget
+  scoped to it — dashboard KPI cards carry the same multi-comparison
+  stack as the tiles and the reporting pack (the selected basis, vs PY,
+  vs Fcst and FY vs Tgt, whichever the file can serve, each as coloured
+  amount + %) above the mini chart — and the "Metrics" group heads the
+  scope pickers in Mix analysis and the drag & drop chart builder. A
+  **KPI scorecard table** widget puts every metric on one page, in the
+  reporting pack's own format by default: a grid of bordered boxes, each
+  headed by the metric's name (with its unit) and value, with the
+  comparison bases beneath as coloured triangle + amount + % rows — a
+  header switch flips to a flat table (RAG dot, value, unit, comparison
+  column pairs) instead. Boxes and rows click through to the KPI
+  summary, the widget exports to Excel, and it never totals across
+  statements (each metric keeps its own unit and no narrative is drawn).
+  **Any metric can be hidden**, exactly as a KPI tile can: the **✕** on a
+  box (or beside a row name in the flat table) parks it, the widget ends
+  with a *"N hidden metrics — show"* button that brings them back dimmed,
+  and the **↺** on a parked metric restores it. The choice is remembered in
+  the browser, kept separate from the parked KPI tiles so the two surfaces
+  stay independent, and carried into the widget's Excel export and its
+  PowerPoint slide so the pack matches the page. Set `scorecard_hidden` (a
+  `;`- or `,`-separated list of metric names) to open with metrics already
+  parked; the reader's first hide or restore takes over from then on.
+  The dashboard's PPT export renders the scorecard in the same pack-box
+  format — native PowerPoint shapes (bordered box per KPI, name + headline
+  value, coloured triangle variance rows, three boxes per row, paginating
+  onto extra slides when needed), editable after export; a widget switched
+  to the Flat table layout exports as a table slide instead.
+  In the drag & drop chart builder a **Metric** field chip fans one
+  category per catalogue metric — drop it in Group by (it always groups,
+  never splits — a drop on Split by lands in Group by) and any chart
+  type compares the metrics side by side, split-able by any other
+  dimension, with balance metrics on their closing basis. A **Comparison**
+  field chip puts actuals against forecast, target and prior year on one
+  chart: grouped alone it draws one bar per basis (YTD actuals, YTD
+  forecast, YTD PY, then FY forecast, FY target, FY PY — whichever the
+  file serves, never summed, and never phased: the YTD forecast basis
+  appears only when the file carries a genuine YTD forecast column for
+  the selected month, and targets compare at the FY grain only); dropped
+  as a split against Metric or any dimension it clusters those bases side
+  by side per category, scorecard-style. The table and Excel views add
+  Variance and Var % per base, each computed at its own grain exactly as
+  the KPI cards do — YTD bases against YTD actuals, FY bases against the
+  FY forecast/outlook, never across grains — and skip the Total row when
+  grouping by overlapping metrics. On a mixed P&L + balance-sheet scope the comparison
+  covers the P&L side only (pick a balance-sheet KPI scope to compare
+  balances: closing balance vs FY target and PY closing). Everything resolves
+  through one scope machinery, exports included. Uploaded Metrics rows replace the
+  built-in list wholesale.
+- **Rollup** — which lines foot to their children and which are taken as
+  the file reports them, declared at MICA Level 1 and 2 (Level 3/4 accepted
+  too). Columns: `Level | Line | Roll up | Basis | Unit | Grain | Match |
+  Notes`, **read by their headings**, so a column may be moved or a new one
+  added without breaking a pack already in circulation.
+  `Roll up` is `Sum` (the parent equals its components), `As reported` (the
+  row is authoritative and its children are information — a fee metric
+  reported at country, region, global *and* group belongs here), `Never`
+  (non-additive — a ratio) or `Memo` (disclosure only; never contributes to
+  a parent). `Basis` is `P&L`, `Balance` or `Ratio`. `Grain` names the
+  geographic levels a line may be read at — `Country, Region, Global,
+  Group`, or `All` — and nothing is ever apportioned below the finest grain
+  declared. `Match` lists alternative names for the same line, separated by
+  `|`, so one declaration covers the naming a pack actually uses
+  (`PBT|PBT ex Notables`). Calculated metrics belong here as well: a metric
+  the **Definitions** tab builds from other rows (Banking NII, for
+  instance) is a view of those rows, so it is a `Memo` — it is shown on its
+  tile and never added beside its own components.
+
+  **`Unit` — what the line is reported in.** A unit is two things and one cell
+  states both: the **scale** (millions, billions, thousands) and the **kind**
+  of thing being counted. **The currency symbol is what separates them** —
+  `$mn` is money in millions, `mn` on its own is a number in millions, and the
+  two are never added together however alike their scales look.
+
+  | Written as | Kind | Reads as |
+  |---|---|---|
+  | `$mn`, `US$m`, `$bn`, `US$k` | money | US$m, US$bn, US$k |
+  | `mn`, `bn`, `000s` (no currency) | number | mn, bn, k |
+  | `Absolute`, `Number`, `Count`, `FTE`, `Nos` | number | a plain number |
+  | `%`, `pct`, `bps`, `ratio` | ratio | a ratio — never additive |
+  | `$ as is`, `as reported` | money | the unit the file itself carries |
+
+  **The two kinds scale from different bases**, because they start from
+  different places. Money is stated against the file's own unit — a file in
+  US$m carrying a line declared `US$m` divides by one, and one declared
+  `US$bn` by a thousand. A count has no such base: 162,369 customers is
+  162,369 units, so a count declared `mn` divides by a **million** and prints
+  as `0.16mn`. A count declared `Absolute` divides by one. A figure scaled
+  below one keeps two decimals rather than rounding itself away.
+
+  Declared per line at MICA Level 1 and 2. This is the pack's policy, not the reader's preference:
+  a declared unit governs that line wherever it is printed, exactly as
+  `bs_unit` governs a balance, and the unit picker at the top of the page
+  does not override it. Two rules keep it honest. **It restates the unit,
+  never the figure** — a P&L line is still the actuals YTD column for the
+  month in hand, a balance still its closing month, taken exactly as the
+  roll-up rules above describe. And **a declaration only changes what it has
+  to**: naming the unit the file already carries (`US$m` on a file stated in
+  US$m) sets the label and leaves every figure formatted as before, while
+  `As reported` on a balance is what takes that line back out of billions.
+  A row may carry a `Unit` with the `Roll up` column left blank — it then
+  declares the unit and says nothing about how the line aggregates.
+
+  This governs the KPI tiles and the KPI summary (including the scorecard and
+  dashboard widgets), **Business performance** — each column is cast and
+  headed in its own line's unit — and the **Financial Summary** on screen, in
+  its Excel export, in its PowerPoint table and in the words it writes, with
+  each block headed in the unit its lines are declared in. The simulation
+  pages, the drag & drop charts and the mix analysis still follow the
+  P&L / balance convention (`unit_label` and `bs_unit`).
+
+  **The extract may state its own units.** Where the TM1 extract carries a
+  `Unit` column beside the hierarchy (also `Units`, `UOM`, `Reported in`,
+  `Scale`) — one value per line, exactly as a reporting pack writes it — the
+  app reads it and resolves each line's unit from it. It is not offered as a
+  dimension to slice by; it is what the figures beside it mean. Precedence:
+  **the pack's declaration first** (that is policy, and it is how a typo or an
+  inconsistency in the extract gets overruled), **then the file's own column**,
+  **then the P&L / balance convention.** A line whose rows disagree on their
+  unit is taken from neither, a token the app cannot read (`$mb`) is named in
+  the ingest report rather than guessed at, and the report lists the money,
+  number and ratio units it found.
+
+  **How a component names its line.** The `MICA level` column names the column
+  the line lives in, written however the extract heads it — `L3`,
+  `MICA_Level_3`, `Product_Level_7`, `CG_Level_2`, `Function_Level_1`,
+  `accH3` all resolve. An optional **`Product Level`** column qualifies the
+  component further, in either of two forms: a bare column name
+  (`Product_Level_7`) lets the same line be found in that column as well, for a
+  pack whose line sits in the product hierarchy rather than the MICA one; and
+  `Product_Level_7 = Wealth` restricts the component to rows holding that
+  value. The sheet is read by its headings, so a column may be added or moved
+  without shifting the ones behind it.
+
+  **Where more than one value carries the same thing** — insurance rarely sits
+  under a single `Product_Level_7` — there are three ways to say it, and they
+  give the same figure:
+
+  | Written as | When to use it |
+  |---|---|
+  | `Product_Level_4 = Insurance` | a parent level already gathers them: **one row, and it keeps working when a new Level 7 value appears** |
+  | one `−` row per value | the values share no parent, or only some of them are meant |
+  | `Product_Level_7 = Insurance Manufacturing \| Insurance Distribution` | the values share no parent but belong together; `\|` or `,` both separate |
+
+  The first is the one to reach for: a list has to be revisited every time the
+  product hierarchy gains a value, and a parent level does not. A list is read
+  as a whole value first, so a value that genuinely contains a comma
+  (`Hong Kong, China`) still matches itself.
+
+  **A value spelt wrong in a list is the quiet case**, and so it is reported.
+  The other values still match, so rows remain and the tile shows a perfectly
+  plausible figure — it is simply out by whatever the misspelt one was worth.
+  The ingest report names it: *"Banking NII (IWPB): 1 of the 3 values in
+  Product_Level_7 matches no row here — "Insurance Manufactring" — those rows
+  are not taken out, so Banking NII is out by whatever they are worth."*
+
+  **Banking NII, as the global dataset actually files it.** The insurance piece
+  of NII is not a MICA line of its own — it is the *same* `NII - Net Interest
+  Income` line, filed under `Product_Level_7 = Insurance Manufacturing`. So
+  Banking NII is that line less those rows, and the Definitions tab says
+  exactly that:
+
+  ```
+  Calculation | Business | Line                      | Include | MICA level   | Product Level
+  Banking NII | IWPB     | NII - Net Interest Income |    +    | MICA_Level_3 |
+  Banking NII | IWPB     | NII - Net Interest Income |    −    | MICA_Level_3 | Product_Level_7 = Insurance Manufacturing
+  ```
+
+  Because those rows sit **inside** the base, they are removed from the
+  selection rather than deducted — no `less` row is created, which is the
+  cleaner of the two readings. On the shipped `IWPB_SG_InsMfg_Shape` fixture
+  this gives 1,760 less (536) = **2,296**, and Singapore on its own reads 1,100
+  less (396) = **1,496**, with each country's carve-out landing in that
+  country. `IWPB_Global_config_pack.xlsx` ships with these rows already in
+  place; `Group_dashboard_config_pack.xlsx` keeps the simpler Revenue-based
+  form the other sample files reconcile against.
+
+  **What a tile prints above its figure.** The page header already names the
+  period and the scope, so a tile repeating *JUN YTD* on every card is noise.
+  What it must always say is its **unit**, because that is the one thing the
+  header cannot say for it — the cards are not all in the same unit, and a
+  balance in billions sitting beside a result in millions has to be told apart
+  at a glance. `tile_unit_label` chooses:
+
+  | Setting | A tile reads |
+  |---|---|
+  | `unit` *(default)* | `US$m` |
+  | `period` | `JUN YTD · US$m` — the older form |
+  | `off` | no label at all |
+
+  **Where `US$m`, `US$bn` and `%` come from**, in the order the page asks:
+
+  1. the **`Unit` column on the Tiles tab**, beside the tile it belongs to —
+     the most direct thing a pack can say, and it speaks over everything below;
+  2. the **`Unit` column on the Rollup tab**, which declares a line's unit
+     wherever that line appears;
+  3. the **extract's own `Unit` column**, where the file states it per row;
+  4. failing all three, the convention: `unit_label` (default `US$m`) for a
+     result, `bs_unit` (default `bn`) for a balance, `%` for a line matching
+     `ratio_patterns`, and a plain number for one matching `count_patterns`.
+
+  Writing `US$bn` beside `Revenue` on the Tiles tab restates that tile and
+  labels it: 2,967 US$m is printed as **3.0 US$bn**. Nothing else moves.
+
+  **A headcount is a count, not a ratio.** The shipped packs listed `fte`,
+  `headcount` and `count` under `ratio_patterns`, so an FTE tile was labelled
+  `%` while printing 1,286. Those names live in `count_patterns` now, where
+  they belong; `ratio_patterns` keeps `%`, `bps`, `rote`, `cer` and `ratio`.
+
+  **A large extract is read once, a tab at a time.** The page used to read the
+  whole workbook twice over: once at the door, to tell a configuration pack
+  from a data extract, and again to ingest it. On a global extract — a dozen
+  country tabs, a million cells — that is the entire parse cost paid twice, in
+  two unbroken blocks, and the browser answers with *"This page isn't
+  responding"*. Three things changed:
+
+  - the door reads the sheet **names** and the first data tab, not the whole
+    book, which is the only part the question turns on;
+  - the ingest reads **one tab at a time**, with a breath between each, and
+    says where it is — *"Reading … tab 4 of 11 — IWPB Australia"*. The work
+    after the tabs — merging them, looking for duplicates, writing the report —
+    is broken up the same way;
+  - SheetJS is told not to build formatted text, a style record and a number
+    format for every cell. The page reads raw values and never used them.
+
+  On 21,780 rows across 11 country tabs the longest stretch the browser is held
+  falls from **51 seconds to 7.9** — under the threshold at which Chrome calls
+  the page dead. The total is still around 53 seconds on a file that size: the
+  parse itself is slow and still runs on the main thread, so the dialog stops
+  but the wait does not. Moving the parse to a worker is the remaining step.
+
+  **Re-opening the page no longer re-reads the workbook.** The page keeps the
+  last file so it need not be uploaded again each morning — but it kept the
+  *workbook*, and re-parsed it on every open, to arrive at precisely the model
+  it already had. On a global extract that is the whole 40-second parse, paid
+  again, before anything appears. Measured on 21,780 rows across 11 tabs:
+
+  | | |
+  |---|---|
+  | opening with nothing cached | **190 ms** — the page itself was never the problem |
+  | opening with a file cached, before | **30,840 ms** |
+  | opening with a file cached, now | **1,292 ms** |
+
+  The parsed model is stored beside the workbook and restored instead. The rows
+  are plain data — dimension strings and numbers — so they survive the round
+  trip as they are; everything *derived* from them (units, grain, the account
+  and country hierarchies, the duplication checks) is deliberately left out and
+  worked out again on restore, which is quick and cannot go stale against a
+  configuration that has changed since.
+
+  **A cache written before this existed upgrades itself on the first open.**
+  The model is kept whenever the workbook is parsed, whatever the bytes came
+  from. An earlier version kept it only when the bytes were freshly uploaded —
+  so a reader whose cache predated the model cache fell back to the workbook,
+  parsed it, threw the model away, and did the same again on every open after
+  that. The slow path forever, for exactly the readers who had been using the
+  page longest. On a 21,780-row file: first open 49.6s (parses, then keeps the
+  model), every open after 12.6s.
+
+  Two things this must not break, both checked: a restored page has to be
+  **identical**, not merely fast — same rows, dimensions, countries and tile
+  figures as a fresh parse, verified across seven sample shapes including the
+  multi-tab, group-tab and mixed-grain ones. And a cache written before this
+  existed, holding only the workbook, still opens by parsing it exactly as it
+  used to. `check_reopen` proves the restore does no parsing at all by deleting
+  the workbook from the cache first and requiring the page to come up anyway.
+
+  **Switching country or business is instant again.** After ingest, three
+  things a render leans on hardest were rebuilt from scratch on every call —
+  and on a global file, one click could cost seconds:
+
+  - **`filteredRows()`** — the rows the current scope holds — is asked for
+    fifty-odd times over one render. It re-filtered the whole file every
+    single time, even for the same scope asked a moment before. It is now
+    cached against everything that decides its answer — the loaded file, the
+    active filters, breakdown mode, `grain_reported` — so the same question
+    within one scope is answered once.
+  - **`cfgMetricList()`** — every named calculation, read off the Definitions
+    and Metrics tabs — rebuilt fresh new objects on every call, which meant
+    nothing that cached *against* those objects could ever recognise the same
+    question twice. It is now rebuilt only when the configuration actually
+    changes.
+  - **`metricRows()`** — which rows answer a given calculation — is asked for
+    the same calculation many times over one render: once for its tile, again
+    for the tooltip, again in Business performance. With the two caches above
+    making its inputs stable, it now caches its own answer per
+    (calculation, scope) pair instead of rescanning the file each time.
+
+  On a 21,780-row file with one calculated metric (Banking NII) declared,
+  switching from the full file to one country used to cost **3.7–4.9
+  seconds** — the visible cause of *"opening and reading tab sheet has become
+  extremely slow"*. It now costs **240–290 ms** for a single country and
+  **around 1.2 seconds** to go back to the whole file. Nothing about what a
+  figure reads has changed — every check that exercises Banking NII, roll-up,
+  units, grain, or a second file loaded after the first, passes unchanged;
+  a new one (`check_frcache`) exists solely to prove that loading a second,
+  different file is never answered from the first file's cached rows.
+
+  **The commentary answers the comparison the reader selected.** The variance
+  selector is a statement of what is to be compared. The Management commentary
+  and the Executive decisions panel now write about that basis and no other:
+
+  | Selected | The commentary writes |
+  |---|---|
+  | Current QTR vs PY | *"PBT ex Notables is $131m down on the quarter vs PY."* |
+  | YTD vs Target | *"PBT ex Notables is $41m up on YTD vs target."* |
+  | Month vs Forecast | *"PBT ex Notables is $59m down on the month vs forecast."* |
+
+  Both used to answer more than was asked. The commentary recited every basis
+  in one sentence — *"$131m down on the quarter vs PY, $41m down on YTD vs
+  target, $59m down on the month vs forecast, $253m down on the full year vs
+  PY and $78m down on the full year vs target"* — and the decisions panel
+  appended *"FY outlook vs target"* to every card whatever the selector said.
+  Choosing actuals against prior-year actuals and being answered with forecast
+  and target reads as though the selection had been ignored, and invites a
+  figure to be taken off the wrong basis.
+
+  **The commentary reads the same roll-up declarations the tiles read.** The
+  Rollup tab says which lines carry up and which do not, and the tile has
+  always honoured it — a CER declared `Never` shows `–` and *"reported below
+  this level only"*. The commentary did not: at a Global view it wrote **"CER
+  was ▼$0"**, a ratio summed across three countries and printed as money,
+  beside a tile deliberately refusing to show any figure at all.
+
+  Both writers — the pack-format one and the template-styled one — now check
+  the declaration before wording a line, and a line that does not carry up to
+  the level being written about is **named with the reason from the Rollup tab
+  rather than dropped**, in the same words the tile uses:
+
+  > CER — read at the level it is reported, never carried up
+
+  It is also kept out of the *"driven by"* clause, where a summed ratio would
+  otherwise be named as one of the movers behind the result. Lines declared
+  `Sum` are untouched and keep their figures and their drivers.
+
+  **A line that did not move is not a decision.** Floating point leaves
+  −4e-12 on a line whose forecast equals its prior forecast, and the rating
+  reads any negative as unfavourable — so such a line was rated *"Unfavourable
+  · ▼0 / ▼0.0%"* and counted in the decisions badge, beside lines that
+  genuinely moved. A movement below half a unit — the same threshold the
+  commentary uses to decide a comparison said nothing worth a clause — is now
+  rated as no movement.
+
+  **And the same comparison is not stated twice.** On *FY26 vs Target* the
+  card read *"FY26 forecast (3,453) vs FY26 target (3,394) — ▲1.7%"* and then
+  *"FY outlook (3,453) vs target (3,394) — ▲1.7%"*: one fact, twice, inviting
+  the reader to look for a second that is not there. The full-year gap is
+  dropped where the selected basis already *is* the full-year gap — that
+  selection picks `[fyMain, target]`, so its base is the FY target itself. A
+  *YTD vs Target* selection picks `ytdTgt` instead, and keeps the full-year
+  gap beside it, because a different period is a second fact rather than the
+  same one reworded.
+
+  **A ratio is compared on the same basis as the lines beside it.** `ratioKpi`
+  rebuilt its headline from `cmpMode` alone — and a mode is only `py` / `fc` /
+  `tgt`, carrying no period with it. So on *Current QTR vs PY* a ratio compared
+  year-to-date against year-to-date while every ordinary tile beside it
+  compared the quarter: two different questions answered in one panel, with
+  nothing on screen to say which was which. It now runs the selection's own
+  `pick()` over the ratio's recomputed levels — the same call the ordinary path
+  makes — so CER on a quarter selection reads **0.1918**, the quarter, not the
+  **0.1830** year-to-date it used to fall back to.
+
+  **And each comparison reads the column that belongs to it.** A quarter
+  figure is an actual — it is what the vs-prior-year comparison is built from.
+  Where a file carried no *actual* quarter column, the page fell back to
+  whatever quarter column it could find, a forecast one included, and put a
+  forecast on one side of an actuals-to-actuals comparison without saying so.
+  On a file whose only Q2 column is `Q2-26 Forecast`, "Q2 2026 vs Q2 2025"
+  read **9,999 against 240** — a 4,000% movement out of nothing. It now reads
+  the three actual months, 300 against 240. An actual quarter column is still
+  preferred over adding months where the file has one, which on a balance
+  sheet is the difference between a closing position and three times it.
+
+  Following the selection means following it in both directions: choose a
+  target or forecast basis and the commentary talks about target or forecast,
+  because that is what was asked for. The **Commentary — all bases** view is
+  unchanged and still surveys all six: surveying every basis is its purpose,
+  and it is a different question from the one the summary answers.
+
+  **A tab keeps its business even when its country is not in the hierarchy.**
+  A tab named `IWPB HK ex HASE`, against a `CountryHierarchy` that lists
+  `Singapore` and `HASE` but no `HK ex HASE`, used to lose the business
+  altogether: the whole tab name became the country and the `Business` column
+  was left blank. Every Definitions row written for `IWPB` then skipped that
+  tab **in silence**, and the metric simply read low — on a two-tab file,
+  1,496 where the answer was 2,296. The business is now taken from the first
+  word of the tab name where the hierarchy cannot place it, so the tab reads as
+  `IWPB` / `HK ex HASE`: attributed, and still listed under **Unmapped** in the
+  ingest report until a row is added to `CountryHierarchy` to give it a region.
+  Where a definition names a business the file genuinely does not carry, the
+  tile says so rather than blaming a line — *"it is written for "GBM", and no
+  row here is that business — this file carries "IWPB""*.
+
+  **A calculation the file cannot produce keeps its place.** Naming a line the
+  extract does not carry is an ordinary mistake — `NII - Net Interest Income`
+  against a file that heads it `NII - Interest Income` is one word out — and
+  the page must not answer it by removing the tile: a gap the reader cannot see
+  is a gap they cannot question. No figure is invented, but the tile holds its
+  place on the grid and says why, naming what the file does carry:
+
+  > **Banking NII** — no figure on this file
+  > *"NII - Net Interest Income" is not a line at MICA_Level_3 here — the file
+  > carries "NII - Interest Income"*
+
+  Names are compared as sets of words, so word order and punctuation do not
+  defeat the suggestion, and a name with nothing in common offers nothing
+  rather than a misleading guess. Where the line **is** there and a `Product
+  Level` qualifier is the one thing keeping it out, the card says that instead
+  — *"NII - Interest Income" is here, but no row of it meets "Product_Level_7 =
+  Wealth"* — because "line not found" would send the reader after the wrong
+  thing. The ingest report carries the same distinction: a component that
+  merely fails to match leaves the total too big or too small and says so,
+  while a definition **none** of whose lines are in the file reads *"nothing
+  this definition names is in the file, so Banking NII has no figure here and
+  no tile"*.
+
+  **What `−` does.** It reads as one sentence — *the base, less that line* —
+  and takes whichever of two forms the data calls for:
+
+  | Where the line taken out sits | What happens |
+  |---|---|
+  | **inside the base** — `Net Insurance Revenue` carved out of `Revenue` | its rows are **removed from the selection** |
+  | **outside the base** — the same line carved out of `NII - Net Interest Income` | there is nothing to remove, so its **value is subtracted** |
+
+  Both give "the base less that line". The second is carried as rows of its
+  own, named `less <line>`, so every figure downstream sums it exactly as it
+  sums everything else and a drill-down shows it rather than hiding it. There
+  is **one such row per row it stands for**, keeping that row's country,
+  product and segment: a single lumped deduction would carry the first row's
+  dimensions, so the total would still foot while every split by geography was
+  wrong — the worst kind of error, because nothing looks amiss. The ingest
+  report says which form applied and what it was worth. Note that where
+  the line removed is itself negative, "less" **raises** the total — insurance
+  at (396) taken out of NII of 1,100 gives 1,496 — which is arithmetic, not a
+  fault.
+
+  **A metric must equal what it says it is.** Where a definition starts from a
+  line — `Banking NII = Revenue less Net Insurance Revenue` — the ingest report
+  tests that identity on the loaded file, per business: the metric's own rows
+  against the line less the rows taken out. It is the identity that is checked,
+  not the sizes, because where the line taken out is itself negative the metric
+  *should* come out above its base. Two things can be said:
+
+  | What the report finds | What it says |
+  |---|---|
+  | the identity fails | *"**Banking NII (IWPB) reads 812 where Revenue less what it excludes is 750** — its selection reaches rows outside Revenue."* |
+  | the identity holds, but the metric is above its base because the excluded line is negative | *"Banking NII (IWPB) reads 1,146, above Revenue at 750, because Net Insurance Revenue is itself negative at (396) — taking it out raises the total. The definition is doing what it says."* |
+
+  The first is bold, because it is a fault to look into; the second is plain,
+  because it is arithmetic and needs only to be understood.
+
+  **A count is not money either.** `count_patterns` (default: `headcount`,
+  `fte`, `count(s)`, `customers`, `nos`, `number`, `heads`) names the lines
+  that are a number of things rather than an amount of money. Such a line is
+  printed as a plain number — no currency, no restatement into millions or
+  billions because its rows sit under a Key Metrics or memo heading — and it
+  never joins a money total. This is what the `Unit` column says explicitly
+  where a file carries one; the patterns are how a file that carries no units
+  is still read correctly. (`fte`, `headcount` and `count` used to sit in
+  `ratio_patterns`, which made a headcount a ratio; they now have their own
+  setting.)
+
+  **A ratio is never printed on a money basis.** Three things can say a line is
+  a ratio, and any one is enough: the file states its unit as `%`, the pack
+  declares its `Basis` as `Ratio`, or the name itself says so (`ratio_patterns`
+  — CER, ROTE, bps, %). Such a line is shown as the ratio it is — no currency,
+  no restatement into billions because its rows happen to sit beside the
+  balance sheet, and read year to date rather than as a closing balance, since
+  a ratio is not a stock. Its movements are in ratio points (`▼0.01`) with the
+  percentage change beside them. The same precedence applies here as
+  everywhere: what the pack declares, then what the file states, and only then
+  the name patterns — so a line the file calls `Absolute` is a count even if
+  the patterns would have caught its name.
+
+  **A ratio is never carried up.** By default it is shown exactly as the file
+  reports it, at the level the file reports it, and is never added, averaged
+  or rolled into anything — Group CER is not the mean of the countries' CERs,
+  so the page does not offer one.
+
+  **`ratio_recompute` (off by default)** turns on the alternative: rebuilding
+  the ratio at whatever level is asked for, from its components. The
+  **Definitions** tab states it in the lineage form already used for
+  calculated metrics, with one addition — a component whose `Include` cell
+  reads **`/`** (or `÷`, `den`, `over`) is the **denominator**, and the
+  `+` / `−` components are the numerator.
+
+  | Calculation | Business | Line | Include | MICA level |
+  |---|---|---|---|---|
+  | CER | | Total Direct Cost | + | L2 |
+  | CER | | Total Indirect Costs | + | L2 |
+  | CER | | Revenue | / | L2 |
+
+  With it on, wherever that line appears, at whatever scope, it is worked out
+  again from the lines in that scope — the KPI tile, the drill-down, each
+  Business performance cell, each Financial Summary row — and **every basis
+  with it**:
+  the prior year ratio is PY cost over PY revenue, the target ratio is target
+  over target, and the monthly path is a ratio month by month rather than a
+  running sum. Three details the pack does not have to state: a file carrying
+  costs as negatives still prints a positive ratio (opposite-signed sides are
+  taken on their magnitudes); direction follows the numerator, so a rising CER
+  rates unfavourable while a rising ROTE does not; and a line the extract calls
+  `CER%` resolves to a definition written as `CER` — punctuation and a trailing
+  per-cent sign are not a different metric, and the `Match` column names the
+  rest. Where the file *also* reports the line, the reconciliation says so, so
+  the two can be compared rather than one quietly winning — on the sample
+  extract the reported CER% reads 0.52 against 0.5096 rebuilt from its own
+  cost and revenue lines. `ratio_display` (`as reported` by default, or
+  `percent`) decides whether `0.51` prints as `0.51` or `51.0%`, whichever
+  mode is in force. With `ratio_recompute` off — the shipped setting — none of
+  this runs: the ratio is the file's figure, and it is still never summed.
+
+  **A metric reported at Group is read at Group.** Where the extract carries a
+  line at `Global` or `Group` **as well as** by country — the shape a
+  reporting pack uses when a metric is owned centrally — adding both counts it
+  twice. Which row to read follows from what is being asked:
+
+  | The view | Reads |
+  |---|---|
+  | the group view (nothing scoped) | the **reported Global / Group row**; the country rows are set aside |
+  | a breakdown by geography (a chart or table by country) | the **country rows**; the group row is set aside, so it never stands beside them as a phantom country |
+  | scoped to a country or region | that scope's own rows |
+
+  **A reported row always wins; otherwise the `Roll up` column decides.** A
+  line the sheet declares `Sum` is built up from the countries at Group — that
+  is what rolling up means. A line declared `As reported` or `Never` is not:
+  it has a figure at a level only where the file reports one there, and where
+  it does not, the tile shows a dash and says *"reported below this level only
+  — never carried up"* rather than inventing one from the parts. This is how a
+  metric calculated somewhere else behaves — **CER and ROTE** come from their
+  own source and arrive as their own rows, so where such a row exists it is
+  the figure and where it does not there is none.
+
+  Its rows still belong to their parent: a fee line taken as reported is still
+  inside Revenue when Revenue rolls up, so casting is unaffected. And coverage
+  is **per line, not per file** — a Group tab carrying only CER and a fee
+  metric speaks for the Group on those two lines and leaves everything else to
+  roll up from the countries exactly as before. `grain_declared: N` switches
+  the declaration side off.
+
+  The two are never added together and nothing is ever apportioned downwards.
+
+  **The unit follows the grain**, on the same `mn` / `bn` / `Absolute` logic as
+  everywhere else. A pack may report a line in `$Bn` at Group and `$mn` by
+  country — that is two statements, each true of its own rows, not a
+  disagreement — so each view is stated in the unit of the rows it reads and
+  neither is labelled with the other's. The group view of such a line reads
+  `US$bn 3.6` where Singapore reads `US$m 1,401`. Two units under one name at
+  the **same** grain is a genuine disagreement, and there neither is taken.
+  The ingest report names the lines this affects and says which row each view
+  takes; `grain_reported: N` switches it off, and then both grains sit in
+  scope together exactly as they did before. This is the acting-on of what the
+  roll-up reconciliation's grain section reports, and it is separate from
+  `group_consolidation`, which handles a Group **tab** rather than a group row
+  inside a tab.
+
+  **Nothing is totalled across kinds.** Money, a count and a ratio share a
+  column in the extract and mean three different things, so a scope carrying
+  more than one kind draws no total — on the tiles, in the drill-down, in the
+  Financial Summary and in every export — and the page names the kinds it
+  found. A parent line over mixed kinds shows no figure at all, **including
+  the percentages worked out from it**, which would be the same false sum
+  wearing a percent sign. Two more that look additive and are not: counts of
+  different things (staff and customers), and a ratio over more than one row —
+  an average of ratios is not the ratio of the whole. Scales are different:
+  money in millions and money in billions are one kind, held in the file's own
+  unit and divided only when printed, so they still add — **as long as the
+  rows that would be added to each other agree on their scale.**
+
+  **Rows the file itself states at different scales are not added as they
+  stand.** `sumCols` adds the figures as the file holds them, which is right
+  when a line's rows are all at one scale and wrong when they are not: 500
+  stated in `$mn` and 2 stated in `$bn` are 2,500 million, and adding them as
+  they stand says **502** — a figure that looks perfectly ordinary and is wrong
+  by a factor of five. The ingest report already told the reader that no total
+  is drawn across a line whose rows disagree on their unit; the guard now makes
+  that true, because it reads the row's own `Unit` cell rather than only what
+  the pack declares the line to be. Such a parent shows `–` and says *"the file
+  states this line in US$m and US$bn — figures at two scales are not added as
+  they stand"*.
+
+  A P&L stated in millions beside balances stated in billions is **ordinary and
+  untouched**: those two are never summed into one figure anyway — the
+  statement keeps them apart, not the scale — so each side is judged against
+  itself. Where a scope clashes on *kind* as well as scale, the kind is what is
+  said: a ratio, a count and money added together is the deeper fault.
+
+  Two things the sheet cannot vote away. A ratio is never additive, whatever
+  it is declared as. And **a sum is taken on the file's own actuals YTD
+  column for the month in hand** — Jun YTD, May YTD — never by adding
+  months together; where a month has no YTD column in the file the report
+  says the figure was built from months, so the reader knows. Balances are
+  read at one closing month and never accumulated across months, and a
+  parent is footed against children of its own statement only: a balance is
+  never added into a P&L, whatever any sheet says.
+
+  **This phase reports, it does not yet drive the figures.** Loading a file
+  adds a **Roll-up** row to the ingest report with a **⤓ Roll-up
+  reconciliation (Excel)** download, so the declarations can be proved
+  against a real extract before anything on a page consults them. The
+  workbook carries, in order: the YTD column against the months behind it
+  (where they differ, the column is authoritative and the gap is sized);
+  lines the file carries at more than one grain, with both totals, flagging
+  any that have no `Grain` declared — adding the finer rows there would
+  double count the coarser one; mapping completeness, parent against
+  children, month by month; parents whose children span both statements;
+  declarations that match nothing in this file (a typo, not a policy);
+  notes on calculated metrics, including a component the file does not
+  carry, which contributes zero rather than a gap; the unit each line is
+  declared in with what it divides by, so a declaration that restates a
+  figure is distinguishable from one that only names it; and the grain
+  declarations themselves. `rollup_tolerance` (default `0.5`, in the file's
+  own units) sets how close a footing must be to count as tied. With no
+  `Rollup` sheet the report says so and every line aggregates exactly as it
+  always has.
+- **Views** — enable/disable each page (summary, fsum, custom, builder,
+  query, table, assist, sim).
+
+The applied config persists in the browser and re-parses the cached data
+file immediately; **Reset to defaults** reverts everything. Blank values
+fall back to defaults, and an unreadable config never breaks the app.
+
+## Sample data
+
+`sample/IWPB_SG_Driller_sample.xlsx` mirrors the real file's 15 dimension +
+28 period column layout with synthetic values, for testing without exposing
+real data. Regenerate with:
+
+```
+cd sample && python3 make_sample.py   # needs openpyxl
+```
+
+`sample/IWPB_SG_Driller_sixbasis.xlsx` is the same IWPB structure carrying
+every comparison the pack writes commentary on at once — prior-year months and
+quarters, a June YTD target, July–December forecast months, an FY-26 forecast,
+an FY-25 actual and an FY-26 target — so **All commentaries** offers all six
+bases and the **⤓ Word** download comes out complete. Regenerate with
+`python3 make_sample_sixbasis.py`. The month's written commentary rides in
+the IWPB config pack's `Commentary` sheet — eight untagged paragraphs,
+matched to their lines when read.
+`sample/IWPB_SG_Jun26_SixBasis_Commentary.docx` is what the ⤓ Word download
+produces from that TM1 extract and pack together — a worked example of the six
+bases as a document.
+
+`sample/IWPB_GrainUnits_Driller.xlsx` is the grain-mix extract with a `Unit`
+column that reports the Global rows in `$Bn` and the country rows in `$mn` —
+load it to see the same line read `US$bn 3.6` at Group and `US$m 1,401` for
+Singapore.
+
+`sample/IWPB_CER_ThreeCountries.xlsx` is the same extract split across
+Singapore, Malaysia and Vietnam, each reporting its own CER%. Load it to see
+a ratio refuse to roll up: the three read 0.4526, 0.5470 and 0.5583, and the
+Group tile shows no figure at all rather than the 1.5579 they would sum to.
+
+`sample/IWPB_UnitColumn_Driller.xlsx` is a reporting extract that states each
+line's unit in a `Unit` column — `$mn`, `$Bn`, `mn`, `Absolute`, `%` — with a
+`Key Metrics` block that mixes all of them, and one deliberate typo (`$mb`).
+Load it to see each line printed in its own unit, the typo named in the ingest
+report, and the mixed parent refusing to draw a total.
+
+`sample/IWPB_GrainMix_Driller.xlsx` is the extract to load when checking the
+**Rollup** declarations: it carries a `Global` tab reporting the same MICA
+lines as its three country tabs, so the roll-up reconciliation flags every
+line that sits at two grains — and shows both totals, so the size of the
+double count that adding the finer rows would cause is on the page.
+
+### Two worked reporting packs
+
+Two config workbooks in the repo root carry a real pack's structure end to
+end, each with a TM1 extract in `sample/` that ties to it line for line:
+
+- `IWPB_dashboard_config_pack.xlsx` — the IWPB pack: PBT ex Notables over
+  Revenue (Banking NII / Fees and Other Income), the cost stack and the
+  balance sheet, with `sample/IWPB_Pack_RealMica_Driller.xlsx`.
+- `CIB_dashboard_config_pack.xlsx` — the CIB Asia & MENAT pack, with
+  `sample/CIB_AME_Jun26_Driller.xlsx`. Its account hierarchy reads
+  **PBT (Reported) = PBT (ex Notables) + Notables**, so the page's two P&L
+  blocks become one cascade that ties instead of two that double-count:
+  under ex Notables sit Total Revenue (ex Notables) → MSS, Credit and
+  Lending (o/w Portfolio Management), Global Trade Solutions, HIF, Global
+  Payments Solutions, CMA Net, Other Revenue; ECLs; and Total Operating
+  Expenses → Direct Costs (ex VP) (o/w ex Litigation, o/w Litigation),
+  Variable Pay (VP), Indirect Costs. Deposits, loans and RWAs each stand at
+  the top of their own branch — nothing sits above them, because a node
+  above would print a total that adds a deposit book to a risk-weighted
+  asset. The reported revenue split (Banking NII / Fee and other income) is
+  a second cut of the same rows, carried as an `Income_Type` column and
+  declared in the config's Dimensions sheet, so it reads as tiles and as a
+  cascade level rather than as duplicated lines. Its **ProductHierarchy** is
+  the other cut again — what the revenue is *earned on* rather than which
+  line it prints as: Markets and Securities Services (Markets → FX, Rates,
+  Credit, Equities; Securities Services → Custody, Fund Administration,
+  Issuer Services), Global Payments Solutions, Global Trade Solutions,
+  Credit and Lending, Capital Markets and Advisory, HIF and Other, with each
+  balance sitting under the product that raises it and the costs, RWAs and
+  key metrics marked **Non product aligned** rather than spread across a
+  product they do not belong to. It adds back to the same 8,747, so a
+  product breakdown and the P&L cascade are two readings of one number.
+
+Both are generated by scripts in `sample/` (`make_config_pack.py`,
+`make_cib_config.py`, `make_cib_driller.py`). The **Match** column in
+AccountHierarchy is an exact list of the names a TM1 extract uses for that line,
+separated by `|` — extend it with your own file's vocabulary, and the ingest
+report's **Hierarchy check** names anything that did not land.
+
+## Drag & Drop Charts
+
+The **Drag & drop charts** page is a field-based chart builder. Drag any
+dimension chip (MICA levels, Product levels/code, Segment, Function, Entity)
+into the **Group by** well — or click a chip to assign it — and optionally a
+second field into **Split by** for stacked segments. Pick the KPI scope, the
+measure and the chart type; the preview renders live and respects the
+right-pane filters. The measure dropdown offers every comparison the file
+serves, whatever else it carries: YTD actuals, paired **actual vs PY / vs
+YTD forecast / vs YTD target** (side-by-side bars with variance labels),
+the single bases and their variances, and the FY measures — a prior-year
+file no longer hides the forecast and target measures.
+
+Eleven chart types are available everywhere a chart-type dropdown appears
+(Mix analysis, the builder, and every pinned chart widget): Column,
+Horizontal bar, Lollipop, Line, Area, Pie, Donut, Waterfall (category
+build-up to total), Pareto (ranked bars + cumulative share), Treemap, and
+Scatter CY vs PY (points above the diagonal grew year-on-year). Split by
+adds stacked variants of column and horizontal bar. **Pin to My dashboard** saves the chart as a widget you
+can drag to rearrange, and each pinned chart keeps its own chart-type
+dropdown in its header. Top 8 categories are shown (6 for donuts) with the
+rest folded into Other.
+
+## Query Builder
+
+The **Query builder** page reviews fields and data directly, in the
+management-reporting drag-and-drop pattern: a searchable Available Fields
+panel (grouped MICA / Product / Segment / Function / Entity plus every
+period column) with +F / +O / +S shortcuts, a **Filters** well with
+per-field operators (contains / equals / not equals / blank for text; > <
+= etc. for period columns) and value suggestions, an ordered **Output
+Columns** well (drag entries to change the result column sequence) and a
+**Sort By** well with direction toggles. Queries can be saved, loaded and
+deleted by name. Run Query renders the result grid (first 500 rows) and
+exports the full result set to styled Excel. The chart builder's wells
+also accept **multiple Group by and multiple Split by fields** — values
+concatenate into hierarchical categories.
+
+## Excel export
+
+Everything exports back to Excel, generated locally in the browser:
+
+- **KPI summary → ⤓ Export to Excel** — one workbook with the KPI summary
+  (values, variance, RAG), the Mix analysis chart data and all filtered
+  source rows.
+- **Mix analysis / chart builder → ⤓ Excel** — the displayed chart's data.
+- **My dashboard** — every widget has a ⤓ button exporting that widget's
+  data (KPI figures, monthly series, breakdown or chart categories).
+- **Data → ⤓ Export all rows** — every filtered source row (not just the
+  400 shown), with the original column headers.
+
+Exports honour the active filters, and each file is stamped with the filter
+context and date. Workbooks are formatted: header rows carry the HSBC red
+fill with bold white text, titles are bold, and column widths auto-fit the
+content.
+
+## PowerPoint export
+
+Every chart exports to a widescreen .pptx deck (generated locally):
+**⤓ PPT** buttons on the Mix analysis panel, and the chart builder preview
+export one slide each. My dashboard has two deck exports: **⤓ PPT (this
+page)** takes just the widgets on the page you're viewing, and **⤓ PPT
+all pages** takes every widget across all pages — charts as
+high-resolution images, KPI cards and breakdowns as styled tables — with
+titles, the red accent rule and the filter context in the footer.
+
+**One type scale across every deck.** A slide title is the same size whether
+it opens a deck or continues it, and headings, paragraphs, notes, legends and
+table cells match from one export to the next — the sizes live in a single
+`PPT_FS` scale rather than being chosen per slide. The KPI tiles settle their
+own three sizes once across the whole grid, off the longest name, value and
+comparison in the set, so a short line no longer prints larger than a long one
+beside it. The Financial Summary's dense table is the deliberate exception: it
+still fits itself to its column count, always smaller than the body size.
