@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 09:01)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 09:41)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 09:01)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 09:41)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 09:01</div>
+<div id="buildTag">build 2026-08-19 09:41</div>
 </aside>
 <main>
 
@@ -5178,8 +5178,11 @@ function tplCommentaryHtml(style){
   const LV=houseLevels(); if(!LV.length) return '';
   const atF=fileOrder(m);
   const walk=[...groupBy(rows,LV[0]).entries()].filter(([n])=>n&&n!=='(blank)')
-    .map(([name,rs])=>({name, rs, notHere:lineNotAtGrain(name, rs),
-      noSum:!lineNotAtGrain(name, rs)&&lineNoSum(rs)}));
+    .map(([name,rs0])=>{
+      const notHere=lineNotAtGrain(name, rs0);
+      const rs=rollableRows(rs0);
+      return {name, rs, rs0, notHere, noSum:!notHere&&lineNoSum(rs)};
+    });
   /* the Rollup tab decides whether a line exists at the level being written
      about. One declared Never has no figure here to word a template with, and
      filling the pattern from a sum of its rows states a number the tile beside
@@ -5413,7 +5416,55 @@ function fileOrder(m){
    \u2014 which is how a variance of several hundred per cent appears on a line
    that never moved that far. The reason is given instead of the figure, in the
    same words the tile uses. */
-function lineNoSum(rs){ return mixedScope(rs)||mixedUnits(rs); }
+/* rollupRule() already knows whether a line is additive at all, but it is not
+   free \u2014 it reads the declarations and the file's own units \u2014 and a
+   global extract asks about the same handful of names tens of thousands of
+   times. The answer only moves when the pack or the file does. */
+let ROLLRULE_CACHE=new WeakMap();
+function rollRuleCached(level, name){
+  let e=ROLLRULE_CACHE.get(CFG);
+  if(!e||e.model!==S.model){ e={model:S.model, map:new Map()}; ROLLRULE_CACHE.set(CFG, e); }
+  const k=level+'\u0000'+name;
+  if(e.map.has(k)) return e.map.get(k);
+  const r=rollupRule(level, name);
+  e.map.set(k, r);
+  return r;
+}
+/* Is this row part of what the line above it adds up to? A CER row filed
+   under MICA Level 1 "PBT" is not a component of profit \u2014 it is a ratio,
+   worked out from a different source, and the pack says so. It is reported in
+   its own right at its own level. Leaving it inside PBT put a ratio and money
+   in one sum, which made the whole of PBT unreportable at Group while every
+   country beneath it read perfectly well, because the ratio was only filed at
+   the rolled-up level. */
+function rowRollsUp(r){
+  for(const L of ['micaL4','micaL3','micaL2']){
+    const nm=String(r.d[L]||'').trim(); if(!nm) continue;
+    const rule=rollRuleCached(L, nm).rule;
+    if(rule==='never'||rule==='memo') return false;
+  }
+  return true;
+}
+let ROLLABLE_CACHE=new WeakMap();
+function rollableRows(rows){
+  if(!rows||!rows.length) return rows;
+  const e=ROLLABLE_CACHE.get(rows);
+  if(e&&e.model===S.model&&e.cfg===CFG) return e.out;
+  const kept=rows.filter(rowRollsUp);
+  /* nothing taken out, or everything taken out: hand back what came in. The
+     first keeps the row array identity every cache downstream depends on; the
+     second is a line that is itself never carried up, and lineNotAtGrain has
+     already said so in its own words. */
+  const out=(kept.length&&kept.length!==rows.length)? kept : rows;
+  ROLLABLE_CACHE.set(rows, {model:S.model, cfg:CFG, out});
+  return out;
+}
+/* A line carries no total where its own rows are not one kind of thing. This
+   is the tiles' rule, and the commentary now keeps it \u2014 but only after
+   the rows that were never part of the line have been taken out. A block that
+   spans both statements is a separate question, settled where the block's own
+   figure is decided. */
+function lineNoSum(rs){ return mixedUnits(rs); }
 function lineNoSumWhy(rs){
   return mixedScope(rs)&&!mixedUnits(rs)
     ? 'a profit and loss line and a balance are never added together'
@@ -5436,7 +5487,7 @@ function houseBlock(rows, secName){
   const dimKey=houseDimKey(), dimLbl=FIELD_LABELS[dimKey]||dimKey;
   const LV=houseLevels(), NDRV=houseDrvCount();
   if(!LV.length) return '';
-  const kT=kpi(rows,m,S.ytdM,S.includeFC);
+  const kT=kpi(rollableRows(rows),m,S.ytdM,S.includeFC);
   const mainOf=k=>k.cmpMain;
   const per=(name,rs,depth)=>{
     /* the Rollup tab decides whether this line exists at this level at all.
@@ -5445,6 +5496,7 @@ function houseBlock(rows, secName){
        rows produces one that means nothing. */
     if(lineNotAtGrain(name, rs))
       return `<li><b>${esc(name)}</b> \u2014 ${esc(rollupWhyNotHere(name))}${comTail(name)}</li>`;
+    rs=rollableRows(rs);
     if(lineNoSum(rs))
       return `<li><b>${esc(name)}</b> \u2014 no total: ${esc(lineNoSumWhy(rs))}${comTail(name)}</li>`;
     const k=kpi(rs,m,S.ytdM,S.includeFC);
@@ -5454,8 +5506,11 @@ function houseBlock(rows, secName){
     return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}${covNoteHtml(k,rs,L)}${comTail(name)}</li>`;
   };
   const l1All=[...groupBy(rows,LV[0]).entries()]
-    .map(([name,rs])=>({name, rs, notHere:lineNotAtGrain(name, rs),
-      noSum:!lineNotAtGrain(name, rs)&&lineNoSum(rs)}))
+    .map(([name,rs0])=>{
+      const notHere=lineNotAtGrain(name, rs0);
+      const rs=rollableRows(rs0);
+      return {name, rs, rs0, notHere, noSum:!notHere&&lineNoSum(rs)};
+    })
     .filter(g=>g.name);
   /* a line the pack never carries up to this level is not narrated as though
      it had a figure here, and \u2014 just as important \u2014 is kept out of
@@ -5474,9 +5529,11 @@ function houseBlock(rows, secName){
   const totLbl=single? l1[0].name : (secName||totalLabel(l1Names(rows)));
   const noTot=(secName? fsumNoTotal().has(String(secName).toLowerCase()) : false)
     || (!single&&!fsumTotalOK(rows))
-    // and a block that spans both statements, or units that do not add, has
-    // no headline figure either \u2014 the same rule as the line beneath it
-    || lineNoSum(rows);
+    /* A block that spans both statements has no headline figure: a profit and
+       a balance are never one number. Nor has one whose remaining rows are not
+       one kind of thing \u2014 asked of the rows that belong to the block,
+       after anything the pack never carries up has been taken out. */
+    || mixedScope(rows) || lineNoSum(rollableRows(rows));
   let h='';
   if(!(noTot&&!single)){
     h=`<p>(${esc(L.main)}) <b>${esc(totLbl)}</b> of <b>${faVal(single? l1[0].k : kT)}</b> is ${faTxt(kT)} vs ${esc(L.base)}`;
@@ -9129,12 +9186,28 @@ function comTplNoScope(pat){
     .replace(/\{scope\}/g,'')
     .replace(/\s{2,}/g,' ').replace(/\s+([,.;])/g,'$1');
 }
-function caSectionHtml(sec){
+/* One section's commentary, built. Everything that decides what it says is in
+   the signature above it, so the page can hold the answer rather than work it
+   out again for the same question. */
+function caSectionHtmlRaw(sec){
   const m=S.model, rows=filteredRows();
   if(!rows.length) return '';
   const tree=fsumTree(rows).filter(r=>!r.band&&r.name);
   if(!tree.length) return '';
-  const has=(parent,child)=>child!==parent&&child.rows.length&&child.rows.every(x=>parent.rows.includes(x));
+  /* Is every row of the child also a row of the parent? This asked the
+     question with Array.includes inside every(), which walks the parent's
+     rows once per row of the child \u2014 on a global extract that is a
+     hundred and eighty million comparisons for a single pair, and it is
+     asked for every pair in the tree. The parent's rows are put in a set
+     once instead, and each node keeps its own. */
+  const SETS=new WeakMap();
+  const setOf=n2=>{ let st=SETS.get(n2); if(!st){ st=new Set(n2.rows); SETS.set(n2,st); } return st; };
+  const has=(parent,child)=>{
+    if(child===parent||!child.rows.length) return false;
+    const st=setOf(parent);
+    for(const x of child.rows) if(!st.has(x)) return false;
+    return true;
+  };
   const kidsOf=parent=>tree.filter(r=>(r.lvl||0)===(parent.lvl||0)+1&&has(parent,r));
   const tops=tree.filter(r=>(r.lvl||0)===0);
   if(!tops.length) return '';
@@ -9245,6 +9318,38 @@ function caSectionHtml(sec){
   }
   return h;
 }
+/* What a section's commentary depends on. The same list the page already uses
+   to decide whether a saved commentary still applies, plus the things that
+   change how a figure is printed. */
+let CA_HTML_CACHE=new Map(), CA_HTML_SIG=null;
+function caSecSig(){
+  let ord=''; try{ ord=JSON.stringify(fsumOrdStore()); }catch(e){}
+  return ['ca', S.fileName, S.ytdM, S.includeFC, S.units, S.reportYear||'cy',
+    filterNote(true), comInSig(), S.comStyle, (CFG.comtpl||[]).length,
+    (CFG.commentary||[]).length, CA_ORIG, ord].join('|');
+}
+function caSectionHtml(sec){
+  const sig=caSecSig();
+  if(sig!==CA_HTML_SIG){ CA_HTML_CACHE=new Map(); CA_HTML_SIG=sig; }
+  if(CA_HTML_CACHE.has(sec.id)){
+    // the "already said" state is reset at the head of every section, so a
+    // cached section leaves it exactly as a rebuilt one would
+    comSaidReset();
+    return CA_HTML_CACHE.get(sec.id);
+  }
+  const out=caSectionHtmlRaw(sec);
+  CA_HTML_CACHE.set(sec.id, out);
+  return out;
+}
+/* Every held answer, let go of. A WeakMap cannot be emptied, so each is
+   replaced. Nothing on the page needs this \u2014 the signatures take care of
+   themselves \u2014 but a test that means to prove an answer was held rather
+   than merely repeated has to be able to take it away. */
+function calcCacheClear(){
+  FSUMTREE_CACHE=new WeakMap(); FSUMFIGS_CACHE=new WeakMap();
+  ROLLRULE_CACHE=new WeakMap(); ROLLABLE_CACHE=new WeakMap();
+  CA_HTML_CACHE=new Map(); CA_HTML_SIG=null;
+}
 function renderComAll(){
   const m=S.model, host=$('comallList'); if(!host) return;
   const P=fsumPlan(m,S.ytdM);
@@ -9336,7 +9441,23 @@ function fsumPlan(m, ytdM){
     ytdLbl:`${MON_LBL[ytdM]} YTD`};
 }
 /* every figure one line of the summary needs */
+/* The same line's figures are asked for once per comparison the page writes
+   \u2014 six times on All Commentaries, over thirteen thousand rows each time.
+   The answer depends on the rows, the line's name and the signature above,
+   and on nothing else. */
+let FSUMFIGS_CACHE=new WeakMap();
 function fsumFigs(rows, m, P, ytdM, name){
+  let per=FSUMFIGS_CACHE.get(rows);
+  const key=(name||'')+'|'+ytdM+'|'+calcSig();
+  if(per&&per.has(key)) return per.get(key);
+  const out=fsumFigsRaw(rows, m, P, ytdM, name);
+  if(!per){ per=new Map(); FSUMFIGS_CACHE.set(rows, per); }
+  // one line's worth per set of rows is plenty; a page never asks for more
+  if(per.size>64) per.clear();
+  per.set(key, out);
+  return out;
+}
+function fsumFigsRaw(rows, m, P, ytdM, name){
   const k=kpi(rows,m,ytdM,S.includeFC);
   const sum=cols=>cols.length? sumCols(rows, cols.map(p=>p.col)) : null;
   // The file's own roll-up columns are authoritative: the quarter figure comes
@@ -9542,7 +9663,31 @@ function fsumAncestorTotal(rows){
   const vals=new Set(rows.map(r2=>String(r2.d[pk]||'').trim()).filter(Boolean));
   return vals.size===1? [...vals][0] : '';
 }
+/* Everything a derived figure depends on besides the rows themselves. Two
+   calls with the same rows and the same signature must produce the same
+   answer, which is what makes holding on to the first one safe. */
+function calcSig(){
+  return [S.ytdM, S.includeFC?1:0, S.units, S.varPeriod, S.reportYear||'cy',
+    S.fileName, (S.model? S.model.rows.length : 0),
+    cfgS('calc_ytd_actuals'), cfgS('calc_fy_forecast'), cfgS('calc_ytd_forecast'),
+    cfgS('calc_forecast_weights'), cfgS('calc_variance_period'), cfgS('calc_cmp_priority'),
+    cfgS('ratio_display'), cfgS('bs_unit'), cfgS('fsum_levels'), cfgS('fsum_depth'),
+    cfgS('display_units'), cfgS('unit_decimals')].join('|');
+}
+/* The cascade was rebuilt from scratch by every caller that wanted to read a
+   line off it \u2014 six times over on the All Commentaries page, and again
+   for each section's headline. It is built once per set of rows, and each
+   caller is handed its own nodes over the same row arrays, so anything a
+   caller does to a node stays with that caller while the figures below can
+   still be recognised as the same rows. */
+let FSUMTREE_CACHE=new WeakMap();
 function fsumTree(rows){
+  let e=FSUMTREE_CACHE.get(rows);
+  const sig=calcSig();
+  if(!e||e.sig!==sig){ e={sig, out:fsumTreeRaw(rows)}; FSUMTREE_CACHE.set(rows,e); }
+  return e.out.map(n=>({...n}));
+}
+function fsumTreeRaw(rows){
   const lv=fsumLevels().slice(0,fsumDepth()), L1=lv[0];
   const ow=cfgYes('fsum_ow')? 'o/w ' : '';
   const m=S.model, out=[];
@@ -13972,7 +14117,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-19 09:01</td></tr>
+      <tr><td>Build</td><td>2026-08-19 09:41</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
