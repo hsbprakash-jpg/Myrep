@@ -1749,6 +1749,15 @@ What each section governs:
   worked out again on restore, which is quick and cannot go stale against a
   configuration that has changed since.
 
+  **A cache written before this existed upgrades itself on the first open.**
+  The model is kept whenever the workbook is parsed, whatever the bytes came
+  from. An earlier version kept it only when the bytes were freshly uploaded —
+  so a reader whose cache predated the model cache fell back to the workbook,
+  parsed it, threw the model away, and did the same again on every open after
+  that. The slow path forever, for exactly the readers who had been using the
+  page longest. On a 21,780-row file: first open 49.6s (parses, then keeps the
+  model), every open after 12.6s.
+
   Two things this must not break, both checked: a restored page has to be
   **identical**, not merely fast — same rows, dimensions, countries and tile
   figures as a fresh parse, verified across seven sample shapes including the
