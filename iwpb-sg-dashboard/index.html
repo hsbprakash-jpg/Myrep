@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 07:22)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 07:46)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 07:22)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 07:46)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 07:22</div>
+<div id="buildTag">build 2026-08-19 07:46</div>
 </aside>
 <main>
 
@@ -4789,11 +4789,31 @@ function slideCommentaryHtml(){
   return h;
 }
 
+/* Is a dimension worth naming as the mover here \u2014 does the scope actually
+   hold more than one of them? A single business "leading" the Group is the
+   Group's own figure said a second time, and reads as though the page had
+   nothing to add. Stops at the second distinct value, so this costs nothing
+   on a large extract. */
+function dimHasSpread(key){
+  let seen=null;
+  for(const r of filteredRows()){
+    const v=String(r.d[key]||'').trim(); if(!v) continue;
+    if(seen==null) seen=v; else if(v!==seen) return true;
+  }
+  return false;
+}
 /* house-style management commentary: cascading actuals-vs-baseline narrative */
 function houseDimKey(){
   const m=S.model, want=cfgS('commentary_dim');
   if(want&&want in m.dimCols) return want;
   if(HOUSE_DIM&&HOUSE_DIM in m.dimCols) return HOUSE_DIM;
+  /* At Group \u2014 nothing pinned to one business, region or country \u2014 the
+     movers a reader is asking after are the businesses. The order below reached
+     for the entity first, and a Group sentence that reads "led by 4040_1MGT"
+     names a ledger code to an audience that reports in business lines. Below
+     Group the scope has already named the business, so the original order
+     stands there. Either way the Driven by selector overrides this. */
+  if(!scopeTrail() && 'business' in m.dimCols && dimHasSpread('business')) return 'business';
   return ['cgL2','entity','funcL2','prodL2','prodL3','micaL3']
     .find(k=>k in m.dimCols) || Object.keys(FIELD_LABELS).find(k=>k in m.dimCols);
 }
@@ -13816,7 +13836,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-19 07:22</td></tr>
+      <tr><td>Build</td><td>2026-08-19 07:46</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
