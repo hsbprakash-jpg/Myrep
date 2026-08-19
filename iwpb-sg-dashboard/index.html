@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 10:29)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 10:31)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 10:29)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 10:31)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 10:29</div>
+<div id="buildTag">build 2026-08-19 10:31</div>
 </aside>
 <main>
 
@@ -2414,7 +2414,11 @@ const VP_DEFS={
   mth_tgt:{mode:'tgt', grain:'month', line:'tgt',
     lbl:c=>`Month vs Target (${c.mon}-${c.cyy} vs ${c.mon}-${c.cyy} target)`,
     main:c=>`${c.mon}-${c.cyy}`, base:c=>`${c.mon}-${c.cyy} target`, vs:c=>`vs ${c.mon}-${c.cyy} target`,
-    avail:m=>!!(m.targetCols&&m.targetCols.length), pick:v=>[v.mth, v.mthTgt]},
+    /* offered only where the file states a target for the selected month. It
+       used to be offered wherever a full-year target existed, and the baseline
+       was a twelfth of it. */
+    avail:(m,ytdM)=>!!mthTgtCol(m, ytdM==null? (typeof S!=='undefined'? S.ytdM : 0) : ytdM),
+    pick:v=>[v.mth, v.mthTgt]},
   mth_fc:{mode:'fc', grain:'month', line:'fc',
     lbl:c=>`Month vs Forecast (${c.mon}-${c.cyy} vs ${c.mon}-${c.cyy} forecast)`,
     main:c=>`${c.mon}-${c.cyy}`, base:c=>`${c.mon}-${c.cyy} forecast`, vs:c=>`vs ${c.mon}-${c.cyy} forecast`,
@@ -2507,12 +2511,20 @@ function classifyPeriod(raw, bandVal){
   if(/^fy\b|^fy[- ']|^fy\d/.test(t)) return {type:'ytd', label:String(raw), target:isTarget, fy:true, fc:isFc};
   let q = t.match(/^([1-4])\s*q\s*'?(\d{2,4})/) || t.match(/^q([1-4])(?:\s*[-' ]\s*(\d{2,4}))?/);
   if(q){
-    if(isTarget) return {type:'ytd', label:String(raw), target:true};
+    /* "2Q26 Target" was recognised as a target and then had the quarter
+       thrown away, so nothing could ever find it and the quarter's target
+       was a phased slice of the full year instead. It keeps its quarter. */
+    if(isTarget) return {type:'ytd', label:String(raw), target:true,
+      q:+q[1], year:q[2]!=null?(+q[2])%100:null};
     return {type:'quarter', q:+q[1], year:q[2]!=null?(+q[2])%100:null, fc:isFc, label:String(raw)};
   }
   const mi = MON.findIndex(m=>t.startsWith(m));
   if(mi>=0){
-    if(isTarget) return {type:'ytd', label:String(raw), target:true};
+    // ...and a month's target keeps its month, for the same reason
+    if(isTarget){
+      const ty=t.match(/\b20(\d{2})\b/) || t.match(/^[a-z]{3,9}[\s\-.']+(\d{2})\b/);
+      return {type:'ytd', label:String(raw), target:true, m:mi, year:ty?ty[1]:null};
+    }
     const my=t.match(/\b20(\d{2})\b/) || t.match(/^[a-z]{3,9}[\s\-.']+(\d{2})\b/);
     return {type:'month', m:mi, fc:isFc, year:my?my[1]:null, label:String(raw)};
   }
@@ -2702,6 +2714,13 @@ function parseSheet(aoa){
   const pyYY2=String(yearPY).slice(-2);
   const pyYtdAsOfCols=ytdCols.filter(p=>!p.target&&!p.fy&&!p.fc&&p.ytdM!=null&&p.ytdYear===pyYY2).sort(byM);
   const ytdTgtAsOfCols=ytdCols.filter(p=>p.target&&!p.fy&&p.ytdM!=null&&(p.ytdYear==null||p.ytdYear===cyYY)).sort(byM);
+  /* a target stated for one month, or for one quarter, rather than for the
+     year. Where the file states one, it is the baseline; where it does not,
+     there is no monthly or quarterly target \u2014 a slice of the full-year
+     target is a number the file never states, which is the same rule the
+     year-to-date target has always been held to. */
+  const mthTgtCols=ytdCols.filter(p=>p.target&&!p.fy&&p.m!=null&&(p.year==null||p.year===cyYY));
+  const qTgtCols=ytdCols.filter(p=>p.target&&!p.fy&&p.q!=null&&(p.year==null||String(p.year).padStart(2,'0')===cyYY));
   const fcProfile=cyMonths.map(p=>({m:p.m, w:rows.reduce((s2,r)=>s2+Math.abs(r.v[p.col]||0),0)}));
   // a file that never says its year still reports as one: the config's
   // report_year, else the calendar year the page runs in \u2014 the column
@@ -2713,7 +2732,8 @@ function parseSheet(aoa){
   if(!/^\d{4}$/.test(String(yearPY))) yearPY=String(+yearCY-1);
   return {rows, header, dimCols, missing, pyMonths, cyMonths, quarterCols, ytdCols, targetCols,
     unitCol, unitHead:unitCol>=0? String(header[unitCol]||'').trim() : '',
-    fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, pyYtdAsOfCols, ytdTgtAsOfCols, fcProfile, yearPY, yearCY};
+    fyPriorCols, fyPriorLabel, fyFcCols, ytdAsOfCols, ytdFcAsOfCols, pyYtdAsOfCols, ytdTgtAsOfCols,
+    mthTgtCols, qTgtCols, fcProfile, yearPY, yearCY};
 }
 
 /* ================= aggregation ================= */
@@ -2807,7 +2827,12 @@ function kpi(rows, model, ytdM, includeFC){
   const pyCol = model.pyMonths.find(p=>p.m===ytdM);
   const mthPy = pyCol? sumCols(rows,[pyCol.col]) : null;
   const mthW = fcWeight(model, ytdM);
-  const mthTgt = target!=null? target*mthW : null;
+  /* A twelfth of the full-year target is not the month's target. The
+     year-to-date target has always been held to that rule \u2014 strictly from
+     a YTD target column matching the month, never phased \u2014 and the month
+     is held to it now too. */
+  const mthTgtC = mthTgtCol(model, ytdM);
+  const mthTgt = mthTgtC? sumCols(rows,[mthTgtC.col]) : null;
   /* the month's own forecast column where the file carries one; otherwise the
      phased year, but only where the pack asked for the year to be phased */
   const mthFcC = mthFcCol(model, ytdM);
@@ -2988,6 +3013,13 @@ function tileRows(k,m){
    actuals to date, forecast for the rest of the year. Then a month-against-
    forecast comparison cannot be made, and a twelfth of the full-year forecast
    is not one: it is an average the file never states. */
+/* the target the file states for one month, or for one quarter */
+function mthTgtCol(m, ytdM){
+  return ((m&&m.mthTgtCols)||[]).find(p=>p.m===ytdM)||null;
+}
+function qTgtCol(m, qNo){
+  return ((m&&m.qTgtCols)||[]).find(p=>p.q===qNo)||null;
+}
 function mthFcCol(m, ytdM){
   if(!m||!m.cyMonths) return null;
   const fc=m.cyMonths.filter(p=>p.m===ytdM&&p.fc);
@@ -3435,7 +3467,7 @@ function deriveYearModel(m0, yr){
   m.pyMonths=[]; m.quarterCols=[];
   m.targetCols=[]; m.fyFcCols=[]; m.fyPriorCols=[]; m.fyPriorLabel='';
   m.ytdAsOfCols=(m0.pyYtdAsOfCols||[]).slice();
-  m.ytdFcAsOfCols=[]; m.pyYtdAsOfCols=[]; m.ytdTgtAsOfCols=[];
+  m.ytdFcAsOfCols=[]; m.pyYtdAsOfCols=[]; m.ytdTgtAsOfCols=[]; m.mthTgtCols=[]; m.qTgtCols=[];
   m.fcProfile=m.cyMonths.map(p2=>({m:p2.m, w:m0.rows.reduce((s2,r)=>s2+Math.abs(r.v[p2.col]||0),0)}));
   m.yearCY=m0.yearPY;
   m.yearPY=/^\d{4}$/.test(String(m0.yearPY))? String(+m0.yearPY-1) : m0.yearPY;
@@ -9595,8 +9627,10 @@ function fsumFigsRaw(rows, m, P, ytdM, name){
   // against a stock rather than against three months added together
   const pqLast=(P.pqMonths&&P.pqMonths.length)? P.pqMonths[P.pqMonths.length-1] : null;
   const pqB=bs? (pqCol? pq : (pqLast? sumCols(rows,[pqLast.col]) : null)) : pq;
-  const wq=P.qMonths.reduce((a,p)=>a+fcWeight(m,p.m),0);
-  const qTgt=bs? k.target : (k.target!=null? k.target*wq : null);
+  // the quarter's own target column where the file states one; a slice of the
+  // full-year target is not a quarter's target
+  const qTgtC=qTgtCol(m, P.q+1);
+  const qTgt=bs? k.target : (qTgtC? sumCols(rows,[qTgtC.col]) : null);
   const yTgt=bs? k.target : k.ytdTgt;
   const yPY=bs? k.mthPy : k.py;
   const mTgt=bs? k.target : k.mthTgt;
@@ -12875,7 +12909,7 @@ async function cachePut(name,buf){
    which is quick and cannot go stale against a changed configuration. */
 const MODEL_BASE_KEYS=['rows','header','dimCols','missing','pyMonths','cyMonths','quarterCols',
   'ytdCols','targetCols','unitCol','unitHead','fyPriorCols','fyPriorLabel','fyFcCols',
-  'ytdAsOfCols','ytdFcAsOfCols','pyYtdAsOfCols','ytdTgtAsOfCols','fcProfile','yearPY','yearCY',
+  'ytdAsOfCols','ytdFcAsOfCols','pyYtdAsOfCols','ytdTgtAsOfCols','mthTgtCols','qTgtCols','fcProfile','yearPY','yearCY',
   'groupRows','groupTab','groupSkipped','countries','sheetName'];
 function modelSnapshot(m){
   const out={};
@@ -14199,6 +14233,10 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>YTD actuals columns</td><td>${model.ytdAsOfCols.length? esc(model.ytdAsOfCols.map(p=>`${p.label} (${MON_LBL[p.ytdM]})`).join(' · ')) : '<b>none — YTD will be summed from months</b>'}</td></tr>
       <tr><td>YTD forecast columns</td><td>${model.ytdFcAsOfCols.length? esc(model.ytdFcAsOfCols.map(p=>`${p.label} (${MON_LBL[p.ytdM]})`).join(' · ')) : 'none'}</td></tr>
       <tr><td>YTD target columns</td><td>${model.ytdTgtAsOfCols.length? esc(model.ytdTgtAsOfCols.map(p=>`${p.label} (${MON_LBL[p.ytdM]})`).join(' · ')) : 'none'}</td></tr>
+      <tr><td>Month / quarter targets</td><td>${
+        [...(model.mthTgtCols||[]).map(p=>`${p.label} (${MON_LBL[p.m]})`),
+         ...(model.qTgtCols||[]).map(p=>`${p.label} (Q${p.q})`)].join(' \u00b7 ')
+        || 'none \u2014 a month or quarter target is read from the file only, never sliced from the year'}</td></tr>
       <tr><td>PY YTD columns</td><td>${model.pyYtdAsOfCols.length? esc(model.pyYtdAsOfCols.map(p=>`${p.label} (${MON_LBL[p.ytdM]})`).join(' · ')) : 'none'}</td></tr>
       <tr><td>${esc(model.yearPY)} months</td><td>${model.pyMonths.length? esc(model.pyMonths.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
@@ -14220,7 +14258,9 @@ async function ingestFinish(model, sheetName, name, fromCache){
         if(!gone.length) return '';
         const why=id=>{
           if(id==='mth_fc') return `the file carries no forecast for ${MON_LBL[mi]} \u2014 its forecast columns are the months still to come, and a twelfth of the full year is an average the file never states`;
-          if(id==='ytd_tgt'||id==='fy_tgt') return 'no target column';
+          if(id==='mth_tgt') return `the file states no target for ${MON_LBL[mi]} \u2014 its targets are the year and the year to date, and a twelfth of the year is a number the file never states`;
+          if(id==='ytd_tgt') return 'no year-to-date target column matching this month';
+          if(id==='fy_tgt') return 'no full-year target column';
           if(id==='fy_pfc') return 'no FY forecast column';
           if(id==='qtr_py'||id==='fy_py'||id==='ytd_py'||id==='mth_py') return 'no prior-year figures';
           if(id==='ytd_fc') return 'no year-to-date forecast column';
@@ -14229,7 +14269,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
         return `<tr><td>Comparisons not offered</td><td>${gone.map(id=>
           `<b>${esc(VP_DEFS[id].lbl? VP_DEFS[id].lbl(vpCtx(model,mi)) : id)}</b> \u2014 ${esc(why(id))}`).join('<br>')}</td></tr>`;
       })()}
-      <tr><td>Build</td><td>2026-08-19 10:29</td></tr>
+      <tr><td>Build</td><td>2026-08-19 10:31</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
