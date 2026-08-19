@@ -1797,6 +1797,31 @@ What each section governs:
   a new one (`check_frcache`) exists solely to prove that loading a second,
   different file is never answered from the first file's cached rows.
 
+  **The commentary answers the comparison the reader selected.** The variance
+  selector is a statement of what is to be compared. The Management commentary
+  and the Executive decisions panel now write about that basis and no other:
+
+  | Selected | The commentary writes |
+  |---|---|
+  | Current QTR vs PY | *"PBT ex Notables is $131m down on the quarter vs PY."* |
+  | YTD vs Target | *"PBT ex Notables is $41m up on YTD vs target."* |
+  | Month vs Forecast | *"PBT ex Notables is $59m down on the month vs forecast."* |
+
+  Both used to answer more than was asked. The commentary recited every basis
+  in one sentence — *"$131m down on the quarter vs PY, $41m down on YTD vs
+  target, $59m down on the month vs forecast, $253m down on the full year vs
+  PY and $78m down on the full year vs target"* — and the decisions panel
+  appended *"FY outlook vs target"* to every card whatever the selector said.
+  Choosing actuals against prior-year actuals and being answered with forecast
+  and target reads as though the selection had been ignored, and invites a
+  figure to be taken off the wrong basis.
+
+  Following the selection means following it in both directions: choose a
+  target or forecast basis and the commentary talks about target or forecast,
+  because that is what was asked for. The **Commentary — all bases** view is
+  unchanged and still surveys all six: surveying every basis is its purpose,
+  and it is a different question from the one the summary answers.
+
   **A tab keeps its business even when its country is not in the hierarchy.**
   A tab named `IWPB HK ex HASE`, against a `CountryHierarchy` that lists
   `Singapore` and `HASE` but no `HK ex HASE`, used to lose the business

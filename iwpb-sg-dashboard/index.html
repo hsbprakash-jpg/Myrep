@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 04:39)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 05:21)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 04:39)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 05:21)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 04:39</div>
+<div id="buildTag">build 2026-08-19 05:21</div>
 </aside>
 <main>
 
@@ -4866,18 +4866,43 @@ function houseDrvCount(){
    a P&L result and a balance-sheet line are never spoken of as one figure */
 /* the result across every comparison the file supports, in one sentence — the
    six sections of All commentaries, summarised */
+/* The bases the variance selector offers that COMALL_SECS does not name, so
+   that every selection has a clause of its own to write. */
+const CA_SEL_SECS={
+  ytd_py:  {per:'YTD vs PY',                v:f=>f.ytd,   d:f=>f.yVsPY},
+  ytd_fc:  {per:'YTD vs forecast',          v:f=>f.ytd,   d:f=>f.yVsFc},
+  mth_py:  {per:'the month vs PY',          v:f=>f.k.mth, d:f=>f.mVsPY},
+  mth_tgt: {per:'the month vs target',      v:f=>f.k.mth, d:f=>f.mVsTgt},
+  mom:     {per:'the month vs prior month', v:f=>f.k.mth, d:f=>f.mVsPM}
+};
+function caSelSec(){
+  const id=vpSel(S.model);
+  const named=COMALL_SECS.find(x=>x.id===id);
+  if(named) return named;
+  const extra=CA_SEL_SECS[id];
+  return extra? {id, ...extra} : null;
+}
 function caSummaryLine(){
   const rows=filteredRows(); if(!rows.length) return '';
   let tree=[]; try{ tree=fsumTree(rows).filter(r=>!r.band&&r.name); }catch(e){ return ''; }
   const res=tree.find(r=>(r.lvl||0)===0); if(!res) return '';
+  /* The reader has chosen a basis in the variance selector, and this sentence
+     is about THAT comparison. Reciting every basis beside it \u2014 the quarter
+     against prior year, then YTD against target, then the month against
+     forecast \u2014 answers a question nobody asked, and reads as though the
+     page had ignored the selection. Where the selection is Auto, or names a
+     basis with no clause of its own, the old survey stands. */
+  const sel=caSelSec();
+  const secs=sel? [sel] : COMALL_SECS;
   const bits=[];
-  for(const sec of COMALL_SECS){
+  for(const sec of secs){
     let q=null; try{ q=caFig(res.rows, sec, res.name); }catch(e){}
     // a comparison that did not move says nothing worth a clause
     if(!q||q.va==null||Math.abs(q.va)<0.5) continue;
     bits.push(`${caAmt(q.f,q.va,false)} ${faWord(q.f.k,q.val)==='higher'?'up':'down'} on ${esc(sec.per)}`);
   }
-  if(bits.length<2) return '';
+  if(!bits.length) return '';
+  if(bits.length===1) return `<p><b>${esc(res.name)}</b> is ${bits[0]}.</p>`;
   const last=bits.pop();
   return `<p><b>${esc(res.name)}</b> is ${bits.join(', ')} and ${last}.</p>`;
 }
@@ -6746,7 +6771,12 @@ function renderDecisions(cards, L){
     const inf=[];
     if(k.cmpMain!=null&&k.cmpBase!=null)
       inf.push(`${esc(L.main)} <b>${fmtK(k,k.cmpMain)}</b> vs ${esc(k.isBS? bsBaseLbl(L.mode) : L.base)} <b>${fmtK(k,k.cmpBase)}</b> — ${movVal(k,k.cmpVar,k.cmpVarPct)} / ${movPct(k,k.cmpVarPct)}.`);
-    if(k.outlook!=null&&k.target!=null)
+    /* the full-year gap belongs to a forward-looking basis. Where the reader
+       has asked for actuals against prior-year actuals, a sentence about
+       forecast and target is not the comparison they selected \u2014 it was
+       appended whatever the selector said, which is what made the panel look
+       as though it had ignored it. */
+    if(k.outlook!=null&&k.target!=null&&L.mode!=='py')
       inf.push(`${k.isBS?'Dec closing (fcst)':'FY outlook'} <b>${fmtK(k,k.outlook)}</b> vs target <b>${fmtK(k,k.target)}</b> — ${movPct(k,k.varTgtPct)}.`);
     return `<div class="deccard sev-${c.rg.cls}">
       <div class="dechead"><span class="decicon" aria-hidden="true">${c.rg.cls==='r'?'\u26a0':'\u25cf'}</span>
@@ -13708,7 +13738,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-19 04:39</td></tr>
+      <tr><td>Build</td><td>2026-08-19 05:21</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
