@@ -987,9 +987,9 @@ setTimeout(function(){
   d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c21a1a;color:#fff;'+
     'font:13.5px/1.5 Segoe UI,Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
   d.textContent = window.__ERR
-    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 08:54)'
+    ? 'The page code failed to start \u2014 '+window.__ERR+' \u2014 please photograph this message. (build 2026-08-19 09:01)'
     : 'This file is incomplete \u2014 the interactive code at the end is missing, so no button will work. '+
-      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 08:54)';
+      'Re-download the html from the original link (not from an email preview) and open the fresh copy. (build 2026-08-19 09:01)';
   document.body.appendChild(d);
 }, 2500);
 </script>
@@ -1056,7 +1056,7 @@ setTimeout(function(){
     <span id="rowCount" class="note"></span><br>
     <span id="fileNote" class="note" style="font-size:10px"></span>
   </div>
-<div id="buildTag">build 2026-08-19 08:54</div>
+<div id="buildTag">build 2026-08-19 09:01</div>
 </aside>
 <main>
 
@@ -2281,8 +2281,52 @@ function scopeDecl(rows){
   }
   return null;
 }
+/* Are the two sides of the comparison read from the same rows?
+   A variance of several thousand per cent is almost never a business event:
+   it is one side of the comparison being present on rows the other side is
+   missing from \u2014 a prior-year column populated for a handful of lines,
+   a quarter that never landed for half the entities. The page cannot know
+   which, but it can count, and saying so is worth more than printing the
+   percentage as though it were a finding. */
+function cmpCoverage(k, rows){
+  if(!k||!k.srcCols||!k.cmpSrcNames||!rows||!rows.length) return null;
+  const nm=k.cmpSrcNames(); if(!nm) return null;
+  const mc=k.srcCols(nm[0]), bc=k.srcCols(nm[1]);
+  if(!mc||!bc||!mc.length||!bc.length) return null;
+  let main=0, base=0;
+  for(const r of rows){
+    if(mc.some(c=>r.v[c]!=null)) main++;
+    if(bc.some(c=>r.v[c]!=null)) base++;
+  }
+  return {main, base};
+}
+/* the threshold: a side carrying under this share of the other's rows is not
+   a like-for-like comparison. Set it in the pack to tighten or loosen it. */
+function cmpCoverMin(){
+  const v=parseFloat(cfgS('coverage_min_pct'));
+  return (isFinite(v)&&v>0&&v<=100)? v/100 : 0.6;
+}
+function cmpCoverNote(k, rows, L){
+  const cv=cmpCoverage(k, rows); if(!cv||!cv.main) return '';
+  const lo=Math.min(cv.main,cv.base), hi=Math.max(cv.main,cv.base);
+  if(!hi||lo/hi>=cmpCoverMin()) return '';
+  const thin=(cv.base<cv.main)? (L&&L.base? L.base : 'the comparison') : (L&&L.main? L.main : 'the current period');
+  return `${esc(String(thin))} is on ${lo.toLocaleString()} of the ${hi.toLocaleString()} rows here \u2014 the two sides are not like for like, so this is a gap in the file, not a business movement`;
+}
+/* the same sentence where a commentary line has room for it */
+function covNoteHtml(k, rows, L){
+  const t=cmpCoverNote(k, rows, L);
+  return t? ` <span class="note">\u2014 ${t}</span>` : '';
+}
 function bsBaseLbl(mode){
   return mode==='tgt'? 'Target balance' : mode==='py'? 'PY closing' : 'Closing forecast';
+}
+/* A balance is read as the closing balance whatever period is selected \u2014
+   bsRecast has always done that. The card labelled it "Q2 2026" all the same,
+   which reads as a quarter's worth of something and invites the reader to
+   compare it with the quarter beside it. It is named for what it is. */
+function bsMainLbl(){
+  return (typeof MON_LBL!=='undefined'&&S&&S.ytdM!=null? MON_LBL[S.ytdM]+' ' : '')+'closing';
 }
 function fmtK(k, v){
   const x=v!==undefined? v : k.cmpMain;
@@ -2398,6 +2442,10 @@ const VP_DEFS={
     main:c=>`FY${c.cyy} forecast`, base:()=>'Prior forecast', vs:()=>'vs prior forecast',
     avail:m=>!!(m.fyFcCols&&m.fyFcCols.length), pick:v=>[v.outlook, v.fyPrFc]}
 };
+/* every value a definition's pick() may name — handing these back as
+   their own names is how the page learns which two it chose */
+const MODEL_PICK_KEYS=['cy','py','ytdFc','ytdTgt','target','outlook','fyFc','fyPrior',
+  'mth','mthPrev','mthPy','mthTgt','mthFc','pyFull','fyMain','fyBase','qtd','qtdPy','fyPrFc'];
 /* label context — every string a definition builds comes from here */
 function vpCtx(m, ytdM){
   const mi=(ytdM==null? 0 : ytdM);
@@ -2791,6 +2839,41 @@ function kpi(rows, model, ytdM, includeFC){
     ytdTgt, varYT, varYTPct, mth, mthPrev, mthPy, mthTgt, mthFc, fyMain, fyBase,
     qtd, qtdPy, fyPrFc:fyFcCol,
     vp:vpId, dirFlip:flip, costLike, ytdFcIsCol, cyIsCol,
+    /* Which columns each side of the selected comparison was read from.
+       Asked for only when something wants to check the two sides are
+       like for like \u2014 a closure captures what is already here, so
+       building it costs nothing on the render path. A name with no
+       columns of its own (a phased month forecast, say) answers null. */
+    srcCols:(name)=>{
+      const c=a=>(a||[]).map(p=>p.col);
+      switch(name){
+        case 'cy':      return cyIsCol? [asOf.col] : c(cySel);
+        case 'py':      return (pyAsOf&&pyAsOf.ytdM===ytdM)? [pyAsOf.col] : c(pySel);
+        case 'qtd':     return qColK? [qColK.col] : c(qMonthsK);
+        case 'qtdPy':   return qPyColK? [qPyColK.col]
+                          : c(model.pyMonths.filter(p=>qMonthsK.some(x=>x.m===p.m)));
+        case 'mth':     return curCol? [curCol.col] : [];
+        case 'mthPrev': return prvCol? [prvCol.col] : [];
+        case 'mthPy':   return pyCol? [pyCol.col] : [];
+        case 'outlook': return c(model.cyMonths);
+        case 'pyFull':  return c(model.pyMonths);
+        case 'target':  return c(model.targetCols);
+        case 'fyPrior': return c(model.fyPriorCols);
+        case 'fyFc': case 'fyPrFc': return c(model.fyFcCols);
+        case 'ytdFc':   return fcAsOf? [fcAsOf.col] : null;
+        case 'ytdTgt':  return tgtAsOf? [tgtAsOf.col] : null;
+        case 'fyMain':  return fyFcCol!=null? c(model.fyFcCols) : c(model.cyMonths);
+        case 'fyBase':  return fyPrior!=null? c(model.fyPriorCols) : c(model.pyMonths);
+        default:        return null;      // phased, not read from a column
+      }
+    },
+    // the two names the selected basis picked, learnt by asking it
+    cmpSrcNames:()=>{
+      if(!vpDef||!vpDef.pick) return null;
+      const nm={}; for(const key of MODEL_PICK_KEYS) nm[key]=key;
+      const r=vpDef.pick(nm);
+      return (r&&typeof r[0]==='string'&&typeof r[1]==='string')? r : null;
+    },
     // which line this is, worked out only if something asks — with no unit or
     // roll-up declaration nothing ever does, and a page builds many KPIs
     lvl:null, _rows:rows};
@@ -5110,7 +5193,7 @@ function tplCommentaryHtml(style){
   const c=vpCtx(m,S.ytdM);
   let h=`<p><u><b>(${esc(MON_LBL[S.ytdM])}) ${esc(L.main)} Vs ${esc(L.base)}${cfgS('commentary_note')?` (${esc(cfgS('commentary_note'))})`:''}:</b></u></p>`;
   h+='<ul class="actlist">'+groups.map(g=>
-    `<li>${comTplLineHtml(pat,g,m,L,dimKey,N,c)}${comTail(g.name)}</li>`).join('')
+    `<li>${comTplLineHtml(pat,g,m,L,dimKey,N,c)}${covNoteHtml(g.k,g.rs,L)}${comTail(g.name)}</li>`).join('')
     // named rather than dropped, so a line absent from the narrative is never
     // simply absent
     +notCarried.map(g=>`<li><b>${esc(g.name)}</b> \u2014 ${
@@ -5368,7 +5451,7 @@ function houseBlock(rows, secName){
     const dr=houseDrivers(rs,dimKey,depth===1?NDRV:Math.max(2,NDRV-1));
     for(const g of dr) kpiNamed(g.k, name);
     const drTxt=dr.length? ` driven by ${dr.map(g=>`${esc(g.name)} (${faTxt(g.k)})`).join(', ')}` : '';
-    return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}${comTail(name)}</li>`;
+    return `<li><b>${esc(name)}</b> ${faTxt(k)}${drTxt}${covNoteHtml(k,rs,L)}${comTail(name)}</li>`;
   };
   const l1All=[...groupBy(rows,LV[0]).entries()]
     .map(([name,rs])=>({name, rs, notHere:lineNotAtGrain(name, rs),
@@ -5404,7 +5487,7 @@ function houseBlock(rows, secName){
   }
   for(const g of l1){
     // a lone line is already the headline — go straight to what drove it
-    if(!single) h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${faVal(g.k)}</b> is ${faTxt(g.k)}${comTail(g.name)}</p>`;
+    if(!single) h+=`<p style="margin:10px 0 2px"><b>${esc(g.name)}</b> of <b>${faVal(g.k)}</b> is ${faTxt(g.k)}${covNoteHtml(g.k,g.rs,L)}${comTail(g.name)}</p>`;
     h+=`<ul class="houselist">`;
     const kids=(LV.length>1? [...groupBy(g.rs,LV[1]).entries()] : [])
       .map(([name,rs])=>({name, rs, k:kpiNamed(kpi(rs,m,S.ytdM,S.includeFC),name)}))
@@ -6906,8 +6989,11 @@ function renderDecisions(cards, L){
   host.innerHTML=show.map(c=>{
     const k=c.k, fav=(k.favVarPct??0)>=0, sfx=fav?'F':'A';
     const inf=[];
+    /* said before the figure, because it changes what the figure means */
+    const cov=cmpCoverNote(k, c.rows||k._rows, L);
+    if(cov) inf.push(`<span class="note">${cov}.</span>`);
     if(k.cmpMain!=null&&k.cmpBase!=null)
-      inf.push(`${esc(L.main)} <b>${fmtK(k,k.cmpMain)}</b> vs ${esc(k.isBS? bsBaseLbl(L.mode) : L.base)} <b>${fmtK(k,k.cmpBase)}</b> — ${movVal(k,k.cmpVar,k.cmpVarPct)} / ${movPct(k,k.cmpVarPct)}.`);
+      inf.push(`${esc(k.isBS? bsMainLbl() : L.main)} <b>${fmtK(k,k.cmpMain)}</b> vs ${esc(k.isBS? bsBaseLbl(L.mode) : L.base)} <b>${fmtK(k,k.cmpBase)}</b> — ${movVal(k,k.cmpVar,k.cmpVarPct)} / ${movPct(k,k.cmpVarPct)}.`);
     /* the full-year gap belongs to a forward-looking basis. Where the reader
        has asked for actuals against prior-year actuals, a sentence about
        forecast and target is not the comparison they selected \u2014 it was
@@ -13886,7 +13972,7 @@ async function ingestFinish(model, sheetName, name, fromCache){
       <tr><td>${esc(model.yearCY)} months</td><td>${model.cyMonths.length? esc(model.cyMonths.map(p=>p.label+(p.fc?' [FC]':'')).join(' · ')) : 'none'}</td></tr>
       <tr><td>Quarters</td><td>${model.quarterCols.length? esc(model.quarterCols.map(p=>p.label).join(' · ')) : 'none'}</td></tr>
       <tr><td>FY columns</td><td>${esc([...(model.fyFcCols||[]).map(p=>p.label+' [Fcst]'),...(model.targetCols||[]).map(p=>p.label+' [Tgt]'),...(model.fyPriorCols||[]).map(p=>p.label+' [PY]')].join(' · ')||'none')}</td></tr>
-      <tr><td>Build</td><td>2026-08-19 08:54</td></tr>
+      <tr><td>Build</td><td>2026-08-19 09:01</td></tr>
       </table></details>`;
     { const rb=document.getElementById('btnRollupXl');
       if(rb) rb.addEventListener('click',()=>exportWB(
