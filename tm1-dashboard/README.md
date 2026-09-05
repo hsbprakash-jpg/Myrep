@@ -86,6 +86,25 @@ browser, drop your Excel file on it, and drill.
   header; respects the active pane, filters and display scale. Top-12
   members shown, tail collapses into “Other”; every walk reconciles:
   start + Σ deltas = end. Endpoints persist with the session.
+- **Chart view** — the 📈 Chart toolbar button swaps the table for an
+  [Apache ECharts](https://echarts.apache.org/) chart (5.5.1 common build,
+  embedded inside `index.html` like SheetJS, so it still works offline).
+  Pick **Bars / Stacked bars / Lines**, and what runs **across** the x-axis:
+  *Members* (one bar per member of a dimension, one series per ticked period —
+  the FY vs PY comparison) or *Periods* (one point per ticked period, one series
+  per member — the month-by-month trend). Choose the dimension with **By** and
+  how many members to show with **Top** (8 / 12 / 20; the tail folds into a grey
+  *Other*, members ranked by the first ticked period). Never more than eight
+  series, so colours are assigned in a fixed order and never cycled; the palette
+  leads with HSBC red and was checked for colour-vision-deficiency separation in
+  both light and dark modes. Hover for an axis tooltip with every series' value,
+  use the legend to hide series, and the toolbox icon to save a PNG.
+  **Click a bar or point to drill**: the member becomes a sidebar filter (so
+  the table, KPIs and panes follow) and the chart moves to the next level of
+  the row hierarchy; a breadcrumb shows the path and *Undo drill* steps back.
+  Respects the active pane, filters and display scale; light and dark themes
+  restyle the chart. Chart type, axis, dimension and Top persist with the
+  session.
 - **Display scale** — show figures in units, thousands (k) or millions (m).
   Display-only division: aggregation always runs on source values, column
   headers gain a `(k)`/`(m)` suffix, and the footnote states the divisor.
@@ -116,7 +135,7 @@ be row 1; the loader scans the first 10 rows and picks the most plausible one.
 
 | Path | Purpose |
 |---|---|
-| `index.html` | The entire dashboard, self-contained (UI + semantic layer + pivot engine + embedded SheetJS) |
+| `index.html` | The entire dashboard, self-contained (UI + semantic layer + pivot engine + embedded SheetJS and ECharts) |
 | `sample/make_sample.py` | Generates a synthetic extract with the same structure |
 | `sample/GPS_Driller_sample.xlsx` | Output of the generator, for demo/testing |
 
@@ -131,6 +150,10 @@ start tm1-dashboard\index.html       # Windows
 ```
 
 ## Notes
+
+- `index.html` is about 1.4 MB because both SheetJS (~0.6 MB) and the ECharts
+  common build (~0.66 MB) are embedded. That is the price of a single file that
+  works with no network access; nothing is fetched at runtime.
 
 - Aggregation is a straight **sum of leaf rows** per node. If your extract
   already contains rollup rows *and* leaf rows for the same numbers, filter to
