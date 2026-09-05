@@ -71,6 +71,16 @@ the words.)
   the sentence about that line, or leading the block when the block does not
   print the line by name. Scope-following applies too: a sentence naming
   Private Bank is held back while the page is filtered to Premier.
+- **Scope and roll-up**: every upload is stamped with the scope the page was
+  in at the time — business, region, country, with the parents filled in
+  from the data, so a Singapore upload knows it belongs to ASEAN and IWPB.
+  At that scope, or a narrower one, the sentences read as written. At a
+  wider scope they roll up automatically as one clause per line that names
+  each place: at Group level, Fee income reads "Singapore: came in below
+  forecast because … · Hong Kong: fell short of forecast because …". Under a
+  different country they are held back. An upload made with no scope set
+  applies to the whole book. The file list and the review dialog show the
+  scope each file was uploaded under.
 - **Attribution**: the sources are named once, in a line under each
   commentary block — "Commentary enriched from: Sep review notes, call
   transcript" — so the narrative itself stays clean. A checkbox adds the
@@ -142,7 +152,8 @@ Nothing in the original code was edited.
 | `FinSightFinal.html` | The dashboard with the Interactive charts page and Enrich commentary |
 | `interactive-charts.js` | Readable copy of the Interactive charts page code |
 | `enrich-commentary.js` | Readable copy of the Enrich commentary code |
-| `sample/commentary-sources/` | Sample sources: a Word write-up, a `.vtt` transcript, a chat-style `.txt` |
+| `sample/commentary-sources/` | Sample sources: a Word write-up, a `.vtt` transcript, a chat-style `.txt`, Hong Kong notes for the roll-up |
 | `sample/mock-model-server.js` | Stand-in model server for testing AI review without a real model |
-| `sample/make_sample.py` | Generates a synthetic IWPB-shaped extract (needs `openpyxl`) |
-| `sample/IWPB_SG_sample.xlsx` | Output of the generator, for demo/testing |
+| `sample/make_sample.py` | Generates a synthetic IWPB-shaped extract (needs `openpyxl`); add a second argument for two countries |
+| `sample/IWPB_SG_sample.xlsx` | Output of the generator, one country, for demo/testing |
+| `sample/IWPB_2countries_sample.xlsx` | Two countries (Singapore / ASEAN, Hong Kong / North Asia), for the roll-up |

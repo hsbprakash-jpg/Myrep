@@ -17,6 +17,12 @@
    widgets and the exports weave them in with scope-following, digesting and
    the per-block cap intact. The sources are named in a line under each
    commentary block; an inline marker on every clause is a checkbox away.
+   Every upload is stamped with the scope it was made under (business,
+   region, country — parents filled in from the data). At that scope or a
+   narrower one the sentences read as written; at a wider scope they roll up
+   as one clause per line that names each place — "Singapore: driven by
+   deposit margin … · Hong Kong: behind on fees …"; under a different
+   country they are held back.
    Word files are unzipped natively (DecompressionStream); PDF is not read
    here — save it as Word or text.
    AI review (on when a model is found): after the rules have run, the
@@ -37,14 +43,58 @@
   if(!Array.isArray(EN.docs)) EN.docs=[];
   function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(EN)); }catch(e){} }
 
-  /* ---- the accepted sentences, as commentary items ------------------------ */
+  /* ---- the accepted sentences, as commentary items, at the page's scope ---- */
   const SRC=new Map();                      // sentence -> source label
-  function accepted(){
-    const out=[]; SRC.clear();
-    for(const d of EN.docs) for(const it of (d.items||[])){
-      if(!it.on) continue;
-      out.push({view:'', line:it.line||'', text:it.text, src:d.label});
-      SRC.set(it.text, d.label);
+  const ROLL=new Map();                     // rolled-up clause -> how many places it names
+  const GEO=['business','region','country'];
+  let DIGEST=null;                          // the page's own comDigest, before it was wrapped
+  function scopeNow(){
+    const one=k=>{ const st=S&&S.filters&&S.filters[k]; return (st&&st.size===1)? String([...st][0]) : ''; };
+    return {business:one('business'), region:one('region'), country:one('country')};
+  }
+  /* the scope an upload is made under, with its parents filled in from the
+     rows, so a country upload knows its region and business */
+  function scopeStamp(){
+    const sc=scopeNow(), m=S&&S.model; if(!m) return sc;
+    const only=(k,pred)=>{ const v=new Set(); for(const r of m.rows){ if(pred(r)&&r.d[k]) v.add(String(r.d[k])); if(v.size>1) break; } return v.size===1? [...v][0] : ''; };
+    if(sc.country){
+      if(!sc.region) sc.region=only('region', r=>String(r.d.country||'')===sc.country);
+      if(!sc.business) sc.business=only('business', r=>String(r.d.country||'')===sc.country);
+    } else if(sc.region&&!sc.business) sc.business=only('business', r=>String(r.d.region||'')===sc.region);
+    return sc;
+  }
+  function scopeLabel(sc){ return (sc&&(sc.country||sc.region||sc.business))||''; }
+  function accepted(opts){
+    const all=!!(opts&&opts.all), cur=all? {} : scopeNow();
+    const out=[]; SRC.clear(); ROLL.clear();
+    const groups=new Map();                 // line -> the narrower places' sentences
+    for(const d of EN.docs){
+      const ds=d.scope||{};
+      // a different place altogether: held back
+      if(!all&&GEO.some(k=>cur[k]&&ds[k]&&cur[k]!==ds[k])) continue;
+      // narrower than the page: rolled up under the place's name
+      const rollK=all? '' : ['country','region','business'].find(k=>ds[k]&&!cur[k]);
+      const label=rollK? ds[rollK] : '';
+      for(const it of (d.items||[])){
+        if(!it.on) continue;
+        if(!label){ out.push({view:'', line:it.line||'', text:it.text, src:d.label}); SRC.set(it.text, d.label); continue; }
+        const key=it.line||'';
+        (groups.get(key)||groups.set(key,[]).get(key)).push({label, text:it.text, src:d.label});
+      }
+    }
+    for(const [line,parts] of groups){
+      // one clause per line, each place named once, in upload order
+      const byLabel=new Map(); for(const p of parts) if(!byLabel.has(p.label)) byLabel.set(p.label,p);
+      const segs=[...byLabel.values()].map(p=>{
+        let dg=''; try{ dg=DIGEST? DIGEST(p.text, line) : ''; }catch(e){}
+        if(!dg) dg=String(p.text).replace(/[.\s]+$/,'');
+        // "Singapore: ahead of plan", not "Singapore: was ahead of plan"
+        dg=dg.replace(/^(?:was|were|is|are|has been|have been|had been)\s+/i,'');
+        return `${p.label}: ${dg}`;
+      });
+      const text=segs.join(' \u00b7 ')+'.';
+      const srcs=[...new Set([...byLabel.values()].map(p=>p.src))].join(', ');
+      out.push({view:'', line, text, src:srcs}); SRC.set(text, srcs); ROLL.set(text, byLabel.size);
     }
     return out;
   }
@@ -377,7 +427,7 @@
     const anyTr=docs.some(d=>d.kind==='transcript');
     const body=docs.map((d,di)=>`
       <tr class="en-file"><td colspan="6">
-        <b>${esc(d.name)}</b> <span class="muted">· ${d.kind==='transcript'?'transcript':'document'} · ${d.items.length} sentence${d.items.length===1?'':'s'}${d.items.some(i=>i.loose)? ', '+d.items.filter(i=>i.loose).length+' naming no line' : ''}${d.ai? ` · reviewed by ${esc(d.ai.model)}: ${d.ai.applied} decided, ${d.ai.unsure} unsure` : ''}</span>
+        <b>${esc(d.name)}</b> <span class="muted">· ${d.kind==='transcript'?'transcript':'document'}${scopeLabel(d.scope)? ' · uploaded under '+esc([d.scope.business,d.scope.region,d.scope.country].filter(Boolean).join(' › ')) : ' · whole book'} · ${d.items.length} sentence${d.items.length===1?'':'s'}${d.items.some(i=>i.loose)? ', '+d.items.filter(i=>i.loose).length+' naming no line' : ''}${d.ai? ` · reviewed by ${esc(d.ai.model)}: ${d.ai.applied} decided, ${d.ai.unsure} unsure` : ''}</span>
         <label>Source label <input type="text" data-lbl-d="${di}" value="${esc(d.label||'')}" size="22"></label>
       </td></tr>`+
       d.items.map((r,i)=>`<tr class="${r.on?'':'en-off'}" data-d="${di}" data-i="${i}">
@@ -453,7 +503,7 @@
     const host=$id('enrichList'); if(!host) return;
     host.innerHTML=EN.docs.map((d,i)=>{ const c=counts(d);
       return `<div class="en-doc"><span class="en-name" title="${esc(d.name)}">${esc(d.name)}</span>
-        <span class="muted">${c.on} of ${c.n} · ${esc(d.label||'')}</span>
+        <span class="muted">${c.on} of ${c.n} · ${esc(d.label||'')}${scopeLabel(d.scope)? ' · '+esc(scopeLabel(d.scope)) : ''}</span>
         <button class="linklike" data-rev="${i}">Review</button> ·
         <button class="linklike" data-forget="${i}">Forget</button></div>`; }).join('')
       ||'<div class="note">No sources loaded. Anything written about the numbers — a write-up, notes, a transcript — can enrich the commentary from here.</div>';
@@ -480,7 +530,9 @@
   }
   /* the sources named once under each commentary block, not on every clause */
   function paintSources(){
-    const labels=[...new Set(EN.docs.filter(d=>counts(d).on).map(d=>d.label))];
+    const cur=scopeNow();
+    const labels=[...new Set(EN.docs.filter(d=>counts(d).on&&!GEO.some(k=>cur[k]&&d.scope&&d.scope[k]&&cur[k]!==d.scope[k]))
+      .map(d=>d.label+(scopeLabel(d.scope)&&scopeLabel(d.scope)!==scopeLabel(cur)? ' ('+scopeLabel(d.scope)+')' : '')))];
     for(const id of ['houseDisc','fsumDisc','caDisc']){
       const dz=$id(id); if(!dz) continue;
       let p=$id(id+'Src');
@@ -526,7 +578,7 @@
       status(`Reading ${file.name}…`);
       try{
         const {text,kind}=await readFile(file);
-        docs.push({name:file.name, label:labelOf(file.name), kind, items:analyse(text, kind)});
+        docs.push({name:file.name, label:labelOf(file.name), kind, items:analyse(text, kind), scope:scopeStamp()});
       }catch(e){ bad.push(file.name+': '+(e&&e.message||e)); }
     }
     // then the model, if one is switched on: it decides, the rules stand if it cannot
@@ -553,7 +605,8 @@
     }
     save(); applyChange();
     const who=docs.length===1? docs[0].name : docs.length+' files';
-    status((on? `${on} sentence${on===1?'':'s'} from ${who} ${on===1?'enriches':'enrich'} the commentary` : `Nothing in ${who} names a line of the loaded extract`)
+    const sl=scopeLabel(docs[0].scope);
+    status((on? `${on} sentence${on===1?'':'s'} from ${who} ${on===1?'enriches':'enrich'} the ${sl? sl+' ' : ''}commentary${sl? ' and roll up to '+(docs[0].scope.region&&docs[0].scope.country? docs[0].scope.region+' and the whole book' : 'the whole book') : ''}` : `Nothing in ${who} names a line of the loaded extract`)
       +(loose&&!aiNote? ` · ${loose} naming no line kept unticked` : '')
       +aiNote
       +(bad.length? ` · skipped ${bad.join(' · ')}` : '')+'.', !!bad.length&&!on, docs);
@@ -650,7 +703,7 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
   // path that merged it (comInAll, comInAllUnscoped, comInLoaded) now serves
   // the accepted sentences alone, with the same scope-following and caching
   comInLoaded=function(){ return accepted(); };
-  comInAllUnscoped=function(){ return accepted().filter(c=>String(c.text||'').trim()); };
+  comInAllUnscoped=function(){ return accepted({all:true}).filter(c=>String(c.text||'').trim()); };
   let EN_CACHE=null, EN_M=null, EN_K='';
   comInAll=function(){
     const m=S&&S.model, src=accepted();
@@ -664,9 +717,11 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
     return out;
   };
   if(typeof comDigest==='function'){
-    const _digest=comDigest;
+    const _digest=comDigest; DIGEST=_digest;
     comDigest=function(txt,line,cap){
-      const d=_digest.apply(this,arguments);
+      const n=ROLL.get(txt);
+      if(n&&cap==null){ let cm=150; try{ cm=comClauseMax(); }catch(e){} cap=cm*n; }
+      const d=_digest.call(this, txt, line, cap);
       if(d&&EN.mark&&SRC.has(txt)){ const tag='('+SRC.get(txt)+')'; if(d.indexOf(tag)<0) return d+' '+tag; }
       return d;
     };

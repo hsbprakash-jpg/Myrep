@@ -10,6 +10,7 @@ from openpyxl import Workbook
 
 random.seed(7)
 out = sys.argv[1] if len(sys.argv) > 1 else "IWPB_SG_sample.xlsx"
+COUNTRIES = [("Singapore","ASEAN",1.0)] if len(sys.argv) < 3 else [("Singapore","ASEAN",1.0),("Hong Kong","North Asia",1.6)]
 
 MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 DIMS = ["Country","Region","Business_Line","MICA","MICA_Level_3","MICA_Level_2","MICA_Level_1",
@@ -51,7 +52,8 @@ HEAD = DIMS + py + cy + qtr + ytd + fy
 wb = Workbook(); ws = wb.active; ws.title = "Singapore"
 ws.append(HEAD)
 
-for (l1,l2,l3,base,sgn) in MICA:
+for (ctry,reg,cm) in COUNTRIES:
+  for (l1,l2,l3,base,sgn) in MICA:
     for (pl1,pl2,pl3,pc) in PROD:
         for (cg1,cg2,sc) in SEG:
             fn = random.choice(FUNC)
@@ -59,13 +61,13 @@ for (l1,l2,l3,base,sgn) in MICA:
             w = {"Wealth":1.3,"Personal Banking":0.8}[pl1] * {"Premier":1.0,"Private Bank":1.6,"Personal":0.5}[cg2]
             if l2=="Net interest income" and pl2 in ("Investments","Insurance"): w*=0.15
             if l2=="Fee income" and pl2 in ("Deposits","Mortgages"): w*=0.2
-            b = base*w/6.0
+            b = base*w*cm/6.0
             pyv = [round(b*random.uniform(0.85,1.15),2) for _ in MON]
             cyv = [round(b*1.06*random.uniform(0.85,1.15),2) for _ in MON]
             q = [sum(pyv[0:3]),sum(pyv[3:6]),sum(pyv[6:9]),sum(pyv[9:12]),sum(cyv[0:3]),sum(cyv[3:6])]
             y = [sum(pyv[:6]), sum(cyv[:6]), sum(cyv[:6])*1.04]
             f = [sum(pyv), sum(cyv), sum(cyv)*1.05]
-            row = ["Singapore","ASEAN","IWPB", f"M{MICA.index((l1,l2,l3,base,sgn))+1:03d}", l3,l2,l1,
+            row = [ctry,reg,"IWPB", f"M{MICA.index((l1,l2,l3,base,sgn))+1:03d}", l3,l2,l1,
                    pc,pl3,pl2,pl1, sc,cg2,cg1, fn[2],fn[1],fn[0], "HBAP-SG"]
             row += pyv + cyv + [round(v,2) for v in q+y+f]
             ws.append(row)
