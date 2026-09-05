@@ -75,6 +75,36 @@ the moment the files are read; review is optional.
 
 Sample sources to try are in `sample/commentary-sources/`.
 
+### AI review (optional)
+
+Off until switched on, under **AI review** at the bottom of the Enrich
+commentary section. When on, the rules run first and then a language model
+decides: for every sentence, whether it is a driver, which line it belongs
+to, and how sure it is. Answers at or above the confidence threshold (default
+0.7) are stitched with no ticking; doubtful ones are left unticked with the
+model's reason shown in the AI column of Review. If the model cannot be
+reached, the rules' decisions stand and the status line says so.
+
+- **Runs on this desktop** by default: a local model served by
+  [Ollama](https://ollama.com) or LM Studio at `localhost`, so nothing leaves
+  the machine. Ollama must be started with `OLLAMA_ORIGINS=*` so a page opened
+  from a file may call it; LM Studio needs CORS switched on. Any model that
+  follows instructions and returns JSON will do; an 8B-class instruct model is
+  enough for this task.
+- **Or an approved gateway** (OpenAI-style chat completions with a bearer
+  key), **or Claude** directly (Anthropic Messages API with structured
+  output, default model `claude-opus-5`). Both send the sentences and the
+  extract's line names off the machine, so use them only where that is
+  allowed; a key typed into the page stays in this browser's localStorage.
+- **Reword** (off by default) lets the model rewrite a spoken sentence into
+  pack style; the original is kept and shown on hover.
+- The config pack's Settings sheet can supply team defaults: `ai_provider`
+  (`local` / `openai` / `anthropic`), `ai_endpoint`, `ai_model`, `ai_key`,
+  `ai_threshold`, `ai_rewrite`. The page's own settings override them.
+- `sample/mock-model-server.js` is a stand-in model for testing the flow
+  without a real one: `node sample/mock-model-server.js` listens on port
+  11499 and answers both the OpenAI-style and the Anthropic shape.
+
 ## How it is wired
 
 The addition is two `<script>` blocks appended before `</body>`, following the
@@ -100,5 +130,6 @@ Nothing in the original code was edited.
 | `interactive-charts.js` | Readable copy of the Interactive charts page code |
 | `enrich-commentary.js` | Readable copy of the Enrich commentary code |
 | `sample/commentary-sources/` | Sample sources: a Word write-up, a `.vtt` transcript, a chat-style `.txt` |
+| `sample/mock-model-server.js` | Stand-in model server for testing AI review without a real model |
 | `sample/make_sample.py` | Generates a synthetic IWPB-shaped extract (needs `openpyxl`) |
 | `sample/IWPB_SG_sample.xlsx` | Output of the generator, for demo/testing |

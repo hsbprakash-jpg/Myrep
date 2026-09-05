@@ -20253,13 +20253,22 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
    named in a line under each commentary block; an inline marker on every
    clause is a checkbox away.
    Word files are unzipped natively (DecompressionStream); PDF is not read
-   here — save it as Word or text. */
+   here — save it as Word or text.
+   AI review (optional, off until switched on): after the rules have run, the
+   sentences and the extract's line names go to a language model running on
+   this desktop — Ollama or LM Studio, reached at localhost, so nothing leaves
+   the machine — or to Claude / an approved gateway if the page is pointed at
+   one. The model says, per sentence, whether it is a driver, which line it
+   belongs to and how sure it is; confident answers are stitched with no
+   ticking, doubtful ones are left unticked with the reason shown in Review.
+   If no model answers, the rules' decisions stand. */
 (function(){
   'use strict';
   const LSKEY='iwpbsg_enrich';
   function $id(x){ return document.getElementById(x); }
-  const EN={docs:[], prefer:false, mark:false};
-  try{ Object.assign(EN, JSON.parse(localStorage.getItem(LSKEY)||'{}')); }catch(e){}
+  const EN={docs:[], prefer:false, mark:false,
+    ai:{on:false, provider:'local', endpoint:'', model:'', key:'', threshold:0.7, rewrite:false}};
+  try{ const st=JSON.parse(localStorage.getItem(LSKEY)||'{}'); const ai={...EN.ai, ...(st.ai||{})}; Object.assign(EN, st); EN.ai=ai; }catch(e){}
   if(!Array.isArray(EN.docs)) EN.docs=[];
   function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(EN)); }catch(e){} }
 
@@ -20433,6 +20442,132 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
     return s||'source';
   }
 
+  /* ---- AI review: a model on this desktop, or Claude, decides ---------------- */
+  const AI_DEFAULT={local:'http://localhost:11434/v1/chat/completions', lmstudio:'http://localhost:1234/v1/chat/completions',
+                    anthropic:'https://api.anthropic.com/v1/messages'};
+  function cfgAi(k,d){ try{ const v=cfgS('ai_'+k); return (v==null||String(v).trim()==='')? d : String(v).trim(); }catch(e){ return d; } }
+  /* the page's own setting wins; the config pack's Settings sheet
+     (ai_provider, ai_endpoint, ai_model, ai_key, ai_threshold, ai_rewrite)
+     supplies the defaults so a team can be set up once */
+  function aiCfg(){
+    const a=EN.ai||{};
+    const provider=a.provider||cfgAi('provider','local');
+    const endpoint=a.endpoint||cfgAi('endpoint','')||(provider==='anthropic'? AI_DEFAULT.anthropic : AI_DEFAULT.local);
+    const model=a.model||cfgAi('model','')||(provider==='anthropic'? 'claude-opus-5' : '');
+    const key=a.key||cfgAi('key','');
+    const th=parseFloat(a.threshold!=null? a.threshold : cfgAi('threshold','0.7'));
+    const on=a.on!=null? !!a.on : /^(y|yes|on|true)$/i.test(cfgAi('provider','')? 'y':'');
+    return {on, provider, endpoint, model, key, threshold:isFinite(th)? Math.min(1,Math.max(0,th)) : 0.7,
+            rewrite:a.rewrite!=null? !!a.rewrite : /^y/i.test(cfgAi('rewrite','N'))};
+  }
+  function aiPrompt(doc, names){
+    const m=S.model; let period='';
+    try{ period=`${cmpLabels(m).period}; YTD ${ytdLabel()}; current year ${m.yearCY}, prior year ${m.yearPY}`; }catch(e){}
+    const sys=[
+      'You classify sentences from a finance write-up or meeting transcript for a management-reporting dashboard.',
+      'The dashboard writes commentary line by line (revenue and cost lines, products, segments). A sentence is worth keeping only if it explains WHY a figure moved or WHAT drove it — a driver, a cause, an offset, timing, a one-off, mix, volume, margin, rates.',
+      'Drop: chit-chat, questions, logistics, action items, agenda lines, restatements of a figure with no reason, and anything about a future plan that does not explain the current numbers.',
+      'For each kept sentence pick exactly one line from the list of line names — the one the sentence explains. Use the empty string only when the sentence is a general remark about the whole business.',
+      'A sentence that opens on a pronoun continues the sentence before it: it belongs to that sentence\'s line.',
+      'Confidence is 0 to 1: how sure you are that the sentence is a driver AND that the line is right.',
+      'If asked to reword, rewrite the sentence in the concise, past-tense style of a finance pack, keeping every fact and figure, removing speech filler — otherwise return the sentence unchanged.',
+      'Answer with JSON only, no prose, exactly: {"decisions":[{"i":<index>,"use":<true|false>,"line":"<one of the line names or empty>","confidence":<0-1>,"reason":"<short>","text":"<sentence, reworded only if asked>"}]}'
+    ].join(' ');
+    const user=JSON.stringify({
+      reporting_period: period,
+      reword: !!aiCfg().rewrite,
+      line_names: names,
+      sentences: doc.items.map((it,i)=>({i, text:it.text, rules_line:it.line||'', rules_use:!!it.on}))
+    });
+    return {sys,user};
+  }
+  function aiParse(txt){
+    const t=String(txt||'').trim();
+    const a=t.indexOf('{'), b=t.lastIndexOf('}');
+    if(a<0||b<a) throw new Error('the model did not answer with JSON');
+    const o=JSON.parse(t.slice(a,b+1));
+    if(!o||!Array.isArray(o.decisions)) throw new Error('the model\'s JSON has no decisions');
+    return o.decisions;
+  }
+  const AI_SCHEMA={type:'object', additionalProperties:false, required:['decisions'],
+    properties:{decisions:{type:'array', items:{type:'object', additionalProperties:false,
+      required:['i','use','line','confidence','reason','text'],
+      properties:{i:{type:'integer'}, use:{type:'boolean'}, line:{type:'string'}, confidence:{type:'number'},
+                  reason:{type:'string'}, text:{type:'string'}}}}}};
+  async function aiCall(c, sys, user){
+    const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(), 120000);
+    try{
+      if(c.provider==='anthropic'){
+        // raw Messages API from the browser — no SDK can ride inside this file
+        const r=await fetch(c.endpoint,{method:'POST', signal:ctl.signal,
+          headers:{'content-type':'application/json','x-api-key':c.key,'anthropic-version':'2023-06-01',
+                   'anthropic-dangerous-direct-browser-access':'true'},
+          body:JSON.stringify({model:c.model, max_tokens:8000, system:sys,
+            messages:[{role:'user', content:user}],
+            output_config:{format:{type:'json_schema', schema:AI_SCHEMA}}})});
+        if(!r.ok) throw new Error(`HTTP ${r.status} from ${c.endpoint}`);
+        const j=await r.json();
+        if(j.stop_reason==='refusal') throw new Error('the model declined this request');
+        return (j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+      }
+      // OpenAI-style chat completions: Ollama, LM Studio, and most internal gateways
+      const headers={'content-type':'application/json'};
+      if(c.key) headers['authorization']='Bearer '+c.key;
+      const r=await fetch(c.endpoint,{method:'POST', signal:ctl.signal, headers,
+        body:JSON.stringify({model:c.model, temperature:0, stream:false, response_format:{type:'json_object'},
+          messages:[{role:'system', content:sys},{role:'user', content:user}]})});
+      if(!r.ok) throw new Error(`HTTP ${r.status} from ${c.endpoint}`);
+      const j=await r.json();
+      const ch=j.choices&&j.choices[0];
+      return (ch&&ch.message&&(ch.message.content||''))||j.response||'';
+    } finally{ clearTimeout(tm); }
+  }
+  function aiFailWhy(e, c){
+    const msg=(e&&e.message)||String(e);
+    if(/Failed to fetch|NetworkError|Load failed|aborted/i.test(msg)){
+      return c.provider==='anthropic'
+        ? 'could not reach the endpoint (network or CORS)'
+        : 'no model answered at '+c.endpoint+' — is it running, and does it allow this page? (Ollama: start with OLLAMA_ORIGINS=* · LM Studio: switch CORS on)';
+    }
+    return msg;
+  }
+  /* the decisions, applied: confident answers stitch themselves, doubtful ones
+     stay unticked with the reason on show; the model never adds a sentence */
+  async function aiReview(doc){
+    const c=aiCfg(); if(!c.on||!doc.items.length) return null;
+    if(!c.model) throw new Error('no model name set');
+    let names=[]; try{ const ix=comIndex(); names=ix? ix.names.slice(0,400) : []; }catch(e){}
+    const {sys,user}=aiPrompt(doc, names);
+    const raw=await aiCall(c, sys, user);
+    const dec=aiParse(raw);
+    const byI=new Map(dec.map(d=>[+d.i, d]));
+    let applied=0, unsure=0;
+    doc.items.forEach((it,i)=>{
+      const d=byI.get(i); if(!d) return;
+      const conf=Math.max(0,Math.min(1, +d.confidence||0));
+      const line=(typeof d.line==='string'&&(d.line===''||names.includes(d.line)))? d.line : it.line;
+      it.ai={use:!!d.use, line, confidence:conf, reason:String(d.reason||'').slice(0,160)};
+      if(!!d.use&&conf>=c.threshold){
+        it.on=true; it.line=line; applied++;
+        if(c.rewrite&&d.text&&String(d.text).trim()&&String(d.text).trim()!==it.text){ it.orig=it.orig||it.text; it.text=String(d.text).trim(); it.reworded=true; }
+      } else if(!d.use&&conf>=c.threshold){
+        it.on=false; applied++;
+      } else { it.on=false; unsure++; }
+    });
+    doc.ai={provider:c.provider, model:c.model, applied, unsure, at:Date.now()};
+    return doc.ai;
+  }
+  async function aiTest(){
+    const c=aiCfg(), out=$id('enrichAiStatus');
+    if(!c.model){ out.textContent='Set a model name first.'; return; }
+    out.textContent='Testing '+c.endpoint+' …';
+    try{
+      const raw=await aiCall(c, 'Answer with JSON only: {"decisions":[{"i":0,"use":true,"line":"","confidence":1,"reason":"test","text":"ok"}]}', '{"sentences":[{"i":0,"text":"test"}]}');
+      aiParse(raw);
+      out.textContent='✓ '+c.model+' answered at '+c.endpoint+'.';
+    }catch(e){ out.textContent='✗ '+aiFailWhy(e,c); }
+  }
+
   /* ---- the review table ---------------------------------------------------- */
   function lineOptions(cur){
     let names=[]; try{ const ix=comIndex(); names=ix? ix.names.slice().sort((a,b)=>a.localeCompare(b)) : []; }catch(e){}
@@ -20446,16 +20581,16 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
     const anyTr=docs.some(d=>d.kind==='transcript');
     const body=docs.map((d,di)=>`
       <tr class="en-file"><td colspan="6">
-        <b>${esc(d.name)}</b> <span class="muted">· ${d.kind==='transcript'?'transcript':'document'} · ${d.items.length} sentence${d.items.length===1?'':'s'}${d.items.some(i=>i.loose)? ', '+d.items.filter(i=>i.loose).length+' naming no line' : ''}</span>
+        <b>${esc(d.name)}</b> <span class="muted">· ${d.kind==='transcript'?'transcript':'document'} · ${d.items.length} sentence${d.items.length===1?'':'s'}${d.items.some(i=>i.loose)? ', '+d.items.filter(i=>i.loose).length+' naming no line' : ''}${d.ai? ` · reviewed by ${esc(d.ai.model)}: ${d.ai.applied} decided, ${d.ai.unsure} unsure` : ''}</span>
         <label>Source label <input type="text" data-lbl-d="${di}" value="${esc(d.label||'')}" size="22"></label>
       </td></tr>`+
       d.items.map((r,i)=>`<tr class="${r.on?'':'en-off'}" data-d="${di}" data-i="${i}">
         <td><input type="checkbox" ${r.on?'checked':''} aria-label="Use this sentence"></td>
-        <td class="sent">${esc(r.text)}${r.cue?'':' <span class="en-nocue" title="No driver wording (driven by, offset, timing …)">no cue</span>'}</td>
+        <td class="sent">${esc(r.text)}${r.reworded?` <span class="en-nocue" title="Reworded by the model — original: ${esc(r.orig||'')}">reworded</span>`:''}${r.cue?'':' <span class="en-nocue" title="No driver wording (driven by, offset, timing …)">no cue</span>'}</td>
         <td><select aria-label="Line">${lineOptions(r.line)}</select></td>
         <td class="muted">${esc(r.how)}</td>
         <td class="muted">${esc((r.also||[]).join(', '))}</td>
-        <td class="muted">${esc((r.vague||[]).join('; '))}</td></tr>`).join('')+
+        <td class="muted">${esc((r.vague||[]).join('; '))}</td>${docs.some(x=>x.ai)? `<td class="muted">${r.ai? `${r.ai.use?'use':'drop'} · ${Math.round(r.ai.confidence*100)}%${r.ai.line&&r.ai.line!==r.line?' · '+esc(r.ai.line):''}<br>${esc(r.ai.reason)}` : ''}</td>` : ''}</tr>`).join('')+
       (d.items.length?'':`<tr><td colspan="6" class="muted">Nothing in this file names a line of the loaded extract.</td></tr>`)
     ).join('');
     ov.innerHTML=`<div id="enBox" role="dialog" aria-modal="true" aria-labelledby="enTitle">
@@ -20472,7 +20607,7 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
         </div>
       </div>
       <div id="enBody">
-        <table class="entab"><thead><tr><th></th><th>Sentence</th><th>Line</th><th>Matched by</th><th>Also names</th><th>Ambiguous</th></tr></thead>
+        <table class="entab"><thead><tr><th></th><th>Sentence</th><th>Line</th><th>Matched by</th><th>Also names</th><th>Ambiguous</th>${docs.some(d=>d.ai)?'<th>AI</th>':''}</tr></thead>
         <tbody>${body}</tbody></table>
       </div>
       <div id="enFoot">
@@ -20580,6 +20715,19 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
         docs.push({name:file.name, label:labelOf(file.name), kind, items:analyse(text, kind)});
       }catch(e){ bad.push(file.name+': '+(e&&e.message||e)); }
     }
+    // then the model, if one is switched on: it decides, the rules stand if it cannot
+    let aiNote='';
+    if(aiCfg().on&&docs.length){
+      const c=aiCfg();
+      status(`Asking ${c.model} at ${c.endpoint}…`);
+      let decided=0, unsure=0, fail='';
+      for(const d of docs){
+        try{ const r=await aiReview(d); if(r){ decided+=r.applied; unsure+=r.unsure; } }
+        catch(e){ fail=aiFailWhy(e,c); break; }
+      }
+      aiNote=fail? ` · AI review unavailable (${fail}), the rules' decisions stand`
+                 : ` · ${c.model} decided ${decided}${unsure? `, left ${unsure} unsure for review` : ''}`;
+    }
     if(!docs.length){ status('Could not read '+bad.join(' · '), true); return; }
     // the sentences enrich the commentary now; review is a link away
     let on=0, loose=0;
@@ -20591,7 +20739,8 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
     save(); applyChange();
     const who=docs.length===1? docs[0].name : docs.length+' files';
     status((on? `${on} sentence${on===1?'':'s'} from ${who} ${on===1?'enriches':'enrich'} the commentary` : `Nothing in ${who} names a line of the loaded extract`)
-      +(loose? ` · ${loose} naming no line kept unticked` : '')
+      +(loose&&!aiNote? ` · ${loose} naming no line kept unticked` : '')
+      +aiNote
       +(bad.length? ` · skipped ${bad.join(' · ')}` : '')+'.', !!bad.length&&!on, docs);
   }
   function mount(){
@@ -20605,6 +20754,9 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
 #enrichPanel .en-name{font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #enrichPanel .linklike{background:none;border:none;color:var(--hsbc-red);cursor:pointer;font:inherit;font-size:11.5px;padding:0}
 #enrichPanel .linklike:hover{text-decoration:underline}
+#enrichAi summary{cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-secondary)}
+#enrichAi{border-top:1px solid var(--border);padding-top:6px;display:flex;flex-direction:column;gap:6px}
+#enrichAi input[type=text],#enrichAi input[type=password],#enrichAi input[type=number],#enrichAi select{flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:4px 7px;font:inherit;font-size:12px;background:var(--surface-1);color:var(--text-primary)}
 .en-drag{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
 .en-sources{font-size:11.5px;color:var(--text-muted);margin:6px 0 0}
 #enOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -20643,7 +20795,21 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
         <button class="linklike" id="btnEnrichForgetAll" hidden>Forget all sources</button></div>
       <label><input type="checkbox" id="enrichPrefer"${EN.prefer?' checked':''}> prefer these sources over the config's commentary</label>
       <label><input type="checkbox" id="enrichMark"${EN.mark?' checked':''}> also mark the source on each clause</label>
-      <div class="note" id="enrichStatus"></div>`;
+      <div class="note" id="enrichStatus"></div>
+      <details id="enrichAi"><summary>AI review <span class="muted" id="enrichAiSum"></span></summary>
+        <label><input type="checkbox" id="aiOn"> let a model decide which sentences to use</label>
+        <label>Runs on <select id="aiProvider">
+          <option value="local">this desktop (Ollama / LM Studio)</option>
+          <option value="openai">an approved gateway (OpenAI-style)</option>
+          <option value="anthropic">Claude (Anthropic API)</option></select></label>
+        <label>Endpoint <input type="text" id="aiEndpoint" placeholder="http://localhost:11434/v1/chat/completions"></label>
+        <label>Model <input type="text" id="aiModel" placeholder="e.g. llama3.1:8b"></label>
+        <label id="aiKeyRow">Key <input type="password" id="aiKey" placeholder="only for a gateway or Claude"></label>
+        <label>Stitch when at least <input type="number" id="aiThreshold" min="0" max="1" step="0.05" style="width:64px"> sure</label>
+        <label><input type="checkbox" id="aiRewrite"> reword sentences into pack style</label>
+        <div style="display:flex;gap:8px;align-items:center"><button class="btn-quiet" id="btnAiTest">Test</button><span class="note" id="enrichAiStatus"></span></div>
+        <div class="note">Nothing leaves this machine when the model runs on the desktop. Ollama must be started with OLLAMA_ORIGINS=* so this page may call it; LM Studio needs CORS switched on.</div>
+      </details>`;
     tp.insertAdjacentElement('afterend',row);
     row.insertAdjacentElement('afterend',panel);
     let folded=false; try{ folded=localStorage.getItem('iwpbsg_enrich_collapsed')==='1'; }catch(e){}
@@ -20671,6 +20837,26 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
       b.addEventListener('click',e=>{ e.stopPropagation(); fi.click(); });
     }
     $id('enrichPrefer').addEventListener('change',e=>{ EN.prefer=e.target.checked; save(); applyChange(); });
+    // AI settings: the page's own values, the config pack's as defaults
+    const aiPaint=()=>{ const c=aiCfg();
+      $id('aiOn').checked=c.on; $id('aiProvider').value=c.provider; $id('aiEndpoint').value=c.endpoint; $id('aiModel').value=c.model;
+      $id('aiKey').value=c.key; $id('aiThreshold').value=String(c.threshold); $id('aiRewrite').checked=c.rewrite;
+      $id('aiKeyRow').style.display=c.provider==='local'?'none':'';
+      $id('enrichAiSum').textContent=c.on? `· on · ${c.model||'no model'} · ${c.provider==='local'?'desktop':c.provider}` : '· off';
+    };
+    const aiSet=(k,v)=>{ EN.ai=EN.ai||{}; EN.ai[k]=v; save(); aiPaint(); };
+    $id('aiOn').addEventListener('change',e=>aiSet('on',e.target.checked));
+    $id('aiProvider').addEventListener('change',e=>{ const p=e.target.value; EN.ai.provider=p;
+      if(!EN.ai.endpoint||Object.values(AI_DEFAULT).includes(EN.ai.endpoint)) EN.ai.endpoint=(p==='anthropic'? AI_DEFAULT.anthropic : p==='local'? AI_DEFAULT.local : '');
+      if(p==='anthropic'&&!EN.ai.model) EN.ai.model='claude-opus-5';
+      save(); aiPaint(); });
+    $id('aiEndpoint').addEventListener('change',e=>aiSet('endpoint',e.target.value.trim()));
+    $id('aiModel').addEventListener('change',e=>aiSet('model',e.target.value.trim()));
+    $id('aiKey').addEventListener('change',e=>aiSet('key',e.target.value.trim()));
+    $id('aiThreshold').addEventListener('change',e=>aiSet('threshold',parseFloat(e.target.value)));
+    $id('aiRewrite').addEventListener('change',e=>aiSet('rewrite',e.target.checked));
+    $id('btnAiTest').addEventListener('click',aiTest);
+    aiPaint();
     $id('enrichMark').addEventListener('change',e=>{ EN.mark=e.target.checked; save(); applyChange(); });
     paintList();
     return true;
