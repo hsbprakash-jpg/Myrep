@@ -20246,12 +20246,12 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
    fixed. In a transcript only sentences that carry a driver cue (driven by,
    offset, timing, one-off …) are used to begin with; a sentence that names
    no line is kept, unticked, as whole-view commentary the reviewer can turn
-   on. Accepted sentences join comInLoaded(), so the House commentary, the
-   Financial Summary, All commentaries, the widgets and the exports weave
-   them in exactly as they weave in the config's paragraphs — scope-
-   following, digesting and the per-block cap included. The sources are
-   named in a line under each commentary block; an inline marker on every
-   clause is a checkbox away.
+   on. Accepted sentences are the ONLY written commentary the page uses —
+   the config pack's Commentary sheet is not read for narrative any more —
+   and the House commentary, the Financial Summary, All commentaries, the
+   widgets and the exports weave them in with scope-following, digesting and
+   the per-block cap intact. The sources are named in a line under each
+   commentary block; an inline marker on every clause is a checkbox away.
    Word files are unzipped natively (DecompressionStream); PDF is not read
    here — save it as Word or text.
    AI review (on when a model is found): after the rules have run, the
@@ -20266,7 +20266,7 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
   'use strict';
   const LSKEY='iwpbsg_enrich';
   function $id(x){ return document.getElementById(x); }
-  const EN={docs:[], prefer:false, mark:false,
+  const EN={docs:[], mark:false,
     ai:{on:true, endpoint:'', model:'', key:'', threshold:0.7, rewrite:false, detected:null}};
   try{ const st=JSON.parse(localStorage.getItem(LSKEY)||'{}'); const ai={...EN.ai, ...(st.ai||{})}; Object.assign(EN, st); EN.ai=ai; }catch(e){}
   if(!Array.isArray(EN.docs)) EN.docs=[];
@@ -20697,21 +20697,20 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
     const fa=$id('btnEnrichForgetAll'); if(fa) fa.hidden=EN.docs.length<2;
     const ra=$id('btnEnrichReviewAll'); if(ra) ra.hidden=EN.docs.length<2;
   }
-  /* the Commentary templates note counts what is loaded: these sources too */
+  /* the Commentary templates note reports the uploads — the only written
+     commentary in play */
+  function noteText(){
+    const mine=accepted().length;
+    if(!mine) return 'No uploaded commentary yet — add a write-up, notes or a transcript under Enrich commentary; every block reads its own figures until then.';
+    let held=0; try{ held=comInAllUnscoped().length-comInAll().length; }catch(e){}
+    return `\u2713 ${mine} from uploaded source${EN.docs.length===1?'':'s'}`
+      +(held>0? ` \u00b7 ${held} held back by the current filters \u2014 written about lines outside this scope` : '')
+      +' \u2014 leading the blocks they name.';
+  }
   function noteHook(){
     if(typeof window.comShow!=='function'||window.comShow.__enrich) return;
     const _cs=window.comShow;
-    const w=function(){
-      const r=_cs.apply(this,arguments);
-      const n=$id('comInNote'), mine=accepted().length;
-      if(n&&mine&&n.textContent.indexOf('from uploaded')<0){
-        const add=`${mine} from uploaded source${EN.docs.length===1?'':'s'}`;
-        n.textContent=/^No written commentary/.test(n.textContent)
-          ? `✓ ${add} — leading the blocks they name.`
-          : n.textContent.replace(' — leading', ` · ${add} — leading`);
-      }
-      return r;
-    };
+    const w=function(){ const r=_cs.apply(this,arguments); const n=$id('comInNote'); if(n) n.textContent=noteText(); return r; };
     w.__enrich=true; window.comShow=w;
   }
   /* the sources named once under each commentary block, not on every clause */
@@ -20829,7 +20828,6 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
       <div class="note" id="enrichStatus"></div>
       <div class="note" id="enrichAiLine"></div>
       <details id="enrichAdv"><summary>Advanced</summary>
-        <label><input type="checkbox" id="enrichPrefer"${EN.prefer?' checked':''}> prefer these sources over the config's commentary</label>
         <label><input type="checkbox" id="enrichMark"${EN.mark?' checked':''}> also mark the source on each clause</label>
         <label>Model endpoint <input type="text" id="aiEndpoint" placeholder="blank = the model found on this desktop"></label>
         <label>Model <input type="text" id="aiModel" placeholder="blank = as found"></label>
@@ -20865,7 +20863,6 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
       hc.insertBefore(b, hc.querySelector('#btnHouseCopy')||null);
       b.addEventListener('click',e=>{ e.stopPropagation(); fi.click(); });
     }
-    $id('enrichPrefer').addEventListener('change',e=>{ EN.prefer=e.target.checked; save(); applyChange(); });
     // one line says what will decide; the fields under Advanced only override it
     const aiPaint=()=>{
       const c=aiCfg(), ln=$id('enrichAiLine'); ln.innerHTML='';
@@ -20899,12 +20896,23 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
     return true;
   }
 
-  /* ---- hooks: the sentences join the loaded commentary; a clause names its source */
-  const _loaded=comInLoaded;
-  comInLoaded=function(){
-    const base=_loaded.apply(this,arguments), mine=accepted();
-    if(!mine.length) return base;
-    return EN.prefer? mine.concat(base) : base.concat(mine);
+  /* ---- hooks: the uploads are the written commentary; a clause names its source */
+  // the config pack's Commentary sheet is no longer read for narrative: every
+  // path that merged it (comInAll, comInAllUnscoped, comInLoaded) now serves
+  // the accepted sentences alone, with the same scope-following and caching
+  comInLoaded=function(){ return accepted(); };
+  comInAllUnscoped=function(){ return accepted().filter(c=>String(c.text||'').trim()); };
+  let EN_CACHE=null, EN_M=null, EN_K='';
+  comInAll=function(){
+    const m=S&&S.model, src=accepted();
+    const k=Object.entries(S.filters||{}).filter(([,set])=>set&&set.size)
+        .map(([d,set])=>d+':'+[...set].sort().join('|')).sort().join(';')
+      +'\u0000'+src.map(c=>c.text||'').join('\u0001');
+    if(EN_CACHE&&EN_M===m&&EN_K===k) return EN_CACHE;
+    let out=src.filter(c=>String(c.text||'').trim());
+    try{ out=out.filter(c=>comScopeOK(c.text)); }catch(e){}
+    EN_CACHE=out; EN_M=m; EN_K=k;
+    return out;
   };
   if(typeof comDigest==='function'){
     const _digest=comDigest;

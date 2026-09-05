@@ -37,6 +37,13 @@ can be added, one file or many at once, by the picker or by dropping the files
 on the panel or on the commentary block. The sentences enrich the commentary
 the moment the files are read; review is optional.
 
+**The uploads are the only written commentary the page uses.** The config
+pack's Commentary sheet is no longer read for narrative: with nothing
+uploaded, every block reads its own figures; with uploads, their sentences
+are what the page weaves in. (The config pack's Aliases, Labels and
+commentary *templates* still apply — those shape matching and style, not
+the words.)
+
 - **Files read**: Word (`.docx`, unzipped natively in the browser), plain
   text (`.txt`, `.md`), and transcripts (`.vtt`, or a text export with
   `Name: …` lines). PDF is not read; save it as Word or text first. In a
@@ -67,8 +74,6 @@ the moment the files are read; review is optional.
   commentary block — "Commentary enriched from: Sep review notes, call
   transcript" — so the narrative itself stays clean. A checkbox adds the
   source label to every clause as well.
-- **Precedence**: config commentary first by default; tick *prefer these
-  sources* to put the uploads first.
 - **Storage**: sentences live in this browser's localStorage, separate from
   the config, so a config re-upload does not wipe them. *Forget* removes one
   file, *Forget all sources* removes everything.
@@ -95,8 +100,8 @@ stand and the status line says so.
 - A desktop model keeps everything on this machine. Ollama must be started
   with `OLLAMA_ORIGINS=*` so a page opened from a file may call it; LM Studio
   needs CORS switched on. An 8B-class instruct model is enough for this task.
-- **Advanced** (collapsed by default) holds everything else: prefer these
-  sources over the config's commentary; mark the source on each clause; a
+- **Advanced** (collapsed by default) holds everything else: mark the
+  source on each clause; a
   custom model endpoint, model name and key — an approved OpenAI-style
   gateway, or Claude via the Anthropic Messages API (structured output,
   default model `claude-opus-5`), recognised from the URL; the confidence
