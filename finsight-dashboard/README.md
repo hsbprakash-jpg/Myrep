@@ -31,7 +31,8 @@ A new entry in the left nav, after *Drag & drop charts*.
 ## Enrich commentary
 
 An **Enrich commentary** section in the left pane, below Commentary
-templates, plus an **⤒ Enrich** button in the Management commentary header.
+templates, plus an **⤒ Enrich** button on every AI commentary block, on the
+same row as Retrieve and Regenerate.
 Anything written about the numbers — a write-up, review notes, a transcript —
 can be added, one file or many at once, by the picker or by dropping the files
 on the panel or on the commentary block. The sentences enrich the commentary
@@ -125,8 +126,9 @@ file's convention of self-contained patch blocks:
 2. `interactive-charts.js` (kept here as a readable copy), which mounts the
    nav button and the page, wraps `setView`, `render` and `applyCfgDom`, and
    otherwise only calls existing functions, and
-3. `enrich-commentary.js`, which mounts the side-pane section, the header
-   button and the review dialog, wraps `comInLoaded` (the sentences join the
+3. `enrich-commentary.js`, which mounts the side-pane section and the
+   review dialog, wraps `aiComment` (the Enrich button on each commentary
+   block's Retrieve / Regenerate row), wraps `comInLoaded` (the sentences join the
    loaded commentary), `comDigest` (the optional inline marker) and `render`
    (the sources line under each block), and otherwise calls `comMatchList`,
    `comVague` and `comIndex` as the config path does.

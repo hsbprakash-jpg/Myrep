@@ -20734,6 +20734,25 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
   }
   const _render=render;
   render=function(){ const r=_render.apply(this,arguments); try{ paintSources(); }catch(e){} return r; };
+  /* every AI commentary block carries Retrieve and Regenerate on its header
+     row; Enrich sits beside them, and opens the same file picker */
+  if(typeof aiComment==='function'){
+    const _aic=aiComment;
+    aiComment=function(host){
+      const r=_aic.apply(this,arguments);
+      try{
+        const row=host&&host.querySelector&&host.querySelector('.aicom-btns');
+        if(row&&!row.hidden&&!row.querySelector('.aicom-e')){
+          const b=document.createElement('button'); b.type='button'; b.className='aicom-e';
+          b.title='Add a write-up, notes or a transcript — its sentences enrich this commentary';
+          b.textContent='⤒ Enrich';
+          b.addEventListener('click',e=>{ e.stopPropagation(); const fi=$id('enrichInput'); if(fi) fi.click(); });
+          row.insertBefore(b, row.firstChild);
+        }
+      }catch(e){}
+      return r;
+    };
+  }
   async function handleFiles(files){
     files=[...(files||[])]; if(!files.length) return;
     if(!S.model){ status('Load the extract first — sentences are matched against its line names.', true); return; }
@@ -20789,6 +20808,8 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
 #enrichAdv{border-top:1px solid var(--border);padding-top:6px;display:flex;flex-direction:column;gap:6px}
 #enrichAdv input[type=text],#enrichAdv input[type=password],#enrichAdv input[type=number]{flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:4px 7px;font:inherit;font-size:12px;background:var(--surface-1);color:var(--text-primary)}
 #enrichAiLine .linklike{background:none;border:none;color:var(--hsbc-red);cursor:pointer;font:inherit;font-size:11.5px;padding:0}
+.aicom-e{background:var(--fold-bg);border:none;color:var(--fold-red);cursor:pointer;font:inherit;font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;letter-spacing:.5px;text-transform:uppercase}
+.aicom-e:hover{background:var(--fold-bg-h)}
 .en-drag{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
 .en-sources{font-size:11.5px;color:var(--text-muted);margin:6px 0 0}
 #enOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -20855,43 +20876,6 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
       el.addEventListener('drop',e=>{ const fs=e.dataTransfer&&e.dataTransfer.files; if(fs&&fs.length){ e.preventDefault(); handleFiles(fs); } });
     };
     dropOn(panel); dropOn($id('housePanel'));
-    // and the commentary block has its own way in
-    const hc=$id('houseCtl');
-    if(hc&&!$id('btnHouseEnrich')){
-      const b=document.createElement('button'); b.className='btn-quiet'; b.id='btnHouseEnrich';
-      b.title='Add a write-up, notes or a transcript — its sentences enrich this commentary'; b.textContent='⤒ Enrich';
-      hc.insertBefore(b, hc.querySelector('#btnHouseCopy')||null);
-      b.addEventListener('click',e=>{ e.stopPropagation(); fi.click(); });
-    }
-    // one line says what will decide; the fields under Advanced only override it
-    const aiPaint=()=>{
-      const c=aiCfg(), ln=$id('enrichAiLine'); ln.innerHTML='';
-      const link=(t,f)=>{ const b=document.createElement('button'); b.className='linklike'; b.textContent=t; b.style.marginLeft='6px'; b.onclick=f; return b; };
-      const txt=t=>ln.appendChild(document.createTextNode(t));
-      if(c.source==='none'){
-        txt(c.wanted? 'AI review: no model found on this desktop — the rules decide alone.' : 'AI review: off — the rules decide alone.');
-        if(c.wanted){ ln.appendChild(link('Look again',async()=>{ txt(' …'); await aiProbe(); aiPaint(); })); ln.appendChild(link('Switch off',()=>{ EN.ai.on=false; save(); aiPaint(); })); }
-        else ln.appendChild(link('Switch on',async()=>{ EN.ai.on=true; save(); await aiProbe(); aiPaint(); }));
-      } else {
-        const where=c.source==='desktop'? `on this desktop (${c.server})` : (c.provider==='anthropic'? 'via Claude' : 'via '+(c.endpoint.replace(/^https?:\/\//,'').split('/')[0]));
-        txt(`AI review: ${c.on? '' : 'off · '}${c.model} ${where}${c.on? ' decides which sentences to use' : ''}.`);
-        ln.appendChild(link(c.on? 'Switch off' : 'Switch on',()=>{ EN.ai.on=!c.on; save(); aiPaint(); }));
-        if(c.source==='desktop') ln.appendChild(link('Look again',async()=>{ await aiProbe(); aiPaint(); }));
-      }
-      $id('aiEndpoint').value=EN.ai.endpoint||''; $id('aiModel').value=EN.ai.model||''; $id('aiKey').value=EN.ai.key||'';
-      $id('aiThreshold').value=String(c.threshold); $id('aiRewrite').checked=c.rewrite;
-      const s2=$id('enrichAdv').querySelector('summary'); s2.textContent='Advanced'+(EN.ai.endpoint? ' · custom endpoint' : '')+(c.rewrite? ' · reword' : '');
-    };
-    const aiSet=(k,v)=>{ EN.ai=EN.ai||{}; EN.ai[k]=v; save(); aiPaint(); };
-    $id('aiEndpoint').addEventListener('change',e=>aiSet('endpoint',e.target.value.trim()));
-    $id('aiModel').addEventListener('change',e=>aiSet('model',e.target.value.trim()));
-    $id('aiKey').addEventListener('change',e=>aiSet('key',e.target.value.trim()));
-    $id('aiThreshold').addEventListener('change',e=>aiSet('threshold',parseFloat(e.target.value)));
-    $id('aiRewrite').addEventListener('change',e=>aiSet('rewrite',e.target.checked));
-    $id('btnAiTest').addEventListener('click',aiTest);
-    aiPaint();
-    if(aiCfg().wanted!==false&&!EN.ai.endpoint) aiProbe().then(aiPaint);
-    $id('enrichMark').addEventListener('change',e=>{ EN.mark=e.target.checked; save(); applyChange(); });
     paintList();
     return true;
   }
