@@ -30,10 +30,12 @@ A new entry in the left nav, after *Drag & drop charts*.
 
 ## Enrich commentary
 
-A new **Enrich commentary** section in the left pane, below Commentary
-templates. Anything written about the numbers — a write-up, review notes, a
-transcript — can be added, one file or many at once, and the sentences in it
-join the commentary the page writes.
+An **Enrich commentary** section in the left pane, below Commentary
+templates, plus an **⤒ Enrich** button in the Management commentary header.
+Anything written about the numbers — a write-up, review notes, a transcript —
+can be added, one file or many at once, by the picker or by dropping the files
+on the panel or on the commentary block. The sentences enrich the commentary
+the moment the files are read; review is optional.
 
 - **Files read**: Word (`.docx`, unzipped natively in the browser), plain
   text (`.txt`, `.md`), and transcripts (`.vtt`, or a text export with
@@ -45,28 +47,31 @@ join the commentary the page writes.
   form, telling word). A document title is skipped; attendee, agenda and
   action lines are skipped; a sentence that opens on a pronoun ("It's driven
   by…") follows the sentence before it. In a transcript only sentences with a
-  driver cue (driven by, offset, timing, one-off, higher, lower …) are ticked
-  to begin with.
-- **Review before stitching**: one dialog lists every file's sentences with
-  the line each was matched to (changeable), how it matched, the other lines
-  it names and any ambiguous term, plus a **source label** per file. Untick
-  what does not belong. An ambiguous term is settled by an Alias row in the
-  config pack.
+  driver cue (driven by, offset, timing, one-off, higher, lower …) start
+  ticked. A sentence that names no line is kept, unticked, as whole-view
+  commentary the reviewer can turn on.
+- **Review, when wanted**: the *Review* link in the status line, or per file
+  in the list, or *Review all*, opens one table of every sentence with the
+  line each was matched to (changeable), how it matched, the other lines it
+  names and any ambiguous term, plus a **source label** per file. Untick what
+  does not belong and Save. An ambiguous term is settled by an Alias row in
+  the config pack.
 - **Where the sentences appear**: accepted sentences join the loaded
   commentary, so the House commentary, the Financial Summary, All
   commentaries, the dashboard widgets and the Excel / Word / PPT exports
   weave them in exactly as they weave in the config's paragraphs: appended to
   the sentence about that line, or leading the block when the block does not
   print the line by name. Scope-following applies too: a sentence naming
-  Private Bank is held back while the page is filtered to Premier. Each
-  clause can carry its source label, e.g. `(Sep review notes)`; a checkbox
-  switches the marker off.
+  Private Bank is held back while the page is filtered to Premier.
+- **Attribution**: the sources are named once, in a line under each
+  commentary block — "Commentary enriched from: Sep review notes, call
+  transcript" — so the narrative itself stays clean. A checkbox adds the
+  source label to every clause as well.
 - **Precedence**: config commentary first by default; tick *prefer these
   sources* to put the uploads first.
-- **Storage**: accepted sentences live in this browser's localStorage,
-  separate from the config, so a config re-upload does not wipe them.
-  *Review* reopens a file's dialog; *Forget* removes one file, *Forget all
-  sources* removes everything.
+- **Storage**: sentences live in this browser's localStorage, separate from
+  the config, so a config re-upload does not wipe them. *Forget* removes one
+  file, *Forget all sources* removes everything.
 
 Sample sources to try are in `sample/commentary-sources/`.
 
@@ -79,9 +84,10 @@ file's convention of self-contained patch blocks:
 2. `interactive-charts.js` (kept here as a readable copy), which mounts the
    nav button and the page, wraps `setView`, `render` and `applyCfgDom`, and
    otherwise only calls existing functions, and
-3. `enrich-commentary.js`, which mounts the side-pane section and the review
-   dialog, wraps `comInLoaded` (the sentences join the loaded commentary) and
-   `comDigest` (the source marker), and otherwise calls `comMatchList`,
+3. `enrich-commentary.js`, which mounts the side-pane section, the header
+   button and the review dialog, wraps `comInLoaded` (the sentences join the
+   loaded commentary), `comDigest` (the optional inline marker) and `render`
+   (the sources line under each block), and otherwise calls `comMatchList`,
    `comVague` and `comIndex` as the config path does.
 
 Nothing in the original code was edited.

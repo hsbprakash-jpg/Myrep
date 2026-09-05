@@ -20239,22 +20239,26 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
    file or many at once — is read in the browser, cut into sentences, and
    every sentence that names a line the file carries is matched the way the
    config's own free commentary is: comMatchList decides which line it is
-   about. Unstructured text is noisy, so nothing is stitched until it has
-   been reviewed: a table shows each sentence, the line it was matched to
-   (changeable), how it matched, and the terms that were ambiguous; in a
-   transcript only sentences that carry a driver cue (driven by, offset,
-   timing, one-off …) are ticked to begin with. Accepted sentences join
-   comInLoaded(), so the House commentary, the Financial Summary, All
-   commentaries, the widgets and the exports weave them in exactly as they
-   weave in the config's paragraphs — scope-following, digesting and the
-   per-block cap included — and each clause can carry its source label.
+   about. The sentences enrich the commentary the moment the file is read;
+   a review table (optional, from the panel or the status line) shows each
+   sentence, the line it was matched to (changeable), how it matched, and
+   the terms that were ambiguous, so a wrong match is a tick away from
+   fixed. In a transcript only sentences that carry a driver cue (driven by,
+   offset, timing, one-off …) are used to begin with; a sentence that names
+   no line is kept, unticked, as whole-view commentary the reviewer can turn
+   on. Accepted sentences join comInLoaded(), so the House commentary, the
+   Financial Summary, All commentaries, the widgets and the exports weave
+   them in exactly as they weave in the config's paragraphs — scope-
+   following, digesting and the per-block cap included. The sources are
+   named in a line under each commentary block; an inline marker on every
+   clause is a checkbox away.
    Word files are unzipped natively (DecompressionStream); PDF is not read
    here — save it as Word or text. */
 (function(){
   'use strict';
   const LSKEY='iwpbsg_enrich';
   function $id(x){ return document.getElementById(x); }
-  const EN={docs:[], prefer:false, mark:true};
+  const EN={docs:[], prefer:false, mark:false};
   try{ Object.assign(EN, JSON.parse(localStorage.getItem(LSKEY)||'{}')); }catch(e){}
   if(!Array.isArray(EN.docs)) EN.docs=[];
   function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(EN)); }catch(e){} }
@@ -20398,7 +20402,12 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
       let hits=[]; try{ hits=comMatchList(t)||[]; }catch(e){}
       const cue=CUE.test(t);
       const follows=prev&&prev.pi===pi&&FOLLOWS.test(t);
-      if(!hits.length&&!(follows&&cue)){ if(!hits.length) prev=null; continue; }   // names nothing the file carries
+      if(!hits.length&&!(follows&&cue)){
+        // names nothing the file carries: kept as commentary for the view as
+        // a whole, unticked — the reviewer decides whether it belongs
+        rows.push({text:t, line:'', how:'no line named', also:[], vague:[], cue, pi, on:false, loose:true});
+        prev=null; continue;
+      }
       const best=hits.find(h=>!h.passing)||hits[0];
       let line, how, also;
       if(follows&&(!best||best.passing||!hits.some(h=>h.subject))){
@@ -20430,14 +20439,14 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
     if(cur&&!names.includes(cur)) names.unshift(cur);
     return `<option value="">(whole view)</option>`+names.map(n=>`<option value="${esc(n)}"${n===cur?' selected':''}>${esc(n)}</option>`).join('');
   }
-  function openReview(docs, isNew){
+  function openReview(docs){
     closeReview();
     const ov=document.createElement('div'); ov.id='enOverlay';
     const total=docs.reduce((s,d)=>s+d.items.length,0);
     const anyTr=docs.some(d=>d.kind==='transcript');
     const body=docs.map((d,di)=>`
       <tr class="en-file"><td colspan="6">
-        <b>${esc(d.name)}</b> <span class="muted">· ${d.kind==='transcript'?'transcript':'document'} · ${d.items.length} sentence${d.items.length===1?'':'s'}</span>
+        <b>${esc(d.name)}</b> <span class="muted">· ${d.kind==='transcript'?'transcript':'document'} · ${d.items.length} sentence${d.items.length===1?'':'s'}${d.items.some(i=>i.loose)? ', '+d.items.filter(i=>i.loose).length+' naming no line' : ''}</span>
         <label>Source label <input type="text" data-lbl-d="${di}" value="${esc(d.label||'')}" size="22"></label>
       </td></tr>`+
       d.items.map((r,i)=>`<tr class="${r.on?'':'en-off'}" data-d="${di}" data-i="${i}">
@@ -20452,10 +20461,10 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
     ov.innerHTML=`<div id="enBox" role="dialog" aria-modal="true" aria-labelledby="enTitle">
       <div id="enHead">
         <h3 id="enTitle">Enrich commentary — ${docs.length===1? esc(docs[0].name) : docs.length+' files'}</h3>
-        <p class="subtitle">${total} sentence${total===1?'':'s'} name a line the file carries
-          ${anyTr? ' · in a transcript only sentences with a driver cue are ticked to begin with' : ''}
-          · untick what does not belong, change the line where the match is wrong.
-          A term listed as ambiguous is settled by an Alias row in the config pack.</p>
+        <p class="subtitle">${total} sentence${total===1?'':'s'} · ticked ones enrich the commentary now
+          ${anyTr? ' · in a transcript only sentences with a driver cue start ticked' : ''}
+          · a sentence that names no line is kept unticked as whole-view commentary
+          · untick what does not belong, change the line where the match is wrong; an ambiguous term is settled by an Alias row in the config pack.</p>
         <div id="enCtl">
           <button class="btn-quiet" id="enAll">Tick all</button>
           <button class="btn-quiet" id="enNone">Untick all</button>
@@ -20467,9 +20476,9 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
         <tbody>${body}</tbody></table>
       </div>
       <div id="enFoot">
-        <button class="btn-primary" id="enUse">${isNew?'Use these sentences':'Save'}</button>
-        <button class="btn-quiet" id="enCancel">${isNew?'Discard':'Close'}</button>
-        <span class="note">Accepted sentences are kept in this browser only and survive a config re-upload; Forget removes them.</span>
+        <button class="btn-primary" id="enUse">Save</button>
+        <button class="btn-quiet" id="enCancel">Close</button>
+        <span class="note">Sentences are kept in this browser only and survive a config re-upload; Forget removes a file's.</span>
       </div></div>`;
     document.body.appendChild(ov);
     const cnt=()=>{ const on=[...ov.querySelectorAll('tr[data-i] input[type=checkbox]')].filter(c=>c.checked).length;
@@ -20493,14 +20502,22 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
         on+=counts(d).on;
       }
       save(); closeReview(); applyChange();
-      status(`${on} sentence${on===1?'':'s'} from ${docs.length===1? docs[0].name : docs.length+' files'} now enrich the commentary.`);
+      status(`${on} sentence${on===1?'':'s'} from ${docs.length===1? docs[0].name : docs.length+' files'} ${on===1?'enriches':'enrich'} the commentary.`);
     };
     cnt();
   }
   function closeReview(){ const o=$id('enOverlay'); if(o) o.remove(); }
 
   /* ---- the side panel ------------------------------------------------------- */
-  function status(t, err){ const s=$id('enrichStatus'); if(s){ s.textContent=t||''; s.style.color=err? 'var(--status-critical)' : ''; } }
+  function status(t, err, review){
+    const s=$id('enrichStatus'); if(!s) return;
+    s.textContent=(t||'')+(review&&review.length?' ':''); s.style.color=err? 'var(--status-critical)' : '';
+    if(review&&review.length){
+      const b=document.createElement('button'); b.className='linklike'; b.textContent='Review';
+      b.style.marginLeft='6px'; b.onclick=()=>openReview(review);
+      s.appendChild(b);
+    }
+  }
   function paintList(){
     const host=$id('enrichList'); if(!host) return;
     host.innerHTML=EN.docs.map((d,i)=>{ const c=counts(d);
@@ -20509,9 +20526,10 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
         <button class="linklike" data-rev="${i}">Review</button> ·
         <button class="linklike" data-forget="${i}">Forget</button></div>`; }).join('')
       ||'<div class="note">No sources loaded. Anything written about the numbers — a write-up, notes, a transcript — can enrich the commentary from here.</div>';
-    host.querySelectorAll('[data-rev]').forEach(b=>b.onclick=()=>openReview([EN.docs[+b.dataset.rev]], false));
+    host.querySelectorAll('[data-rev]').forEach(b=>b.onclick=()=>openReview([EN.docs[+b.dataset.rev]]));
     host.querySelectorAll('[data-forget]').forEach(b=>b.onclick=()=>{ EN.docs.splice(+b.dataset.forget,1); save(); applyChange(); status('Forgotten.'); });
     const fa=$id('btnEnrichForgetAll'); if(fa) fa.hidden=EN.docs.length<2;
+    const ra=$id('btnEnrichReviewAll'); if(ra) ra.hidden=EN.docs.length<2;
   }
   /* the Commentary templates note counts what is loaded: these sources too */
   function noteHook(){
@@ -20530,12 +20548,27 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
     };
     w.__enrich=true; window.comShow=w;
   }
+  /* the sources named once under each commentary block, not on every clause */
+  function paintSources(){
+    const labels=[...new Set(EN.docs.filter(d=>counts(d).on).map(d=>d.label))];
+    for(const id of ['houseDisc','fsumDisc','caDisc']){
+      const dz=$id(id); if(!dz) continue;
+      let p=$id(id+'Src');
+      if(!labels.length){ if(p) p.remove(); continue; }
+      if(!p){ p=document.createElement('p'); p.id=id+'Src'; p.className='note en-sources'; dz.insertAdjacentElement('afterend',p); }
+      p.textContent='Commentary enriched from: '+labels.join(', ')+'.';
+      p.hidden=dz.hidden; p.style.display=dz.style.display;
+    }
+  }
   function applyChange(){
     paintList();
     try{ calcCacheClear(); }catch(e){}
     try{ if(S.model) render(); }catch(e){}
     try{ noteHook(); window.comShow(); }catch(e){}
+    paintSources();
   }
+  const _render=render;
+  render=function(){ const r=_render.apply(this,arguments); try{ paintSources(); }catch(e){} return r; };
   async function handleFiles(files){
     files=[...(files||[])]; if(!files.length) return;
     if(!S.model){ status('Load the extract first — sentences are matched against its line names.', true); return; }
@@ -20547,12 +20580,19 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
         docs.push({name:file.name, label:labelOf(file.name), kind, items:analyse(text, kind)});
       }catch(e){ bad.push(file.name+': '+(e&&e.message||e)); }
     }
-    const total=docs.reduce((s,d)=>s+d.items.length,0);
     if(!docs.length){ status('Could not read '+bad.join(' · '), true); return; }
-    status((total? `${total} candidate sentence${total===1?'':'s'} in ${docs.length===1? docs[0].name : docs.length+' files'} — review them.`
-                 : `Nothing in ${docs.length===1? docs[0].name : 'these files'} names a line of the loaded extract.`)
-      +(bad.length? ' Skipped '+bad.join(' · ') : ''), !!bad.length&&!total);
-    openReview(docs, true);
+    // the sentences enrich the commentary now; review is a link away
+    let on=0, loose=0;
+    for(const d of docs){
+      const i=EN.docs.findIndex(x=>x.name===d.name);
+      if(i>=0) EN.docs[i]=d; else EN.docs.push(d);
+      on+=counts(d).on; loose+=d.items.filter(x=>x.loose).length;
+    }
+    save(); applyChange();
+    const who=docs.length===1? docs[0].name : docs.length+' files';
+    status((on? `${on} sentence${on===1?'':'s'} from ${who} ${on===1?'enriches':'enrich'} the commentary` : `Nothing in ${who} names a line of the loaded extract`)
+      +(loose? ` · ${loose} naming no line kept unticked` : '')
+      +(bad.length? ` · skipped ${bad.join(' · ')}` : '')+'.', !!bad.length&&!on, docs);
   }
   function mount(){
     if($id('enrichPanel')) return true;
@@ -20565,6 +20605,8 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
 #enrichPanel .en-name{font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #enrichPanel .linklike{background:none;border:none;color:var(--hsbc-red);cursor:pointer;font:inherit;font-size:11.5px;padding:0}
 #enrichPanel .linklike:hover{text-decoration:underline}
+.en-drag{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
+.en-sources{font-size:11.5px;color:var(--text-muted);margin:6px 0 0}
 #enOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:24px}
 #enBox{background:var(--surface-1);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;max-width:1140px;width:100%;
   max-height:92vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.35)}
@@ -20597,9 +20639,10 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
       <button class="btn-quiet" id="btnEnrichUpload">⤒ Add sources (docx / txt / vtt · one or many)</button>
       <input type="file" id="enrichInput" accept=".docx,.txt,.text,.vtt,.md,.pdf,.doc" multiple hidden>
       <div id="enrichList"></div>
-      <button class="linklike" id="btnEnrichForgetAll" hidden style="align-self:flex-start">Forget all sources</button>
+      <div style="display:flex;gap:10px"><button class="linklike" id="btnEnrichReviewAll" hidden>Review all</button>
+        <button class="linklike" id="btnEnrichForgetAll" hidden>Forget all sources</button></div>
       <label><input type="checkbox" id="enrichPrefer"${EN.prefer?' checked':''}> prefer these sources over the config's commentary</label>
-      <label><input type="checkbox" id="enrichMark"${EN.mark?' checked':''}> mark the source in the text</label>
+      <label><input type="checkbox" id="enrichMark"${EN.mark?' checked':''}> also mark the source on each clause</label>
       <div class="note" id="enrichStatus"></div>`;
     tp.insertAdjacentElement('afterend',row);
     row.insertAdjacentElement('afterend',panel);
@@ -20611,6 +20654,22 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
     $id('btnEnrichUpload').addEventListener('click',()=>fi.click());
     fi.addEventListener('change',()=>{ const fs=[...fi.files]; fi.value=''; if(fs.length) handleFiles(fs); });
     $id('btnEnrichForgetAll').addEventListener('click',()=>{ EN.docs=[]; save(); applyChange(); status('All sources forgotten.'); });
+    $id('btnEnrichReviewAll').addEventListener('click',()=>openReview(EN.docs));
+    // files can be dropped on the panel, or on the commentary itself
+    const dropOn=el=>{ if(!el) return;
+      ['dragenter','dragover'].forEach(ev=>el.addEventListener(ev,e=>{ if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')){ e.preventDefault(); el.classList.add('en-drag'); } }));
+      ['dragleave','drop'].forEach(ev=>el.addEventListener(ev,e=>{ el.classList.remove('en-drag'); }));
+      el.addEventListener('drop',e=>{ const fs=e.dataTransfer&&e.dataTransfer.files; if(fs&&fs.length){ e.preventDefault(); handleFiles(fs); } });
+    };
+    dropOn(panel); dropOn($id('housePanel'));
+    // and the commentary block has its own way in
+    const hc=$id('houseCtl');
+    if(hc&&!$id('btnHouseEnrich')){
+      const b=document.createElement('button'); b.className='btn-quiet'; b.id='btnHouseEnrich';
+      b.title='Add a write-up, notes or a transcript — its sentences enrich this commentary'; b.textContent='⤒ Enrich';
+      hc.insertBefore(b, hc.querySelector('#btnHouseCopy')||null);
+      b.addEventListener('click',e=>{ e.stopPropagation(); fi.click(); });
+    }
     $id('enrichPrefer').addEventListener('change',e=>{ EN.prefer=e.target.checked; save(); applyChange(); });
     $id('enrichMark').addEventListener('change',e=>{ EN.mark=e.target.checked; save(); applyChange(); });
     paintList();
