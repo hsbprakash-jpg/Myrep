@@ -75,35 +75,41 @@ the moment the files are read; review is optional.
 
 Sample sources to try are in `sample/commentary-sources/`.
 
-### AI review (optional)
+### AI review
 
-Off until switched on, under **AI review** at the bottom of the Enrich
-commentary section. When on, the rules run first and then a language model
-decides: for every sentence, whether it is a driver, which line it belongs
-to, and how sure it is. Answers at or above the confidence threshold (default
-0.7) are stitched with no ticking; doubtful ones are left unticked with the
-model's reason shown in the AI column of Review. If the model cannot be
-reached, the rules' decisions stand and the status line says so.
+Nothing to configure. When the page opens it looks for a model server on
+this desktop — Ollama at port 11434 or LM Studio at port 1234 — and, if one
+answers, picks the first chat-capable model it lists. One line under the
+Enrich commentary section says what will decide, for example
+"AI review: llama3.1:8b-instruct on this desktop (Ollama) decides which
+sentences to use", with *Switch off* and *Look again* beside it. If nothing
+is found, the line says so and the rules decide alone.
 
-- **Runs on this desktop** by default: a local model served by
-  [Ollama](https://ollama.com) or LM Studio at `localhost`, so nothing leaves
-  the machine. Ollama must be started with `OLLAMA_ORIGINS=*` so a page opened
-  from a file may call it; LM Studio needs CORS switched on. Any model that
-  follows instructions and returns JSON will do; an 8B-class instruct model is
-  enough for this task.
-- **Or an approved gateway** (OpenAI-style chat completions with a bearer
-  key), **or Claude** directly (Anthropic Messages API with structured
-  output, default model `claude-opus-5`). Both send the sentences and the
-  extract's line names off the machine, so use them only where that is
-  allowed; a key typed into the page stays in this browser's localStorage.
-- **Reword** (off by default) lets the model rewrite a spoken sentence into
-  pack style; the original is kept and shown on hover.
-- The config pack's Settings sheet can supply team defaults: `ai_provider`
-  (`local` / `openai` / `anthropic`), `ai_endpoint`, `ai_model`, `ai_key`,
-  `ai_threshold`, `ai_rewrite`. The page's own settings override them.
+When a model is in play, the rules run first and then the model decides for
+every sentence whether it is a driver, which line it belongs to and how sure
+it is. Answers at or above the confidence threshold (0.7) are stitched with
+no ticking; doubtful ones are left unticked with the model's reason shown in
+the AI column of Review. If the model stops answering, the rules' decisions
+stand and the status line says so.
+
+- A desktop model keeps everything on this machine. Ollama must be started
+  with `OLLAMA_ORIGINS=*` so a page opened from a file may call it; LM Studio
+  needs CORS switched on. An 8B-class instruct model is enough for this task.
+- **Advanced** (collapsed by default) holds everything else: prefer these
+  sources over the config's commentary; mark the source on each clause; a
+  custom model endpoint, model name and key — an approved OpenAI-style
+  gateway, or Claude via the Anthropic Messages API (structured output,
+  default model `claude-opus-5`), recognised from the URL; the confidence
+  threshold; a reword toggle that rewrites spoken sentences into pack style
+  (the original is kept and shown on hover); and a *Test the model* button.
+  A custom endpoint sends sentences off the machine, so use one only where
+  that is allowed; a key typed into the page stays in this browser's
+  localStorage.
+- The config pack's Settings sheet can supply team defaults: `ai_endpoint`,
+  `ai_model`, `ai_key`, `ai_threshold`, `ai_rewrite`.
 - `sample/mock-model-server.js` is a stand-in model for testing the flow
-  without a real one: `node sample/mock-model-server.js` listens on port
-  11499 and answers both the OpenAI-style and the Anthropic shape.
+  without a real one: `node sample/mock-model-server.js 11434` answers the
+  model listing, OpenAI-style chat and the Anthropic shape.
 
 ## How it is wired
 

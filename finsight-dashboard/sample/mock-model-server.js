@@ -14,6 +14,7 @@ function decide(body, reword){
 http.createServer((req,res)=>{
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'POST, OPTIONS'};
   if(req.method==='OPTIONS'){ res.writeHead(204,cors); return res.end(); }
+  if(req.method==='GET'&&req.url.startsWith('/v1/models')){ res.writeHead(200,{...cors,'content-type':'application/json'}); return res.end(JSON.stringify({object:'list',data:[{id:'nomic-embed-text'},{id:'llama3.1:8b-instruct'},{id:'qwen2.5:7b'}]})); }
   let b=''; req.on('data',c=>b+=c); req.on('end',()=>{
     let j={}; try{ j=JSON.parse(b); }catch(e){}
     seen.push({url:req.url, headers:req.headers, body:j});
@@ -26,5 +27,5 @@ http.createServer((req,res)=>{
     if(req.url.startsWith('/v1/messages')) res.end(JSON.stringify({id:'msg_1',type:'message',role:'assistant',stop_reason:'end_turn',content:[{type:'text',text:out}]}));
     else res.end(JSON.stringify({choices:[{message:{role:'assistant',content:out}}]}));
   });
-}).listen(11499,()=>console.log("mock llm on 11499"));
+}).listen(+(process.argv[2]||11499),()=>console.log("mock llm on",process.argv[2]||11499));
 process.on('SIGTERM',()=>{ require('fs').writeFileSync('mock-seen.json',JSON.stringify(seen,null,1)); process.exit(0); });

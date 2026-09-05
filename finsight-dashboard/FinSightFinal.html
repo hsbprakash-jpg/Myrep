@@ -20254,7 +20254,7 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
    clause is a checkbox away.
    Word files are unzipped natively (DecompressionStream); PDF is not read
    here — save it as Word or text.
-   AI review (optional, off until switched on): after the rules have run, the
+   AI review (on when a model is found): after the rules have run, the
    sentences and the extract's line names go to a language model running on
    this desktop — Ollama or LM Studio, reached at localhost, so nothing leaves
    the machine — or to Claude / an approved gateway if the page is pointed at
@@ -20267,7 +20267,7 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
   const LSKEY='iwpbsg_enrich';
   function $id(x){ return document.getElementById(x); }
   const EN={docs:[], prefer:false, mark:false,
-    ai:{on:false, provider:'local', endpoint:'', model:'', key:'', threshold:0.7, rewrite:false}};
+    ai:{on:true, endpoint:'', model:'', key:'', threshold:0.7, rewrite:false, detected:null}};
   try{ const st=JSON.parse(localStorage.getItem(LSKEY)||'{}'); const ai={...EN.ai, ...(st.ai||{})}; Object.assign(EN, st); EN.ai=ai; }catch(e){}
   if(!Array.isArray(EN.docs)) EN.docs=[];
   function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(EN)); }catch(e){} }
@@ -20443,22 +20443,53 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
   }
 
   /* ---- AI review: a model on this desktop, or Claude, decides ---------------- */
-  const AI_DEFAULT={local:'http://localhost:11434/v1/chat/completions', lmstudio:'http://localhost:1234/v1/chat/completions',
-                    anthropic:'https://api.anthropic.com/v1/messages'};
+  /* Where the model is found, in order: an endpoint typed under Advanced (or
+     set in the config pack), else the one found running on this desktop, else
+     none — and then the rules decide alone. The provider is read off the URL:
+     the Anthropic Messages API for Claude, OpenAI-style chat for the rest. */
+  const AI_LOCAL=['http://localhost:11434','http://127.0.0.1:11434','http://localhost:1234','http://127.0.0.1:1234'];
   function cfgAi(k,d){ try{ const v=cfgS('ai_'+k); return (v==null||String(v).trim()==='')? d : String(v).trim(); }catch(e){ return d; } }
-  /* the page's own setting wins; the config pack's Settings sheet
-     (ai_provider, ai_endpoint, ai_model, ai_key, ai_threshold, ai_rewrite)
-     supplies the defaults so a team can be set up once */
+  function providerOf(url){ return /api\.anthropic\.com|\/v1\/messages/.test(url)? 'anthropic' : 'openai'; }
   function aiCfg(){
     const a=EN.ai||{};
-    const provider=a.provider||cfgAi('provider','local');
-    const endpoint=a.endpoint||cfgAi('endpoint','')||(provider==='anthropic'? AI_DEFAULT.anthropic : AI_DEFAULT.local);
-    const model=a.model||cfgAi('model','')||(provider==='anthropic'? 'claude-opus-5' : '');
-    const key=a.key||cfgAi('key','');
     const th=parseFloat(a.threshold!=null? a.threshold : cfgAi('threshold','0.7'));
-    const on=a.on!=null? !!a.on : /^(y|yes|on|true)$/i.test(cfgAi('provider','')? 'y':'');
-    return {on, provider, endpoint, model, key, threshold:isFinite(th)? Math.min(1,Math.max(0,th)) : 0.7,
-            rewrite:a.rewrite!=null? !!a.rewrite : /^y/i.test(cfgAi('rewrite','N'))};
+    const threshold=isFinite(th)? Math.min(1,Math.max(0,th)) : 0.7;
+    const rewrite=a.rewrite!=null? !!a.rewrite : /^y/i.test(cfgAi('rewrite','N'));
+    const on=a.on!==false;
+    const custom=String(a.endpoint||cfgAi('endpoint','')).trim();
+    if(custom){
+      const provider=providerOf(custom);
+      return {on, source:'custom', provider, endpoint:custom, key:a.key||cfgAi('key',''),
+              model:a.model||cfgAi('model','')||(provider==='anthropic'? 'claude-opus-5' : ''), threshold, rewrite};
+    }
+    const d=a.detected;
+    if(d&&d.endpoint&&d.model)
+      return {on, source:'desktop', provider:'openai', endpoint:d.endpoint, model:a.model||d.model, key:'', threshold, rewrite, server:d.server};
+    return {on:false, wanted:on, source:'none', provider:'openai', endpoint:'', model:'', key:'', threshold, rewrite};
+  }
+  /* look for a model server on this desktop: Ollama and LM Studio both list
+     their models at /v1/models; the first chat-capable one is taken */
+  let AI_PROBING=null;
+  async function aiProbe(){
+    if(AI_PROBING) return AI_PROBING;
+    AI_PROBING=(async()=>{
+      for(const base of AI_LOCAL){
+        try{
+          const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),1500);
+          const r=await fetch(base+'/v1/models',{signal:ctl.signal}); clearTimeout(tm);
+          if(!r.ok) continue;
+          const j=await r.json(); const ids=(j.data||j.models||[]).map(m=>m.id||m.name).filter(Boolean);
+          if(!ids.length) continue;
+          const chat=ids.filter(i=>!/embed|whisper|clip|rerank|vision/i.test(i));
+          const pick=chat.find(i=>/instruct|chat/i.test(i))||chat[0]||ids[0];
+          EN.ai.detected={endpoint:base+'/v1/chat/completions', model:pick, models:ids.slice(0,30), at:Date.now(),
+                          server:/:1234/.test(base)? 'LM Studio' : 'Ollama'};
+          save(); return EN.ai.detected;
+        }catch(e){}
+      }
+      EN.ai.detected=null; save(); return null;
+    })();
+    try{ return await AI_PROBING; } finally{ AI_PROBING=null; }
   }
   function aiPrompt(doc, names){
     const m=S.model; let period='';
@@ -20559,7 +20590,7 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
   }
   async function aiTest(){
     const c=aiCfg(), out=$id('enrichAiStatus');
-    if(!c.model){ out.textContent='Set a model name first.'; return; }
+    if(!c.endpoint||!c.model){ out.textContent='No model to test — none found on this desktop and no endpoint typed above.'; return; }
     out.textContent='Testing '+c.endpoint+' …';
     try{
       const raw=await aiCall(c, 'Answer with JSON only: {"decisions":[{"i":0,"use":true,"line":"","confidence":1,"reason":"test","text":"ok"}]}', '{"sentences":[{"i":0,"text":"test"}]}');
@@ -20717,6 +20748,7 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
     }
     // then the model, if one is switched on: it decides, the rules stand if it cannot
     let aiNote='';
+    if(aiCfg().source==='none'&&aiCfg().wanted&&docs.length){ status('Looking for a model on this desktop…'); await aiProbe(); }
     if(aiCfg().on&&docs.length){
       const c=aiCfg();
       status(`Asking ${c.model} at ${c.endpoint}…`);
@@ -20754,9 +20786,10 @@ var Lr={},Or={};var Rr,Nr=function(){function t(t,e,n){var i=this;this._sleepAft
 #enrichPanel .en-name{font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #enrichPanel .linklike{background:none;border:none;color:var(--hsbc-red);cursor:pointer;font:inherit;font-size:11.5px;padding:0}
 #enrichPanel .linklike:hover{text-decoration:underline}
-#enrichAi summary{cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-secondary)}
-#enrichAi{border-top:1px solid var(--border);padding-top:6px;display:flex;flex-direction:column;gap:6px}
-#enrichAi input[type=text],#enrichAi input[type=password],#enrichAi input[type=number],#enrichAi select{flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:4px 7px;font:inherit;font-size:12px;background:var(--surface-1);color:var(--text-primary)}
+#enrichAdv summary{cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-muted)}
+#enrichAdv{border-top:1px solid var(--border);padding-top:6px;display:flex;flex-direction:column;gap:6px}
+#enrichAdv input[type=text],#enrichAdv input[type=password],#enrichAdv input[type=number]{flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:4px 7px;font:inherit;font-size:12px;background:var(--surface-1);color:var(--text-primary)}
+#enrichAiLine .linklike{background:none;border:none;color:var(--hsbc-red);cursor:pointer;font:inherit;font-size:11.5px;padding:0}
 .en-drag{outline:2px dashed var(--hsbc-red);outline-offset:-2px}
 .en-sources{font-size:11.5px;color:var(--text-muted);margin:6px 0 0}
 #enOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -20793,22 +20826,18 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
       <div id="enrichList"></div>
       <div style="display:flex;gap:10px"><button class="linklike" id="btnEnrichReviewAll" hidden>Review all</button>
         <button class="linklike" id="btnEnrichForgetAll" hidden>Forget all sources</button></div>
-      <label><input type="checkbox" id="enrichPrefer"${EN.prefer?' checked':''}> prefer these sources over the config's commentary</label>
-      <label><input type="checkbox" id="enrichMark"${EN.mark?' checked':''}> also mark the source on each clause</label>
       <div class="note" id="enrichStatus"></div>
-      <details id="enrichAi"><summary>AI review <span class="muted" id="enrichAiSum"></span></summary>
-        <label><input type="checkbox" id="aiOn"> let a model decide which sentences to use</label>
-        <label>Runs on <select id="aiProvider">
-          <option value="local">this desktop (Ollama / LM Studio)</option>
-          <option value="openai">an approved gateway (OpenAI-style)</option>
-          <option value="anthropic">Claude (Anthropic API)</option></select></label>
-        <label>Endpoint <input type="text" id="aiEndpoint" placeholder="http://localhost:11434/v1/chat/completions"></label>
-        <label>Model <input type="text" id="aiModel" placeholder="e.g. llama3.1:8b"></label>
-        <label id="aiKeyRow">Key <input type="password" id="aiKey" placeholder="only for a gateway or Claude"></label>
+      <div class="note" id="enrichAiLine"></div>
+      <details id="enrichAdv"><summary>Advanced</summary>
+        <label><input type="checkbox" id="enrichPrefer"${EN.prefer?' checked':''}> prefer these sources over the config's commentary</label>
+        <label><input type="checkbox" id="enrichMark"${EN.mark?' checked':''}> also mark the source on each clause</label>
+        <label>Model endpoint <input type="text" id="aiEndpoint" placeholder="blank = the model found on this desktop"></label>
+        <label>Model <input type="text" id="aiModel" placeholder="blank = as found"></label>
+        <label>Key <input type="password" id="aiKey" placeholder="only a gateway or Claude needs one"></label>
         <label>Stitch when at least <input type="number" id="aiThreshold" min="0" max="1" step="0.05" style="width:64px"> sure</label>
         <label><input type="checkbox" id="aiRewrite"> reword sentences into pack style</label>
-        <div style="display:flex;gap:8px;align-items:center"><button class="btn-quiet" id="btnAiTest">Test</button><span class="note" id="enrichAiStatus"></span></div>
-        <div class="note">Nothing leaves this machine when the model runs on the desktop. Ollama must be started with OLLAMA_ORIGINS=* so this page may call it; LM Studio needs CORS switched on.</div>
+        <div style="display:flex;gap:8px;align-items:center"><button class="btn-quiet" id="btnAiTest">Test the model</button><span class="note" id="enrichAiStatus"></span></div>
+        <div class="note">A desktop model (Ollama, LM Studio) keeps everything on this machine; Ollama must be started with OLLAMA_ORIGINS=* so a page opened from a file may call it. An endpoint typed here is used instead — Claude when it is the Anthropic Messages API, OpenAI-style chat otherwise.</div>
       </details>`;
     tp.insertAdjacentElement('afterend',row);
     row.insertAdjacentElement('afterend',panel);
@@ -20837,19 +20866,26 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
       b.addEventListener('click',e=>{ e.stopPropagation(); fi.click(); });
     }
     $id('enrichPrefer').addEventListener('change',e=>{ EN.prefer=e.target.checked; save(); applyChange(); });
-    // AI settings: the page's own values, the config pack's as defaults
-    const aiPaint=()=>{ const c=aiCfg();
-      $id('aiOn').checked=c.on; $id('aiProvider').value=c.provider; $id('aiEndpoint').value=c.endpoint; $id('aiModel').value=c.model;
-      $id('aiKey').value=c.key; $id('aiThreshold').value=String(c.threshold); $id('aiRewrite').checked=c.rewrite;
-      $id('aiKeyRow').style.display=c.provider==='local'?'none':'';
-      $id('enrichAiSum').textContent=c.on? `· on · ${c.model||'no model'} · ${c.provider==='local'?'desktop':c.provider}` : '· off';
+    // one line says what will decide; the fields under Advanced only override it
+    const aiPaint=()=>{
+      const c=aiCfg(), ln=$id('enrichAiLine'); ln.innerHTML='';
+      const link=(t,f)=>{ const b=document.createElement('button'); b.className='linklike'; b.textContent=t; b.style.marginLeft='6px'; b.onclick=f; return b; };
+      const txt=t=>ln.appendChild(document.createTextNode(t));
+      if(c.source==='none'){
+        txt(c.wanted? 'AI review: no model found on this desktop — the rules decide alone.' : 'AI review: off — the rules decide alone.');
+        if(c.wanted){ ln.appendChild(link('Look again',async()=>{ txt(' …'); await aiProbe(); aiPaint(); })); ln.appendChild(link('Switch off',()=>{ EN.ai.on=false; save(); aiPaint(); })); }
+        else ln.appendChild(link('Switch on',async()=>{ EN.ai.on=true; save(); await aiProbe(); aiPaint(); }));
+      } else {
+        const where=c.source==='desktop'? `on this desktop (${c.server})` : (c.provider==='anthropic'? 'via Claude' : 'via '+(c.endpoint.replace(/^https?:\/\//,'').split('/')[0]));
+        txt(`AI review: ${c.on? '' : 'off · '}${c.model} ${where}${c.on? ' decides which sentences to use' : ''}.`);
+        ln.appendChild(link(c.on? 'Switch off' : 'Switch on',()=>{ EN.ai.on=!c.on; save(); aiPaint(); }));
+        if(c.source==='desktop') ln.appendChild(link('Look again',async()=>{ await aiProbe(); aiPaint(); }));
+      }
+      $id('aiEndpoint').value=EN.ai.endpoint||''; $id('aiModel').value=EN.ai.model||''; $id('aiKey').value=EN.ai.key||'';
+      $id('aiThreshold').value=String(c.threshold); $id('aiRewrite').checked=c.rewrite;
+      const s2=$id('enrichAdv').querySelector('summary'); s2.textContent='Advanced'+(EN.ai.endpoint? ' · custom endpoint' : '')+(c.rewrite? ' · reword' : '');
     };
     const aiSet=(k,v)=>{ EN.ai=EN.ai||{}; EN.ai[k]=v; save(); aiPaint(); };
-    $id('aiOn').addEventListener('change',e=>aiSet('on',e.target.checked));
-    $id('aiProvider').addEventListener('change',e=>{ const p=e.target.value; EN.ai.provider=p;
-      if(!EN.ai.endpoint||Object.values(AI_DEFAULT).includes(EN.ai.endpoint)) EN.ai.endpoint=(p==='anthropic'? AI_DEFAULT.anthropic : p==='local'? AI_DEFAULT.local : '');
-      if(p==='anthropic'&&!EN.ai.model) EN.ai.model='claude-opus-5';
-      save(); aiPaint(); });
     $id('aiEndpoint').addEventListener('change',e=>aiSet('endpoint',e.target.value.trim()));
     $id('aiModel').addEventListener('change',e=>aiSet('model',e.target.value.trim()));
     $id('aiKey').addEventListener('change',e=>aiSet('key',e.target.value.trim()));
@@ -20857,6 +20893,7 @@ table.entab tr.en-file input{padding:3px 6px;border:1px solid var(--border-stron
     $id('aiRewrite').addEventListener('change',e=>aiSet('rewrite',e.target.checked));
     $id('btnAiTest').addEventListener('click',aiTest);
     aiPaint();
+    if(aiCfg().wanted!==false&&!EN.ai.endpoint) aiProbe().then(aiPaint);
     $id('enrichMark').addEventListener('change',e=>{ EN.mark=e.target.checked; save(); applyChange(); });
     paintList();
     return true;
