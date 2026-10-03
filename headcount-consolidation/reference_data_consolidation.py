@@ -791,20 +791,24 @@ else:
 # 9D.1 Comments_RD FROM STATUS_APPROVAL
 #
 # STATUS_APPROVAL = AWAITING COO-BE-LEAD APPROVAL
+#                or AWAITING APPROVAL FROM OPCO
 #   -> Comments_RD = AWAITING FRC APPROVAL
 # ============================================================
 
-AWAITING_COO_STATUS = "AWAITING COO-BE-LEAD APPROVAL"
+AWAITING_FRC_STATUSES = [
+    "AWAITING COO-BE-LEAD APPROVAL",
+    "AWAITING APPROVAL FROM OPCO",
+]
 AWAITING_FRC_COMMENT = "AWAITING FRC APPROVAL"
 
 if STATUS_APPROVAL_COL in updated_ref_df.columns:
-    awaiting_coo = clean_text_series(updated_ref_df[STATUS_APPROVAL_COL]).eq(
-        AWAITING_COO_STATUS
+    awaiting_frc = clean_text_series(updated_ref_df[STATUS_APPROVAL_COL]).isin(
+        AWAITING_FRC_STATUSES
     )
-    updated_ref_df.loc[awaiting_coo, comments_col] = AWAITING_FRC_COMMENT
+    updated_ref_df.loc[awaiting_frc, comments_col] = AWAITING_FRC_COMMENT
     print(
         f"Positions marked '{AWAITING_FRC_COMMENT}' in {comments_col}: "
-        f"{awaiting_coo.sum()}"
+        f"{awaiting_frc.sum()}"
     )
 else:
     print(f"{comments_col} from STATUS_APPROVAL skipped - column missing.")
