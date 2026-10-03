@@ -810,6 +810,20 @@ if STATUS_APPROVAL_COL in updated_ref_df.columns:
         f"Positions marked '{AWAITING_FRC_COMMENT}' in {comments_col}: "
         f"{awaiting_frc.sum()}"
     )
+
+    # --------------------------------------------------------
+    # STATUS_APPROVAL = OPCO APPROVED and Comments_RD blank
+    #   -> Comments_RD = RAISE IJP
+    # Existing comments are left as they are.
+    # --------------------------------------------------------
+    opco_approved = clean_text_series(updated_ref_df[STATUS_APPROVAL_COL]).eq(
+        "OPCO APPROVED"
+    )
+    comments_blank = is_blank_series(updated_ref_df[comments_col])
+    raise_ijp = opco_approved & comments_blank
+
+    updated_ref_df.loc[raise_ijp, comments_col] = "RAISE IJP"
+    print(f"Positions marked 'RAISE IJP' in {comments_col}: {raise_ijp.sum()}")
 else:
     print(f"{comments_col} from STATUS_APPROVAL skipped - column missing.")
 
