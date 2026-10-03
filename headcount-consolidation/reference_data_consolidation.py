@@ -788,6 +788,29 @@ else:
 
 
 # ============================================================
+# 9D.1 Comments_RD FROM STATUS_APPROVAL
+#
+# STATUS_APPROVAL = AWAITING COO-BE-LEAD APPROVAL
+#   -> Comments_RD = AWAITING FRC APPROVAL
+# ============================================================
+
+AWAITING_COO_STATUS = "AWAITING COO-BE-LEAD APPROVAL"
+AWAITING_FRC_COMMENT = "AWAITING FRC APPROVAL"
+
+if STATUS_APPROVAL_COL in updated_ref_df.columns:
+    awaiting_coo = clean_text_series(updated_ref_df[STATUS_APPROVAL_COL]).eq(
+        AWAITING_COO_STATUS
+    )
+    updated_ref_df.loc[awaiting_coo, comments_col] = AWAITING_FRC_COMMENT
+    print(
+        f"Positions marked '{AWAITING_FRC_COMMENT}' in {comments_col}: "
+        f"{awaiting_coo.sum()}"
+    )
+else:
+    print(f"{comments_col} from STATUS_APPROVAL skipped - column missing.")
+
+
+# ============================================================
 # 9E. UPDATE HIRING_FLG
 #
 # YES if:
