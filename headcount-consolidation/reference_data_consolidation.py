@@ -77,7 +77,7 @@ frc_reconciliation_file = os.path.join(
 KEY_COL = "Position Number"
 EMPLOYEE_NAME_COL = "Employee Name"
 OLD_EMP_RD_COL = "OLD_EMP_RD"
-COMMENTS_TD_COL = "COMMENTS_TD"
+COMMENTS_RD_COL = "Comments_RD"
 ONBOARDED_COMMENT = "Onboarded"
 NEW_POSITION_FLAG_COL = "NEW_POSITION_FLAG"
 JOB_SUMMARY_COL = "Job Summary"
@@ -181,7 +181,7 @@ def is_blank_series(series):
 
 
 def find_column(df, name):
-    # Case-insensitive column match, e.g. "comments_td" -> "COMMENTS_TD"
+    # Case-insensitive column match, e.g. "comments_rd" -> "Comments_RD"
     for col in df.columns:
         if str(col).strip().lower() == name.strip().lower():
             return col
@@ -500,11 +500,11 @@ other_changes = []
 onboarded_count = 0
 
 # Use the existing comments column if present (any case), else create it
-comments_col = find_column(updated_ref_df, COMMENTS_TD_COL)
+comments_col = find_column(updated_ref_df, COMMENTS_RD_COL)
 if comments_col is None:
-    comments_col = COMMENTS_TD_COL
+    comments_col = COMMENTS_RD_COL
     updated_ref_df[comments_col] = ""
-    print(f"Note: '{COMMENTS_TD_COL}' not found in Reference - column added.")
+    print(f"Note: '{COMMENTS_RD_COL}' not found in Reference - column added.")
 
 updated_ref_df = drop_duplicate_keys(updated_ref_df, KEY_COL, "Reference")
 hc_unique_df = drop_duplicate_keys(hc_df.dropna(subset=[KEY_COL]), KEY_COL, "HC")
@@ -560,7 +560,7 @@ for pos in common_keys:
             updated_ref_df.at[pos, OLD_EMP_RD_COL] = current_employee
 
     # --------------------------------------------------------
-    # COMMENTS_TD
+    # Comments_RD
     #
     # Vacant last month and occupied this month -> "Onboarded"
     # --------------------------------------------------------
