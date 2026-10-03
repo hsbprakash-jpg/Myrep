@@ -20,6 +20,13 @@
 #   9. Columns are converted to object dtype before cell-by-cell
 #      updates (avoids pandas 2.x warnings / pandas 3 errors).
 #  10. Job Summary exclusions can be maintained on the Config sheet.
+#
+# Comments_RD rules (applied in this order):
+#   a. Vacant last month, occupied this month      -> "Onboarded"
+#   b. STATUS_APPROVAL = AWAITING COO-BE-LEAD APPROVAL
+#      or AWAITING APPROVAL FROM OPCO              -> "AWAITING FRC APPROVAL"
+#   c. STATUS_APPROVAL = OPCO APPROVED and
+#      Comments_RD blank                           -> "RAISE IJP"
 # ============================================================
 
 import os
