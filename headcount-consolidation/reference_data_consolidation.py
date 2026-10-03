@@ -77,6 +77,8 @@ frc_reconciliation_file = os.path.join(
 KEY_COL = "Position Number"
 EMPLOYEE_NAME_COL = "Employee Name"
 OLD_EMP_RD_COL = "OLD_EMP_RD"
+COMMENTS_TD_COL = "COMMENTS_TD"
+ONBOARDED_COMMENT = "Onboarded"
 NEW_POSITION_FLAG_COL = "NEW_POSITION_FLAG"
 JOB_SUMMARY_COL = "Job Summary"
 EXPECTED_JOB_SUMMARY = "Financial insight and advisory support specialist"
@@ -176,6 +178,18 @@ def normalise_text(value):
 def is_blank_series(series):
     s = series.astype(str).str.strip().str.lower()
     return series.isna() | s.isin(["", "nan", "none", "nat", "<na>"])
+
+
+def find_column(df, name):
+    # Case-insensitive column match, e.g. "comments_td" -> "COMMENTS_TD"
+    for col in df.columns:
+        if str(col).strip().lower() == name.strip().lower():
+            return col
+    return None
+
+
+def is_vacant(value):
+    return str(clean_compare_value(value)).strip().lower() == "vacant"
 
 
 def split_blank_keys(df, key_col):
@@ -483,6 +497,14 @@ if len(ref_blank_key_rows):
 # ============================================================
 
 other_changes = []
+onboarded_count = 0
+
+# Use the existing comments column if present (any case), else create it
+comments_col = find_column(updated_ref_df, COMMENTS_TD_COL)
+if comments_col is None:
+    comments_col = COMMENTS_TD_COL
+    updated_ref_df[comments_col] = ""
+    print(f"Note: '{COMMENTS_TD_COL}' not found in Reference - column added.")
 
 updated_ref_df = drop_duplicate_keys(updated_ref_df, KEY_COL, "Reference")
 hc_unique_df = drop_duplicate_keys(hc_df.dropna(subset=[KEY_COL]), KEY_COL, "HC")
@@ -505,6 +527,11 @@ for pos in common_keys:
         OLD_EMP_RD_COL: old_emp_rd,
     }
     has_change = False
+
+    # Last month's employee, read before HC overwrites it
+    prev_employee = ""
+    if EMPLOYEE_NAME_COL in updated_ref_df.columns:
+        prev_employee = updated_ref_df.at[pos, EMPLOYEE_NAME_COL]
 
     for col in common_columns:
         old_val = updated_ref_df.at[pos, col]
@@ -532,12 +559,35 @@ for pos in common_keys:
         if str(current_employee).strip().lower() != "vacant":
             updated_ref_df.at[pos, OLD_EMP_RD_COL] = current_employee
 
+    # --------------------------------------------------------
+    # COMMENTS_TD
+    #
+    # Vacant last month and occupied this month -> "Onboarded"
+    # --------------------------------------------------------
+    if EMPLOYEE_NAME_COL in hc_indexed.columns:
+        current_employee = hc_indexed.at[pos, EMPLOYEE_NAME_COL]
+
+        if (
+            is_vacant(prev_employee)
+            and not is_vacant(current_employee)
+            and clean_compare_value(current_employee) != ""
+        ):
+            change_record[f"{comments_col}_Pre"] = clean_compare_value(
+                updated_ref_df.at[pos, comments_col]
+            )
+            change_record[f"{comments_col}_Post"] = ONBOARDED_COMMENT
+            updated_ref_df.at[pos, comments_col] = ONBOARDED_COMMENT
+            onboarded_count += 1
+            has_change = True
+
     if has_change:
         other_changes.append(change_record)
 
 updated_ref_df = updated_ref_df.reset_index()
 
 other_changes_df = pd.DataFrame(other_changes)
+
+print(f"Positions marked '{ONBOARDED_COMMENT}' (vacant -> occupied): {onboarded_count}")
 
 
 # ============================================================
