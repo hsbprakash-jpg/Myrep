@@ -27,6 +27,9 @@
 #      or AWAITING APPROVAL FROM OPCO              -> "AWAITING FRC APPROVAL"
 #   c. STATUS_APPROVAL = OPCO APPROVED and
 #      Comments_RD blank                           -> "RAISE IJP"
+#
+# Leaver rule:
+#   STATUS = VACANT                                -> Leaver cleared
 # ============================================================
 
 import os
@@ -869,6 +872,27 @@ if HIRING_FLG_COL in updated_ref_df.columns:
     ] = "YES"
 else:
     print(f"{HIRING_FLG_COL} not found. Skipping HIRING_FLG update.")
+
+
+# ============================================================
+# 9F. STATUS = VACANT -> LEAVER CLEARED
+#
+# Column names are matched ignoring case (e.g. "Status", "STATUS").
+# ============================================================
+
+STATUS_COL = "Status"
+LEAVER_COL = "Leaver"
+
+status_col = find_column(updated_ref_df, STATUS_COL)
+leaver_col = find_column(updated_ref_df, LEAVER_COL)
+
+if status_col is not None and leaver_col is not None:
+    vacant_status = clean_text_series(updated_ref_df[status_col]).eq("VACANT")
+    updated_ref_df.loc[vacant_status, leaver_col] = None
+    print(f"{leaver_col} cleared for STATUS = VACANT: {vacant_status.sum()}")
+else:
+    missing = [n for n, c in [(STATUS_COL, status_col), (LEAVER_COL, leaver_col)] if c is None]
+    print(f"Leaver clearing skipped - column(s) missing: {', '.join(missing)}")
 
 
 # ============================================================
