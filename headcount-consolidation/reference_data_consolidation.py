@@ -34,8 +34,9 @@
 # Leaver rule:
 #   STATUS = VACANT                                -> Leaver cleared
 # LWD rule:
-#   Employee ID (Reference) = Employee ID (MR_Leavers_CM)
+#   Current month Employee ID = Employee ID (MR_Leavers_CM)
 #                                                  -> LWD = Termination Date
+#   (exited employees / Vacant positions are not updated)
 #
 # Outputs (all in the OUTPUT folder): Reference, Exception Report,
 # MR Hiring Update, FRC Reconciliation and Run_Log_<timestamp>.txt
@@ -1002,14 +1003,13 @@ else:
 # ============================================================
 # 9G. LWD FROM MR_LEAVERS_CM (Termination Date)
 #
-# Employee ID in the Reference Data Hierarchy is compared with
-# Employee ID in the leavers file; on a match, LWD is set to the
+# The CURRENT MONTH Employee ID (after the HC update) is compared
+# with Employee ID in the leavers file; on a match, LWD is set to the
 # leaver's Termination Date (latest date if listed more than once).
 #
-# The Employee ID used is the one in the Reference Data Hierarchy
-# file as loaded (before this month's HC update), so leavers whose
-# position is now Vacant in HC are still matched. Rows with no
-# Employee ID there fall back to their current Employee ID.
+# Employees who have already exited (position Vacant / Employee ID
+# blank in the current month) are not matched, so no Termination
+# Date is added for them.
 # ============================================================
 
 LWD_COL = "LWD"
@@ -1037,14 +1037,13 @@ else:
 
     term_col = first_column(leavers_df, TERMINATION_DATE_CANDIDATES)
     lv_emp_col = first_column(leavers_df, EMPLOYEE_ID_CANDIDATES)
-    ref_emp_col = first_column(ref_df, EMPLOYEE_ID_CANDIDATES)
     cur_emp_col = first_column(updated_ref_df, EMPLOYEE_ID_CANDIDATES)
 
     if term_col is None:
         print("LWD update skipped - no 'Termination Date' column in the leavers file.")
     elif lv_emp_col is None:
         print("LWD update skipped - no 'Employee ID' column in the leavers file.")
-    elif ref_emp_col is None and cur_emp_col is None:
+    elif cur_emp_col is None:
         print("LWD update skipped - no 'Employee ID' column in the Reference Data Hierarchy.")
     else:
         lwd_col = find_column(updated_ref_df, LWD_COL)
@@ -1063,17 +1062,11 @@ else:
             .set_index("_EMP")["_TERM_DATE"]
         )
 
-        # Employee ID of each Reference row, as in the Reference Data Hierarchy file
-        ref_emp = pd.Series(np.nan, index=updated_ref_df.index, dtype=object)
-        if ref_emp_col is not None:
-            emp_by_position = (
-                pd.DataFrame({"pos": ref_df[KEY_COL],
-                              "emp": clean_position_id_series(ref_df[ref_emp_col])})
-                .dropna().drop_duplicates("pos").set_index("pos")["emp"]
-            )
-            ref_emp = updated_ref_df[KEY_COL].map(emp_by_position).astype(object)
-        if cur_emp_col is not None:
-            ref_emp = ref_emp.fillna(clean_position_id_series(updated_ref_df[cur_emp_col]))
+        # Current month Employee ID of each Reference row. Blank if Vacant,
+        # and ignored for positions not in this month's HC (removed positions
+        # still carry last month's Employee ID).
+        ref_emp = clean_position_id_series(updated_ref_df[cur_emp_col])
+        ref_emp[~updated_ref_df[KEY_COL].isin(hc_keys)] = np.nan
 
         hit = ref_emp.isin(leaver_dates.index)
         new_lwd = ref_emp[hit].map(leaver_dates)
@@ -1098,8 +1091,8 @@ else:
         print(f"Reference rows matched on Emp ID : {int(hit.sum())}")
         print(f"LWD values changed               : {len(lwd_updates_df)}")
         if len(leavers_unmatched_df):
-            print(f"WARNING: {len(leavers_unmatched_df)} leaver row(s) not found in the "
-                  "Reference or without a Termination Date - see 'Leavers not matched' sheet.")
+            print(f"Note: {len(leavers_unmatched_df)} leaver row(s) not in the current month "
+                  "(already exited) or without a Termination Date - see 'Leavers not matched' sheet.")
 
 
 # ============================================================
