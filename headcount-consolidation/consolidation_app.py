@@ -1,17 +1,21 @@
 """
 Local web app for the Reference Data / HC / Appian consolidation.
 
-How to start it (any one of these):
+How to start it (any one of these - no .bat file needed):
   - Double-click consolidation_app.py
   - Open it in Spyder / VS Code / IDLE and press Run
+  - Jupyter: paste this whole file into a notebook cell and run the cell
+    (stop it with Kernel -> Interrupt)
   - Command Prompt:  python consolidation_app.py
 
-Keep reference_data_consolidation.py in the same folder as this file.
+A browser page opens where you choose:
+  - the three input Excel files, and
+  - the consolidation notebook (.ipynb) - or the .py script -
+and click Run. The code in the uploaded notebook is what runs, so any
+rule you change in the notebook is picked up automatically.
 
-A browser page opens where you choose the three input files and click Run.
 Everything stays on this computer: the page talks only to this local
-program (127.0.0.1), which runs reference_data_consolidation.py on the
-uploaded files and returns the output workbooks.
+program (127.0.0.1).
 
 Needs only the packages the script already uses (pandas, numpy, openpyxl).
 """
@@ -30,8 +34,11 @@ import webbrowser
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
-SCRIPT_PATH = os.path.join(APP_DIR, "reference_data_consolidation.py")
+try:
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    APP_DIR = os.getcwd()  # pasted into a Jupyter cell
+
 DEFAULT_OUTPUT_DIR = os.path.join(APP_DIR, "OUTPUT")
 
 HOST = "127.0.0.1"
@@ -48,7 +55,7 @@ run_lock = threading.Lock()
 
 
 # ============================================================
-# WEB PAGE (kept inside this file so only two files are needed)
+# WEB PAGE (kept inside this file so the app is a single file)
 # ============================================================
 
 PAGE_HTML = r"""<!doctype html>
@@ -120,7 +127,7 @@ PAGE_HTML = r"""<!doctype html>
     border-radius: 50%; background: var(--brand); color: #fff;
     font-size: 12px; vertical-align: 1px;
   }
-  .files { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .files { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .drop {
     position: relative;
     border: 2px dashed var(--border);
@@ -203,7 +210,7 @@ PAGE_HTML = r"""<!doctype html>
   </div>
 
   <section>
-    <h2><span class="step">1</span>Choose input files</h2>
+    <h2><span class="step">1</span>Choose input files and notebook</h2>
     <div class="files">
       <div class="drop" data-field="reference">
         <input type="file" accept=".xlsx,.xlsm">
@@ -221,6 +228,12 @@ PAGE_HTML = r"""<!doctype html>
         <input type="file" accept=".xlsx,.xlsm">
         <div class="label">Appian</div>
         <div class="hint">Click or drop the Appian extract</div>
+        <div class="file"></div>
+      </div>
+      <div class="drop" data-field="logic" data-kind="code">
+        <input type="file" accept=".ipynb,.py">
+        <div class="label">Consolidation notebook</div>
+        <div class="hint">The .ipynb with the rules (a .py script also works)</div>
         <div class="file"></div>
       </div>
     </div>
@@ -248,7 +261,7 @@ PAGE_HTML = r"""<!doctype html>
     <h2><span class="step">3</span>Run</h2>
     <div class="run-row">
       <button id="run" class="primary" disabled>Run</button>
-      <span id="status">Choose all three files to enable Run.</span>
+      <span id="status">Choose all four files to enable Run.</span>
     </div>
   </section>
 
@@ -268,7 +281,7 @@ PAGE_HTML = r"""<!doctype html>
 </main>
 
 <script>
-const files = { reference: null, hc: null, appian: null };
+const files = { reference: null, hc: null, appian: null, logic: null };
 const runBtn = document.getElementById("run");
 const statusEl = document.getElementById("status");
 let busy = false;
@@ -282,15 +295,16 @@ function setStatus(text, cls = "", spinning = false) {
 function refreshRunButton() {
   const ready = Object.values(files).every(Boolean);
   runBtn.disabled = !ready || busy;
-  if (!busy && !ready) setStatus("Choose all three files to enable Run.");
+  if (!busy && !ready) setStatus("Choose all four files to enable Run.");
   else if (!busy && ready && !statusEl.classList.contains("ok") && !statusEl.classList.contains("err"))
     setStatus("Ready to run.");
 }
 
 function pickFile(drop, file) {
   if (!file) return;
-  if (!/\.(xlsx|xlsm)$/i.test(file.name)) {
-    alert(`"${file.name}" is not an .xlsx / .xlsm file.`);
+  const isCode = drop.dataset.kind === "code";
+  if (isCode ? !/\.(ipynb|py)$/i.test(file.name) : !/\.(xlsx|xlsm)$/i.test(file.name)) {
+    alert(`"${file.name}" is not ${isCode ? "a .ipynb / .py" : "an .xlsx / .xlsm"} file.`);
     return;
   }
   files[drop.dataset.field] = file;
@@ -422,10 +436,13 @@ fetch("/config")
 
 
 def set_assignment(code, name, value):
-    # Replace the line "name = ..." in section 1 of the script
+    # Replace the line "name = ..." in section 1 of the notebook/script
     pattern = re.compile(rf"^{re.escape(name)} = .*$", re.MULTILINE)
     if not pattern.search(code):
-        raise ValueError(f"Could not find '{name} = ...' in the script")
+        raise ValueError(
+            f"Could not find the line '{name} = ...' in the uploaded notebook. "
+            "Is this the consolidation notebook?"
+        )
     return pattern.sub(lambda _: f"{name} = {value}", code, count=1)
 
 
@@ -435,9 +452,44 @@ def safe_filename(name, fallback):
     return name or fallback
 
 
+def notebook_to_code(raw_bytes):
+    # Join the code cells of a .ipynb into one script.
+    # Jupyter-only lines (%magic, !shell) are commented out.
+    nb = json.loads(raw_bytes.decode("utf-8"))
+    cells = []
+    for cell in nb.get("cells", []):
+        if cell.get("cell_type") != "code":
+            continue
+        source = cell.get("source", "")
+        if isinstance(source, list):
+            source = "".join(source)
+        lines = [
+            "# " + line if line.lstrip().startswith(("%", "!")) else line
+            for line in source.splitlines()
+        ]
+        cells.append("\n".join(lines))
+    if not cells:
+        raise ValueError("The uploaded notebook has no code cells.")
+    return "\n\n".join(cells) + "\n"
+
+
+def load_logic(item):
+    if not item or not item.get("data"):
+        raise ValueError("Missing the consolidation notebook (.ipynb).")
+
+    name = item.get("name") or "notebook.ipynb"
+    raw = base64.b64decode(item["data"])
+
+    if name.lower().endswith(".ipynb"):
+        try:
+            return name, notebook_to_code(raw)
+        except json.JSONDecodeError:
+            raise ValueError(f"'{name}' is not a valid Jupyter notebook.")
+    return name, raw.decode("utf-8-sig")
+
+
 def run_consolidation(payload):
-    with open(SCRIPT_PATH, encoding="utf-8") as f:
-        code = f.read()
+    logic_name, code = load_logic(payload.get("logic"))
 
     output_dir = (payload.get("output_dir") or "").strip() or DEFAULT_OUTPUT_DIR
     output_dir = os.path.abspath(os.path.expanduser(output_dir))
@@ -473,7 +525,11 @@ def run_consolidation(payload):
         ok = True
         with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
             try:
-                exec(compile(code, SCRIPT_PATH, "exec"), {"__name__": "__main__", "__file__": SCRIPT_PATH})
+                logic_path = os.path.join(work_dir, safe_filename(logic_name, "notebook"))
+                exec(
+                    compile(code, logic_path, "exec"),
+                    {"__name__": "__main__", "__file__": logic_path},
+                )
             except Exception:
                 ok = False
                 traceback.print_exc()
@@ -516,10 +572,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path in ("/", "/index.html"):
             self._send(200, PAGE_HTML.encode("utf-8"), "text/html; charset=utf-8")
         elif self.path == "/config":
-            self._send_json(200, {
-                "default_output_dir": DEFAULT_OUTPUT_DIR,
-                "script_found": os.path.exists(SCRIPT_PATH),
-            })
+            self._send_json(200, {"default_output_dir": DEFAULT_OUTPUT_DIR})
         else:
             self._send(404, b"Not found", "text/plain")
 
@@ -551,11 +604,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    if not os.path.exists(SCRIPT_PATH):
-        print(f"ERROR: {SCRIPT_PATH} not found - keep it in the same folder as this app.")
-        input("Press Enter to close...")
-        return
-
     port = PORT
     while True:
         try:
@@ -567,12 +615,16 @@ def main():
     url = f"http://{HOST}:{port}/"
     print("Consolidation app running at", url)
     print("Keep this window open while using the app. Close it to stop.")
+    print("(In Jupyter: the cell keeps running - use Kernel -> Interrupt to stop.)")
     threading.Timer(0.5, lambda: webbrowser.open(url)).start()
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        server.server_close()
+        print("Consolidation app stopped.")
 
 
 if __name__ == "__main__":
