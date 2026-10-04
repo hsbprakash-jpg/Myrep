@@ -112,9 +112,19 @@ class TeeToLog:
     def flush(self):
         self.stream.flush()
 
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
 
-sys.stdout = TeeToLog(sys.stdout, run_log_file)
-sys.stderr = TeeToLog(sys.stderr, run_log_file)
+
+def original_stream(stream):
+    # Unwrap a log set up by an earlier run (e.g. re-running a notebook cell)
+    while hasattr(stream, "log_path"):
+        stream = stream.stream
+    return stream
+
+
+sys.stdout = TeeToLog(original_stream(sys.stdout), run_log_file)
+sys.stderr = TeeToLog(original_stream(sys.stderr), run_log_file)
 
 print(f"Run started: {datetime.now():%d-%b-%Y %H:%M:%S}")
 
@@ -1114,3 +1124,7 @@ if os.path.exists(frc_reconciliation_file):
     print(f"FRC Reconciliation report created: {frc_reconciliation_file}")
 
 print(f"Run log saved: {run_log_file}")
+
+# Stop writing to the log file
+sys.stdout = original_stream(sys.stdout)
+sys.stderr = original_stream(sys.stderr)
