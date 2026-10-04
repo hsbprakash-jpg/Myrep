@@ -49,6 +49,9 @@
 # Committed offer rule:
 #   Comments_RD = OFFERED                          -> Committed Offer = YES
 #   (all Committed Offer = YES positions listed on "Committed Offers")
+# Sub Function Head rule:
+#   Position in HC and Sub Function Head Status = Completed
+#   in Appian                                      -> HIRING_FLG = YES
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -1427,8 +1430,59 @@ if HIRING_FLG_COL in updated_ref_df.columns:
     updated_ref_df.loc[
         hiring_against.eq("YES") | joiners.eq("YES"), HIRING_FLG_COL
     ] = "YES"
+
+    # --------------------------------------------------------
+    # Position in this month's HC AND Sub Function Head Status =
+    # Completed in Appian -> HIRING_FLG = YES.
+    # Appian is matched on its lookup key (Position ID, or Existing
+    # Position ID for replacements); if Appian has no such column the
+    # Reference's own Sub Function Head Status is used instead.
+    # --------------------------------------------------------
+    sfh_appian_col = find_column_loose(appian_lookup_df, [SUB_FUNCTION_HEAD_COL, "Sub Function Head"])
+    if sfh_appian_col is not None:
+        sfh_done_keys = set(
+            appian_lookup_df.loc[
+                clean_text_series(appian_lookup_df[sfh_appian_col]).eq("COMPLETED"),
+                APPIAN_LOOKUP_KEY_COL,
+            ].dropna()
+        )
+        sfh_source = f"Appian '{sfh_appian_col}'"
+    elif SUB_FUNCTION_HEAD_COL in updated_ref_df.columns:
+        sfh_done_keys = set(
+            updated_ref_df.loc[
+                clean_text_series(updated_ref_df[SUB_FUNCTION_HEAD_COL]).eq("COMPLETED"), KEY_COL
+            ].dropna()
+        )
+        sfh_source = f"Reference '{SUB_FUNCTION_HEAD_COL}' (Appian column not found)"
+    else:
+        sfh_done_keys = set()
+        sfh_source = None
+
+    sfh_set_rows = []
+    if sfh_source is None:
+        print("Note: no Sub Function Head Status column in Appian or Reference - rule skipped.")
+    else:
+        sfh_mask = updated_ref_df[KEY_COL].isin(sfh_done_keys & hc_keys)
+        sfh_new = sfh_mask & clean_text_series(updated_ref_df[HIRING_FLG_COL]).ne("YES")
+        for idx in updated_ref_df.index[sfh_new]:
+            sfh_set_rows.append({
+                KEY_COL: updated_ref_df.at[idx, KEY_COL],
+                EMPLOYEE_NAME_COL: (updated_ref_df.at[idx, EMPLOYEE_NAME_COL]
+                                    if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""),
+                f"{HIRING_FLG_COL}_Pre": clean_compare_value(updated_ref_df.at[idx, HIRING_FLG_COL]),
+                f"{HIRING_FLG_COL}_Post": "YES",
+            })
+        updated_ref_df.loc[sfh_mask, HIRING_FLG_COL] = "YES"
+        print(f"{HIRING_FLG_COL} = YES where Sub Function Head Status = Completed "
+              f"({sfh_source}) and position in HC: {int(sfh_mask.sum())} "
+              f"position(s), {int(sfh_new.sum())} newly set")
 else:
+    sfh_set_rows = []
     print(f"{HIRING_FLG_COL} not found. Skipping HIRING_FLG update.")
+
+hiring_flag_sfh_df = pd.DataFrame(
+    sfh_set_rows, columns=[KEY_COL, EMPLOYEE_NAME_COL, f"{HIRING_FLG_COL}_Pre", f"{HIRING_FLG_COL}_Post"]
+)
 
 
 # ============================================================
@@ -1805,6 +1859,7 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     apply_data_types(lwd_updates_df).to_excel(writer, index=False, sheet_name="LWD updates")
     apply_data_types(leavers_unmatched_df).to_excel(writer, index=False, sheet_name="Leavers not matched")
     apply_data_types(hiring_flag_removed_df).to_excel(writer, index=False, sheet_name="Hiring flags removed")
+    apply_data_types(hiring_flag_sfh_df).to_excel(writer, index=False, sheet_name="Hiring flag set (SFH)")
     filled_cleared_df.to_excel(writer, index=False, sheet_name="Filled-Vacated changes")
     vacant_pm_check_df.to_excel(writer, index=False, sheet_name="Filled-Changed check")
     apply_data_types(committed_offers_df).to_excel(writer, index=False, sheet_name="Committed Offers")
