@@ -38,7 +38,8 @@
 # Number (see the "Vacant PM check" sheet).
 # Filled position rule:
 #   Vacant last month, occupied this month         -> Committed Offer,
-#   Candidate Name, Joiner flag, Joiner Month and Comments_RD blanked
+#   Candidate Name, Joiner flag, Joiner Month and Comments_RD blanked,
+#   Status flag set to PHYSICAL
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -211,6 +212,7 @@ NEW_POSITION_FLAG_CANDIDATES = [
 ]
 # Status column (e.g. STATUS, STATUS_FLAG) - spelling-tolerant match
 STATUS_CANDIDATES = ["STATUS", "STATUS_FLAG", "STATUS_FLG", "POSITION STATUS", "STATUS_RD"]
+FILLED_STATUS_VALUE = "PHYSICAL"   # status given to a position once it is filled
 JOB_SUMMARY_COL = "Job Summary"
 EXPECTED_JOB_SUMMARY = "Financial insight and advisory support specialist"
 
@@ -1073,7 +1075,7 @@ else:
 # Vacant in the PM file AND occupied in the current month (same check
 # as "Onboarded"):
 #   Committed Offer, Candidate Name, Joiner flag, Joiner Month and
-#   Comments_RD are made blank.
+#   Comments_RD are made blank, and the Status flag is set to PHYSICAL.
 # Runs after the Comments_RD rules (so they end up blank) and before
 # HIRING_FLG is derived from the joiner flag (9E).
 # Column names are matched ignoring case, spaces, "_" and "-".
@@ -1108,6 +1110,27 @@ for label, candidates in FILLED_CLEAR_FIELDS.items():
         })
     updated_ref_df.loc[filled_mask, col] = None
     print(f"'{col}' blanked for filled positions: {int(had_value.sum())} value(s) cleared")
+
+# Status flag -> PHYSICAL (before the Leaver rule in 9F, so a filled
+# position is no longer treated as VACANT)
+filled_status_col = find_column_loose(updated_ref_df, STATUS_CANDIDATES)
+if filled_status_col is None:
+    print("Note: status column not found - not set to "
+          f"{FILLED_STATUS_VALUE} for filled positions.")
+else:
+    to_change = filled_mask & clean_text_series(updated_ref_df[filled_status_col]).ne(FILLED_STATUS_VALUE)
+    for idx in updated_ref_df.index[to_change]:
+        filled_cleared.append({
+            KEY_COL: updated_ref_df.at[idx, KEY_COL],
+            EMPLOYEE_NAME_COL: (updated_ref_df.at[idx, EMPLOYEE_NAME_COL]
+                                if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""),
+            "Field": filled_status_col,
+            "Pre": clean_compare_value(updated_ref_df.at[idx, filled_status_col]),
+            "Post": FILLED_STATUS_VALUE,
+        })
+    updated_ref_df.loc[filled_mask, filled_status_col] = FILLED_STATUS_VALUE
+    print(f"'{filled_status_col}' set to {FILLED_STATUS_VALUE} for filled positions: "
+          f"{int(to_change.sum())}")
 
 filled_cleared_df = pd.DataFrame(
     filled_cleared, columns=[KEY_COL, EMPLOYEE_NAME_COL, "Field", "Pre", "Post"]
