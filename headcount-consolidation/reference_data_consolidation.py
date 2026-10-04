@@ -1364,8 +1364,8 @@ EMPLOYEE_CLASS_COL = "Employee Class"
 EMPLOYEE_CLASS_VALUE = "EMPLOYEE"
 
 lwd_updates_df = pd.DataFrame(columns=[
-    KEY_COL, "Employee ID", EMPLOYEE_NAME_COL, "Functional Manager",
-    f"{LWD_COL}_Pre", f"{LWD_COL}_Post",
+    KEY_COL, "Employee ID", EMPLOYEE_NAME_COL, "Global Career Band", "Work Location",
+    "Functional Manager", f"{LWD_COL}_Pre", f"{LWD_COL}_Post",
 ])
 leavers_unmatched_df = pd.DataFrame()
 
@@ -1447,12 +1447,16 @@ else:
                   and not re.search(r"\bid\b|number", str(c).lower())), None),
         )
         hit_rows = updated_ref_df.loc[hit][changed]
+        gcb_col = find_column_loose(updated_ref_df, ["Global Career Band", "GCB", "GCB Level"])
+        loc_col = find_column_loose(updated_ref_df, ["Work Location", "Location"])
 
         lwd_updates_df = pd.DataFrame({
             KEY_COL: hit_rows[KEY_COL].values,
             "Employee ID": ref_emp[hit][changed].values,
             EMPLOYEE_NAME_COL: (hit_rows[EMPLOYEE_NAME_COL].values
                                 if EMPLOYEE_NAME_COL in hit_rows.columns else ""),
+            "Global Career Band": hit_rows[gcb_col].values if gcb_col is not None else "",
+            "Work Location": hit_rows[loc_col].values if loc_col is not None else "",
             "Functional Manager": hit_rows[fm_col].values if fm_col is not None else "",
             # blank, 0 or placeholder dates -> blank LWD_Pre
             f"{LWD_COL}_Pre": [to_date(v) for v in old_lwd[changed]],
