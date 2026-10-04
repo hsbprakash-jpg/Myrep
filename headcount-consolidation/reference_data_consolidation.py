@@ -34,8 +34,8 @@
 # Leaver rule:
 #   STATUS = VACANT                                -> Leaver cleared
 # LWD rule:
-#   LWD = Terminate Date from MR_Leavers_CM (matched on Position Number,
-#   else Employee ID)
+#   Employee ID (Reference) = Employee ID (MR_Leavers_CM)
+#                                                  -> LWD = Termination Date
 #
 # Outputs (all in the OUTPUT folder): Reference, Exception Report,
 # MR Hiring Update, FRC Reconciliation and Run_Log_<timestamp>.txt
@@ -61,7 +61,7 @@ from openpyxl.utils import get_column_letter
 reference_file = r"C:\YOUR_PATH\Reference_Data_Hierarchy.xlsx"
 hc_file = r"C:\YOUR_PATH\HC_Current_Month.xlsx"
 appian_file = r"C:\YOUR_PATH\Appian.xlsx"
-# Leavers file - its Terminate Date updates LWD (section 9G).
+# Leavers file - its Termination Date updates LWD (section 9G).
 # Optional: if this file is not found, the LWD update is skipped.
 leavers_file = r"C:\YOUR_PATH\MR_Leavers_CM.xlsx"
 # Outputs go to an OUTPUT folder next to this script.
@@ -214,6 +214,7 @@ DATE_COLUMNS = [
     "LWD",
     "LWD_Pre",
     "LWD_Post",
+    "Termination Date",
     "Terminate Date",
 ]
 
@@ -999,41 +1000,52 @@ else:
 
 
 # ============================================================
-# 9G. LWD FROM MR_LEAVERS_CM (Terminate Date)
+# 9G. LWD FROM MR_LEAVERS_CM (Termination Date)
 #
-# Each leaver is matched to the Reference by Position Number if the
-# leavers file has it, otherwise by Employee ID (as it was in the
-# Reference / HC before this month's update). The latest Terminate
-# Date per position is written to LWD.
+# Employee ID in the Reference Data Hierarchy is compared with
+# Employee ID in the leavers file; on a match, LWD is set to the
+# leaver's Termination Date (latest date if listed more than once).
+#
+# The Employee ID used is the one in the Reference Data Hierarchy
+# file as loaded (before this month's HC update), so leavers whose
+# position is now Vacant in HC are still matched. Rows with no
+# Employee ID there fall back to their current Employee ID.
 # ============================================================
 
 LWD_COL = "LWD"
-TERMINATE_DATE_CANDIDATES = [
-    "Terminate Date", "Termination Date", "Terminated Date", "Date of Termination",
+TERMINATION_DATE_CANDIDATES = [
+    "Termination Date", "Terminate Date", "Terminated Date", "Date of Termination",
 ]
-EMPLOYEE_ID_COL = "Employee ID"
+EMPLOYEE_ID_CANDIDATES = ["Employee ID", "EmployeeID", "Emp ID", "Employee Number"]
 
-lwd_updates_df = pd.DataFrame(columns=[KEY_COL, f"{LWD_COL}_Pre", f"{LWD_COL}_Post"])
+lwd_updates_df = pd.DataFrame(columns=[KEY_COL, "Employee ID", f"{LWD_COL}_Pre", f"{LWD_COL}_Post"])
 leavers_unmatched_df = pd.DataFrame()
+
+
+def first_column(df, candidates):
+    for name in candidates:
+        col = find_column(df, name)
+        if col is not None:
+            return col
+    return None
+
 
 if not os.path.exists(leavers_file):
     print(f"LWD update skipped - leavers file not found: {leavers_file}")
 else:
     leavers_df = clean_columns(pd.read_excel(leavers_file))
 
-    term_col = next(
-        (find_column(leavers_df, c) for c in TERMINATE_DATE_CANDIDATES
-         if find_column(leavers_df, c)),
-        None,
-    )
-    lv_pos_col = find_column(leavers_df, KEY_COL)
-    lv_emp_col = find_column(leavers_df, EMPLOYEE_ID_COL)
+    term_col = first_column(leavers_df, TERMINATION_DATE_CANDIDATES)
+    lv_emp_col = first_column(leavers_df, EMPLOYEE_ID_CANDIDATES)
+    ref_emp_col = first_column(ref_df, EMPLOYEE_ID_CANDIDATES)
+    cur_emp_col = first_column(updated_ref_df, EMPLOYEE_ID_CANDIDATES)
 
     if term_col is None:
-        print("LWD update skipped - no 'Terminate Date' column in the leavers file.")
-    elif lv_pos_col is None and lv_emp_col is None:
-        print(f"LWD update skipped - leavers file has no '{KEY_COL}' or "
-              f"'{EMPLOYEE_ID_COL}' column to match on.")
+        print("LWD update skipped - no 'Termination Date' column in the leavers file.")
+    elif lv_emp_col is None:
+        print("LWD update skipped - no 'Employee ID' column in the leavers file.")
+    elif ref_emp_col is None and cur_emp_col is None:
+        print("LWD update skipped - no 'Employee ID' column in the Reference Data Hierarchy.")
     else:
         lwd_col = find_column(updated_ref_df, LWD_COL)
         if lwd_col is None:
@@ -1041,65 +1053,53 @@ else:
             updated_ref_df[lwd_col] = None
             print(f"Note: '{LWD_COL}' not found in Reference - column added.")
 
+        # Leaver Employee ID -> latest Termination Date
+        leavers_df["_EMP"] = clean_position_id_series(leavers_df[lv_emp_col])
         leavers_df["_TERM_DATE"] = pd.to_datetime(leavers_df[term_col], errors="coerce")
-        leavers_df["_POS"] = (
-            clean_position_id_series(leavers_df[lv_pos_col])
-            if lv_pos_col else pd.Series(np.nan, index=leavers_df.index, dtype=object)
-        )
-
-        # Employee ID -> Position Number, from last month's Reference and this month's HC
-        if lv_emp_col:
-            emp_to_pos = pd.Series(dtype=object)
-            for source in (ref_df, hc_df):
-                src_emp_col = find_column(source, EMPLOYEE_ID_COL)
-                if src_emp_col is None:
-                    continue
-                pairs = pd.DataFrame({
-                    "emp": clean_position_id_series(source[src_emp_col]),
-                    "pos": source[KEY_COL],
-                }).dropna().drop_duplicates("emp").set_index("emp")["pos"]
-                emp_to_pos = pd.concat([emp_to_pos, pairs[~pairs.index.isin(emp_to_pos.index)]])
-
-            need_pos = leavers_df["_POS"].isna()
-            leavers_df.loc[need_pos, "_POS"] = (
-                clean_position_id_series(leavers_df.loc[need_pos, lv_emp_col]).map(emp_to_pos)
-            )
-
-        # Latest Terminate Date per position
-        latest_lwd = (
-            leavers_df.dropna(subset=["_POS", "_TERM_DATE"])
+        leaver_dates = (
+            leavers_df.dropna(subset=["_EMP", "_TERM_DATE"])
             .sort_values("_TERM_DATE")
-            .drop_duplicates("_POS", keep="last")
-            .set_index("_POS")["_TERM_DATE"]
+            .drop_duplicates("_EMP", keep="last")
+            .set_index("_EMP")["_TERM_DATE"]
         )
 
-        ref_pos = updated_ref_df[KEY_COL]
-        hit = ref_pos.isin(latest_lwd.index)
-        new_lwd = ref_pos[hit].map(latest_lwd)
+        # Employee ID of each Reference row, as in the Reference Data Hierarchy file
+        ref_emp = pd.Series(np.nan, index=updated_ref_df.index, dtype=object)
+        if ref_emp_col is not None:
+            emp_by_position = (
+                pd.DataFrame({"pos": ref_df[KEY_COL],
+                              "emp": clean_position_id_series(ref_df[ref_emp_col])})
+                .dropna().drop_duplicates("pos").set_index("pos")["emp"]
+            )
+            ref_emp = updated_ref_df[KEY_COL].map(emp_by_position).astype(object)
+        if cur_emp_col is not None:
+            ref_emp = ref_emp.fillna(clean_position_id_series(updated_ref_df[cur_emp_col]))
+
+        hit = ref_emp.isin(leaver_dates.index)
+        new_lwd = ref_emp[hit].map(leaver_dates)
         old_lwd = updated_ref_df.loc[hit, lwd_col]
         changed = [values_differ(o, n) for o, n in zip(old_lwd, new_lwd)]
 
         lwd_updates_df = pd.DataFrame({
-            KEY_COL: ref_pos[hit][changed].values,
+            KEY_COL: updated_ref_df.loc[hit, KEY_COL][changed].values,
+            "Employee ID": ref_emp[hit][changed].values,
             f"{LWD_COL}_Pre": [clean_compare_value(v) for v in old_lwd[changed]],
             f"{LWD_COL}_Post": new_lwd[changed].values,
         })
         updated_ref_df.loc[hit, lwd_col] = new_lwd
 
-        known_positions = set(ref_pos.dropna())
         not_matched = (
-            leavers_df["_POS"].isna()
-            | ~leavers_df["_POS"].isin(known_positions)
+            ~leavers_df["_EMP"].isin(set(ref_emp.dropna()))
             | leavers_df["_TERM_DATE"].isna()
         )
-        leavers_unmatched_df = leavers_df[not_matched].drop(columns=["_TERM_DATE", "_POS"])
+        leavers_unmatched_df = leavers_df[not_matched].drop(columns=["_EMP", "_TERM_DATE"])
 
         print(f"Leavers in file                  : {len(leavers_df)}")
-        print(f"Positions with LWD from leavers  : {int(hit.sum())}")
+        print(f"Reference rows matched on Emp ID : {int(hit.sum())}")
         print(f"LWD values changed               : {len(lwd_updates_df)}")
         if len(leavers_unmatched_df):
-            print(f"WARNING: {len(leavers_unmatched_df)} leaver row(s) not matched or "
-                  "without a Terminate Date - see 'Leavers not matched' sheet.")
+            print(f"WARNING: {len(leavers_unmatched_df)} leaver row(s) not found in the "
+                  "Reference or without a Termination Date - see 'Leavers not matched' sheet.")
 
 
 # ============================================================
