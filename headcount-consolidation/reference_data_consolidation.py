@@ -52,7 +52,9 @@
 # Sub Function Head rule:
 #   Position in HC, Sub Function Head Status BLANK in PM and
 #   Completed in Appian this month                 -> HIRING_FLG, LEAVER
-#                                                     and JOINER = YES
+#                                                     and JOINER = YES;
+#   and if Status = PHYSICAL                       -> HIRING AGAINST
+#                                                     PHYSICAL_RD = YES
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -1525,6 +1527,25 @@ if HIRING_FLG_COL in updated_ref_df.columns:
                 print(f"Note: no {label} column found - not set to YES for Sub Function Head positions.")
         print(f"LEAVER / JOINER set to YES for the same positions "
               f"('{sfh_leaver_col}' / '{sfh_joiner_col}')")
+
+        # Same positions with Status = PHYSICAL -> HIRING AGAINST PHYSICAL_RD = YES
+        sfh_hap_col = find_column_loose(updated_ref_df, [HIRING_AGAINST_COL, "HIRING_AGAINST_PHYSICAL_RD"])
+        sfh_status_col = find_column_loose(updated_ref_df, STATUS_CANDIDATES)
+        if sfh_hap_col is None or sfh_status_col is None:
+            print(f"Note: '{HIRING_AGAINST_COL}' or status column not found - not set for "
+                  "Sub Function Head positions.")
+        else:
+            sfh_phys = sfh_mask & clean_text_series(updated_ref_df[sfh_status_col]).eq(FILLED_STATUS_VALUE)
+            sfh_phys_keys = set(updated_ref_df.loc[sfh_phys, KEY_COL])
+            for row in sfh_set_rows:
+                idx = updated_ref_df.index[updated_ref_df[KEY_COL] == row[KEY_COL]][0]
+                row[f"{HIRING_AGAINST_COL}_Pre"] = clean_compare_value(updated_ref_df.at[idx, sfh_hap_col])
+                row[f"{HIRING_AGAINST_COL}_Post"] = (
+                    "YES" if row[KEY_COL] in sfh_phys_keys else row[f"{HIRING_AGAINST_COL}_Pre"]
+                )
+            updated_ref_df.loc[sfh_phys, sfh_hap_col] = "YES"
+            print(f"'{sfh_hap_col}' set to YES for Sub Function Head positions with "
+                  f"'{sfh_status_col}' = {FILLED_STATUS_VALUE}: {int(sfh_phys.sum())}")
         print(f"{HIRING_FLG_COL} = YES where Sub Function Head Status was blank in PM, "
               f"Completed now ({sfh_source}) and position in HC: {int(sfh_mask.sum())} "
               f"position(s), {int(sfh_new.sum())} newly set "
@@ -1535,9 +1556,13 @@ else:
     sfh_leaver_col = sfh_joiner_col = None
     print(f"{HIRING_FLG_COL} not found. Skipping HIRING_FLG update.")
 
+if "sfh_hap_col" not in dir():
+    sfh_hap_col = None
+    sfh_phys_keys = set()
 hiring_flag_sfh_df = pd.DataFrame(sfh_set_rows, columns=[
     KEY_COL, EMPLOYEE_NAME_COL, f"{HIRING_FLG_COL}_Pre", f"{HIRING_FLG_COL}_Post",
     "LEAVER_Pre", "LEAVER_Post", "JOINER_Pre", "JOINER_Post",
+    f"{HIRING_AGAINST_COL}_Pre", f"{HIRING_AGAINST_COL}_Post",
 ])
 
 
@@ -1951,10 +1976,10 @@ if pm_hiring_col is not None and HIRING_FLG_COL in updated_ref_df.columns:
     print(f"{HIRING_FLG_COL} changed this run: {len(hiring_flag_changed_keys)} position(s) "
           f"highlighted light green (Reference: {n_ref}, MR Hiring Update: {n_hu})")
 
-# LEAVER / JOINER set by the Sub Function Head rule -> light green too
-for _col in (sfh_leaver_col, sfh_joiner_col):
-    if _col is not None and sfh_set_keys:
-        _keys = {str(clean_compare_value(k)) for k in sfh_set_keys}
+# LEAVER / JOINER / HIRING AGAINST PHYSICAL_RD set by the Sub Function Head rule -> light green too
+for _col, _ks in ((sfh_leaver_col, sfh_set_keys), (sfh_joiner_col, sfh_set_keys), (sfh_hap_col, sfh_phys_keys)):
+    if _col is not None and _ks:
+        _keys = {str(clean_compare_value(k)) for k in _ks}
         highlight_cells(output_reference_file, "Reference_Data_CM", _col, _keys)
         highlight_cells(hiring_update_file, "MR_Hiring_Update", _col, _keys)
 
