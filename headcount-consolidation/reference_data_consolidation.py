@@ -28,6 +28,9 @@
 #   c. STATUS_APPROVAL = OPCO APPROVED and
 #      Comments_RD blank                           -> "RAISE IJP"
 #
+# Input files: leave the C:\YOUR_PATH placeholders in section 1 and a
+# Windows "Open" box asks for each file when the script runs.
+#
 # Leaver rule:
 #   STATUS = VACANT                                -> Leaver cleared
 #
@@ -68,6 +71,44 @@ RESET_HIRING_FLG = False
 # False -> they stay in the Reference output (original behaviour);
 #          they are always listed in the Exception Report
 DROP_REMOVED_POSITIONS = False
+
+
+# ------------------------------------------------------------
+# FILE PICKER
+#
+# If a path above is still the C:\YOUR_PATH placeholder, a Windows
+# "Open" box pops up to choose that file - no need to type paths.
+# ------------------------------------------------------------
+
+def pick_file(title):
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)  # show the box in front of Jupyter
+        path = filedialog.askopenfilename(
+            title=title,
+            filetypes=[("Excel files", "*.xlsx *.xlsm"), ("All files", "*.*")],
+        )
+        root.destroy()
+    except Exception as err:
+        raise RuntimeError(
+            f"Could not open a file picker ({err}). "
+            "Type the file paths in section 1 instead."
+        )
+    if not path:
+        raise RuntimeError(f"No file chosen for: {title}")
+    return path
+
+
+if "YOUR_PATH" in reference_file:
+    reference_file = pick_file("Select the REFERENCE DATA HIERARCHY file")
+if "YOUR_PATH" in hc_file:
+    hc_file = pick_file("Select the HC CURRENT MONTH file")
+if "YOUR_PATH" in appian_file:
+    appian_file = pick_file("Select the APPIAN file")
 
 os.makedirs(output_folder, exist_ok=True)
 
@@ -127,6 +168,9 @@ sys.stdout = TeeToLog(original_stream(sys.stdout), run_log_file)
 sys.stderr = TeeToLog(original_stream(sys.stderr), run_log_file)
 
 print(f"Run started: {datetime.now():%d-%b-%Y %H:%M:%S}")
+print(f"Reference file : {reference_file}")
+print(f"HC file        : {hc_file}")
+print(f"Appian file    : {appian_file}")
 
 
 # ============================================================
