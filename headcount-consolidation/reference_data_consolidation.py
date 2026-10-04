@@ -33,6 +33,9 @@
 #
 # Leaver rule:
 #   STATUS = VACANT                                -> Leaver cleared
+# Hiring flag rule:
+#   Vacant last month with HIRING_FLG = YES, filled
+#   this month                                     -> HIRING_FLG removed
 # New position rule:
 #   Position Number not in last month's Reference  -> NEW_POSITION_FLAG = YES
 #   (existing flag values are never overwritten)
@@ -633,6 +636,7 @@ if len(ref_blank_key_rows):
 
 other_changes = []
 onboarded_count = 0
+filled_keys = set()  # vacant last month, filled this month
 
 # Use the existing comments column if present (any case), else create it
 comments_col = find_column(updated_ref_df, COMMENTS_RD_COL)
@@ -716,6 +720,7 @@ for pos in common_keys:
             change_record[f"{comments_col}_Post"] = ONBOARDED_COMMENT
             updated_ref_df.at[pos, comments_col] = ONBOARDED_COMMENT
             onboarded_count += 1
+            filled_keys.add(pos)
             has_change = True
 
     if has_change:
@@ -1000,6 +1005,42 @@ if HIRING_FLG_COL in updated_ref_df.columns:
     ] = "YES"
 else:
     print(f"{HIRING_FLG_COL} not found. Skipping HIRING_FLG update.")
+
+
+# ============================================================
+# 9E.1 FILLED POSITIONS -> HIRING_FLG REMOVED
+#
+# Vacant in the PM file AND HIRING_FLG = YES in the PM file
+# AND filled in the current month (same check as "Onboarded")
+#   -> HIRING_FLG is removed (blank) in the CM file.
+# Runs after 9E so the flag is not set back to YES.
+# ============================================================
+
+hiring_flag_removed_df = pd.DataFrame(
+    columns=[KEY_COL, EMPLOYEE_NAME_COL, f"{HIRING_FLG_COL}_Pre", f"{HIRING_FLG_COL}_Post"]
+)
+pm_hiring_col = find_column(ref_df, HIRING_FLG_COL)
+
+if HIRING_FLG_COL in updated_ref_df.columns and pm_hiring_col is not None:
+    pm_hiring_yes = set(
+        ref_df.loc[clean_text_series(ref_df[pm_hiring_col]).eq("YES"), KEY_COL].dropna()
+    )
+    remove_flag = updated_ref_df[KEY_COL].isin(filled_keys & pm_hiring_yes)
+
+    hiring_flag_removed_df = pd.DataFrame({
+        KEY_COL: updated_ref_df.loc[remove_flag, KEY_COL].values,
+        EMPLOYEE_NAME_COL: (
+            updated_ref_df.loc[remove_flag, EMPLOYEE_NAME_COL].values
+            if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""
+        ),
+        f"{HIRING_FLG_COL}_Pre": "YES",
+        f"{HIRING_FLG_COL}_Post": "",
+    })
+    updated_ref_df.loc[remove_flag, HIRING_FLG_COL] = None
+    print(f"{HIRING_FLG_COL} removed (vacant last month, filled this month): "
+          f"{int(remove_flag.sum())}")
+else:
+    print(f"{HIRING_FLG_COL} removal for filled positions skipped - column missing.")
 
 
 # ============================================================
@@ -1296,6 +1337,7 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     job_summary_exceptions_df.to_excel(writer, index=False, sheet_name="Job Summary Exceptions")
     apply_data_types(lwd_updates_df).to_excel(writer, index=False, sheet_name="LWD updates")
     apply_data_types(leavers_unmatched_df).to_excel(writer, index=False, sheet_name="Leavers not matched")
+    apply_data_types(hiring_flag_removed_df).to_excel(writer, index=False, sheet_name="Hiring flag removed")
 
 
 # ============================================================
