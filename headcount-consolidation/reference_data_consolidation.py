@@ -33,6 +33,9 @@
 #
 # Leaver rule:
 #   STATUS = VACANT                                -> Leaver cleared
+# LWD rule:
+#   LWD = Terminate Date from MR_Leavers_CM (matched on Position Number,
+#   else Employee ID)
 #
 # Outputs (all in the OUTPUT folder): Reference, Exception Report,
 # MR Hiring Update, FRC Reconciliation and Run_Log_<timestamp>.txt
@@ -58,6 +61,9 @@ from openpyxl.utils import get_column_letter
 reference_file = r"C:\YOUR_PATH\Reference_Data_Hierarchy.xlsx"
 hc_file = r"C:\YOUR_PATH\HC_Current_Month.xlsx"
 appian_file = r"C:\YOUR_PATH\Appian.xlsx"
+# Leavers file - its Terminate Date updates LWD (section 9G).
+# Optional: if this file is not found, the LWD update is skipped.
+leavers_file = r"C:\YOUR_PATH\MR_Leavers_CM.xlsx"
 # Outputs go to an OUTPUT folder next to this script.
 # To use a different folder, replace this line with e.g.
 #   output_folder = r"C:\YOUR_PATH\OUTPUT"
@@ -205,6 +211,10 @@ DATE_COLUMNS = [
     "Exit Date",
     "JOINER MONTH",
     "Joiners Month",
+    "LWD",
+    "LWD_Pre",
+    "LWD_Post",
+    "Terminate Date",
 ]
 
 DEFAULT_JOB_SUMMARY_EXCLUSIONS = [
@@ -989,6 +999,110 @@ else:
 
 
 # ============================================================
+# 9G. LWD FROM MR_LEAVERS_CM (Terminate Date)
+#
+# Each leaver is matched to the Reference by Position Number if the
+# leavers file has it, otherwise by Employee ID (as it was in the
+# Reference / HC before this month's update). The latest Terminate
+# Date per position is written to LWD.
+# ============================================================
+
+LWD_COL = "LWD"
+TERMINATE_DATE_CANDIDATES = [
+    "Terminate Date", "Termination Date", "Terminated Date", "Date of Termination",
+]
+EMPLOYEE_ID_COL = "Employee ID"
+
+lwd_updates_df = pd.DataFrame(columns=[KEY_COL, f"{LWD_COL}_Pre", f"{LWD_COL}_Post"])
+leavers_unmatched_df = pd.DataFrame()
+
+if not os.path.exists(leavers_file):
+    print(f"LWD update skipped - leavers file not found: {leavers_file}")
+else:
+    leavers_df = clean_columns(pd.read_excel(leavers_file))
+
+    term_col = next(
+        (find_column(leavers_df, c) for c in TERMINATE_DATE_CANDIDATES
+         if find_column(leavers_df, c)),
+        None,
+    )
+    lv_pos_col = find_column(leavers_df, KEY_COL)
+    lv_emp_col = find_column(leavers_df, EMPLOYEE_ID_COL)
+
+    if term_col is None:
+        print("LWD update skipped - no 'Terminate Date' column in the leavers file.")
+    elif lv_pos_col is None and lv_emp_col is None:
+        print(f"LWD update skipped - leavers file has no '{KEY_COL}' or "
+              f"'{EMPLOYEE_ID_COL}' column to match on.")
+    else:
+        lwd_col = find_column(updated_ref_df, LWD_COL)
+        if lwd_col is None:
+            lwd_col = LWD_COL
+            updated_ref_df[lwd_col] = None
+            print(f"Note: '{LWD_COL}' not found in Reference - column added.")
+
+        leavers_df["_TERM_DATE"] = pd.to_datetime(leavers_df[term_col], errors="coerce")
+        leavers_df["_POS"] = (
+            clean_position_id_series(leavers_df[lv_pos_col])
+            if lv_pos_col else pd.Series(np.nan, index=leavers_df.index, dtype=object)
+        )
+
+        # Employee ID -> Position Number, from last month's Reference and this month's HC
+        if lv_emp_col:
+            emp_to_pos = pd.Series(dtype=object)
+            for source in (ref_df, hc_df):
+                src_emp_col = find_column(source, EMPLOYEE_ID_COL)
+                if src_emp_col is None:
+                    continue
+                pairs = pd.DataFrame({
+                    "emp": clean_position_id_series(source[src_emp_col]),
+                    "pos": source[KEY_COL],
+                }).dropna().drop_duplicates("emp").set_index("emp")["pos"]
+                emp_to_pos = pd.concat([emp_to_pos, pairs[~pairs.index.isin(emp_to_pos.index)]])
+
+            need_pos = leavers_df["_POS"].isna()
+            leavers_df.loc[need_pos, "_POS"] = (
+                clean_position_id_series(leavers_df.loc[need_pos, lv_emp_col]).map(emp_to_pos)
+            )
+
+        # Latest Terminate Date per position
+        latest_lwd = (
+            leavers_df.dropna(subset=["_POS", "_TERM_DATE"])
+            .sort_values("_TERM_DATE")
+            .drop_duplicates("_POS", keep="last")
+            .set_index("_POS")["_TERM_DATE"]
+        )
+
+        ref_pos = updated_ref_df[KEY_COL]
+        hit = ref_pos.isin(latest_lwd.index)
+        new_lwd = ref_pos[hit].map(latest_lwd)
+        old_lwd = updated_ref_df.loc[hit, lwd_col]
+        changed = [values_differ(o, n) for o, n in zip(old_lwd, new_lwd)]
+
+        lwd_updates_df = pd.DataFrame({
+            KEY_COL: ref_pos[hit][changed].values,
+            f"{LWD_COL}_Pre": [clean_compare_value(v) for v in old_lwd[changed]],
+            f"{LWD_COL}_Post": new_lwd[changed].values,
+        })
+        updated_ref_df.loc[hit, lwd_col] = new_lwd
+
+        known_positions = set(ref_pos.dropna())
+        not_matched = (
+            leavers_df["_POS"].isna()
+            | ~leavers_df["_POS"].isin(known_positions)
+            | leavers_df["_TERM_DATE"].isna()
+        )
+        leavers_unmatched_df = leavers_df[not_matched].drop(columns=["_TERM_DATE", "_POS"])
+
+        print(f"Leavers in file                  : {len(leavers_df)}")
+        print(f"Positions with LWD from leavers  : {int(hit.sum())}")
+        print(f"LWD values changed               : {len(lwd_updates_df)}")
+        if len(leavers_unmatched_df):
+            print(f"WARNING: {len(leavers_unmatched_df)} leaver row(s) not matched or "
+                  "without a Terminate Date - see 'Leavers not matched' sheet.")
+
+
+# ============================================================
 # 10. COLUMN SEQUENCING FROM CONFIG
 # ============================================================
 
@@ -1142,6 +1256,8 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     new_positions_df.to_excel(writer, index=False, sheet_name="new positions added in CM")
     other_changes_df.to_excel(writer, index=False, sheet_name="Other changes")
     job_summary_exceptions_df.to_excel(writer, index=False, sheet_name="Job Summary Exceptions")
+    apply_data_types(lwd_updates_df).to_excel(writer, index=False, sheet_name="LWD updates")
+    apply_data_types(leavers_unmatched_df).to_excel(writer, index=False, sheet_name="Leavers not matched")
 
 
 # ============================================================
