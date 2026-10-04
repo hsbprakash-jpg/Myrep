@@ -38,8 +38,8 @@
 # Number (see the "Vacant PM check" sheet).
 # Filled position rule:
 #   Vacant last month, occupied this month         -> Committed Offer,
-#   Candidate Name, Joiner flag, Joiner Month and Comments_RD blanked,
-#   Status flag set to PHYSICAL
+#   Candidate Name, Joiner flag, Joiner Month, Comments_RD and Leaver
+#   blanked, Status flag set to PHYSICAL
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -1074,8 +1074,9 @@ else:
 #
 # Vacant in the PM file AND occupied in the current month (same check
 # as "Onboarded"):
-#   Committed Offer, Candidate Name, Joiner flag, Joiner Month and
-#   Comments_RD are made blank, and the Status flag is set to PHYSICAL.
+#   Committed Offer, Candidate Name, Joiner flag, Joiner Month,
+#   Comments_RD and Leaver are made blank, and the Status flag is set
+#   to PHYSICAL.
 # Runs after the Comments_RD rules (so they end up blank) and before
 # HIRING_FLG is derived from the joiner flag (9E).
 # Column names are matched ignoring case, spaces, "_" and "-".
@@ -1087,6 +1088,7 @@ FILLED_CLEAR_FIELDS = {
     "Joiner flag": ["JOINER FLAG", "JOINER_FLG", "JOINERS FLAG", "JOINERS_FLG", "JOINERS", "JOINER"],
     "Joiner Month": ["JOINER MONTH", "JOINERS MONTH", "JOINING MONTH"],
     "Comments_RD": [comments_col],
+    "Leaver": ["LEAVER", "LEAVERS"],
 }
 
 filled_cleared = []
