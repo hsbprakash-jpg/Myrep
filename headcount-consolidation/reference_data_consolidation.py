@@ -490,6 +490,32 @@ def to_date(value):
     return date
 
 
+HIGHLIGHT_FILL = PatternFill(fill_type="solid", fgColor="C6EFCE")  # light green
+
+
+def highlight_cells(file_path, sheet_name, column_name, keys, key_col=None):
+    # Light-green fill on <column_name> for rows whose key is in <keys>
+    if not os.path.exists(file_path) or not keys:
+        return 0
+    key_col = key_col or KEY_COL
+    wb = load_workbook(file_path)
+    if sheet_name not in wb.sheetnames:
+        return 0
+    ws = wb[sheet_name]
+    headers = {str(ws.cell(1, c).value).strip(): c for c in range(1, ws.max_column + 1)}
+    if column_name not in headers or key_col not in headers:
+        return 0
+    keys = {str(k) for k in keys}
+    count = 0
+    for r in range(2, ws.max_row + 1):
+        key = str(clean_compare_value(ws.cell(r, headers[key_col]).value))
+        if key in keys:
+            ws.cell(r, headers[column_name]).fill = HIGHLIGHT_FILL
+            count += 1
+    wb.save(file_path)
+    return count
+
+
 def format_excel(file_path):
     if not os.path.exists(file_path):
         return
@@ -1882,6 +1908,26 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
 
 format_excel(output_reference_file)
 format_excel(exception_file)
+
+# HIRING_FLG cells that changed this run (vs the PM file) -> light green
+hiring_flag_changed_keys = set()
+pm_hiring_col = find_column(ref_df, HIRING_FLG_COL)
+if pm_hiring_col is not None and HIRING_FLG_COL in updated_ref_df.columns:
+    pm_hiring = {
+        str(clean_compare_value(k)): str(clean_compare_value(v)).upper()
+        for k, v in zip(ref_df[KEY_COL], ref_df[pm_hiring_col]) if pd.notna(k)
+    }
+    for k, v in zip(updated_ref_df[KEY_COL], updated_ref_df[HIRING_FLG_COL]):
+        if pd.isna(k):
+            continue
+        key = str(clean_compare_value(k))
+        if str(clean_compare_value(v)).upper() != pm_hiring.get(key, ""):
+            hiring_flag_changed_keys.add(key)
+
+    n_ref = highlight_cells(output_reference_file, "Reference_Data_CM", HIRING_FLG_COL, hiring_flag_changed_keys)
+    n_hu = highlight_cells(hiring_update_file, "MR_Hiring_Update", HIRING_FLG_COL, hiring_flag_changed_keys)
+    print(f"{HIRING_FLG_COL} changed this run: {len(hiring_flag_changed_keys)} position(s) "
+          f"highlighted light green (Reference: {n_ref}, MR Hiring Update: {n_hu})")
 
 
 # ============================================================
