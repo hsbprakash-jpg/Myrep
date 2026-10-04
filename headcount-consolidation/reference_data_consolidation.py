@@ -35,8 +35,9 @@
 #   STATUS = VACANT                                -> Leaver cleared
 # Vacant last month = Employee Name Vacant/blank or Status = VACANT in
 # the PM file; filled = real Employee Name in HC for the SAME Position
-# Number (see the "Vacant PM check" sheet).
-# Filled position rule:
+# Number (see the "Filled-Changed check" sheet).
+# Filled position rule (vacant last month and occupied this month, OR
+# a different employee in the position this month):
 #   Vacant last month, occupied this month         -> Committed Offer,
 #   Candidate Name, Joiner flag, Joiner Month, Comments_RD and Leaver
 #   blanked, Status flag set to PHYSICAL
@@ -759,12 +760,14 @@ hc_indexed = hc_unique_df.set_index(KEY_COL)
 # Vacant in PM : Employee Name = Vacant or blank, OR Status = VACANT
 # Filled in CM : HC Employee Name is a real name (not Vacant / blank)
 #                AND HC Status (if HC has one) is not VACANT
-# Every position vacant in PM is listed on the "Vacant PM check"
-# sheet with the outcome, so each Position Number can be checked.
+# Every position vacant in PM, and every position whose employee
+# changed, is listed on the "Filled-Changed check" sheet with the
+# outcome, so each Position Number can be checked.
 # --------------------------------------------------------
 pm_status_col = find_column_loose(updated_ref_df, STATUS_CANDIDATES)
 hc_status_col = find_column_loose(hc_indexed, STATUS_CANDIDATES)
 hc_emp_id_col = find_column_loose(hc_indexed, ["Employee ID", "EmployeeID", "Emp ID"])
+ref_emp_id_col = find_column_loose(updated_ref_df, ["Employee ID", "EmployeeID", "Emp ID"])
 vacant_pm_check = []
 vacated_keys = set()  # occupied last month, vacant this month
 
@@ -803,6 +806,10 @@ for pos in common_keys:
     vacant_last_month = (
         is_vacant_or_blank(prev_employee) or str(prev_status).upper() == "VACANT"
     )
+    prev_emp_id = (
+        clean_compare_value(updated_ref_df.at[pos, ref_emp_id_col])
+        if ref_emp_id_col is not None else ""
+    )
 
     for col in common_columns:
         old_val = updated_ref_df.at[pos, col]
@@ -835,7 +842,20 @@ for pos in common_keys:
     #
     # Vacant last month and occupied this month -> "Onboarded"
     # --------------------------------------------------------
-    if EMPLOYEE_NAME_COL in hc_indexed.columns and vacant_last_month:
+    # A different employee this month (Employee ID changed, or name
+    # changed when no ID) is treated the same as vacant -> filled.
+    employee_changed = False
+    if EMPLOYEE_NAME_COL in hc_indexed.columns and not vacant_last_month:
+        cur_name = hc_indexed.at[pos, EMPLOYEE_NAME_COL]
+        cur_id = (clean_compare_value(hc_indexed.at[pos, hc_emp_id_col])
+                  if hc_emp_id_col is not None else "")
+        if not is_vacant_or_blank(cur_name):
+            if prev_emp_id != "" and cur_id != "" and not is_vacant(cur_id):
+                employee_changed = values_differ(prev_emp_id, cur_id)
+            else:
+                employee_changed = normalise_text(prev_employee) != normalise_text(cur_name)
+
+    if EMPLOYEE_NAME_COL in hc_indexed.columns and (vacant_last_month or employee_changed):
         current_employee = hc_indexed.at[pos, EMPLOYEE_NAME_COL]
         cur_status = (
             clean_compare_value(hc_indexed.at[pos, hc_status_col])
@@ -847,6 +867,8 @@ for pos in common_keys:
         )
         vacant_pm_check.append({
             KEY_COL: clean_compare_value(pos),
+            "Change": "Employee changed" if employee_changed else "Vacant last month",
+            "PM Employee ID": prev_emp_id,
             "PM Employee Name": clean_compare_value(prev_employee),
             "PM Status": prev_status,
             "In HC": "YES",
@@ -890,6 +912,7 @@ for _, row in ref_df[ref_df[KEY_COL].isin(removed_keys)].iterrows():
     if is_vacant_or_blank(row.get(EMPLOYEE_NAME_COL, "")) or str(prev_status).upper() == "VACANT":
         vacant_pm_check.append({
             KEY_COL: clean_compare_value(row[KEY_COL]),
+            "Change": "Vacant last month",
             "PM Employee Name": clean_compare_value(row.get(EMPLOYEE_NAME_COL, "")),
             "PM Status": prev_status,
             "In HC": "NO - position not in HC",
@@ -897,12 +920,15 @@ for _, row in ref_df[ref_df[KEY_COL].isin(removed_keys)].iterrows():
         })
 
 vacant_pm_check_df = pd.DataFrame(vacant_pm_check, columns=[
-    KEY_COL, "PM Employee Name", "PM Status", "In HC", "HC Employee Name",
-    "HC Employee ID", "HC Status", "Filled this month",
+    KEY_COL, "Change", "PM Employee ID", "PM Employee Name", "PM Status", "In HC",
+    "HC Employee ID", "HC Employee Name", "HC Status", "Filled this month",
 ])
-vacant_pm_check_df["HC Employee ID"] = clean_position_id_series(vacant_pm_check_df["HC Employee ID"])
-print(f"Positions vacant last month: {len(vacant_pm_check_df)} "
-      f"(filled this month: {int(vacant_pm_check_df['Filled this month'].eq('YES').sum())})")
+for _c in ["PM Employee ID", "HC Employee ID"]:
+    vacant_pm_check_df[_c] = clean_position_id_series(vacant_pm_check_df[_c])
+_vac = vacant_pm_check_df["Change"].eq("Vacant last month")
+print(f"Positions vacant last month: {int(_vac.sum())} "
+      f"(filled this month: {int((_vac & vacant_pm_check_df['Filled this month'].eq('YES')).sum())})")
+print(f"Positions with a different employee this month: {int((~_vac).sum())}")
 
 print(f"Positions marked '{ONBOARDED_COMMENT}' (vacant -> occupied): {onboarded_count}")
 
@@ -1152,7 +1178,8 @@ else:
 # as "Onboarded"):
 #   Committed Offer, Candidate Name, Joiner flag, Joiner Month,
 #   Comments_RD and Leaver are made blank, and the Status flag is set
-#   to PHYSICAL.
+#   to PHYSICAL. A change of employee (different Employee ID / name)
+#   counts as filled too.
 # Runs after the Comments_RD rules (so they end up blank) and before
 # HIRING_FLG is derived from the joiner flag (9E).
 # Column names are matched ignoring case, spaces, "_" and "-".
@@ -1435,7 +1462,8 @@ else:
         hit = ref_emp.isin(leaver_dates.index)
         new_lwd = ref_emp[hit].map(leaver_dates)
         old_lwd = updated_ref_df.loc[hit, lwd_col]
-        changed = [values_differ(o, n) for o, n in zip(old_lwd, new_lwd)]
+        # boolean array (not a list) so an empty result still keeps the columns
+        changed = np.array([values_differ(o, n) for o, n in zip(old_lwd, new_lwd)], dtype=bool)
 
         # Functional Manager name column (e.g. "Functional Manager Job Level
         # Employee Name"); ID / position-number columns are skipped
@@ -1446,7 +1474,7 @@ else:
                   if str(c).lower().startswith("functional manager")
                   and not re.search(r"\bid\b|number", str(c).lower())), None),
         )
-        hit_rows = updated_ref_df.loc[hit][changed]
+        hit_rows = updated_ref_df.loc[hit].loc[changed]
         gcb_col = find_column_loose(updated_ref_df, ["Global Career Band", "GCB", "GCB Level"])
         loc_col = find_column_loose(updated_ref_df, ["Work Location", "Location"])
 
@@ -1638,7 +1666,7 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     apply_data_types(leavers_unmatched_df).to_excel(writer, index=False, sheet_name="Leavers not matched")
     apply_data_types(hiring_flag_removed_df).to_excel(writer, index=False, sheet_name="Hiring flags removed")
     filled_cleared_df.to_excel(writer, index=False, sheet_name="Filled-Vacated changes")
-    vacant_pm_check_df.to_excel(writer, index=False, sheet_name="Vacant PM check")
+    vacant_pm_check_df.to_excel(writer, index=False, sheet_name="Filled-Changed check")
 
 
 # ============================================================
