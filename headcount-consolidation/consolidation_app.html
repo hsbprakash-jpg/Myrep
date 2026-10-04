@@ -3325,6 +3325,8 @@ MK8hAACOQAAAHwAAAAAAAAAAAAAAtIGQeQMAb3BlbnB5eGwtMy4xLjUuZGlzdC1pbmZvL1JFQ09SRFBL
 const PYODIDE_VERSION = "0.27.7";
 const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 const PY_PACKAGES = window.CONSOLIDATION_PY_PACKAGES || ["numpy", "pandas"];
+// Used only when openpyxl is not bundled in this file (installed from pypi.org)
+const PIP_PACKAGES = window.CONSOLIDATION_PIP_PACKAGES || ["openpyxl"];
 const FIELD_TO_VAR = { reference: "reference_file", hc: "hc_file", appian: "appian_file" };
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -3540,11 +3542,21 @@ function getPyodide() {
       if (PY_PACKAGES.length) await py.loadPackage(PY_PACKAGES);
       py.runPython(document.getElementById("driver").textContent);
 
+      const bundled = document.querySelectorAll("script[data-wheel]");
       py.FS.mkdirTree("/tmp/wheels");
-      for (const el of document.querySelectorAll("script[data-wheel]")) {
+      for (const el of bundled) {
         const path = "/tmp/wheels/" + el.dataset.wheel;
         py.FS.writeFile(path, base64ToBytes(el.textContent));
         py.globals.get("install_wheel")(path);
+      }
+      if (!bundled.length && PIP_PACKAGES.length) {
+        await py.loadPackage("micropip");
+        const micropip = py.pyimport("micropip");
+        try {
+          for (const name of PIP_PACKAGES) await micropip.install(name);
+        } finally {
+          micropip.destroy();
+        }
       }
 
       setEngine("ready", "<b>Python engine ready</b> <span class='detail'>- runs inside this page</span>");
@@ -3553,8 +3565,9 @@ function getPyodide() {
     pyodidePromise.catch(err => {
       pyodidePromise = null;
       setEngine("failed", "<b>Python engine could not start.</b> <span class='detail'>" +
-        "This page needs access to cdn.jsdelivr.net. If your network blocks it, " +
-        "ask IT to allow it. (" + String(err && err.message || err).slice(0, 160) + ")</span>");
+        "This page needs access to cdn.jsdelivr.net" +
+        (document.querySelector("script[data-wheel]") ? "" : " and pypi.org") +
+        ". If your network blocks it, ask IT to allow it. (" + String(err && err.message || err).slice(0, 160) + ")</span>");
     });
   }
   return pyodidePromise;
