@@ -6,20 +6,17 @@
 <title>Reference Data Consolidation</title>
 <style>
   :root {
-    /* HSBC palette */
+    /* HSBC core palette: red, black, white and greys only */
     --red: #db0011;
-    --red-dark: #af000d;
+    --red-dark: #a8000b;
+    --red-tint: #fdeced;
     --black: #000000;
     --charcoal: #333333;
+    --grey-dark: #575757;
     --grey: #767676;
+    --grey-mid: #d7d8d6;
     --grey-light: #f3f3f3;
-    --border: #d7d8d6;
     --white: #ffffff;
-    --green: #00847f;
-    --green-tint: #e5f3f2;
-    --amber: #a86400;
-    --log-bg: #252525;
-    --log-text: #f3f3f3;
   }
   * { box-sizing: border-box; }
   body {
@@ -37,34 +34,26 @@
   }
   header {
     background: var(--white);
-    border-bottom: 1px solid var(--border);
-    padding: 22px 24px;
+    border-bottom: 4px solid var(--red);
+    padding: 20px 24px;
   }
   header .inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; gap: 20px; }
   header .logo { height: 40px; width: auto; flex-shrink: 0; }
-  header .logo + .titles h1 { border-left-color: var(--border); }
-  header h1 {
-    margin: 0;
-    padding-left: 14px;
-    border-left: 6px solid var(--red);
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--black);
-  }
-  header p { margin: 6px 0 0 20px; color: var(--grey); font-size: 13px; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; color: var(--black); }
+  header p { margin: 4px 0 0; color: var(--grey-dark); font-size: 13px; }
   main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
   section {
     background: var(--white);
-    border: 1px solid var(--border);
+    border: 1px solid var(--grey-mid);
     padding: 22px 24px;
     margin-bottom: 16px;
   }
   h2 { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: var(--black); }
   h2 .step {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 24px; height: 24px; margin-right: 10px;
-    background: var(--black); color: var(--white);
-    font-size: 13px; vertical-align: 1px;
+    width: 26px; height: 26px; margin-right: 10px;
+    background: var(--red); color: var(--white);
+    font-size: 14px; vertical-align: 1px;
   }
   .files { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .drop {
@@ -76,34 +65,35 @@
     min-height: 118px;
     transition: border-color .15s, background .15s;
   }
-  .drop:hover, .drop.over { border: 1px solid var(--red); background: #fff5f5; }
-  .drop.has-file { border: 1px solid var(--green); background: var(--green-tint); }
-  .drop.code { border-left: 4px solid var(--black); }
-  .drop.code.has-file { border-left-color: var(--green); }
+  .drop:hover, .drop.over { border: 1px solid var(--red); background: var(--red-tint); }
+  .drop.has-file { border: 1px solid var(--black); border-top: 4px solid var(--red); background: var(--grey-light); }
   .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
   .drop .label { font-weight: 700; color: var(--black); }
   .drop .hint { color: var(--grey); font-size: 13px; }
-  .drop .file { margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--green); word-break: break-all; }
+  .drop .file { margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--black); word-break: break-all; }
+  .drop .file:not(:empty)::before { content: "\2713  "; color: var(--red); }
   .options label.check { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; cursor: pointer; }
   .options input[type=checkbox] { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--red); }
   .options small { display: block; color: var(--grey); }
   .save-row {
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    border-top: 1px solid var(--border); padding-top: 16px; margin-top: 6px;
+    border-top: 1px solid var(--grey-mid); padding-top: 16px; margin-top: 6px;
   }
   .save-row .what { font-weight: 700; color: var(--black); }
-  #folder-text { color: var(--grey); }
-  #folder-text b { color: var(--green); }
+  #folder-text { color: var(--grey-dark); }
+  #folder-text b { color: var(--black); }
   .engine {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    background: var(--grey-light); border: 1px solid var(--border);
+    background: var(--grey-light); border: 1px solid var(--grey-mid); border-left: 4px solid var(--grey);
     padding: 10px 12px; margin-bottom: 16px; font-size: 14px;
   }
-  .engine .dot { width: 10px; height: 10px; flex-shrink: 0; background: var(--amber); }
-  .engine.ready .dot { background: var(--green); }
+  .engine .dot { width: 10px; height: 10px; flex-shrink: 0; background: var(--grey); }
+  .engine.ready { border-left-color: var(--black); }
+  .engine.ready .dot { background: var(--black); }
+  .engine.failed { border-left-color: var(--red); background: var(--red-tint); }
   .engine.failed .dot { background: var(--red); }
   .engine b { color: var(--black); }
-  .engine .detail { color: var(--grey); }
+  .engine .detail { color: var(--grey-dark); }
   .linkbtn {
     margin-left: auto; background: none; border: none; padding: 0;
     color: var(--black); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px;
@@ -116,45 +106,46 @@
     font-size: 16px; font-weight: 700; padding: 12px 44px;
   }
   .primary:hover:not(:disabled) { background: var(--red-dark); }
-  .primary:disabled { background: var(--border); color: var(--grey); cursor: not-allowed; }
+  .primary:disabled { background: var(--grey-mid); color: var(--grey); cursor: not-allowed; }
   .secondary {
     background: var(--white); color: var(--black); border: 1px solid var(--black);
     font-weight: 700; padding: 7px 16px; font-size: 14px;
   }
   .secondary:hover { background: var(--black); color: var(--white); }
-  #status { color: var(--grey); }
-  #status.ok { color: var(--green); font-weight: 700; }
+  #status { color: var(--grey-dark); }
+  #status.ok { color: var(--black); font-weight: 700; }
+  #status.ok::before { content: "\2713  "; color: var(--red); }
   #status.err { color: var(--red); font-weight: 700; }
   .spinner {
     display: inline-block; width: 16px; height: 16px; vertical-align: -3px; margin-right: 8px;
-    border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%;
+    border: 2px solid var(--grey-mid); border-top-color: var(--red); border-radius: 50%;
     animation: spin .8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .outputs { list-style: none; margin: 0; padding: 0; }
   .outputs li {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 11px 0; border-bottom: 1px solid var(--border);
+    padding: 11px 0; border-bottom: 1px solid var(--grey-mid);
   }
   .outputs li:last-child { border-bottom: none; }
-  .outputs .name { word-break: break-all; }
+  .outputs .name { word-break: break-all; color: var(--black); }
   .outputs a {
     flex-shrink: 0; text-decoration: none; font-weight: 700; font-size: 14px;
     color: var(--white); background: var(--red); padding: 7px 16px;
   }
   .outputs a:hover { background: var(--red-dark); }
-  .saved { font-size: 14px; margin: 0 0 12px; padding: 10px 12px; word-break: break-all; }
-  .saved.ok { background: var(--green-tint); color: var(--green); font-weight: 700; }
-  .saved.warn { background: #fff4e5; color: var(--amber); }
+  .saved { font-size: 14px; margin: 0 0 12px; padding: 10px 12px; word-break: break-all; background: var(--grey-light); }
+  .saved.ok { border-left: 4px solid var(--black); color: var(--black); font-weight: 700; }
+  .saved.warn { border-left: 4px solid var(--red); color: var(--charcoal); }
   pre#log {
     margin: 0; max-height: 380px; overflow: auto;
-    background: var(--log-bg); color: var(--log-text);
+    background: var(--charcoal); color: var(--white);
     padding: 12px 14px;
     font: 12.5px/1.55 Consolas, "Courier New", monospace;
     white-space: pre-wrap; word-break: break-word;
   }
-  pre#log .w { color: #ffcf66; }
-  pre#log .e { color: #ff8a8a; }
+  pre#log .w { color: var(--grey-mid); font-style: italic; }
+  pre#log .e { color: #ff9a9f; }
   .hidden { display: none !important; }
   footer { max-width: 960px; margin: 0 auto; padding: 0 16px 32px; color: var(--grey); font-size: 12px; }
 </style>
