@@ -51,7 +51,8 @@
 #   (all Committed Offer = YES positions listed on "Committed Offers")
 # Sub Function Head rule:
 #   Position in HC, Sub Function Head Status BLANK in PM and
-#   Completed in Appian this month                 -> HIRING_FLG = YES
+#   Completed in Appian this month                 -> HIRING_FLG, LEAVER
+#                                                     and JOINER = YES
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -1399,6 +1400,7 @@ else:
 HIRING_FLG_COL = "HIRING_FLG"
 HIRING_AGAINST_COL = "HIRING AGAINST PHYSICAL_RD"
 JOINERS_COL = "JOINERS"
+JOINER_FLAG_CANDIDATES = ["JOINER FLAG", "JOINER_FLG", "JOINERS FLAG", "JOINERS_FLG", "JOINERS", "JOINER"]
 
 # ------------------------------------------------------------
 # Vacant in the PM file AND flag = YES in the PM file AND filled
@@ -1495,31 +1497,48 @@ if HIRING_FLG_COL in updated_ref_df.columns:
         print(f"Note: no '{SUB_FUNCTION_HEAD_COL}' in the PM file - treated as blank for all rows.")
 
     sfh_set_rows = []
+    sfh_set_keys = set()
+    sfh_leaver_col = find_column_prefix(updated_ref_df, LEAVER_CANDIDATES, "leaver")
+    sfh_joiner_col = find_column_loose(updated_ref_df, JOINER_FLAG_CANDIDATES)
     if sfh_source is None:
         print("Note: no Sub Function Head Status column in Appian or Reference - rule skipped.")
     else:
         sfh_mask = updated_ref_df[KEY_COL].isin(sfh_done_keys & hc_keys & pm_sfh_blank_keys)
+        sfh_set_keys = set(updated_ref_df.loc[sfh_mask, KEY_COL])
         sfh_new = sfh_mask & clean_text_series(updated_ref_df[HIRING_FLG_COL]).ne("YES")
-        for idx in updated_ref_df.index[sfh_new]:
-            sfh_set_rows.append({
+        # Same positions: LEAVER = YES and JOINER = YES as well
+        sfh_cols = [(HIRING_FLG_COL, HIRING_FLG_COL), ("LEAVER", sfh_leaver_col), ("JOINER", sfh_joiner_col)]
+        for idx in updated_ref_df.index[sfh_mask]:
+            row = {
                 KEY_COL: updated_ref_df.at[idx, KEY_COL],
                 EMPLOYEE_NAME_COL: (updated_ref_df.at[idx, EMPLOYEE_NAME_COL]
                                     if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""),
-                f"{HIRING_FLG_COL}_Pre": clean_compare_value(updated_ref_df.at[idx, HIRING_FLG_COL]),
-                f"{HIRING_FLG_COL}_Post": "YES",
-            })
-        updated_ref_df.loc[sfh_mask, HIRING_FLG_COL] = "YES"
+            }
+            for label, col in sfh_cols:
+                row[f"{label}_Pre"] = clean_compare_value(updated_ref_df.at[idx, col]) if col is not None else ""
+                row[f"{label}_Post"] = "YES" if col is not None else "(column not found)"
+            sfh_set_rows.append(row)
+        for label, col in sfh_cols:
+            if col is not None:
+                updated_ref_df.loc[sfh_mask, col] = "YES"
+            else:
+                print(f"Note: no {label} column found - not set to YES for Sub Function Head positions.")
+        print(f"LEAVER / JOINER set to YES for the same positions "
+              f"('{sfh_leaver_col}' / '{sfh_joiner_col}')")
         print(f"{HIRING_FLG_COL} = YES where Sub Function Head Status was blank in PM, "
               f"Completed now ({sfh_source}) and position in HC: {int(sfh_mask.sum())} "
               f"position(s), {int(sfh_new.sum())} newly set "
               f"(Completed but not blank in PM, ignored: {len((sfh_done_keys & hc_keys) - pm_sfh_blank_keys)})")
 else:
     sfh_set_rows = []
+    sfh_set_keys = set()
+    sfh_leaver_col = sfh_joiner_col = None
     print(f"{HIRING_FLG_COL} not found. Skipping HIRING_FLG update.")
 
-hiring_flag_sfh_df = pd.DataFrame(
-    sfh_set_rows, columns=[KEY_COL, EMPLOYEE_NAME_COL, f"{HIRING_FLG_COL}_Pre", f"{HIRING_FLG_COL}_Post"]
-)
+hiring_flag_sfh_df = pd.DataFrame(sfh_set_rows, columns=[
+    KEY_COL, EMPLOYEE_NAME_COL, f"{HIRING_FLG_COL}_Pre", f"{HIRING_FLG_COL}_Post",
+    "LEAVER_Pre", "LEAVER_Post", "JOINER_Pre", "JOINER_Post",
+])
 
 
 # ============================================================
@@ -1587,7 +1606,10 @@ status_col = find_column_loose(updated_ref_df, STATUS_CANDIDATES)
 leaver_col = find_column_prefix(updated_ref_df, LEAVER_CANDIDATES, "leaver")
 
 if status_col is not None and leaver_col is not None:
-    vacant_status = clean_text_series(updated_ref_df[status_col]).eq("VACANT")
+    vacant_status = (
+        clean_text_series(updated_ref_df[status_col]).eq("VACANT")
+        & ~updated_ref_df[KEY_COL].isin(sfh_set_keys)   # keep LEAVER = YES set by the SFH rule
+    )
     had_leaver = vacant_status & ~is_blank_series(updated_ref_df[leaver_col])
     updated_ref_df.loc[vacant_status, leaver_col] = None
     print(f"'{leaver_col}' cleared where '{status_col}' = VACANT: "
@@ -1928,6 +1950,13 @@ if pm_hiring_col is not None and HIRING_FLG_COL in updated_ref_df.columns:
     n_hu = highlight_cells(hiring_update_file, "MR_Hiring_Update", HIRING_FLG_COL, hiring_flag_changed_keys)
     print(f"{HIRING_FLG_COL} changed this run: {len(hiring_flag_changed_keys)} position(s) "
           f"highlighted light green (Reference: {n_ref}, MR Hiring Update: {n_hu})")
+
+# LEAVER / JOINER set by the Sub Function Head rule -> light green too
+for _col in (sfh_leaver_col, sfh_joiner_col):
+    if _col is not None and sfh_set_keys:
+        _keys = {str(clean_compare_value(k)) for k in sfh_set_keys}
+        highlight_cells(output_reference_file, "Reference_Data_CM", _col, _keys)
+        highlight_cells(hiring_update_file, "MR_Hiring_Update", _col, _keys)
 
 
 # ============================================================
