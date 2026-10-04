@@ -214,7 +214,8 @@ NEW_POSITION_FLAG_CANDIDATES = [
 STATUS_CANDIDATES = ["STATUS", "STATUS_FLAG", "STATUS_FLG", "POSITION STATUS", "STATUS_RD"]
 FILLED_STATUS_VALUE = "PHYSICAL"   # status given to a position once it is filled
 JOB_SUMMARY_COL = "Job Summary"
-EXPECTED_JOB_SUMMARY = "Financial insight and advisory support specialist"
+# Matched ignoring case, extra spaces, and "&" vs "and"
+EXPECTED_JOB_SUMMARY = "Financial Insight & Advisory Support Specialist"
 
 FRC_COL = "FRC Code"
 POSITION_ID_COL = "Position ID"
@@ -312,9 +313,11 @@ def clean_text_series(series, lower=False):
 
 
 def normalise_text(value):
+    # Lower case, "&" read as "and", repeated / non-breaking spaces collapsed
     if pd.isna(value):
         return ""
-    return str(value).replace("\xa0", " ").strip().lower()
+    text = str(value).replace("\xa0", " ").lower().replace("&", " and ")
+    return " ".join(text.split())
 
 
 def is_blank_series(series):
