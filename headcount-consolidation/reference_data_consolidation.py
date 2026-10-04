@@ -197,6 +197,12 @@ OLD_EMP_RD_COL = "OLD_EMP_RD"
 COMMENTS_RD_COL = "Comments_RD"
 ONBOARDED_COMMENT = "Onboarded"
 NEW_POSITION_FLAG_COL = "NEW_POSITION_FLAG"
+# Other spellings of the same field (case, spaces, "_" and "-" are
+# ignored when matching), so the existing column is always reused.
+NEW_POSITION_FLAG_CANDIDATES = [
+    NEW_POSITION_FLAG_COL, "NEW_POSITION_FLG", "NEW_POS_FLAG", "NEW_POS_FLG",
+    "NEW_POSITION", "NEW_POSITION_YN",
+]
 JOB_SUMMARY_COL = "Job Summary"
 EXPECTED_JOB_SUMMARY = "Financial insight and advisory support specialist"
 
@@ -307,6 +313,18 @@ def find_column(df, name):
     for col in df.columns:
         if str(col).strip().lower() == name.strip().lower():
             return col
+    return None
+
+
+def find_column_loose(df, candidates):
+    # Like find_column, but also ignores spaces, "_" and "-",
+    # e.g. "New Position Flag" matches "NEW_POSITION_FLAG"
+    def key(name):
+        return re.sub(r"[^a-z0-9]", "", str(name).lower())
+    for name in candidates:
+        for col in df.columns:
+            if key(col) == key(name):
+                return col
     return None
 
 
@@ -586,27 +604,32 @@ positions_removed_df = ref_df[ref_df[KEY_COL].isin(removed_keys)].copy()
 # ============================================================
 
 # NEW_POSITION_FLAG: "YES" for positions that did not exist last month.
-# Flags already present (on existing rows, or a value already on the
-# new row) are kept, never overwritten.
+# The EXISTING flag column in the Reference is used (no new column is
+# ever created). Flags already present (on existing rows, or a value
+# already on the new row) are kept, never overwritten.
 updated_ref_df = ref_df.copy()
-new_flag_col = find_column(updated_ref_df, NEW_POSITION_FLAG_COL) or NEW_POSITION_FLAG_COL
-if new_flag_col not in updated_ref_df.columns:
-    updated_ref_df[new_flag_col] = ""
+new_flag_col = find_column_loose(updated_ref_df, NEW_POSITION_FLAG_CANDIDATES)
 
 new_positions_df = hc_df[hc_df[KEY_COL].isin(new_keys)].copy()
 new_positions_df = drop_duplicate_keys(new_positions_df, KEY_COL, "HC new positions")
 
-hc_flag_col = find_column(new_positions_df, NEW_POSITION_FLAG_COL)
-if hc_flag_col is not None and hc_flag_col != new_flag_col:
-    new_positions_df = new_positions_df.rename(columns={hc_flag_col: new_flag_col})
-if new_flag_col not in new_positions_df.columns:
-    new_positions_df[new_flag_col] = ""
-new_positions_df[new_flag_col] = new_positions_df[new_flag_col].astype(object)
-flag_blank = is_blank_series(new_positions_df[new_flag_col])
-new_positions_df.loc[flag_blank, new_flag_col] = "YES"
-
-print(f"New positions this month: {len(new_positions_df)} "
-      f"({int(flag_blank.sum())} flagged YES, {int((~flag_blank).sum())} kept existing flag)")
+if new_flag_col is None:
+    print(f"WARNING: no '{NEW_POSITION_FLAG_COL}' column in the Reference - "
+          "new positions not flagged (no column added).")
+else:
+    print(f"New position flag column: '{new_flag_col}'")
+    # If HC also carries the flag (any spelling), line it up with the Reference column
+    hc_flag_col = find_column_loose(new_positions_df, NEW_POSITION_FLAG_CANDIDATES)
+    if hc_flag_col is not None and hc_flag_col != new_flag_col:
+        new_positions_df = new_positions_df.drop(columns=[new_flag_col], errors="ignore")
+        new_positions_df = new_positions_df.rename(columns={hc_flag_col: new_flag_col})
+    if new_flag_col not in new_positions_df.columns:
+        new_positions_df[new_flag_col] = ""
+    new_positions_df[new_flag_col] = new_positions_df[new_flag_col].astype(object)
+    flag_blank = is_blank_series(new_positions_df[new_flag_col])
+    new_positions_df.loc[flag_blank, new_flag_col] = "YES"
+    print(f"New positions this month: {len(new_positions_df)} "
+          f"({int(flag_blank.sum())} flagged YES, {int((~flag_blank).sum())} kept existing flag)")
 
 for col in updated_ref_df.columns:
     if col not in new_positions_df.columns:
