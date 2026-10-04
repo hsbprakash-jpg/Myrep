@@ -222,6 +222,8 @@ FILLED_STATUS_VALUE = "PHYSICAL"   # status given to a position once it is fille
 VACANT_STATUS_VALUE = "VACANT"     # status given to a position that became vacant
 # Names / IDs that mean "no employee" (the HC file uses "Unspecified")
 NO_EMPLOYEE_VALUES = ["vacant", "unspecified"]
+# Leaver column: exact names first, else any column starting with "LEAVER"
+LEAVER_CANDIDATES = ["LEAVER", "LEAVERS", "LEAVER_RD", "LEAVER_FLG", "LEAVER FLAG", "LEAVER_FLAG_RD"]
 JOB_SUMMARY_COL = "Job Summary"
 # Matched ignoring case, extra spaces, and "&" vs "and"
 EXPECTED_JOB_SUMMARY = "Financial Insight & Advisory Support Specialist"
@@ -351,6 +353,18 @@ def find_column_loose(df, candidates):
         for col in df.columns:
             if key(col) == key(name):
                 return col
+    return None
+
+
+def find_column_prefix(df, candidates, prefix):
+    # Exact (loose) match first, else the first column starting with prefix
+    col = find_column_loose(df, candidates)
+    if col is not None:
+        return col
+    key = re.sub(r"[^a-z0-9]", "", prefix.lower())
+    for c in df.columns:
+        if re.sub(r"[^a-z0-9]", "", str(c).lower()).startswith(key):
+            return c
     return None
 
 
@@ -1191,14 +1205,15 @@ FILLED_CLEAR_FIELDS = {
     "Joiner flag": ["JOINER FLAG", "JOINER_FLG", "JOINERS FLAG", "JOINERS_FLG", "JOINERS", "JOINER"],
     "Joiner Month": ["JOINER MONTH", "JOINERS MONTH", "JOINING MONTH"],
     "Comments_RD": [comments_col],
-    "Leaver": ["LEAVER", "LEAVERS"],
+    "Leaver": LEAVER_CANDIDATES,
 }
 
 filled_cleared = []
 filled_mask = updated_ref_df[KEY_COL].isin(filled_keys)
 
 for label, candidates in FILLED_CLEAR_FIELDS.items():
-    col = find_column_loose(updated_ref_df, candidates)
+    col = (find_column_prefix(updated_ref_df, candidates, "leaver") if label == "Leaver"
+           else find_column_loose(updated_ref_df, candidates))
     if col is None:
         print(f"Note: '{label}' column not found - not cleared for filled positions.")
         continue
@@ -1393,12 +1408,14 @@ STATUS_COL = "Status"
 LEAVER_COL = "Leaver"
 
 status_col = find_column_loose(updated_ref_df, STATUS_CANDIDATES)
-leaver_col = find_column(updated_ref_df, LEAVER_COL)
+leaver_col = find_column_prefix(updated_ref_df, LEAVER_CANDIDATES, "leaver")
 
 if status_col is not None and leaver_col is not None:
     vacant_status = clean_text_series(updated_ref_df[status_col]).eq("VACANT")
+    had_leaver = vacant_status & ~is_blank_series(updated_ref_df[leaver_col])
     updated_ref_df.loc[vacant_status, leaver_col] = None
-    print(f"{leaver_col} cleared for STATUS = VACANT: {vacant_status.sum()}")
+    print(f"'{leaver_col}' cleared where '{status_col}' = VACANT: "
+          f"{int(vacant_status.sum())} position(s), {int(had_leaver.sum())} had a value")
 else:
     missing = [n for n, c in [(STATUS_COL, status_col), (LEAVER_COL, leaver_col)] if c is None]
     print(f"Leaver clearing skipped - column(s) missing: {', '.join(missing)}")
