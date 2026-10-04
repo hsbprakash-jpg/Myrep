@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference Data Consolidation</title>
+<style>
+  :root {
+    /* HSBC palette */
+    --red: #db0011;
+    --red-dark: #af000d;
+    --black: #000000;
+    --charcoal: #333333;
+    --grey: #767676;
+    --grey-light: #f3f3f3;
+    --border: #d7d8d6;
+    --white: #ffffff;
+    --green: #00847f;
+    --green-tint: #e5f3f2;
+    --amber: #a86400;
+    --log-bg: #252525;
+    --log-text: #f3f3f3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--grey-light);
+    color: var(--charcoal);
+    font: 15px/1.5 "Univers Next for HSBC", Arial, Helvetica, sans-serif;
+  }
+  .topbar {
+    background: var(--black);
+    color: var(--white);
+    font-size: 12px;
+    padding: 6px 24px;
+    letter-spacing: .02em;
+  }
+  header {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 22px 24px;
+  }
+  header .inner { max-width: 960px; margin: 0 auto; }
+  header h1 {
+    margin: 0;
+    padding-left: 14px;
+    border-left: 6px solid var(--red);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--black);
+  }
+  header p { margin: 6px 0 0 20px; color: var(--grey); font-size: 13px; }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  section {
+    background: var(--white);
+    border: 1px solid var(--border);
+    padding: 22px 24px;
+    margin-bottom: 16px;
+  }
+  h2 { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: var(--black); }
+  h2 .step {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; margin-right: 10px;
+    background: var(--black); color: var(--white);
+    font-size: 13px; vertical-align: 1px;
+  }
+  .files { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .drop {
+    position: relative;
+    border: 1px dashed var(--grey);
+    background: var(--white);
+    padding: 14px;
+    cursor: pointer;
+    min-height: 118px;
+    transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.over { border: 1px solid var(--red); background: #fff5f5; }
+  .drop.has-file { border: 1px solid var(--green); background: var(--green-tint); }
+  .drop.code { border-left: 4px solid var(--black); }
+  .drop.code.has-file { border-left-color: var(--green); }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop .label { font-weight: 700; color: var(--black); }
+  .drop .hint { color: var(--grey); font-size: 13px; }
+  .drop .file { margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--green); word-break: break-all; }
+  .options label { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; cursor: pointer; }
+  .options input[type=checkbox] { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--red); }
+  .options small { display: block; color: var(--grey); }
+  .field label { display: block; font-weight: 700; margin-bottom: 4px; color: var(--black); }
+  .field input {
+    width: 100%; padding: 9px 10px; font: inherit; font-size: 14px;
+    border: 1px solid var(--grey); border-radius: 0; color: var(--charcoal);
+  }
+  .field input:focus { outline: 2px solid var(--black); outline-offset: 0; }
+  .note { color: var(--grey); font-size: 13px; margin: 4px 0 0; }
+  .engine {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--grey-light); border: 1px solid var(--border);
+    padding: 10px 12px; margin-bottom: 16px; font-size: 14px;
+  }
+  .engine .dot { width: 10px; height: 10px; flex-shrink: 0; background: var(--grey); }
+  .engine.local .dot { background: var(--green); }
+  .engine.browser .dot { background: var(--amber); }
+  .engine b { color: var(--black); }
+  .engine .detail { color: var(--grey); }
+  .linkbtn {
+    margin-left: auto; background: none; border: none; padding: 0;
+    color: var(--black); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px;
+  }
+  .linkbtn:hover { color: var(--red); }
+  .run-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  button { font: inherit; cursor: pointer; border-radius: 0; }
+  .primary {
+    background: var(--red); color: var(--white); border: none;
+    font-size: 16px; font-weight: 700; padding: 12px 44px;
+  }
+  .primary:hover:not(:disabled) { background: var(--red-dark); }
+  .primary:disabled { background: var(--border); color: var(--grey); cursor: not-allowed; }
+  .secondary {
+    background: var(--white); color: var(--black); border: 1px solid var(--black);
+    font-weight: 700; padding: 7px 16px; font-size: 14px;
+  }
+  .secondary:hover { background: var(--black); color: var(--white); }
+  #status { color: var(--grey); }
+  #status.ok { color: var(--green); font-weight: 700; }
+  #status.err { color: var(--red); font-weight: 700; }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; vertical-align: -3px; margin-right: 8px;
+    border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .outputs { list-style: none; margin: 0; padding: 0; }
+  .outputs li {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 11px 0; border-bottom: 1px solid var(--border);
+  }
+  .outputs li:last-child { border-bottom: none; }
+  .outputs .name { word-break: break-all; }
+  .outputs a {
+    flex-shrink: 0; text-decoration: none; font-weight: 700; font-size: 14px;
+    color: var(--white); background: var(--red); padding: 7px 16px;
+  }
+  .outputs a:hover { background: var(--red-dark); }
+  .saved { color: var(--grey); font-size: 13px; margin: 12px 0 0; word-break: break-all; }
+  pre#log {
+    margin: 0; max-height: 380px; overflow: auto;
+    background: var(--log-bg); color: var(--log-text);
+    padding: 12px 14px;
+    font: 12.5px/1.55 Consolas, "Courier New", monospace;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  pre#log .w { color: #ffcf66; }
+  pre#log .e { color: #ff8a8a; }
+  .hidden { display: none !important; }
+  footer { max-width: 960px; margin: 0 auto; padding: 0 16px 32px; color: var(--grey); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="topbar">Internal tool &middot; Files are processed on this computer only</div>
+<header>
+  <div class="inner">
+    <h1>Reference Data / Headcount / Appian Consolidation</h1>
+    <p>Load the three input files and the consolidation notebook, then click Run.</p>
+  </div>
+</header>
+
+<main>
+  <section>
+    <h2><span class="step">1</span>Choose input files and notebook</h2>
+    <div class="files">
+      <div class="drop" data-field="reference">
+        <input type="file" accept=".xlsx,.xlsm">
+        <div class="label">Reference Data Hierarchy</div>
+        <div class="hint">Needs Config, APPIAN_CONFIG and New_Migrations sheets</div>
+        <div class="file"></div>
+      </div>
+      <div class="drop" data-field="hc">
+        <input type="file" accept=".xlsx,.xlsm">
+        <div class="label">HC Current Month</div>
+        <div class="hint">Click or drop the headcount file</div>
+        <div class="file"></div>
+      </div>
+      <div class="drop" data-field="appian">
+        <input type="file" accept=".xlsx,.xlsm">
+        <div class="label">Appian</div>
+        <div class="hint">Click or drop the Appian extract</div>
+        <div class="file"></div>
+      </div>
+      <div class="drop code" data-field="logic" data-kind="code">
+        <input type="file" accept=".ipynb,.py">
+        <div class="label">Consolidation notebook</div>
+        <div class="hint">The .ipynb with the rules (a .py script also works)</div>
+        <div class="file"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="options">
+    <h2><span class="step">2</span>Options</h2>
+    <label>
+      <input type="checkbox" id="reset_hiring_flg">
+      <span>Reset HIRING_FLG every run
+        <small>Clears old YES values before re-deriving them</small></span>
+    </label>
+    <label>
+      <input type="checkbox" id="drop_removed">
+      <span>Drop removed positions from the Reference output
+        <small>They are always listed in the Exception Report either way</small></span>
+    </label>
+    <div class="field" id="output-field">
+      <label for="output_dir">Also save outputs to this folder</label>
+      <input type="text" id="output_dir" spellcheck="false">
+    </div>
+    <p class="note hidden" id="browser-note">
+      In browser mode, use the Download buttons after the run to save the outputs.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="step">3</span>Run</h2>
+    <div id="engine" class="engine">
+      <span class="dot"></span>
+      <span id="engine-text">Checking for the local Python engine...</span>
+      <button id="recheck" class="linkbtn" type="button">Check again</button>
+    </div>
+    <div class="run-row">
+      <button id="run" class="primary" disabled>Run</button>
+      <span id="status">Choose all four files to enable Run.</span>
+    </div>
+  </section>
+
+  <section id="results" class="hidden">
+    <h2>Output files</h2>
+    <ul id="outputs" class="outputs"></ul>
+    <p id="saved" class="saved"></p>
+  </section>
+
+  <section id="log-section" class="hidden">
+    <div class="run-row" style="justify-content: space-between; margin-bottom: 12px;">
+      <h2 style="margin: 0;">Run log</h2>
+      <button id="copy-log" class="secondary" type="button">Copy log</button>
+    </div>
+    <pre id="log"></pre>
+  </section>
+</main>
+
+<footer>
+  The code that runs is the code in the notebook you load, so rule changes made in the
+  notebook are picked up automatically.
+</footer>
+
+<!-- Python used in browser mode (mirrors run_consolidation in consolidation_app.py) -->
+<script type="text/x-python" id="driver">
+import contextlib, io, json, os, re, shutil, traceback
+
+
+def _set_assignment(code, name, value):
+    pattern = re.compile(rf"^{re.escape(name)} = .*$", re.MULTILINE)
+    if not pattern.search(code):
+        raise ValueError(
+            f"Could not find the line '{name} = ...' in the uploaded notebook. "
+            "Is this the consolidation notebook?"
+        )
+    return pattern.sub(lambda _: f"{name} = {value}", code, count=1)
+
+
+def _notebook_to_code(raw_bytes):
+    nb = json.loads(raw_bytes.decode("utf-8"))
+    cells = []
+    for cell in nb.get("cells", []):
+        if cell.get("cell_type") != "code":
+            continue
+        source = cell.get("source", "")
+        if isinstance(source, list):
+            source = "".join(source)
+        lines = [
+            "# " + line if line.lstrip().startswith(("%", "!")) else line
+            for line in source.splitlines()
+        ]
+        cells.append("\n".join(lines))
+    if not cells:
+        raise ValueError("The uploaded notebook has no code cells.")
+    return "\n\n".join(cells) + "\n"
+
+
+def run_job(job_json):
+    job = json.loads(job_json)
+    out_dir = "/work/OUTPUT"
+    shutil.rmtree(out_dir, ignore_errors=True)
+    os.makedirs(out_dir)
+
+    log = io.StringIO()
+    ok = True
+    try:
+        logic_path = job["logic_path"]
+        with open(logic_path, "rb") as f:
+            raw = f.read()
+        if logic_path.lower().endswith(".ipynb"):
+            try:
+                code = _notebook_to_code(raw)
+            except json.JSONDecodeError:
+                raise ValueError("The uploaded file is not a valid Jupyter notebook.")
+        else:
+            code = raw.decode("utf-8-sig")
+
+        for var, path in job["inputs"].items():
+            code = _set_assignment(code, var, repr(path))
+        code = _set_assignment(code, "output_folder", repr(out_dir))
+        code = _set_assignment(code, "RESET_HIRING_FLG", str(bool(job["reset_hiring_flg"])))
+        code = _set_assignment(code, "DROP_REMOVED_POSITIONS", str(bool(job["drop_removed"])))
+
+        with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
+            try:
+                exec(compile(code, logic_path, "exec"),
+                     {"__name__": "__main__", "__file__": logic_path})
+            except Exception:
+                ok = False
+                traceback.print_exc()
+    except Exception:
+        ok = False
+        log.write(traceback.format_exc())
+
+    return json.dumps({"ok": ok, "log": log.getvalue(), "outputs": sorted(os.listdir(out_dir))})
+</script>
+
+<script>
+const PYODIDE_VERSION = "0.27.7";
+const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
+// numpy/pandas come with Pyodide; openpyxl is installed from PyPI with micropip
+const PY_PACKAGES = window.CONSOLIDATION_PY_PACKAGES || ["numpy", "pandas"];
+const PIP_PACKAGES = window.CONSOLIDATION_PIP_PACKAGES || ["openpyxl"];
+const LOCAL_PORTS = [8765, 8766, 8767, 8768, 8769];
+const FIELD_TO_VAR = { reference: "reference_file", hc: "hc_file", appian: "appian_file" };
+
+const files = { reference: null, hc: null, appian: null, logic: null };
+const runBtn = document.getElementById("run");
+const statusEl = document.getElementById("status");
+let busy = false;
+let engine = null; // { type: "local", base } or { type: "browser" }
+
+// ---------------------------------------------------------- status / UI
+
+function setStatus(text, cls = "", spinning = false) {
+  statusEl.className = cls;
+  statusEl.innerHTML = spinning ? '<span class="spinner"></span>' : "";
+  statusEl.appendChild(document.createTextNode(text));
+}
+
+function refreshRunButton() {
+  const ready = Object.values(files).every(Boolean);
+  runBtn.disabled = !ready || busy || !engine;
+  if (busy) return;
+  if (!ready) setStatus("Choose all four files to enable Run.");
+  else if (!statusEl.classList.contains("ok") && !statusEl.classList.contains("err"))
+    setStatus("Ready to run.");
+}
+
+function pickFile(drop, file) {
+  if (!file) return;
+  const isCode = drop.dataset.kind === "code";
+  if (isCode ? !/\.(ipynb|py)$/i.test(file.name) : !/\.(xlsx|xlsm)$/i.test(file.name)) {
+    alert(`"${file.name}" is not ${isCode ? "a .ipynb / .py" : "an .xlsx / .xlsm"} file.`);
+    return;
+  }
+  files[drop.dataset.field] = file;
+  drop.classList.add("has-file");
+  drop.querySelector(".file").textContent = file.name;
+  setStatus("");
+  refreshRunButton();
+}
+
+document.querySelectorAll(".drop").forEach(drop => {
+  const input = drop.querySelector("input");
+  input.addEventListener("change", () => pickFile(drop, input.files[0]));
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", e => {
+    e.preventDefault();
+    drop.classList.remove("over");
+    pickFile(drop, e.dataTransfer.files[0]);
+  });
+});
+
+function showLog(text) {
+  const log = document.getElementById("log");
+  log.innerHTML = "";
+  text.split("\n").forEach(line => {
+    const span = document.createElement("span");
+    if (/^(WARNING|Note:)/.test(line)) span.className = "w";
+    if (/Traceback|Error|skipped/i.test(line)) span.className = "e";
+    span.textContent = line + "\n";
+    log.appendChild(span);
+  });
+  document.getElementById("log-section").classList.remove("hidden");
+}
+
+function mimeFor(name) {
+  return name.toLowerCase().endsWith(".txt")
+    ? "text/plain"
+    : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+}
+
+function showOutputs(outputs, savedTo) {
+  const list = document.getElementById("outputs");
+  list.querySelectorAll("a").forEach(a => URL.revokeObjectURL(a.href));
+  list.innerHTML = "";
+  outputs.forEach(o => {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = o.name;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(o.blob);
+    a.download = o.name;
+    a.textContent = "Download";
+    li.append(name, a);
+    list.appendChild(li);
+  });
+  document.getElementById("saved").textContent =
+    outputs.length && savedTo ? `Also saved to: ${savedTo}` : "";
+  document.getElementById("results").classList.toggle("hidden", !outputs.length);
+}
+
+// ---------------------------------------------------------- engine detection
+
+async function probe(base) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1500);
+  try {
+    const res = await fetch(base + "/config", { signal: ctrl.signal, cache: "no-store" });
+    const cfg = await res.json();
+    if (cfg.engine !== "consolidation-local") throw new Error("not the engine");
+    return { type: "local", base, defaultOutputDir: cfg.default_output_dir };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function detectEngine() {
+  engine = null;
+  refreshRunButton();
+  const box = document.getElementById("engine");
+  const text = document.getElementById("engine-text");
+  box.className = "engine";
+  text.textContent = "Checking for the local Python engine...";
+
+  const bases = [];
+  if (location.protocol.startsWith("http")) bases.push(location.origin);
+  LOCAL_PORTS.forEach(p => bases.push(`http://127.0.0.1:${p}`));
+
+  try {
+    engine = await Promise.any(bases.map(probe));
+    box.className = "engine local";
+    text.innerHTML = "<b>Local Python engine</b> <span class='detail'>- fast, works offline (" +
+      engine.base.replace(/^https?:\/\//, "") + ")</span>";
+    const out = document.getElementById("output_dir");
+    if (!out.value) out.value = engine.defaultOutputDir || "";
+  } catch {
+    engine = { type: "browser" };
+    box.className = "engine browser";
+    text.innerHTML = "<b>In-browser Python</b> <span class='detail'>- consolidation_app.py is not " +
+      "running, so Python loads inside this page (needs internet the first time; 1-2 minutes)</span>";
+  }
+  document.getElementById("output-field").classList.toggle("hidden", engine.type !== "local");
+  document.getElementById("browser-note").classList.toggle("hidden", engine.type !== "browser");
+  refreshRunButton();
+}
+
+document.getElementById("recheck").addEventListener("click", () => { if (!busy) detectEngine(); });
+
+// ---------------------------------------------------------- local engine
+
+function toBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",", 2)[1]);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function base64ToBlob(b64, type) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type });
+}
+
+async function runLocal() {
+  setStatus("Reading files...", "", true);
+  const payload = {
+    reset_hiring_flg: document.getElementById("reset_hiring_flg").checked,
+    drop_removed: document.getElementById("drop_removed").checked,
+    output_dir: document.getElementById("output_dir").value,
+  };
+  for (const [field, file] of Object.entries(files)) {
+    payload[field] = { name: file.name, data: await toBase64(file) };
+  }
+
+  setStatus("Running consolidation... this can take a minute for large files.", "", true);
+  // text/plain keeps this a "simple" request when the page is opened from disk
+  const res = await fetch(engine.base + "/run", {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify(payload),
+  });
+  const result = await res.json();
+  return {
+    ok: result.ok,
+    log: result.log,
+    savedTo: result.output_dir,
+    outputs: (result.outputs || []).map(o => ({ name: o.name, blob: base64ToBlob(o.data, mimeFor(o.name)) })),
+  };
+}
+
+// ---------------------------------------------------------- browser engine
+
+let pyodidePromise = null;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error(
+      "Could not download Python for the browser from cdn.jsdelivr.net. " +
+      "Your network may block it - start consolidation_app.py instead and click 'Check again'."
+    ));
+    document.head.appendChild(s);
+  });
+}
+
+function getPyodide() {
+  if (!pyodidePromise) {
+    pyodidePromise = (async () => {
+      setStatus("Downloading Python for the browser (first run only, 1-2 minutes)...", "", true);
+      await loadScript(PYODIDE_URL + "pyodide.js");
+      const py = await loadPyodide({ indexURL: PYODIDE_URL });
+
+      setStatus("Loading pandas and openpyxl...", "", true);
+      if (PY_PACKAGES.length) await py.loadPackage(PY_PACKAGES);
+      if (PIP_PACKAGES.length) {
+        await py.loadPackage("micropip");
+        const micropip = py.pyimport("micropip");
+        try {
+          for (const name of PIP_PACKAGES) await micropip.install(name);
+        } finally {
+          micropip.destroy();
+        }
+      }
+      py.runPython(document.getElementById("driver").textContent);
+      return py;
+    })();
+    pyodidePromise.catch(() => { pyodidePromise = null; });
+  }
+  return pyodidePromise;
+}
+
+function safeName(name) {
+  return name.replace(/[^A-Za-z0-9._ -]/g, "_");
+}
+
+async function runInBrowser() {
+  const py = await getPyodide();
+  setStatus("Running consolidation... the page may pause until it finishes.", "", true);
+  await new Promise(r => setTimeout(r, 60)); // let the status paint
+
+  py.runPython("import shutil; shutil.rmtree('/work/in', ignore_errors=True)");
+  py.FS.mkdirTree("/work/in");
+
+  const job = {
+    inputs: {},
+    logic_path: "",
+    reset_hiring_flg: document.getElementById("reset_hiring_flg").checked,
+    drop_removed: document.getElementById("drop_removed").checked,
+  };
+  for (const [field, file] of Object.entries(files)) {
+    const path = `/work/in/${field}_${safeName(file.name)}`;
+    py.FS.writeFile(path, new Uint8Array(await file.arrayBuffer()));
+    if (field === "logic") job.logic_path = path;
+    else job.inputs[FIELD_TO_VAR[field]] = path;
+  }
+
+  py.globals.set("_job_json", JSON.stringify(job));
+  const result = JSON.parse(py.runPython("run_job(_job_json)"));
+  return {
+    ok: result.ok,
+    log: result.log,
+    savedTo: "",
+    outputs: result.outputs.map(name => ({
+      name,
+      blob: new Blob([py.FS.readFile("/work/OUTPUT/" + name)], { type: mimeFor(name) }),
+    })),
+  };
+}
+
+// ---------------------------------------------------------- run
+
+runBtn.addEventListener("click", async () => {
+  busy = true;
+  refreshRunButton();
+  document.getElementById("results").classList.add("hidden");
+  const started = Date.now();
+
+  try {
+    const result = engine.type === "local" ? await runLocal() : await runInBrowser();
+    const secs = Math.round((Date.now() - started) / 1000);
+    showLog(result.log || "(no output)");
+    showOutputs(result.outputs, result.savedTo);
+    if (result.ok) setStatus(`Completed in ${secs}s - ${result.outputs.length} file(s) created.`, "ok");
+    else setStatus("Run failed - see the run log below.", "err");
+  } catch (err) {
+    if (engine.type === "local") {
+      setStatus("Lost contact with the local Python engine. Is it still running?", "err");
+    } else {
+      setStatus("Could not run Python in the browser - see the run log below.", "err");
+    }
+    showLog(String(err && err.message || err));
+  } finally {
+    busy = false;
+    refreshRunButton();
+  }
+});
+
+document.getElementById("copy-log").addEventListener("click", () => {
+  navigator.clipboard.writeText(document.getElementById("log").textContent);
+});
+
+detectEngine();
+</script>
+</body>
+</html>
