@@ -473,7 +473,7 @@ def run_consolidation(payload):
         ok = True
         with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
             try:
-                exec(compile(code, SCRIPT_PATH, "exec"), {"__name__": "__main__"})
+                exec(compile(code, SCRIPT_PATH, "exec"), {"__name__": "__main__", "__file__": SCRIPT_PATH})
             except Exception:
                 ok = False
                 traceback.print_exc()

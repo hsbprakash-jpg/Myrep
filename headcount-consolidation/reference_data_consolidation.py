@@ -30,10 +30,14 @@
 #
 # Leaver rule:
 #   STATUS = VACANT                                -> Leaver cleared
+#
+# Outputs (all in the OUTPUT folder): Reference, Exception Report,
+# MR Hiring Update, FRC Reconciliation and Run_Log_<timestamp>.txt
 # ============================================================
 
 import os
 import re
+import sys
 
 import numpy as np
 import pandas as pd
@@ -51,7 +55,10 @@ from openpyxl.utils import get_column_letter
 reference_file = r"C:\YOUR_PATH\Reference_Data_Hierarchy.xlsx"
 hc_file = r"C:\YOUR_PATH\HC_Current_Month.xlsx"
 appian_file = r"C:\YOUR_PATH\Appian.xlsx"
-output_folder = r"C:\YOUR_PATH\OUTPUT"
+# Outputs go to an OUTPUT folder next to this script.
+# To use a different folder, replace this line with e.g.
+#   output_folder = r"C:\YOUR_PATH\OUTPUT"
+output_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "OUTPUT")
 
 # True  -> HIRING_FLG is cleared and re-derived every run
 # False -> existing YES values are kept (original behaviour)
@@ -78,6 +85,38 @@ hiring_update_file = os.path.join(
 frc_reconciliation_file = os.path.join(
     output_folder, f"FRC_Reconciliation_Report_{timestamp}.xlsx"
 )
+run_log_file = os.path.join(
+    output_folder, f"Run_Log_{timestamp}.txt"
+)
+
+
+# ------------------------------------------------------------
+# RUN LOG
+#
+# Everything printed (counts, warnings, errors) is shown on screen
+# AND written to Run_Log_<timestamp>.txt in the output folder.
+# ------------------------------------------------------------
+
+class TeeToLog:
+    def __init__(self, stream, log_path):
+        self.stream = stream
+        self.log_path = log_path
+
+    def write(self, text):
+        self.stream.write(text)
+        # Open/append/close each time so the log is complete
+        # even if the run stops with an error
+        with open(self.log_path, "a", encoding="utf-8") as f:
+            f.write(text)
+
+    def flush(self):
+        self.stream.flush()
+
+
+sys.stdout = TeeToLog(sys.stdout, run_log_file)
+sys.stderr = TeeToLog(sys.stderr, run_log_file)
+
+print(f"Run started: {datetime.now():%d-%b-%Y %H:%M:%S}")
 
 
 # ============================================================
@@ -1073,3 +1112,5 @@ if os.path.exists(hiring_update_file):
 
 if os.path.exists(frc_reconciliation_file):
     print(f"FRC Reconciliation report created: {frc_reconciliation_file}")
+
+print(f"Run log saved: {run_log_file}")
