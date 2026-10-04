@@ -50,8 +50,8 @@
 #   Comments_RD = OFFERED                          -> Committed Offer = YES
 #   (all Committed Offer = YES positions listed on "Committed Offers")
 # Sub Function Head rule:
-#   Position in HC and Sub Function Head Status changed to
-#   Completed this month (not Completed in PM)     -> HIRING_FLG = YES
+#   Position in HC, Sub Function Head Status BLANK in PM and
+#   Completed in Appian this month                 -> HIRING_FLG = YES
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -1432,9 +1432,10 @@ if HIRING_FLG_COL in updated_ref_df.columns:
     ] = "YES"
 
     # --------------------------------------------------------
-    # Position in this month's HC AND Sub Function Head Status has
-    # CHANGED to Completed this month (Completed in Appian now, not
-    # Completed in the PM file) -> HIRING_FLG = YES.
+    # Position in this month's HC AND Sub Function Head Status was
+    # BLANK in the PM file AND is Completed in Appian now
+    # -> HIRING_FLG = YES. Any other PM value (In Progress, Completed,
+    # ...) means no change.
     # Appian is matched on its lookup key (Position ID, or Existing
     # Position ID for replacements); if Appian has no such column the
     # Reference's own Sub Function Head Status is used instead.
@@ -1459,21 +1460,19 @@ if HIRING_FLG_COL in updated_ref_df.columns:
         sfh_done_keys = set()
         sfh_source = None
 
-    # Already Completed last month -> not a change, so not flagged
+    # Only rows that were BLANK in the PM file qualify
     pm_sfh_col = find_column_loose(ref_df, [SUB_FUNCTION_HEAD_COL, "Sub Function Head"])
     if pm_sfh_col is not None:
-        pm_sfh_done_keys = set(
-            ref_df.loc[clean_text_series(ref_df[pm_sfh_col]).eq("COMPLETED"), KEY_COL].dropna()
-        )
+        pm_sfh_blank_keys = set(ref_df.loc[is_blank_series(ref_df[pm_sfh_col]), KEY_COL].dropna())
     else:
-        pm_sfh_done_keys = set()
-        print(f"Note: no '{SUB_FUNCTION_HEAD_COL}' in the PM file - every Completed counts as new.")
+        pm_sfh_blank_keys = set(ref_df[KEY_COL].dropna())
+        print(f"Note: no '{SUB_FUNCTION_HEAD_COL}' in the PM file - treated as blank for all rows.")
 
     sfh_set_rows = []
     if sfh_source is None:
         print("Note: no Sub Function Head Status column in Appian or Reference - rule skipped.")
     else:
-        sfh_mask = updated_ref_df[KEY_COL].isin((sfh_done_keys & hc_keys) - pm_sfh_done_keys)
+        sfh_mask = updated_ref_df[KEY_COL].isin(sfh_done_keys & hc_keys & pm_sfh_blank_keys)
         sfh_new = sfh_mask & clean_text_series(updated_ref_df[HIRING_FLG_COL]).ne("YES")
         for idx in updated_ref_df.index[sfh_new]:
             sfh_set_rows.append({
@@ -1484,10 +1483,10 @@ if HIRING_FLG_COL in updated_ref_df.columns:
                 f"{HIRING_FLG_COL}_Post": "YES",
             })
         updated_ref_df.loc[sfh_mask, HIRING_FLG_COL] = "YES"
-        print(f"{HIRING_FLG_COL} = YES where Sub Function Head Status changed to Completed "
-              f"({sfh_source}) and position in HC: {int(sfh_mask.sum())} "
+        print(f"{HIRING_FLG_COL} = YES where Sub Function Head Status was blank in PM, "
+              f"Completed now ({sfh_source}) and position in HC: {int(sfh_mask.sum())} "
               f"position(s), {int(sfh_new.sum())} newly set "
-              f"(already Completed last month, ignored: {len(sfh_done_keys & hc_keys & pm_sfh_done_keys)})")
+              f"(Completed but not blank in PM, ignored: {len((sfh_done_keys & hc_keys) - pm_sfh_blank_keys)})")
 else:
     sfh_set_rows = []
     print(f"{HIRING_FLG_COL} not found. Skipping HIRING_FLG update.")
