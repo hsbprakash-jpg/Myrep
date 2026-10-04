@@ -1345,6 +1345,44 @@ hiring_flag_removed_df = pd.DataFrame(
 )
 
 
+# ------------------------------------------------------------
+# One row per position: Field / Pre / Post rows become
+# <Field>_Pre / <Field>_Post columns, plus a "Change" column
+# (Vacant -> Filled, Employee changed, Vacated).
+# ------------------------------------------------------------
+_change_reason = {}
+for _, r in vacant_pm_check_df.iterrows():
+    if r["Filled this month"] == "YES":
+        _change_reason[r[KEY_COL]] = (
+            "Employee changed" if r["Change"] == "Employee changed" else "Vacant -> Filled"
+        )
+for k in vacated_keys:
+    _change_reason[k] = "Vacated"
+
+
+def one_row_per_position(df):
+    base_cols = [KEY_COL, EMPLOYEE_NAME_COL, "Change"]
+    if df.empty:
+        return pd.DataFrame(columns=base_cols)
+    fields = list(dict.fromkeys(df["Field"]))  # keep first-seen order
+    rows = {}
+    for _, r in df.iterrows():
+        key = clean_compare_value(r[KEY_COL])
+        row = rows.setdefault(key, {
+            KEY_COL: r[KEY_COL],
+            EMPLOYEE_NAME_COL: r[EMPLOYEE_NAME_COL],
+            "Change": _change_reason.get(r[KEY_COL], ""),
+        })
+        row[f"{r['Field']}_Pre"] = r["Pre"]
+        row[f"{r['Field']}_Post"] = r["Post"]
+    cols = base_cols + [f"{f}_{side}" for f in fields for side in ("Pre", "Post")]
+    return pd.DataFrame(list(rows.values())).reindex(columns=cols)
+
+
+filled_cleared_df = one_row_per_position(filled_cleared_df)
+hiring_flag_removed_df = one_row_per_position(hiring_flag_removed_df)
+
+
 # ============================================================
 # 9F. STATUS = VACANT -> LEAVER CLEARED
 #
