@@ -33,6 +33,9 @@
 #
 # Leaver rule:
 #   STATUS = VACANT                                -> Leaver cleared
+# Filled position rule:
+#   Vacant last month, occupied this month         -> Committed Offer,
+#   Candidate Name, Joiner flag, Joiner Month and Comments_RD blanked
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -995,6 +998,53 @@ else:
 
 
 # ============================================================
+# 9D.2 FILLED POSITIONS -> OFFER / CANDIDATE / JOINER FIELDS BLANKED
+#
+# Vacant in the PM file AND occupied in the current month (same check
+# as "Onboarded"):
+#   Committed Offer, Candidate Name, Joiner flag, Joiner Month and
+#   Comments_RD are made blank.
+# Runs after the Comments_RD rules (so they end up blank) and before
+# HIRING_FLG is derived from the joiner flag (9E).
+# Column names are matched ignoring case, spaces, "_" and "-".
+# ============================================================
+
+FILLED_CLEAR_FIELDS = {
+    "Committed Offer": ["COMMITTED OFFER", "COMMITTED_OFFER_FLAG", "COMMITTED OFFER FLG"],
+    "Candidate Name": ["CANDIDATE NAME", "CANDIDATE"],
+    "Joiner flag": ["JOINER FLAG", "JOINER_FLG", "JOINERS FLAG", "JOINERS_FLG", "JOINERS", "JOINER"],
+    "Joiner Month": ["JOINER MONTH", "JOINERS MONTH", "JOINING MONTH"],
+    "Comments_RD": [comments_col],
+}
+
+filled_cleared = []
+filled_mask = updated_ref_df[KEY_COL].isin(filled_keys)
+
+for label, candidates in FILLED_CLEAR_FIELDS.items():
+    col = find_column_loose(updated_ref_df, candidates)
+    if col is None:
+        print(f"Note: '{label}' column not found - not cleared for filled positions.")
+        continue
+
+    had_value = filled_mask & ~is_blank_series(updated_ref_df[col])
+    for idx in updated_ref_df.index[had_value]:
+        filled_cleared.append({
+            KEY_COL: updated_ref_df.at[idx, KEY_COL],
+            EMPLOYEE_NAME_COL: (updated_ref_df.at[idx, EMPLOYEE_NAME_COL]
+                                if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""),
+            "Field": col,
+            "Pre": clean_compare_value(updated_ref_df.at[idx, col]),
+            "Post": "",
+        })
+    updated_ref_df.loc[filled_mask, col] = None
+    print(f"'{col}' blanked for filled positions: {int(had_value.sum())} value(s) cleared")
+
+filled_cleared_df = pd.DataFrame(
+    filled_cleared, columns=[KEY_COL, EMPLOYEE_NAME_COL, "Field", "Pre", "Post"]
+)
+
+
+# ============================================================
 # 9E. UPDATE HIRING_FLG
 #
 # YES if:
@@ -1375,6 +1425,7 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     apply_data_types(lwd_updates_df).to_excel(writer, index=False, sheet_name="LWD updates")
     apply_data_types(leavers_unmatched_df).to_excel(writer, index=False, sheet_name="Leavers not matched")
     apply_data_types(hiring_flag_removed_df).to_excel(writer, index=False, sheet_name="Hiring flags removed")
+    filled_cleared_df.to_excel(writer, index=False, sheet_name="Filled - fields cleared")
 
 
 # ============================================================
