@@ -43,7 +43,7 @@
 #   blanked, Status flag set to PHYSICAL
 # Vacated position rule:
 #   Occupied last month, vacant this month         -> Employee Name
-#   "Vacant", Status flag set to VACANT
+#   "Vacant", Status flag set to VACANT, Leaver cleared
 # HC names: built from Employee First + Last Name; blank or
 # "Unspecified" in HC means the position is vacant.
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
@@ -1268,6 +1268,25 @@ if filled_status_col is not None:
     updated_ref_df.loc[vacated_mask, filled_status_col] = VACANT_STATUS_VALUE
     print(f"'{filled_status_col}' set to {VACANT_STATUS_VALUE} for positions vacated "
           f"this month: {int(to_vacant.sum())}")
+
+# Occupied last month, vacant this month -> Leaver cleared
+vacated_leaver_col = find_column_prefix(updated_ref_df, LEAVER_CANDIDATES, "leaver")
+if vacated_leaver_col is None:
+    print("Note: no Leaver column found - not cleared for vacated positions.")
+else:
+    had_leaver = vacated_mask & ~is_blank_series(updated_ref_df[vacated_leaver_col])
+    for idx in updated_ref_df.index[had_leaver]:
+        filled_cleared.append({
+            KEY_COL: updated_ref_df.at[idx, KEY_COL],
+            EMPLOYEE_NAME_COL: (updated_ref_df.at[idx, EMPLOYEE_NAME_COL]
+                                if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""),
+            "Field": vacated_leaver_col,
+            "Pre": clean_compare_value(updated_ref_df.at[idx, vacated_leaver_col]),
+            "Post": "",
+        })
+    updated_ref_df.loc[vacated_mask, vacated_leaver_col] = None
+    print(f"'{vacated_leaver_col}' cleared for positions vacated this month: "
+          f"{int(had_leaver.sum())}")
 
 filled_cleared_df = pd.DataFrame(
     filled_cleared, columns=[KEY_COL, EMPLOYEE_NAME_COL, "Field", "Pre", "Post"]
