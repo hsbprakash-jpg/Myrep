@@ -40,7 +40,9 @@
     border-bottom: 1px solid var(--border);
     padding: 22px 24px;
   }
-  header .inner { max-width: 960px; margin: 0 auto; }
+  header .inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; gap: 20px; }
+  header .logo { height: 40px; width: auto; flex-shrink: 0; }
+  header .logo + .titles h1 { border-left-color: var(--border); }
   header h1 {
     margin: 0;
     padding-left: 14px;
@@ -161,8 +163,14 @@
 <div class="topbar">Internal tool &middot; Files are processed inside this browser only</div>
 <header>
   <div class="inner">
-    <h1>Reference Data / Headcount / Appian Consolidation</h1>
-    <p>Load the three input files and the consolidation notebook, then click Run.</p>
+    <!-- Official HSBC logo: save it as hsbc-logo.png or hsbc-logo.svg next to this file.
+         If neither file is there, the logo is simply left out. -->
+    <img class="logo" src="hsbc-logo.png" alt="HSBC"
+         onerror="if (!this.dataset.svg) { this.dataset.svg = 1; this.src = 'hsbc-logo.svg'; } else { this.remove(); }">
+    <div class="titles">
+      <h1>Reference Data / Headcount / Appian Consolidation</h1>
+      <p>Load the three input files and the consolidation notebook, then click Run.</p>
+    </div>
   </div>
 </header>
 
