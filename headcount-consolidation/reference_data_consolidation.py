@@ -33,6 +33,9 @@
 #
 # Leaver rule:
 #   STATUS = VACANT                                -> Leaver cleared
+# New position rule:
+#   Position Number not in last month's Reference  -> NEW_POSITION_FLAG = YES
+#   (existing flag values are never overwritten)
 # LWD rule:
 #   Current month Employee ID = Employee ID (MR_Leavers_CM)
 #                                                  -> LWD = Termination Date
@@ -578,12 +581,28 @@ positions_removed_df = ref_df[ref_df[KEY_COL].isin(removed_keys)].copy()
 # 8. NEW POSITIONS ADDED FROM CM
 # ============================================================
 
+# NEW_POSITION_FLAG: "YES" for positions that did not exist last month.
+# Flags already present (on existing rows, or a value already on the
+# new row) are kept, never overwritten.
 updated_ref_df = ref_df.copy()
-updated_ref_df[NEW_POSITION_FLAG_COL] = ""
+new_flag_col = find_column(updated_ref_df, NEW_POSITION_FLAG_COL) or NEW_POSITION_FLAG_COL
+if new_flag_col not in updated_ref_df.columns:
+    updated_ref_df[new_flag_col] = ""
 
 new_positions_df = hc_df[hc_df[KEY_COL].isin(new_keys)].copy()
 new_positions_df = drop_duplicate_keys(new_positions_df, KEY_COL, "HC new positions")
-new_positions_df[NEW_POSITION_FLAG_COL] = "NEW POSITION"
+
+hc_flag_col = find_column(new_positions_df, NEW_POSITION_FLAG_COL)
+if hc_flag_col is not None and hc_flag_col != new_flag_col:
+    new_positions_df = new_positions_df.rename(columns={hc_flag_col: new_flag_col})
+if new_flag_col not in new_positions_df.columns:
+    new_positions_df[new_flag_col] = ""
+new_positions_df[new_flag_col] = new_positions_df[new_flag_col].astype(object)
+flag_blank = is_blank_series(new_positions_df[new_flag_col])
+new_positions_df.loc[flag_blank, new_flag_col] = "YES"
+
+print(f"New positions this month: {len(new_positions_df)} "
+      f"({int(flag_blank.sum())} flagged YES, {int((~flag_blank).sum())} kept existing flag)")
 
 for col in updated_ref_df.columns:
     if col not in new_positions_df.columns:
@@ -627,7 +646,10 @@ hc_unique_df = drop_duplicate_keys(hc_df.dropna(subset=[KEY_COL]), KEY_COL, "HC"
 updated_ref_df = updated_ref_df.set_index(KEY_COL)
 hc_indexed = hc_unique_df.set_index(KEY_COL)
 
-common_columns = [c for c in updated_ref_df.columns if c in hc_indexed.columns]
+common_columns = [
+    c for c in updated_ref_df.columns
+    if c in hc_indexed.columns and c != new_flag_col  # existing flags are never overwritten
+]
 
 for pos in common_keys:
     if pos not in updated_ref_df.index or pos not in hc_indexed.index:
