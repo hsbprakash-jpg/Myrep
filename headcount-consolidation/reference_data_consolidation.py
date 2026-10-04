@@ -39,7 +39,8 @@
 # LWD rule:
 #   Current month Employee ID = Employee ID (MR_Leavers_CM)
 #                                                  -> LWD = Termination Date
-#   (exited employees / Vacant positions are not updated)
+#   (only Employee Class = Employee; exited employees / Vacant
+#    positions are not updated)
 #
 # Outputs (all in the OUTPUT folder): Reference, Exception Report,
 # MR Hiring Update, FRC Reconciliation and Run_Log_<timestamp>.txt
@@ -1032,6 +1033,10 @@ else:
 # Employees who have already exited (position Vacant / Employee ID
 # blank in the current month) are not matched, so no Termination
 # Date is added for them.
+#
+# Only records with Employee Class = "Employee" are compared (taken
+# from the leavers file; if it has no Employee Class column, the
+# Reference Data's Employee Class is used instead).
 # ============================================================
 
 LWD_COL = "LWD"
@@ -1039,6 +1044,8 @@ TERMINATION_DATE_CANDIDATES = [
     "Termination Date", "Terminate Date", "Terminated Date", "Date of Termination",
 ]
 EMPLOYEE_ID_CANDIDATES = ["Employee ID", "EmployeeID", "Emp ID", "Employee Number"]
+EMPLOYEE_CLASS_COL = "Employee Class"
+EMPLOYEE_CLASS_VALUE = "EMPLOYEE"
 
 lwd_updates_df = pd.DataFrame(columns=[KEY_COL, "Employee ID", f"{LWD_COL}_Pre", f"{LWD_COL}_Post"])
 leavers_unmatched_df = pd.DataFrame()
@@ -1074,6 +1081,18 @@ else:
             updated_ref_df[lwd_col] = None
             print(f"Note: '{LWD_COL}' not found in Reference - column added.")
 
+        # Only Employee Class = Employee
+        lv_class_col = find_column(leavers_df, EMPLOYEE_CLASS_COL)
+        ref_class_col = find_column(updated_ref_df, EMPLOYEE_CLASS_COL)
+        if lv_class_col is not None:
+            is_employee = clean_text_series(leavers_df[lv_class_col]).eq(EMPLOYEE_CLASS_VALUE)
+            print(f"Leavers with Employee Class = Employee: {int(is_employee.sum())} "
+                  f"of {len(leavers_df)} (others ignored for LWD)")
+            leavers_df = leavers_df[is_employee].copy()
+        elif ref_class_col is None:
+            print(f"Note: no '{EMPLOYEE_CLASS_COL}' column in the leavers file or the "
+                  "Reference - all leavers compared.")
+
         # Leaver Employee ID -> latest Termination Date
         leavers_df["_EMP"] = clean_position_id_series(leavers_df[lv_emp_col])
         leavers_df["_TERM_DATE"] = pd.to_datetime(leavers_df[term_col], errors="coerce")
@@ -1089,6 +1108,10 @@ else:
         # still carry last month's Employee ID).
         ref_emp = clean_position_id_series(updated_ref_df[cur_emp_col])
         ref_emp[~updated_ref_df[KEY_COL].isin(hc_keys)] = np.nan
+        if lv_class_col is None and ref_class_col is not None:
+            ref_is_employee = clean_text_series(updated_ref_df[ref_class_col]).eq(EMPLOYEE_CLASS_VALUE)
+            ref_emp[~ref_is_employee] = np.nan
+            print(f"Reference rows with Employee Class = Employee: {int(ref_is_employee.sum())}")
 
         hit = ref_emp.isin(leaver_dates.index)
         new_lwd = ref_emp[hit].map(leaver_dates)
