@@ -33,9 +33,9 @@
 #
 # Leaver rule:
 #   STATUS = VACANT                                -> Leaver cleared
-# Hiring flag rule:
-#   Vacant last month with HIRING_FLG = YES, filled
-#   this month                                     -> HIRING_FLG removed
+# Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
+#   Vacant last month with flag = YES, filled
+#   this month                                     -> flag removed
 # New position rule:
 #   Position Number not in last month's Reference  -> NEW_POSITION_FLAG = YES
 #   (existing flag values are never overwritten)
@@ -983,6 +983,42 @@ HIRING_FLG_COL = "HIRING_FLG"
 HIRING_AGAINST_COL = "HIRING AGAINST PHYSICAL_RD"
 JOINERS_COL = "JOINERS"
 
+# ------------------------------------------------------------
+# Vacant in the PM file AND flag = YES in the PM file AND filled
+# in the current month (same check as "Onboarded") -> flag removed.
+# HIRING AGAINST PHYSICAL_RD is cleared here, before HIRING_FLG is
+# derived from it; HIRING_FLG itself is cleared in 9E.1.
+# ------------------------------------------------------------
+flags_removed = []
+
+
+def remove_flag_for_filled(col):
+    pm_col = find_column(ref_df, col)
+    cur_col = find_column(updated_ref_df, col)
+    if pm_col is None or cur_col is None:
+        print(f"{col} removal for filled positions skipped - column missing.")
+        return
+
+    pm_yes = set(ref_df.loc[clean_text_series(ref_df[pm_col]).eq("YES"), KEY_COL].dropna())
+    mask = updated_ref_df[KEY_COL].isin(filled_keys & pm_yes)
+
+    names = (
+        updated_ref_df.loc[mask, EMPLOYEE_NAME_COL]
+        if EMPLOYEE_NAME_COL in updated_ref_df.columns
+        else pd.Series("", index=updated_ref_df.index[mask])
+    )
+    for pos, name in zip(updated_ref_df.loc[mask, KEY_COL], names):
+        flags_removed.append({
+            KEY_COL: pos, EMPLOYEE_NAME_COL: name,
+            "Field": cur_col, "Pre": "YES", "Post": "",
+        })
+
+    updated_ref_df.loc[mask, cur_col] = None
+    print(f"{cur_col} removed (vacant last month, filled this month): {int(mask.sum())}")
+
+
+remove_flag_for_filled(HIRING_AGAINST_COL)
+
 if HIRING_FLG_COL in updated_ref_df.columns:
     blank = pd.Series("", index=updated_ref_df.index)
 
@@ -1010,37 +1046,15 @@ else:
 # ============================================================
 # 9E.1 FILLED POSITIONS -> HIRING_FLG REMOVED
 #
-# Vacant in the PM file AND HIRING_FLG = YES in the PM file
-# AND filled in the current month (same check as "Onboarded")
-#   -> HIRING_FLG is removed (blank) in the CM file.
-# Runs after 9E so the flag is not set back to YES.
+# Same rule as HIRING AGAINST PHYSICAL_RD above. Runs after 9E so
+# the flag is not set back to YES.
 # ============================================================
 
+remove_flag_for_filled(HIRING_FLG_COL)
+
 hiring_flag_removed_df = pd.DataFrame(
-    columns=[KEY_COL, EMPLOYEE_NAME_COL, f"{HIRING_FLG_COL}_Pre", f"{HIRING_FLG_COL}_Post"]
+    flags_removed, columns=[KEY_COL, EMPLOYEE_NAME_COL, "Field", "Pre", "Post"]
 )
-pm_hiring_col = find_column(ref_df, HIRING_FLG_COL)
-
-if HIRING_FLG_COL in updated_ref_df.columns and pm_hiring_col is not None:
-    pm_hiring_yes = set(
-        ref_df.loc[clean_text_series(ref_df[pm_hiring_col]).eq("YES"), KEY_COL].dropna()
-    )
-    remove_flag = updated_ref_df[KEY_COL].isin(filled_keys & pm_hiring_yes)
-
-    hiring_flag_removed_df = pd.DataFrame({
-        KEY_COL: updated_ref_df.loc[remove_flag, KEY_COL].values,
-        EMPLOYEE_NAME_COL: (
-            updated_ref_df.loc[remove_flag, EMPLOYEE_NAME_COL].values
-            if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""
-        ),
-        f"{HIRING_FLG_COL}_Pre": "YES",
-        f"{HIRING_FLG_COL}_Post": "",
-    })
-    updated_ref_df.loc[remove_flag, HIRING_FLG_COL] = None
-    print(f"{HIRING_FLG_COL} removed (vacant last month, filled this month): "
-          f"{int(remove_flag.sum())}")
-else:
-    print(f"{HIRING_FLG_COL} removal for filled positions skipped - column missing.")
 
 
 # ============================================================
@@ -1337,7 +1351,7 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     job_summary_exceptions_df.to_excel(writer, index=False, sheet_name="Job Summary Exceptions")
     apply_data_types(lwd_updates_df).to_excel(writer, index=False, sheet_name="LWD updates")
     apply_data_types(leavers_unmatched_df).to_excel(writer, index=False, sheet_name="Leavers not matched")
-    apply_data_types(hiring_flag_removed_df).to_excel(writer, index=False, sheet_name="Hiring flag removed")
+    apply_data_types(hiring_flag_removed_df).to_excel(writer, index=False, sheet_name="Hiring flags removed")
 
 
 # ============================================================
