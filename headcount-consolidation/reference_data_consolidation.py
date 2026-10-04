@@ -40,6 +40,11 @@
 #   Vacant last month, occupied this month         -> Committed Offer,
 #   Candidate Name, Joiner flag, Joiner Month, Comments_RD and Leaver
 #   blanked, Status flag set to PHYSICAL
+# Vacated position rule:
+#   Occupied last month, vacant this month         -> Employee Name
+#   "Vacant", Status flag set to VACANT
+# HC names: built from Employee First + Last Name; blank or
+# "Unspecified" in HC means the position is vacant.
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -213,6 +218,9 @@ NEW_POSITION_FLAG_CANDIDATES = [
 # Status column (e.g. STATUS, STATUS_FLAG) - spelling-tolerant match
 STATUS_CANDIDATES = ["STATUS", "STATUS_FLAG", "STATUS_FLG", "POSITION STATUS", "STATUS_RD"]
 FILLED_STATUS_VALUE = "PHYSICAL"   # status given to a position once it is filled
+VACANT_STATUS_VALUE = "VACANT"     # status given to a position that became vacant
+# Names / IDs that mean "no employee" (the HC file uses "Unspecified")
+NO_EMPLOYEE_VALUES = ["vacant", "unspecified"]
 JOB_SUMMARY_COL = "Job Summary"
 # Matched ignoring case, extra spaces, and "&" vs "and"
 EXPECTED_JOB_SUMMARY = "Financial Insight & Advisory Support Specialist"
@@ -346,7 +354,8 @@ def find_column_loose(df, candidates):
 
 
 def is_vacant(value):
-    return str(clean_compare_value(value)).strip().lower() == "vacant"
+    # "Vacant" or "Unspecified" (HC wording) both mean no employee
+    return str(clean_compare_value(value)).strip().lower() in NO_EMPLOYEE_VALUES
 
 
 def split_blank_keys(df, key_col):
@@ -584,6 +593,39 @@ config_df = clean_columns(config_df)
 appian_config_df = clean_columns(appian_config_df)
 new_migrations_df = clean_columns(new_migrations_df)
 hc_df = clean_columns(hc_df)
+
+# ------------------------------------------------------------
+# HC EMPLOYEE NAME
+# The HC report has "Employee First Name" + "Employee Last Name"
+# instead of "Employee Name". Build "Employee Name" from them so the
+# Reference is updated, and use "Vacant" when the HC shows no employee
+# (blank / "Unspecified").
+# ------------------------------------------------------------
+hc_name_col = find_column_loose(hc_df, [EMPLOYEE_NAME_COL, "Employee Full Name", "Full Name"])
+hc_first_col = find_column_loose(hc_df, ["Employee First Name", "First Name"])
+hc_last_col = find_column_loose(hc_df, ["Employee Last Name", "Last Name"])
+
+
+def hc_name_part(series):
+    s = series.fillna("").astype(str).str.strip()
+    return s.where(~s.str.lower().isin(NO_EMPLOYEE_VALUES + ["nan"]), "")
+
+
+if hc_name_col is not None:
+    names = hc_name_part(hc_df[hc_name_col])
+elif hc_first_col is not None or hc_last_col is not None:
+    first = hc_name_part(hc_df[hc_first_col]) if hc_first_col else ""
+    last = hc_name_part(hc_df[hc_last_col]) if hc_last_col else ""
+    names = (first + " " + last).str.strip()
+    print(f"HC Employee Name built from '{hc_first_col}' + '{hc_last_col}'")
+else:
+    names = None
+    print("WARNING: no Employee Name / First Name / Last Name column in HC.")
+
+if names is not None:
+    if hc_name_col is not None and hc_name_col != EMPLOYEE_NAME_COL:
+        hc_df = hc_df.drop(columns=[hc_name_col])
+    hc_df[EMPLOYEE_NAME_COL] = names.where(names != "", "Vacant")
 appian_df = clean_columns(appian_df)
 
 
@@ -704,6 +746,7 @@ pm_status_col = find_column_loose(updated_ref_df, STATUS_CANDIDATES)
 hc_status_col = find_column_loose(hc_indexed, STATUS_CANDIDATES)
 hc_emp_id_col = find_column_loose(hc_indexed, ["Employee ID", "EmployeeID", "Emp ID"])
 vacant_pm_check = []
+vacated_keys = set()  # occupied last month, vacant this month
 
 
 def is_vacant_or_blank(value):
@@ -803,6 +846,16 @@ for pos in common_keys:
             onboarded_count += 1
             filled_keys.add(pos)
             has_change = True
+
+    # --------------------------------------------------------
+    # Occupied last month and vacant this month -> vacated
+    # --------------------------------------------------------
+    if (
+        EMPLOYEE_NAME_COL in hc_indexed.columns
+        and not vacant_last_month
+        and is_vacant_or_blank(hc_indexed.at[pos, EMPLOYEE_NAME_COL])
+    ):
+        vacated_keys.add(pos)
 
     if has_change:
         other_changes.append(change_record)
@@ -1136,6 +1189,23 @@ else:
     updated_ref_df.loc[filled_mask, filled_status_col] = FILLED_STATUS_VALUE
     print(f"'{filled_status_col}' set to {FILLED_STATUS_VALUE} for filled positions: "
           f"{int(to_change.sum())}")
+
+# Occupied last month, vacant this month -> Status flag VACANT
+vacated_mask = updated_ref_df[KEY_COL].isin(vacated_keys)
+if filled_status_col is not None:
+    to_vacant = vacated_mask & clean_text_series(updated_ref_df[filled_status_col]).ne(VACANT_STATUS_VALUE)
+    for idx in updated_ref_df.index[to_vacant]:
+        filled_cleared.append({
+            KEY_COL: updated_ref_df.at[idx, KEY_COL],
+            EMPLOYEE_NAME_COL: (updated_ref_df.at[idx, EMPLOYEE_NAME_COL]
+                                if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""),
+            "Field": filled_status_col,
+            "Pre": clean_compare_value(updated_ref_df.at[idx, filled_status_col]),
+            "Post": VACANT_STATUS_VALUE,
+        })
+    updated_ref_df.loc[vacated_mask, filled_status_col] = VACANT_STATUS_VALUE
+    print(f"'{filled_status_col}' set to {VACANT_STATUS_VALUE} for positions vacated "
+          f"this month: {int(to_vacant.sum())}")
 
 filled_cleared_df = pd.DataFrame(
     filled_cleared, columns=[KEY_COL, EMPLOYEE_NAME_COL, "Field", "Pre", "Post"]
@@ -1523,7 +1593,7 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     apply_data_types(lwd_updates_df).to_excel(writer, index=False, sheet_name="LWD updates")
     apply_data_types(leavers_unmatched_df).to_excel(writer, index=False, sheet_name="Leavers not matched")
     apply_data_types(hiring_flag_removed_df).to_excel(writer, index=False, sheet_name="Hiring flags removed")
-    filled_cleared_df.to_excel(writer, index=False, sheet_name="Filled - fields cleared")
+    filled_cleared_df.to_excel(writer, index=False, sheet_name="Filled-Vacated changes")
     vacant_pm_check_df.to_excel(writer, index=False, sheet_name="Vacant PM check")
 
 
