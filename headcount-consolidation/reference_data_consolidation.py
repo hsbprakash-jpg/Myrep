@@ -46,6 +46,9 @@
 #   "Vacant", Status flag set to VACANT, Leaver cleared
 # HC names: built from Employee First + Last Name; blank or
 # "Unspecified" in HC means the position is vacant.
+# Committed offer rule:
+#   Comments_RD = OFFERED                          -> Committed Offer = YES
+#   (all Committed Offer = YES positions listed on "Committed Offers")
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -224,6 +227,11 @@ VACANT_STATUS_VALUE = "VACANT"     # status given to a position that became vaca
 NO_EMPLOYEE_VALUES = ["vacant", "unspecified"]
 # Leaver column: exact names first, else any column starting with "LEAVER"
 LEAVER_CANDIDATES = ["LEAVER", "LEAVERS", "LEAVER_RD", "LEAVER_FLG", "LEAVER FLAG", "LEAVER_FLAG_RD"]
+OFFERED_COMMENT = "OFFERED"          # Comments_RD value that means an offer is committed
+COMMITTED_OFFER_CANDIDATES = ["COMMITTED OFFER", "COMMITTED_OFFER_FLAG", "COMMITTED OFFER FLG"]
+CANDIDATE_NAME_CANDIDATES = ["CANDIDATE NAME", "CANDIDATE", "CANDIDATE_NAME_RD"]
+JOINER_MONTH_CANDIDATES = ["JOINER MONTH", "JOINERS MONTH", "JOINING MONTH", "JOINER_MONTH_RD"]
+MR_LEAD_CANDIDATES = ["MR_LEAD", "MR LEAD", "MR_LEAD_RD", "MR LEAD NAME", "MR_LEAD_NAME"]
 JOB_SUMMARY_COL = "Job Summary"
 # Matched ignoring case, extra spaces, and "&" vs "and"
 EXPECTED_JOB_SUMMARY = "Financial Insight & Advisory Support Specialist"
@@ -247,6 +255,7 @@ DATE_COLUMNS = [
     "Exit Date",
     "JOINER MONTH",
     "Joiners Month",
+    "JOINER_MONTH_RD",
     "LWD",
     "LWD_Pre",
     "LWD_Post",
@@ -364,6 +373,19 @@ def find_column_prefix(df, candidates, prefix):
     key = re.sub(r"[^a-z0-9]", "", prefix.lower())
     for c in df.columns:
         if re.sub(r"[^a-z0-9]", "", str(c).lower()).startswith(key):
+            return c
+    return None
+
+
+def find_functional_manager_col(df):
+    # Name column first (e.g. "Functional Manager Job Level Employee Name"),
+    # else any Functional Manager column that is not an ID / number
+    for c in df.columns:
+        if str(c).lower().startswith("functional manager") and "name" in str(c).lower():
+            return c
+    for c in df.columns:
+        if (str(c).lower().startswith("functional manager")
+                and not re.search(r"\bid\b|number", str(c).lower())):
             return c
     return None
 
@@ -1200,10 +1222,10 @@ else:
 # ============================================================
 
 FILLED_CLEAR_FIELDS = {
-    "Committed Offer": ["COMMITTED OFFER", "COMMITTED_OFFER_FLAG", "COMMITTED OFFER FLG"],
-    "Candidate Name": ["CANDIDATE NAME", "CANDIDATE"],
+    "Committed Offer": COMMITTED_OFFER_CANDIDATES,
+    "Candidate Name": CANDIDATE_NAME_CANDIDATES,
     "Joiner flag": ["JOINER FLAG", "JOINER_FLG", "JOINERS FLAG", "JOINERS_FLG", "JOINERS", "JOINER"],
-    "Joiner Month": ["JOINER MONTH", "JOINERS MONTH", "JOINING MONTH"],
+    "Joiner Month": JOINER_MONTH_CANDIDATES,
     "Comments_RD": [comments_col],
     "Leaver": LEAVER_CANDIDATES,
 }
@@ -1291,6 +1313,50 @@ else:
 filled_cleared_df = pd.DataFrame(
     filled_cleared, columns=[KEY_COL, EMPLOYEE_NAME_COL, "Field", "Pre", "Post"]
 )
+
+
+# ============================================================
+# 9D.3 Comments_RD = OFFERED -> COMMITTED OFFER = YES
+#
+# Runs after 9D.2 so a position filled this month (Comments_RD just
+# blanked) does not get the flag back. All positions with Committed
+# Offer = YES are listed on the "Committed Offers" sheet.
+# ============================================================
+
+committed_offer_col = find_column_loose(updated_ref_df, COMMITTED_OFFER_CANDIDATES)
+committed_offers_df = pd.DataFrame()
+
+if committed_offer_col is None:
+    print("Note: 'Committed Offer' column not found - OFFERED rule skipped.")
+else:
+    offered = clean_text_series(updated_ref_df[comments_col]).eq(OFFERED_COMMENT)
+    newly_set = offered & clean_text_series(updated_ref_df[committed_offer_col]).ne("YES")
+    updated_ref_df.loc[offered, committed_offer_col] = "YES"
+    print(f"'{committed_offer_col}' set to YES where {comments_col} = {OFFERED_COMMENT}: "
+          f"{int(offered.sum())} position(s), {int(newly_set.sum())} newly set")
+
+    has_offer = clean_text_series(updated_ref_df[committed_offer_col]).eq("YES")
+    offer_cols = [
+        (KEY_COL, KEY_COL),
+        ("Position Title", find_column_loose(updated_ref_df, ["Position Title", "Job Title"])),
+        ("GCB", find_column_loose(updated_ref_df, ["Global Career Band", "GCB", "GCB Level"])),
+        ("Work Location", find_column_loose(updated_ref_df, ["Work Location", "Location"])),
+        ("Functional Manager", find_functional_manager_col(updated_ref_df)),
+        (OLD_EMP_RD_COL, find_column_loose(updated_ref_df, [OLD_EMP_RD_COL])),
+        ("Candidate Name", find_column_loose(updated_ref_df, CANDIDATE_NAME_CANDIDATES)),
+        ("Joiner Month", find_column_loose(updated_ref_df, JOINER_MONTH_CANDIDATES)),
+        ("MR_Lead", find_column_loose(updated_ref_df, MR_LEAD_CANDIDATES)),
+        (comments_col, comments_col),
+    ]
+    committed_offers_df = pd.DataFrame({
+        label: (updated_ref_df.loc[has_offer, col].values if col is not None else "")
+        for label, col in offer_cols
+    })
+    committed_offers_df["Set this run"] = np.where(newly_set[has_offer].values, "YES", "")
+    missing_cols = [label for label, col in offer_cols if col is None]
+    if missing_cols:
+        print(f"Note: column(s) not found for the Committed Offers sheet: {', '.join(missing_cols)}")
+    print(f"Committed Offers sheet: {len(committed_offers_df)} position(s)")
 
 
 # ============================================================
@@ -1741,6 +1807,7 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     apply_data_types(hiring_flag_removed_df).to_excel(writer, index=False, sheet_name="Hiring flags removed")
     filled_cleared_df.to_excel(writer, index=False, sheet_name="Filled-Vacated changes")
     vacant_pm_check_df.to_excel(writer, index=False, sheet_name="Filled-Changed check")
+    apply_data_types(committed_offers_df).to_excel(writer, index=False, sheet_name="Committed Offers")
 
 
 # ============================================================
