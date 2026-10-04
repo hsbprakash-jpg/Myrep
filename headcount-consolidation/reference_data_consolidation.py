@@ -412,15 +412,10 @@ def apply_data_types(df):
         if col not in df.columns:
             continue
 
-        try:
-            dates = pd.to_datetime(df[col], errors="coerce", format="mixed")
-        except (TypeError, ValueError):
-            dates = pd.to_datetime(df[col], errors="coerce")
-
-        blank = is_blank_series(df[col])
-        lost = dates.isna() & ~blank
+        parsed = [to_date(v) for v in df[col]]
+        lost = pd.Series([v is None for v in parsed], index=df.index)
         if not lost.any():
-            df[col] = dates
+            df[col] = pd.to_datetime(pd.Series(parsed, index=df.index, dtype=object))
         else:
             print(
                 f"Note: '{col}' kept as text - {lost.sum()} "
@@ -428,6 +423,31 @@ def apply_data_types(df):
             )
 
     return df
+
+
+def to_date(value):
+    # One cell -> date. 0, blanks and placeholder dates (01-Jan-1970,
+    # 00-Jan-1900) become blank; Excel serial numbers are converted.
+    if value is None or (not isinstance(value, str) and pd.isna(value)):
+        return pd.NaT
+    if isinstance(value, str):
+        value = value.strip()
+        if value.lower() in ["", "nan", "none", "nat", "<na>"]:
+            return pd.NaT
+        if re.fullmatch(r"\d+(\.0+)?", value):
+            value = float(value)
+    if isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool):
+        if value <= 0:
+            return pd.NaT
+        date = pd.Timestamp("1899-12-30") + pd.Timedelta(days=float(value))
+    else:
+        try:
+            date = pd.to_datetime(value)
+        except (TypeError, ValueError):
+            return None  # not a date
+    if pd.isna(date) or date.year <= 1970:
+        return pd.NaT
+    return date
 
 
 def format_excel(file_path):
@@ -1343,7 +1363,10 @@ EMPLOYEE_ID_CANDIDATES = ["Employee ID", "EmployeeID", "Emp ID", "Employee Numbe
 EMPLOYEE_CLASS_COL = "Employee Class"
 EMPLOYEE_CLASS_VALUE = "EMPLOYEE"
 
-lwd_updates_df = pd.DataFrame(columns=[KEY_COL, "Employee ID", f"{LWD_COL}_Pre", f"{LWD_COL}_Post"])
+lwd_updates_df = pd.DataFrame(columns=[
+    KEY_COL, "Employee ID", EMPLOYEE_NAME_COL, "Functional Manager",
+    f"{LWD_COL}_Pre", f"{LWD_COL}_Post",
+])
 leavers_unmatched_df = pd.DataFrame()
 
 
@@ -1414,12 +1437,29 @@ else:
         old_lwd = updated_ref_df.loc[hit, lwd_col]
         changed = [values_differ(o, n) for o, n in zip(old_lwd, new_lwd)]
 
+        # Functional Manager name column (e.g. "Functional Manager Job Level
+        # Employee Name"); ID / position-number columns are skipped
+        fm_col = next(
+            (c for c in updated_ref_df.columns
+             if str(c).lower().startswith("functional manager") and "name" in str(c).lower()),
+            next((c for c in updated_ref_df.columns
+                  if str(c).lower().startswith("functional manager")
+                  and not re.search(r"\bid\b|number", str(c).lower())), None),
+        )
+        hit_rows = updated_ref_df.loc[hit][changed]
+
         lwd_updates_df = pd.DataFrame({
-            KEY_COL: updated_ref_df.loc[hit, KEY_COL][changed].values,
+            KEY_COL: hit_rows[KEY_COL].values,
             "Employee ID": ref_emp[hit][changed].values,
-            f"{LWD_COL}_Pre": [clean_compare_value(v) for v in old_lwd[changed]],
+            EMPLOYEE_NAME_COL: (hit_rows[EMPLOYEE_NAME_COL].values
+                                if EMPLOYEE_NAME_COL in hit_rows.columns else ""),
+            "Functional Manager": hit_rows[fm_col].values if fm_col is not None else "",
+            # blank, 0 or placeholder dates -> blank LWD_Pre
+            f"{LWD_COL}_Pre": [to_date(v) for v in old_lwd[changed]],
             f"{LWD_COL}_Post": new_lwd[changed].values,
         })
+        if fm_col is None:
+            print("Note: no Functional Manager name column found for the LWD updates sheet.")
         updated_ref_df.loc[hit, lwd_col] = new_lwd
 
         not_matched = (
