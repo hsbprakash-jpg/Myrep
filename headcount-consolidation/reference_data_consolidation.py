@@ -46,6 +46,11 @@
 #   "Vacant", Status flag set to VACANT, Leaver cleared
 # HC names: built from Employee First + Last Name; blank or
 # "Unspecified" in HC means the position is vacant.
+# Position attributes (GCB, Position Title, Work Location, ...):
+#   HC "Position Global Career Band" is read as the Reference's GCB
+#   column (other spellings likewise), so new positions get a GCB;
+#   a BLANK in HC / Appian never wipes the value already in the
+#   Reference (kept values listed on "Blank values kept").
 # Committed offer rule:
 #   Comments_RD = OFFERED                          -> Committed Offer = YES
 #   (all Committed Offer = YES positions listed on "Committed Offers")
@@ -107,6 +112,12 @@ RESET_HIRING_FLG = False
 # False -> they stay in the Reference output (original behaviour);
 #          they are always listed in the Exception Report
 DROP_REMOVED_POSITIONS = False
+
+# True  -> a blank GCB / Position Title / Work Location / ... in the HC
+#          or Appian file does NOT wipe the value already in the
+#          Reference (kept values are listed on "Blank values kept")
+# False -> blanks in the source files overwrite the Reference
+KEEP_VALUE_WHEN_SOURCE_BLANK = True   # <-- change to False to turn OFF
 
 
 # ------------------------------------------------------------
@@ -238,6 +249,30 @@ COMMITTED_OFFER_CANDIDATES = ["COMMITTED OFFER", "COMMITTED_OFFER_FLAG", "COMMIT
 CANDIDATE_NAME_CANDIDATES = ["CANDIDATE NAME", "CANDIDATE", "CANDIDATE_NAME_RD"]
 JOINER_MONTH_CANDIDATES = ["JOINER MONTH", "JOINERS MONTH", "JOINING MONTH", "JOINER_MONTH_RD"]
 MR_LEAD_CANDIDATES = ["MR_LEAD", "MR LEAD", "MR_LEAD_RD", "MR LEAD NAME", "MR_LEAD_NAME"]
+GCB_CANDIDATES = [
+    "GCB", "Global Career Band", "GCB Level", "Position Global Career Band",
+    "Position Career Band", "Career Band",
+]
+WORK_LOCATION_CANDIDATES = ["Work Location", "Location", "Work Location Name", "Position Location"]
+POSITION_TITLE_CANDIDATES = ["Position Title", "Position Name"]
+# Same field, different column name in the HC file (e.g. HC "Position
+# Global Career Band" = Reference "GCB"): the HC column is read under
+# the Reference's name, so new positions get the value and existing
+# positions are compared.
+HC_COLUMN_ALIASES = {
+    "GCB": GCB_CANDIDATES,
+    "Work Location": WORK_LOCATION_CANDIDATES,
+    "Position Title": POSITION_TITLE_CANDIDATES,
+}
+# Position attributes: a BLANK in the HC / Appian file does not
+# overwrite the value already in the Reference (see
+# KEEP_VALUE_WHEN_SOURCE_BLANK). Employee fields (Employee ID, Employee
+# Name, ...) are deliberately NOT listed, so a vacated position is
+# still cleared.  "*" = any column starting with the name.
+KEEP_WHEN_SOURCE_BLANK = GCB_CANDIDATES + WORK_LOCATION_CANDIDATES + POSITION_TITLE_CANDIDATES + [
+    "Job Summary", "FRC Code", "Job Code", "Job Category", "Workforce Plan ID",
+    "Functional Manager*",
+]
 JOB_SUMMARY_COL = "Job Summary"
 # Matched ignoring case, extra spaces, and "&" vs "and"
 EXPECTED_JOB_SUMMARY = "Financial Insight & Advisory Support Specialist"
@@ -250,7 +285,10 @@ NUMERIC_COLUMNS = [
     "Position ID",
     "Existing Position ID",
     "Employee ID",
+    "GCB",
     "GCB Level",
+    "Global Career Band",
+    "Position Global Career Band",
     "Position Career Band",
     "Functional Manager Position Level Position Number",
     "Functional Manager Job Level Employee ID",
@@ -395,6 +433,16 @@ def find_functional_manager_col(df):
             return c
     return None
 
+
+def keep_when_blank(col):
+    # Position-attribute column whose Reference value is kept when the
+    # HC / Appian value is blank (see KEEP_WHEN_SOURCE_BLANK)
+    key = re.sub(r"[^a-z0-9]", "", str(col).lower())
+    for name in KEEP_WHEN_SOURCE_BLANK:
+        k = re.sub(r"[^a-z0-9]", "", name.lower())
+        if key == k or (name.endswith("*") and key.startswith(k)):
+            return True
+    return False
 
 def is_vacant(value):
     # "Vacant" or "Unspecified" (HC wording) both mean no employee
@@ -715,6 +763,22 @@ if names is not None:
     if hc_name_col is not None and hc_name_col != EMPLOYEE_NAME_COL:
         hc_df = hc_df.drop(columns=[hc_name_col])
     hc_df[EMPLOYEE_NAME_COL] = names.where(names != "", "Vacant")
+
+# ------------------------------------------------------------
+# HC COLUMN NAMES -> REFERENCE COLUMN NAMES
+# e.g. HC "Position Global Career Band" is the Reference's "GCB".
+# Without this, new positions would get a blank GCB (the HC column
+# name does not match) and existing positions would never be compared.
+# ------------------------------------------------------------
+for _label, _aliases in HC_COLUMN_ALIASES.items():
+    _ref_col = find_column_loose(ref_df, _aliases)
+    if _ref_col is None or _ref_col in hc_df.columns:
+        continue  # no such column in the Reference / HC already uses the same name
+    _hc_col = find_column_loose(hc_df, [_ref_col] + _aliases)
+    if _hc_col is not None and _hc_col not in ref_df.columns:
+        hc_df = hc_df.rename(columns={_hc_col: _ref_col})
+        print(f"HC column '{_hc_col}' read as Reference column '{_ref_col}'")
+
 appian_df = clean_columns(appian_df)
 
 
@@ -806,6 +870,7 @@ if len(ref_blank_key_rows):
 # ============================================================
 
 other_changes = []
+blanks_kept = []  # position attributes blank in HC / Appian, Reference value kept
 onboarded_count = 0
 filled_keys = set()  # vacant last month, filled this month
 
@@ -884,6 +949,20 @@ for pos in common_keys:
         new_val = hc_indexed.at[pos, col]
 
         if values_differ(old_val, new_val):
+            # Position attribute blank in HC -> Reference value kept
+            if (KEEP_VALUE_WHEN_SOURCE_BLANK and keep_when_blank(col)
+                    and clean_compare_value(new_val) == ""):
+                blanks_kept.append({
+                    KEY_COL: clean_compare_value(pos),
+                    EMPLOYEE_NAME_COL: clean_compare_value(
+                        hc_indexed.at[pos, EMPLOYEE_NAME_COL]
+                        if EMPLOYEE_NAME_COL in hc_indexed.columns else prev_employee
+                    ),
+                    "Field": col,
+                    "Value kept": clean_compare_value(old_val),
+                    "Blank in": "HC",
+                })
+                continue
             change_record[f"{col}_Pre"] = clean_compare_value(old_val)
             change_record[f"{col}_Post"] = clean_compare_value(new_val)
             updated_ref_df.at[pos, col] = clean_compare_value(new_val)
@@ -1106,9 +1185,29 @@ for pos in appian_common_keys:
         new_val = appian_indexed.at[pos, col]
 
         if values_differ(old_val, new_val):
+            # Position attribute blank in Appian -> Reference value kept
+            if (KEEP_VALUE_WHEN_SOURCE_BLANK and keep_when_blank(col)
+                    and clean_compare_value(new_val) == ""):
+                blanks_kept.append({
+                    KEY_COL: clean_compare_value(pos),
+                    EMPLOYEE_NAME_COL: (
+                        clean_compare_value(updated_ref_df.at[pos, EMPLOYEE_NAME_COL])
+                        if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""
+                    ),
+                    "Field": col,
+                    "Value kept": clean_compare_value(old_val),
+                    "Blank in": "Appian",
+                })
+                continue
             updated_ref_df.at[pos, col] = clean_compare_value(new_val)
 
 updated_ref_df = updated_ref_df.reset_index()
+
+blanks_kept_df = pd.DataFrame(
+    blanks_kept, columns=[KEY_COL, EMPLOYEE_NAME_COL, "Field", "Value kept", "Blank in"]
+)
+print(f"Position attributes blank in HC / Appian, Reference value kept: "
+      f"{len(blanks_kept_df)} (see 'Blank values kept' sheet)")
 
 # Add back rows with a blank Position Number
 updated_ref_df = pd.concat(
@@ -1371,8 +1470,8 @@ else:
     offer_cols = [
         (KEY_COL, KEY_COL),
         ("Position Title", find_column_loose(updated_ref_df, ["Position Title", "Job Title"])),
-        ("GCB", find_column_loose(updated_ref_df, ["Global Career Band", "GCB", "GCB Level"])),
-        ("Work Location", find_column_loose(updated_ref_df, ["Work Location", "Location"])),
+        ("GCB", find_column_loose(updated_ref_df, GCB_CANDIDATES)),
+        ("Work Location", find_column_loose(updated_ref_df, WORK_LOCATION_CANDIDATES)),
         ("Functional Manager", find_functional_manager_col(updated_ref_df)),
         (OLD_EMP_RD_COL, find_column_loose(updated_ref_df, [OLD_EMP_RD_COL])),
         ("Candidate Name", find_column_loose(updated_ref_df, CANDIDATE_NAME_CANDIDATES)),
@@ -1753,8 +1852,8 @@ else:
                   and not re.search(r"\bid\b|number", str(c).lower())), None),
         )
         hit_rows = updated_ref_df.loc[hit].loc[changed]
-        gcb_col = find_column_loose(updated_ref_df, ["Global Career Band", "GCB", "GCB Level"])
-        loc_col = find_column_loose(updated_ref_df, ["Work Location", "Location"])
+        gcb_col = find_column_loose(updated_ref_df, GCB_CANDIDATES)
+        loc_col = find_column_loose(updated_ref_df, WORK_LOCATION_CANDIDATES)
 
         lwd_updates_df = pd.DataFrame({
             KEY_COL: hit_rows[KEY_COL].values,
@@ -1785,6 +1884,37 @@ else:
             print(f"Note: {len(leavers_unmatched_df)} leaver row(s) not in the current month "
                   "(already exited) or without a Termination Date - see 'Leavers not matched' sheet.")
 
+
+# ============================================================
+# 9H. GCB CHECK
+#
+# Where the blank GCBs in the output come from: already blank in the
+# PM file, new positions with no GCB in HC, or GCB blank in HC.
+# ============================================================
+
+gcb_col = find_column_loose(updated_ref_df, GCB_CANDIDATES)
+if gcb_col is None:
+    print("Note: no GCB column found in the Reference.")
+else:
+    gcb_blank = is_blank_series(updated_ref_df[gcb_col])
+    pm_gcb_col = find_column_loose(ref_df, GCB_CANDIDATES)
+    pm_gcb_blank_keys = (
+        set(ref_df.loc[is_blank_series(ref_df[pm_gcb_col]), KEY_COL].dropna())
+        if pm_gcb_col is not None else set()
+    )
+    hc_gcb_col = find_column_loose(hc_df, GCB_CANDIDATES)
+    hc_gcb_blank_keys = (
+        set(hc_df.loc[is_blank_series(hc_df[hc_gcb_col]), KEY_COL].dropna())
+        if hc_gcb_col is not None else set(hc_df[KEY_COL].dropna())
+    )
+    _keys = updated_ref_df[KEY_COL]
+    print(f"'{gcb_col}' blank in the output: {int(gcb_blank.sum())} position(s) "
+          f"(already blank in PM file: {int((gcb_blank & _keys.isin(pm_gcb_blank_keys)).sum())}, "
+          f"new positions: {int((gcb_blank & _keys.isin(new_keys)).sum())}, "
+          f"blank in HC: {int((gcb_blank & _keys.isin(hc_gcb_blank_keys)).sum())})")
+    if hc_gcb_col is None:
+        print("Note: no GCB column in the HC file "
+              f"({' / '.join(GCB_CANDIDATES)}) - new positions get a blank GCB.")
 
 # ============================================================
 # 10. COLUMN SEQUENCING FROM CONFIG
@@ -1947,6 +2077,7 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     filled_cleared_df.to_excel(writer, index=False, sheet_name="Filled-Vacated changes")
     vacant_pm_check_df.to_excel(writer, index=False, sheet_name="Filled-Changed check")
     apply_data_types(committed_offers_df).to_excel(writer, index=False, sheet_name="Committed Offers")
+    apply_data_types(blanks_kept_df).to_excel(writer, index=False, sheet_name="Blank values kept")
 
 
 # ============================================================
