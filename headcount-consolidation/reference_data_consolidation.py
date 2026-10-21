@@ -35,7 +35,9 @@
 #   Vacant position (STATUS = VACANT or no employee) -> Leaver blank;
 #   a vacant position can never have LEAVER = YES
 # Fields never updated (DO_NOT_UPDATE_FIELDS in section 1, e.g. the
-# LV 2027 fields): kept exactly as in the PM file by every rule.
+# LV 2027 fields): every rule leaves them exactly as they are in the
+# Reference Data file (reference_file), so values already updated
+# there come through unchanged.
 # Vacant last month = Employee Name Vacant/blank or Status = VACANT in
 # the PM file; filled = real Employee Name in HC for the SAME Position
 # Number (see the "Filled-Changed check" sheet).
@@ -142,8 +144,9 @@ KEEP_VALUE_WHEN_SOURCE_BLANK = True   # <-- change to False to turn OFF
 #          Completed now, unless HIRING_FLG is already DEMISE in the PM file
 DEMISE_ONLY_NEWLY_APPROVED = False    # <-- change to True to restrict
 
-# Fields the script never changes - their values are kept exactly as in
-# the PM file (e.g. the LV 2027 fields). Case, spaces, "_" and "-" are
+# Fields the script never changes - the output keeps exactly the values
+# in the Reference Data file (reference_file above), e.g. the LV 2027
+# fields. Case, spaces, "_" and "-" are
 # ignored and "*" means "anything", so "LV*2027*" covers "LV 2027",
 # "LV_2027_JAN", "LV JAN 2027", ...  Add more names here if needed.
 DO_NOT_UPDATE_FIELDS = ["LV*2027*", "*2027*LV*", "LEAVER*2027*"]
@@ -807,7 +810,8 @@ hc_df = clean_columns(hc_df)
 # Fields never updated (DO_NOT_UPDATE_FIELDS, e.g. the LV 2027 fields)
 protected_cols = [c for c in ref_df.columns if is_protected(c)]
 if protected_cols:
-    print(f"Fields never updated (kept as in the PM file): {', '.join(protected_cols)}")
+    print(f"Fields never updated (kept as in the Reference Data, "
+          f"{os.path.basename(str(reference_file))}): {', '.join(protected_cols)}")
 else:
     print(f"Note: no field matching {' / '.join(DO_NOT_UPDATE_FIELDS)} in the Reference "
           "- add the exact names to DO_NOT_UPDATE_FIELDS (section 1) if needed.")
@@ -2197,27 +2201,28 @@ else:
 # ============================================================
 # 9I. FIELDS NEVER UPDATED (DO_NOT_UPDATE_FIELDS, e.g. LV 2027)
 #
-# Safety net: whatever the rules above did, these fields are put back
-# to their PM file value for every position that was in the PM file;
-# new positions get them blank (the script never fills them).
+# Safety net: each value is checked against the Reference Data file
+# (reference_file) and set back to it if anything above changed it,
+# for every position in the Reference Data; new positions get them
+# blank (the script never fills them).
 # ============================================================
 
 if protected_cols:
-    _pm = ref_df.dropna(subset=[KEY_COL]).drop_duplicates(KEY_COL).set_index(KEY_COL)
+    _ref = ref_df.dropna(subset=[KEY_COL]).drop_duplicates(KEY_COL).set_index(KEY_COL)
     _keyed = updated_ref_df[KEY_COL].notna()
     _restored = 0
     for _c in protected_cols:
         if _c not in updated_ref_df.columns:
             continue
         _before = updated_ref_df.loc[_keyed, _c]
-        # PM value for existing positions, blank for new positions
-        _after = updated_ref_df.loc[_keyed, KEY_COL].map(_pm[_c])
+        # Reference Data value for existing positions, blank for new positions
+        _after = updated_ref_df.loc[_keyed, KEY_COL].map(_ref[_c])
         _diff = np.array([values_differ(b, a) for b, a in zip(_before, _after)], dtype=bool)
         if _diff.any():
             updated_ref_df.loc[_before.index[_diff], _c] = _after[_diff].tolist()
         _restored += int(_diff.sum())
-    print(f"Fields never updated ({', '.join(protected_cols)}): kept as in the PM file "
-          f"({_restored} value(s) put back)")
+    print(f"Fields never updated ({', '.join(protected_cols)}): checked against the "
+          f"Reference Data - {_restored} value(s) corrected")
 
 # ============================================================
 # 10. COLUMN SEQUENCING FROM CONFIG
