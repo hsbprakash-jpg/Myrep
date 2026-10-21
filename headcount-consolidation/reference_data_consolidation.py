@@ -65,8 +65,9 @@
 #   position in HC, HIRING_FLG not already DEMISE in PM (instead of
 #   the hiring outcome above)             -> HIRING_FLG = DEMISE,
 #     NEW_POSITION_FLAG = DEMISE, LEAVER = YES, Comments_RD = "Raise New
-#     Position", HIRING AGAINST PHYSICAL_RD blank. Every Hyderabad
-#     position is listed on the "DEMISE check" sheet with the outcome.
+#     Position" (or "DEMISE" when the position is vacant), HIRING AGAINST
+#     PHYSICAL_RD blank. Every Hyderabad position is listed on the
+#     "DEMISE check" sheet with the outcome.
 #   (DEMISE_ONLY_NEWLY_APPROVED = True: only where blank in the PM file)
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
@@ -276,7 +277,8 @@ MR_LEAD_CANDIDATES = ["MR_LEAD", "MR LEAD", "MR_LEAD_RD", "MR LEAD NAME", "MR_LE
 # a whole word, so "Hyde Park" does not match.
 DEMISE_LOCATIONS = ["Hyderabad", "HYD"]
 DEMISE_VALUE = "DEMISE"
-DEMISE_COMMENT = "Raise New Position"
+DEMISE_COMMENT = "Raise New Position"   # Comments_RD when the position is occupied
+DEMISE_VACANT_COMMENT = "DEMISE"        # Comments_RD when the position is vacant
 GCB_CANDIDATES = [
     "GCB", "Global Career Band", "GCB Level", "Position Global Career Band",
     "Position Career Band", "Career Band",
@@ -1749,6 +1751,14 @@ if HIRING_FLG_COL in updated_ref_df.columns:
         std_new = int((sfh_std & hiring_flg_now.ne("YES")).sum())
         demise_new = int((sfh_demise & hiring_flg_now.ne(DEMISE_VALUE)).sum())
 
+        # Vacant position (Status = VACANT or no employee) -> Comments_RD = DEMISE
+        vacant_now = pd.Series(False, index=updated_ref_df.index)
+        if sfh_status_col is not None:
+            vacant_now |= clean_text_series(updated_ref_df[sfh_status_col]).eq(VACANT_STATUS_VALUE)
+        if EMPLOYEE_NAME_COL in updated_ref_df.columns:
+            vacant_now |= updated_ref_df[EMPLOYEE_NAME_COL].apply(is_vacant_or_blank)
+        sfh_demise_vacant = sfh_demise & vacant_now
+
         # (label, column, new value) per outcome; None = made blank
         std_spec = [
             (HIRING_FLG_COL, HIRING_FLG_COL, "YES"),
@@ -1769,7 +1779,10 @@ if HIRING_FLG_COL in updated_ref_df.columns:
         ]
         for idx in updated_ref_df.index[sfh_std | sfh_demise]:
             is_demise = bool(sfh_demise[idx])
+            is_demise_vacant = bool(sfh_demise_vacant[idx])
             spec = list(demise_spec if is_demise else std_spec)
+            if is_demise_vacant:
+                spec = [(l, c, DEMISE_VACANT_COMMENT if l == COMMENTS_RD_COL else v) for l, c, v in spec]
             if not is_demise and sfh_phys[idx]:
                 spec.append((HIRING_AGAINST_COL, sfh_hap_col, "YES"))
             row = {
@@ -1778,7 +1791,8 @@ if HIRING_FLG_COL in updated_ref_df.columns:
                                     if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""),
                 "Work Location": (clean_compare_value(updated_ref_df.at[idx, sfh_loc_col])
                                   if sfh_loc_col is not None else ""),
-                "Outcome": DEMISE_VALUE if is_demise else f"{HIRING_FLG_COL} = YES",
+                "Outcome": (f"{DEMISE_VALUE} (vacant)" if is_demise_vacant
+                            else DEMISE_VALUE if is_demise else f"{HIRING_FLG_COL} = YES"),
             }
             for label, col in report_cols:
                 pre = clean_compare_value(updated_ref_df.at[idx, col]) if col is not None else ""
@@ -1805,7 +1819,8 @@ if HIRING_FLG_COL in updated_ref_df.columns:
               f"Sub Function Head Completed{' and blank in PM' if DEMISE_ONLY_NEWLY_APPROVED else ''}, "
               f"in HC, not already {DEMISE_VALUE}): {int(sfh_demise.sum())} position(s), "
               f"{demise_new} newly set - {HIRING_FLG_COL} and {NEW_POSITION_FLAG_COL} = "
-              f"{DEMISE_VALUE}, LEAVER = YES, {COMMENTS_RD_COL} = '{DEMISE_COMMENT}', "
+              f"{DEMISE_VALUE}, LEAVER = YES, {COMMENTS_RD_COL} = '{DEMISE_COMMENT}' "
+              f"(vacant: '{DEMISE_VACANT_COMMENT}', {int(sfh_demise_vacant.sum())} position(s)), "
               f"{HIRING_AGAINST_COL} blank")
 
         # "DEMISE check" sheet: every position whose location is like
@@ -1829,7 +1844,9 @@ if HIRING_FLG_COL in updated_ref_df.columns:
             if pd.isna(k):
                 continue
             if k in sfh_demise_keys:
-                outcome = f"{DEMISE_VALUE} applied"
+                outcome = (f"{DEMISE_VALUE} applied - vacant, {COMMENTS_RD_COL} = {DEMISE_VACANT_COMMENT}"
+                           if sfh_demise_vacant[idx] else
+                           f"{DEMISE_VALUE} applied - {COMMENTS_RD_COL} = {DEMISE_COMMENT}")
             elif k not in hc_keys:
                 outcome = "Not applied - position not in this month's HC"
             elif k not in sfh_done_keys:
