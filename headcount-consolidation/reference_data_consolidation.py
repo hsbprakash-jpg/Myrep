@@ -66,6 +66,9 @@
 # New position rule:
 #   Position Number not in last month's Reference  -> NEW_POSITION_FLAG = YES
 #   (existing flag values are never overwritten)
+#   Status flag set to PHYSICAL (employee in HC) or VACANT (no
+#   employee in HC); same for an existing position whose Status flag
+#   is blank in the PM file
 # LWD rule:
 #   Current month Employee ID = Employee ID (MR_Leavers_CM)
 #                                                  -> LWD = Termination Date
@@ -1441,6 +1444,48 @@ else:
     print(f"'{vacated_leaver_col}' cleared for positions vacated this month: "
           f"{int(had_leaver.sum())}")
 
+# --------------------------------------------------------
+# NEW POSITIONS (and existing positions whose Status flag is blank
+# in the PM file) -> Status flag PHYSICAL when the HC shows an
+# employee, VACANT when it shows no employee (Vacant / Unspecified,
+# or Status = VACANT in HC). Positions not in this month's HC are
+# left as they are.
+# --------------------------------------------------------
+_status_reason = {}  # Position Number -> "New position" / "Status blank in PM"
+if filled_status_col is None or EMPLOYEE_NAME_COL not in updated_ref_df.columns:
+    print("Note: status / Employee Name column not found - status flag not set "
+          "for new positions.")
+else:
+    hc_vacant_status_keys = set()
+    if hc_status_col is not None:
+        hc_vacant_status_keys = set(
+            hc_indexed.index[clean_text_series(hc_indexed[hc_status_col]).eq("VACANT")]
+        )
+    status_blank = is_blank_series(updated_ref_df[filled_status_col])
+    is_new = updated_ref_df[KEY_COL].isin(new_keys)
+    no_employee = (
+        updated_ref_df[EMPLOYEE_NAME_COL].apply(is_vacant_or_blank)
+        | updated_ref_df[KEY_COL].isin(hc_vacant_status_keys)
+    )
+    to_set = status_blank & updated_ref_df[KEY_COL].isin(hc_keys)
+    for idx in updated_ref_df.index[to_set]:
+        new_status = VACANT_STATUS_VALUE if no_employee[idx] else FILLED_STATUS_VALUE
+        filled_cleared.append({
+            KEY_COL: updated_ref_df.at[idx, KEY_COL],
+            EMPLOYEE_NAME_COL: updated_ref_df.at[idx, EMPLOYEE_NAME_COL],
+            "Field": filled_status_col,
+            "Pre": "",
+            "Post": new_status,
+        })
+        updated_ref_df.at[idx, filled_status_col] = new_status
+        _status_reason[updated_ref_df.at[idx, KEY_COL]] = (
+            "New position" if is_new[idx] else "Status blank in PM"
+        )
+    print(f"'{filled_status_col}' set for new positions: {int((to_set & is_new).sum())} "
+          f"({int((to_set & is_new & ~no_employee).sum())} {FILLED_STATUS_VALUE}, "
+          f"{int((to_set & is_new & no_employee).sum())} {VACANT_STATUS_VALUE}); "
+          f"set where blank in PM file: {int((to_set & ~is_new).sum())}")
+
 filled_cleared_df = pd.DataFrame(
     filled_cleared, columns=[KEY_COL, EMPLOYEE_NAME_COL, "Field", "Pre", "Post"]
 )
@@ -1684,7 +1729,7 @@ hiring_flag_removed_df = pd.DataFrame(
 # <Field>_Pre / <Field>_Post columns, plus a "Change" column
 # (Vacant -> Filled, Employee changed, Vacated).
 # ------------------------------------------------------------
-_change_reason = {}
+_change_reason = dict(_status_reason)  # New position / Status blank in PM
 for _, r in vacant_pm_check_df.iterrows():
     if r["Filled this month"] == "YES":
         _change_reason[r[KEY_COL]] = (
@@ -1926,9 +1971,9 @@ updated_ref_df = apply_column_sequence(updated_ref_df, final_column_order)
 positions_removed_df = positions_removed_df.reindex(
     columns=updated_ref_df.columns, fill_value=""
 )
-new_positions_df = new_positions_df.reindex(
-    columns=updated_ref_df.columns, fill_value=""
-)
+# "new positions added in CM" shows the new rows as they are in the
+# Reference output (status flag, GCB, flags and comments included)
+new_positions_df = updated_ref_df[updated_ref_df[KEY_COL].isin(new_keys)].copy()
 
 if not other_changes_df.empty:
     ordered_cols = [
