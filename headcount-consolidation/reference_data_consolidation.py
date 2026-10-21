@@ -31,8 +31,9 @@
 # Input files: leave the C:\YOUR_PATH placeholders in section 1 and a
 # Windows "Open" box asks for each file when the script runs.
 #
-# Leaver rule:
-#   STATUS = VACANT                                -> Leaver cleared
+# Leaver rule (applies after every other rule, no exceptions):
+#   Vacant position (STATUS = VACANT or no employee) -> Leaver blank;
+#   a vacant position can never have LEAVER = YES
 # Vacant last month = Employee Name Vacant/blank or Status = VACANT in
 # the PM file; filled = real Employee Name in HC for the SAME Position
 # Number (see the "Filled-Changed check" sheet).
@@ -57,17 +58,18 @@
 # Sub Function Head rule:
 #   Position in HC, Sub Function Head Status BLANK in PM and
 #   Completed in Appian this month                 -> HIRING_FLG, LEAVER
-#                                                     and JOINER = YES;
+#                                                     and JOINER = YES
+#                                                     (LEAVER blank if vacant);
 #   and if Status = PHYSICAL                       -> HIRING AGAINST
 #                                                     PHYSICAL_RD = YES
 # DEMISE rule (Hyderabad):
 #   Location like Hyderabad, Sub Function Head Status = Completed now,
 #   position in HC, HIRING_FLG not already DEMISE in PM (instead of
 #   the hiring outcome above)             -> HIRING_FLG = DEMISE,
-#     NEW_POSITION_FLAG = DEMISE, LEAVER = YES, Comments_RD = "Raise New
-#     Position" (or "DEMISE" when the position is vacant), HIRING AGAINST
-#     PHYSICAL_RD blank. Every Hyderabad position is listed on the
-#     "DEMISE check" sheet with the outcome.
+#     NEW_POSITION_FLAG = DEMISE, LEAVER = YES (blank if vacant),
+#     Comments_RD = "Raise New Position" (or "DEMISE" when the position
+#     is vacant), HIRING AGAINST PHYSICAL_RD blank. Every Hyderabad
+#     position is listed on the "DEMISE check" sheet with the outcome.
 #   (DEMISE_ONLY_NEWLY_APPROVED = True: only where blank in the PM file)
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
@@ -270,7 +272,8 @@ JOINER_MONTH_CANDIDATES = ["JOINER MONTH", "JOINERS MONTH", "JOINING MONTH", "JO
 MR_LEAD_CANDIDATES = ["MR_LEAD", "MR LEAD", "MR_LEAD_RD", "MR LEAD NAME", "MR_LEAD_NAME"]
 # Sub Function Head approved AND Work Location in DEMISE_LOCATIONS ->
 # DEMISE instead of hiring: HIRING_FLG and NEW_POSITION_FLAG = DEMISE,
-# LEAVER = YES, Comments_RD = DEMISE_COMMENT, HIRING AGAINST PHYSICAL_RD blank
+# LEAVER = YES (blank if vacant), Comments_RD = DEMISE_COMMENT,
+# HIRING AGAINST PHYSICAL_RD blank
 # Location "like" Hyderabad: any location column (Work Location, Location,
 # City, Site ...) containing one of these, any case, e.g. "Hyderabad -
 # Hitec City", "IN-HYDERABAD". Names of 3 letters or fewer ("HYD") must be
@@ -1696,6 +1699,7 @@ if HIRING_FLG_COL in updated_ref_df.columns:
     sfh_std_keys = set()       # hiring outcome (HIRING_FLG / LEAVER / JOINER = YES)
     sfh_demise_keys = set()    # DEMISE outcome (Work Location in DEMISE_LOCATIONS)
     sfh_phys_keys = set()      # hiring outcome with Status = PHYSICAL (HIRING AGAINST = YES)
+    sfh_leaver_yes_keys = set()  # LEAVER set to YES (occupied positions only)
     sfh_leaver_col = find_column_prefix(updated_ref_df, LEAVER_CANDIDATES, "leaver")
     sfh_joiner_col = find_column_loose(updated_ref_df, JOINER_FLAG_CANDIDATES)
     sfh_hap_col = find_column_loose(updated_ref_df, [HIRING_AGAINST_COL, "HIRING_AGAINST_PHYSICAL_RD"])
@@ -1751,13 +1755,17 @@ if HIRING_FLG_COL in updated_ref_df.columns:
         std_new = int((sfh_std & hiring_flg_now.ne("YES")).sum())
         demise_new = int((sfh_demise & hiring_flg_now.ne(DEMISE_VALUE)).sum())
 
-        # Vacant position (Status = VACANT or no employee) -> Comments_RD = DEMISE
+        # Vacant position (Status = VACANT or no employee): LEAVER stays
+        # blank (a vacant position is never a leaver) and, for DEMISE,
+        # Comments_RD = DEMISE
         vacant_now = pd.Series(False, index=updated_ref_df.index)
         if sfh_status_col is not None:
             vacant_now |= clean_text_series(updated_ref_df[sfh_status_col]).eq(VACANT_STATUS_VALUE)
         if EMPLOYEE_NAME_COL in updated_ref_df.columns:
             vacant_now |= updated_ref_df[EMPLOYEE_NAME_COL].apply(is_vacant_or_blank)
         sfh_demise_vacant = sfh_demise & vacant_now
+        sfh_vacant = (sfh_std | sfh_demise) & vacant_now
+        sfh_leaver_yes_keys = set(updated_ref_df.loc[(sfh_std | sfh_demise) & ~vacant_now, KEY_COL])
 
         # (label, column, new value) per outcome; None = made blank
         std_spec = [
@@ -1779,10 +1787,13 @@ if HIRING_FLG_COL in updated_ref_df.columns:
         ]
         for idx in updated_ref_df.index[sfh_std | sfh_demise]:
             is_demise = bool(sfh_demise[idx])
-            is_demise_vacant = bool(sfh_demise_vacant[idx])
+            is_vacant_pos = bool(sfh_vacant[idx])
             spec = list(demise_spec if is_demise else std_spec)
-            if is_demise_vacant:
-                spec = [(l, c, DEMISE_VACANT_COMMENT if l == COMMENTS_RD_COL else v) for l, c, v in spec]
+            if is_vacant_pos:
+                # Vacant: LEAVER blank; DEMISE comment becomes DEMISE_VACANT_COMMENT
+                spec = [(l, c, None if l == "LEAVER"
+                         else DEMISE_VACANT_COMMENT if (is_demise and l == COMMENTS_RD_COL)
+                         else v) for l, c, v in spec]
             if not is_demise and sfh_phys[idx]:
                 spec.append((HIRING_AGAINST_COL, sfh_hap_col, "YES"))
             row = {
@@ -1791,8 +1802,8 @@ if HIRING_FLG_COL in updated_ref_df.columns:
                                     if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""),
                 "Work Location": (clean_compare_value(updated_ref_df.at[idx, sfh_loc_col])
                                   if sfh_loc_col is not None else ""),
-                "Outcome": (f"{DEMISE_VALUE} (vacant)" if is_demise_vacant
-                            else DEMISE_VALUE if is_demise else f"{HIRING_FLG_COL} = YES"),
+                "Outcome": ((DEMISE_VALUE if is_demise else f"{HIRING_FLG_COL} = YES")
+                            + (" (vacant)" if is_vacant_pos else "")),
             }
             for label, col in report_cols:
                 pre = clean_compare_value(updated_ref_df.at[idx, col]) if col is not None else ""
@@ -1819,9 +1830,11 @@ if HIRING_FLG_COL in updated_ref_df.columns:
               f"Sub Function Head Completed{' and blank in PM' if DEMISE_ONLY_NEWLY_APPROVED else ''}, "
               f"in HC, not already {DEMISE_VALUE}): {int(sfh_demise.sum())} position(s), "
               f"{demise_new} newly set - {HIRING_FLG_COL} and {NEW_POSITION_FLAG_COL} = "
-              f"{DEMISE_VALUE}, LEAVER = YES, {COMMENTS_RD_COL} = '{DEMISE_COMMENT}' "
+              f"{DEMISE_VALUE}, LEAVER = YES (blank if vacant), {COMMENTS_RD_COL} = '{DEMISE_COMMENT}' "
               f"(vacant: '{DEMISE_VACANT_COMMENT}', {int(sfh_demise_vacant.sum())} position(s)), "
               f"{HIRING_AGAINST_COL} blank")
+        print(f"LEAVER left blank for vacant Sub Function Head positions "
+              f"(a vacant position is never a leaver): {int(sfh_vacant.sum())}")
 
         # "DEMISE check" sheet: every position whose location is like
         # Hyderabad, with the reason it was or was not demised
@@ -1844,7 +1857,8 @@ if HIRING_FLG_COL in updated_ref_df.columns:
             if pd.isna(k):
                 continue
             if k in sfh_demise_keys:
-                outcome = (f"{DEMISE_VALUE} applied - vacant, {COMMENTS_RD_COL} = {DEMISE_VACANT_COMMENT}"
+                outcome = (f"{DEMISE_VALUE} applied - vacant, {COMMENTS_RD_COL} = {DEMISE_VACANT_COMMENT}, "
+                           "LEAVER blank"
                            if sfh_demise_vacant[idx] else
                            f"{DEMISE_VALUE} applied - {COMMENTS_RD_COL} = {DEMISE_COMMENT}")
             elif k not in hc_keys:
@@ -1881,6 +1895,7 @@ else:
     sfh_std_keys = set()
     sfh_demise_keys = set()
     sfh_phys_keys = set()
+    sfh_leaver_yes_keys = set()
     sfh_leaver_col = sfh_joiner_col = sfh_hap_col = None
     print(f"{HIRING_FLG_COL} not found. Skipping HIRING_FLG update.")
 
@@ -1951,29 +1966,29 @@ hiring_flag_removed_df = one_row_per_position(hiring_flag_removed_df)
 
 
 # ============================================================
-# 9F. STATUS = VACANT -> LEAVER CLEARED
+# 9F. VACANT POSITION -> LEAVER CLEARED (no exceptions)
 #
-# Column names are matched ignoring case (e.g. "Status", "STATUS").
+# A vacant position can never be a leaver. Vacant = Status = VACANT,
+# or no employee (Employee Name Vacant / Unspecified / blank). Runs
+# after every other rule, so LEAVER = YES never stays on a vacant
+# position. Column names are matched ignoring case.
 # ============================================================
-
-STATUS_COL = "Status"
-LEAVER_COL = "Leaver"
 
 status_col = find_column_loose(updated_ref_df, STATUS_CANDIDATES)
 leaver_col = find_column_prefix(updated_ref_df, LEAVER_CANDIDATES, "leaver")
 
-if status_col is not None and leaver_col is not None:
-    vacant_status = (
-        clean_text_series(updated_ref_df[status_col]).eq("VACANT")
-        & ~updated_ref_df[KEY_COL].isin(sfh_set_keys)   # keep LEAVER = YES set by the SFH rule
-    )
+if leaver_col is None:
+    print("Leaver clearing skipped - no Leaver column found.")
+else:
+    vacant_status = pd.Series(False, index=updated_ref_df.index)
+    if status_col is not None:
+        vacant_status |= clean_text_series(updated_ref_df[status_col]).eq(VACANT_STATUS_VALUE)
+    if EMPLOYEE_NAME_COL in updated_ref_df.columns:
+        vacant_status |= updated_ref_df[EMPLOYEE_NAME_COL].apply(is_vacant_or_blank)
     had_leaver = vacant_status & ~is_blank_series(updated_ref_df[leaver_col])
     updated_ref_df.loc[vacant_status, leaver_col] = None
-    print(f"'{leaver_col}' cleared where '{status_col}' = VACANT: "
+    print(f"'{leaver_col}' cleared for vacant positions ('{status_col}' = VACANT or no employee): "
           f"{int(vacant_status.sum())} position(s), {int(had_leaver.sum())} had a value")
-else:
-    missing = [n for n, c in [(STATUS_COL, status_col), (LEAVER_COL, leaver_col)] if c is None]
-    print(f"Leaver clearing skipped - column(s) missing: {', '.join(missing)}")
 
 
 # ============================================================
@@ -2343,7 +2358,7 @@ if pm_hiring_col is not None and HIRING_FLG_COL in updated_ref_df.columns:
 
 # LEAVER / JOINER / HIRING AGAINST PHYSICAL_RD / Comments_RD / NEW_POSITION_FLAG
 # set by the Sub Function Head rule (both outcomes) -> light green too
-for _col, _ks in ((sfh_leaver_col, sfh_set_keys), (sfh_joiner_col, sfh_std_keys),
+for _col, _ks in ((sfh_leaver_col, sfh_leaver_yes_keys), (sfh_joiner_col, sfh_std_keys),
                   (sfh_hap_col, sfh_phys_keys | sfh_demise_keys),
                   (comments_col, sfh_demise_keys), (new_flag_col, sfh_demise_keys)):
     if _col is not None and _ks:
