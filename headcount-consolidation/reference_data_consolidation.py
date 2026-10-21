@@ -60,9 +60,14 @@
 #                                                     and JOINER = YES;
 #   and if Status = PHYSICAL                       -> HIRING AGAINST
 #                                                     PHYSICAL_RD = YES
-#   but if Work Location = Hyderabad (instead of the above):
-#     HIRING_FLG = DEMISE, NEW_POSITION_FLAG = DEMISE, LEAVER = YES,
-#     Comments_RD = "Raise New Position", HIRING AGAINST PHYSICAL_RD blank
+# DEMISE rule (Hyderabad):
+#   Location like Hyderabad, Sub Function Head Status = Completed now,
+#   position in HC, HIRING_FLG not already DEMISE in PM (instead of
+#   the hiring outcome above)             -> HIRING_FLG = DEMISE,
+#     NEW_POSITION_FLAG = DEMISE, LEAVER = YES, Comments_RD = "Raise New
+#     Position", HIRING AGAINST PHYSICAL_RD blank. Every Hyderabad
+#     position is listed on the "DEMISE check" sheet with the outcome.
+#   (DEMISE_ONLY_NEWLY_APPROVED = True: only where blank in the PM file)
 # Hiring flag rule (HIRING_FLG and HIRING AGAINST PHYSICAL_RD):
 #   Vacant last month with flag = YES, filled
 #   this month                                     -> flag removed
@@ -124,6 +129,13 @@ DROP_REMOVED_POSITIONS = False
 #          Reference (kept values are listed on "Blank values kept")
 # False -> blanks in the source files overwrite the Reference
 KEEP_VALUE_WHEN_SOURCE_BLANK = True   # <-- change to False to turn OFF
+
+# True  -> the DEMISE outcome (Hyderabad) only for positions whose Sub
+#          Function Head Status was blank in the PM file and is Completed
+#          now (same trigger as the hiring outcome)
+# False -> every Hyderabad position in HC with Sub Function Head Status =
+#          Completed now, unless HIRING_FLG is already DEMISE in the PM file
+DEMISE_ONLY_NEWLY_APPROVED = False    # <-- change to True to restrict
 
 
 # ------------------------------------------------------------
@@ -258,7 +270,11 @@ MR_LEAD_CANDIDATES = ["MR_LEAD", "MR LEAD", "MR_LEAD_RD", "MR LEAD NAME", "MR_LE
 # Sub Function Head approved AND Work Location in DEMISE_LOCATIONS ->
 # DEMISE instead of hiring: HIRING_FLG and NEW_POSITION_FLAG = DEMISE,
 # LEAVER = YES, Comments_RD = DEMISE_COMMENT, HIRING AGAINST PHYSICAL_RD blank
-DEMISE_LOCATIONS = ["Hyderabad"]   # matched ignoring case, anywhere in Work Location
+# Location "like" Hyderabad: any location column (Work Location, Location,
+# City, Site ...) containing one of these, any case, e.g. "Hyderabad -
+# Hitec City", "IN-HYDERABAD". Names of 3 letters or fewer ("HYD") must be
+# a whole word, so "Hyde Park" does not match.
+DEMISE_LOCATIONS = ["Hyderabad", "HYD"]
 DEMISE_VALUE = "DEMISE"
 DEMISE_COMMENT = "Raise New Position"
 GCB_CANDIDATES = [
@@ -455,6 +471,26 @@ def keep_when_blank(col):
         if key == k or (name.endswith("*") and key.startswith(k)):
             return True
     return False
+
+def is_demise_location(value):
+    # "Hyderabad - Hitec City", "HYDERABAD", "IN-HYD" ... -> True
+    text = normalise_text(value)
+    tokens = re.split(r"[^a-z0-9]+", text)
+    for name in DEMISE_LOCATIONS:
+        n = normalise_text(name)
+        if len(n) <= 3:
+            if n in tokens:
+                return True
+        elif n in text:
+            return True
+    return False
+
+
+def location_columns(df):
+    # Every column that looks like a location (Work Location, Location,
+    # City, Site, Office ...)
+    return [c for c in df.columns if re.search(r"location|city|site|office", str(c).lower())]
+
 
 def is_vacant(value):
     # "Vacant" or "Unspecified" (HC wording) both mean no employee
@@ -1565,6 +1601,7 @@ JOINER_FLAG_CANDIDATES = ["JOINER FLAG", "JOINER_FLG", "JOINERS FLAG", "JOINERS_
 # ------------------------------------------------------------
 flags_removed = []
 sfh_demise_keys = set()  # filled in 9E: DEMISE positions keep their flags
+demise_check_rows = []   # "DEMISE check" sheet (every Hyderabad position)
 
 
 def remove_flag_for_filled(col):
@@ -1662,22 +1699,41 @@ if HIRING_FLG_COL in updated_ref_df.columns:
     sfh_hap_col = find_column_loose(updated_ref_df, [HIRING_AGAINST_COL, "HIRING_AGAINST_PHYSICAL_RD"])
     sfh_status_col = find_column_loose(updated_ref_df, STATUS_CANDIDATES)
     sfh_loc_col = find_column_loose(updated_ref_df, WORK_LOCATION_CANDIDATES)
+    pm_hiring_col_ref = find_column(ref_df, HIRING_FLG_COL)
     if sfh_source is None:
         print("Note: no Sub Function Head Status column in Appian or Reference - rule skipped.")
     else:
         sfh_mask = updated_ref_df[KEY_COL].isin(sfh_done_keys & hc_keys & pm_sfh_blank_keys)
-        sfh_set_keys = set(updated_ref_df.loc[sfh_mask, KEY_COL])
 
-        # Work Location = Hyderabad (DEMISE_LOCATIONS) -> DEMISE outcome
-        if sfh_loc_col is None:
-            in_demise_loc = pd.Series(False, index=updated_ref_df.index)
-            print(f"Note: no Work Location column - {DEMISE_VALUE} outcome "
-                  f"({' / '.join(DEMISE_LOCATIONS)}) not applied.")
+        # Location like Hyderabad (DEMISE_LOCATIONS) -> DEMISE outcome.
+        # Every location-like column is checked (Work Location, Location,
+        # City, Site ...), in the current values and in the PM file.
+        loc_cols = location_columns(updated_ref_df)
+        in_demise_loc = pd.Series(False, index=updated_ref_df.index)
+        for _c in loc_cols:
+            in_demise_loc |= updated_ref_df[_c].apply(is_demise_location)
+        pm_demise_loc_keys = set()
+        for _c in location_columns(ref_df):
+            pm_demise_loc_keys |= set(ref_df.loc[ref_df[_c].apply(is_demise_location), KEY_COL].dropna())
+        in_demise_loc |= updated_ref_df[KEY_COL].isin(pm_demise_loc_keys)
+        if not loc_cols:
+            print(f"Note: no location column found in the Reference - {DEMISE_VALUE} outcome "
+                  f"({' / '.join(DEMISE_LOCATIONS)}) cannot be applied.")
         else:
-            in_demise_loc = updated_ref_df[sfh_loc_col].apply(
-                lambda v: any(normalise_text(d) in normalise_text(v) for d in DEMISE_LOCATIONS)
+            print(f"Location columns checked for {' / '.join(DEMISE_LOCATIONS)}: "
+                  f"{', '.join(loc_cols)} - {int(in_demise_loc.sum())} position(s) match")
+
+        # Already DEMISE in the PM file -> left alone
+        already_demise_keys = set()
+        if pm_hiring_col_ref is not None:
+            already_demise_keys = set(
+                ref_df.loc[clean_text_series(ref_df[pm_hiring_col_ref]).eq(DEMISE_VALUE), KEY_COL].dropna()
             )
-        sfh_demise = sfh_mask & in_demise_loc
+        if DEMISE_ONLY_NEWLY_APPROVED:
+            demise_trigger = sfh_mask
+        else:
+            demise_trigger = updated_ref_df[KEY_COL].isin((sfh_done_keys & hc_keys) - already_demise_keys)
+        sfh_demise = demise_trigger & in_demise_loc
         sfh_std = sfh_mask & ~in_demise_loc
         if sfh_hap_col is not None and sfh_status_col is not None:
             sfh_phys = sfh_std & clean_text_series(updated_ref_df[sfh_status_col]).eq(FILLED_STATUS_VALUE)
@@ -1687,6 +1743,7 @@ if HIRING_FLG_COL in updated_ref_df.columns:
                   "Sub Function Head positions.")
         sfh_std_keys = set(updated_ref_df.loc[sfh_std, KEY_COL])
         sfh_demise_keys = set(updated_ref_df.loc[sfh_demise, KEY_COL])
+        sfh_set_keys = sfh_std_keys | sfh_demise_keys
         sfh_phys_keys = set(updated_ref_df.loc[sfh_phys, KEY_COL])
         hiring_flg_now = clean_text_series(updated_ref_df[HIRING_FLG_COL])
         std_new = int((sfh_std & hiring_flg_now.ne("YES")).sum())
@@ -1710,7 +1767,7 @@ if HIRING_FLG_COL in updated_ref_df.columns:
             (HIRING_AGAINST_COL, sfh_hap_col), (COMMENTS_RD_COL, comments_col),
             (NEW_POSITION_FLAG_COL, new_flag_col),
         ]
-        for idx in updated_ref_df.index[sfh_mask]:
+        for idx in updated_ref_df.index[sfh_std | sfh_demise]:
             is_demise = bool(sfh_demise[idx])
             spec = list(demise_spec if is_demise else std_spec)
             if not is_demise and sfh_phys[idx]:
@@ -1744,11 +1801,63 @@ if HIRING_FLG_COL in updated_ref_df.columns:
               f"(Completed but not blank in PM, ignored: {len((sfh_done_keys & hc_keys) - pm_sfh_blank_keys)})")
         print(f"'{sfh_hap_col}' set to YES for those with '{sfh_status_col}' = "
               f"{FILLED_STATUS_VALUE}: {int(sfh_phys.sum())}")
-        print(f"{DEMISE_VALUE} outcome (same trigger, Work Location = "
-              f"{' / '.join(DEMISE_LOCATIONS)}): {int(sfh_demise.sum())} position(s), "
+        print(f"{DEMISE_VALUE} outcome (location like {' / '.join(DEMISE_LOCATIONS)}, "
+              f"Sub Function Head Completed{' and blank in PM' if DEMISE_ONLY_NEWLY_APPROVED else ''}, "
+              f"in HC, not already {DEMISE_VALUE}): {int(sfh_demise.sum())} position(s), "
               f"{demise_new} newly set - {HIRING_FLG_COL} and {NEW_POSITION_FLAG_COL} = "
               f"{DEMISE_VALUE}, LEAVER = YES, {COMMENTS_RD_COL} = '{DEMISE_COMMENT}', "
               f"{HIRING_AGAINST_COL} blank")
+
+        # "DEMISE check" sheet: every position whose location is like
+        # Hyderabad, with the reason it was or was not demised
+        if sfh_appian_col is not None:
+            sfh_now = dict(zip(appian_lookup_df[APPIAN_LOOKUP_KEY_COL], appian_lookup_df[sfh_appian_col]))
+        elif SUB_FUNCTION_HEAD_COL in updated_ref_df.columns:
+            sfh_now = dict(zip(updated_ref_df[KEY_COL], updated_ref_df[SUB_FUNCTION_HEAD_COL]))
+        else:
+            sfh_now = {}
+        pm_sfh = dict(zip(ref_df[KEY_COL], ref_df[pm_sfh_col])) if pm_sfh_col is not None else {}
+        pm_hiring_pm = (dict(zip(ref_df[KEY_COL], ref_df[pm_hiring_col_ref]))
+                        if pm_hiring_col_ref is not None else {})
+        pm_loc = {}
+        for _c in location_columns(ref_df):
+            for _k, _v in zip(ref_df[KEY_COL], ref_df[_c]):
+                if pd.notna(_k) and clean_compare_value(_v) != "":
+                    pm_loc[_k] = (pm_loc[_k] + " | " if _k in pm_loc else "") + str(clean_compare_value(_v))
+        for idx in updated_ref_df.index[in_demise_loc]:
+            k = updated_ref_df.at[idx, KEY_COL]
+            if pd.isna(k):
+                continue
+            if k in sfh_demise_keys:
+                outcome = f"{DEMISE_VALUE} applied"
+            elif k not in hc_keys:
+                outcome = "Not applied - position not in this month's HC"
+            elif k not in sfh_done_keys:
+                outcome = f"Not applied - Sub Function Head Status not Completed ({sfh_source})"
+            elif k in already_demise_keys:
+                outcome = f"Not applied - already {DEMISE_VALUE} in PM file"
+            elif DEMISE_ONLY_NEWLY_APPROVED and k not in pm_sfh_blank_keys:
+                outcome = ("Not applied - Sub Function Head Status not blank in PM file "
+                           "(DEMISE_ONLY_NEWLY_APPROVED = True)")
+            else:
+                outcome = "Not applied"
+            demise_check_rows.append({
+                KEY_COL: k,
+                EMPLOYEE_NAME_COL: (updated_ref_df.at[idx, EMPLOYEE_NAME_COL]
+                                    if EMPLOYEE_NAME_COL in updated_ref_df.columns else ""),
+                "Location": " | ".join(
+                    str(clean_compare_value(updated_ref_df.at[idx, c])) for c in loc_cols
+                    if clean_compare_value(updated_ref_df.at[idx, c]) != ""
+                ),
+                "Location (PM)": pm_loc.get(k, ""),
+                "In HC": "YES" if k in hc_keys else "NO",
+                "Sub Function Head Status (PM)": clean_compare_value(pm_sfh.get(k, "")),
+                "Sub Function Head Status (now)": clean_compare_value(sfh_now.get(k, "")),
+                f"{HIRING_FLG_COL} (PM)": clean_compare_value(pm_hiring_pm.get(k, "")),
+                "Outcome": outcome,
+            })
+        for _o, _n in pd.Series([r["Outcome"] for r in demise_check_rows]).value_counts().items():
+            print(f"  {DEMISE_VALUE} check - {_o}: {_n}")
 else:
     sfh_set_rows = []
     sfh_set_keys = set()
@@ -1765,6 +1874,10 @@ hiring_flag_sfh_df = pd.DataFrame(sfh_set_rows, columns=[
     f"{HIRING_AGAINST_COL}_Pre", f"{HIRING_AGAINST_COL}_Post",
     f"{COMMENTS_RD_COL}_Pre", f"{COMMENTS_RD_COL}_Post",
     f"{NEW_POSITION_FLAG_COL}_Pre", f"{NEW_POSITION_FLAG_COL}_Post",
+])
+demise_check_df = pd.DataFrame(demise_check_rows, columns=[
+    KEY_COL, EMPLOYEE_NAME_COL, "Location", "Location (PM)", "In HC", "Sub Function Head Status (PM)",
+    "Sub Function Head Status (now)", f"{HIRING_FLG_COL} (PM)", "Outcome",
 ])
 
 
@@ -2177,6 +2290,7 @@ with pd.ExcelWriter(exception_file, engine="openpyxl") as writer:
     apply_data_types(leavers_unmatched_df).to_excel(writer, index=False, sheet_name="Leavers not matched")
     apply_data_types(hiring_flag_removed_df).to_excel(writer, index=False, sheet_name="Hiring flags removed")
     apply_data_types(hiring_flag_sfh_df).to_excel(writer, index=False, sheet_name="Hiring flag set (SFH)")
+    apply_data_types(demise_check_df).to_excel(writer, index=False, sheet_name="DEMISE check")
     filled_cleared_df.to_excel(writer, index=False, sheet_name="Filled-Vacated changes")
     vacant_pm_check_df.to_excel(writer, index=False, sheet_name="Filled-Changed check")
     apply_data_types(committed_offers_df).to_excel(writer, index=False, sheet_name="Committed Offers")
