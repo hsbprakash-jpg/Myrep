@@ -34,6 +34,8 @@
 # Leaver rule (applies after every other rule, no exceptions):
 #   Vacant position (STATUS = VACANT or no employee) -> Leaver blank;
 #   a vacant position can never have LEAVER = YES
+# Fields never updated (DO_NOT_UPDATE_FIELDS in section 1, e.g. the
+# LV 2027 fields): kept exactly as in the PM file by every rule.
 # Vacant last month = Employee Name Vacant/blank or Status = VACANT in
 # the PM file; filled = real Employee Name in HC for the SAME Position
 # Number (see the "Filled-Changed check" sheet).
@@ -139,6 +141,12 @@ KEEP_VALUE_WHEN_SOURCE_BLANK = True   # <-- change to False to turn OFF
 # False -> every Hyderabad position in HC with Sub Function Head Status =
 #          Completed now, unless HIRING_FLG is already DEMISE in the PM file
 DEMISE_ONLY_NEWLY_APPROVED = False    # <-- change to True to restrict
+
+# Fields the script never changes - their values are kept exactly as in
+# the PM file (e.g. the LV 2027 fields). Case, spaces, "_" and "-" are
+# ignored and "*" means "anything", so "LV*2027*" covers "LV 2027",
+# "LV_2027_JAN", "LV JAN 2027", ...  Add more names here if needed.
+DO_NOT_UPDATE_FIELDS = ["LV*2027*", "*2027*LV*", "LEAVER*2027*"]
 
 
 # ------------------------------------------------------------
@@ -449,6 +457,8 @@ def find_column_prefix(df, candidates, prefix):
         return col
     key = re.sub(r"[^a-z0-9]", "", prefix.lower())
     for c in df.columns:
+        if is_protected(c):
+            continue  # never pick a protected field (e.g. "LEAVER 2027")
         if re.sub(r"[^a-z0-9]", "", str(c).lower()).startswith(key):
             return c
     return None
@@ -476,6 +486,16 @@ def keep_when_blank(col):
         if key == k or (name.endswith("*") and key.startswith(k)):
             return True
     return False
+
+def is_protected(col):
+    # Column listed in DO_NOT_UPDATE_FIELDS (e.g. "LV 2027", "LV_2027_JAN")
+    key = re.sub(r"[^a-z0-9]", "", str(col).lower())
+    for pattern in DO_NOT_UPDATE_FIELDS:
+        parts = re.sub(r"[^a-z0-9*]", "", pattern.lower()).split("*")
+        if re.fullmatch(".*".join(re.escape(p) for p in parts), key):
+            return True
+    return False
+
 
 def is_demise_location(value):
     # "Hyderabad - Hitec City", "HYDERABAD", "IN-HYD" ... -> True
@@ -784,6 +804,14 @@ appian_config_df = clean_columns(appian_config_df)
 new_migrations_df = clean_columns(new_migrations_df)
 hc_df = clean_columns(hc_df)
 
+# Fields never updated (DO_NOT_UPDATE_FIELDS, e.g. the LV 2027 fields)
+protected_cols = [c for c in ref_df.columns if is_protected(c)]
+if protected_cols:
+    print(f"Fields never updated (kept as in the PM file): {', '.join(protected_cols)}")
+else:
+    print(f"Note: no field matching {' / '.join(DO_NOT_UPDATE_FIELDS)} in the Reference "
+          "- add the exact names to DO_NOT_UPDATE_FIELDS (section 1) if needed.")
+
 # ------------------------------------------------------------
 # HC EMPLOYEE NAME
 # The HC report has "Employee First Name" + "Employee Last Name"
@@ -965,6 +993,7 @@ def is_vacant_or_blank(value):
 common_columns = [
     c for c in updated_ref_df.columns
     if c in hc_indexed.columns and c != new_flag_col  # existing flags are never overwritten
+    and not is_protected(c)                           # DO_NOT_UPDATE_FIELDS (e.g. LV 2027)
 ]
 
 for pos in common_keys:
@@ -1230,6 +1259,7 @@ print(f"Appian Position IDs matched to Reference: {len(appian_common_keys)}")
 appian_update_cols = [
     c for c in appian_fields
     if c in updated_ref_df.columns and c in appian_indexed.columns
+    and not is_protected(c)  # DO_NOT_UPDATE_FIELDS (e.g. LV 2027)
 ]
 
 for pos in appian_common_keys:
@@ -2163,6 +2193,31 @@ else:
     if hc_gcb_col is None:
         print("Note: no GCB column in the HC file "
               f"({' / '.join(GCB_CANDIDATES)}) - new positions get a blank GCB.")
+
+# ============================================================
+# 9I. FIELDS NEVER UPDATED (DO_NOT_UPDATE_FIELDS, e.g. LV 2027)
+#
+# Safety net: whatever the rules above did, these fields are put back
+# to their PM file value for every position that was in the PM file;
+# new positions get them blank (the script never fills them).
+# ============================================================
+
+if protected_cols:
+    _pm = ref_df.dropna(subset=[KEY_COL]).drop_duplicates(KEY_COL).set_index(KEY_COL)
+    _keyed = updated_ref_df[KEY_COL].notna()
+    _restored = 0
+    for _c in protected_cols:
+        if _c not in updated_ref_df.columns:
+            continue
+        _before = updated_ref_df.loc[_keyed, _c]
+        # PM value for existing positions, blank for new positions
+        _after = updated_ref_df.loc[_keyed, KEY_COL].map(_pm[_c])
+        _diff = np.array([values_differ(b, a) for b, a in zip(_before, _after)], dtype=bool)
+        if _diff.any():
+            updated_ref_df.loc[_before.index[_diff], _c] = _after[_diff].tolist()
+        _restored += int(_diff.sum())
+    print(f"Fields never updated ({', '.join(protected_cols)}): kept as in the PM file "
+          f"({_restored} value(s) put back)")
 
 # ============================================================
 # 10. COLUMN SEQUENCING FROM CONFIG
